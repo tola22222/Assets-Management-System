@@ -11,11 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('asset_return_items', function (Blueprint $table) {
+       Schema::create('programs', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('asset_return_id')->constrained();
-            $table->foreignId('asset_id')->constrained();
-            $table->enum('condition',['Good','Broken']);
+            $table->string('name'); // ICT, English, Dream, Scholarship
+            $table->text('description')->nullable();
             $table->timestamps();
         });
     }
@@ -25,6 +24,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('asset_return_items');
+        Schema::dropIfExists('programs');
     }
 };

@@ -4,7 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class AssetInspection extends Model
+class AssetMovement extends Model
 {
     //
 }

@@ -11,11 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('stock_transfer_items', function (Blueprint $table) {
+        Schema::create('locations', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('stock_transfer_id')->constrained();
-            $table->foreignId('product_id')->constrained();
-            $table->integer('quantity');
+            $table->foreignId('school_id')->constrained('partner_schools');
+            $table->string('name'); // Office, ICT Lab, English LC
+            $table->enum('type', ['office', 'lab', 'program'])->default('office');
             $table->timestamps();
         });
     }
@@ -25,6 +25,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('stock_transfer_items');
+        Schema::dropIfExists('locations');
     }
 };

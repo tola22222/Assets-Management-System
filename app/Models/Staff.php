@@ -4,7 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class AssetReturn extends Model
+class Staff extends Model
 {
     //
 }

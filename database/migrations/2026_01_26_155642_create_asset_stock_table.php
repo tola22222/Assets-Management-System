@@ -11,12 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('stock_transfers', function (Blueprint $table) {
+        Schema::create('asset_stock', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('school_id')->constrained();
-            $table->foreignId('transferred_by')->constrained('users');
-            $table->date('transfer_date');
-            $table->enum('status',['Pending','Approved']);
+            $table->foreignId('asset_id')->constrained('assets');
+            $table->foreignId('location_id')->constrained('locations');
+            $table->integer('quantity')->default(0);
             $table->timestamps();
         });
     }
@@ -26,6 +25,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('stock_transfers');
+        Schema::dropIfExists('asset_stock');
     }
 };
