@@ -6,10 +6,6 @@ use Illuminate\Database\Eloquent\Model;
 
 class Location extends Model
 {
-     protected $fillable = ['school_id','name','type'];
+     protected $fillable = ['name','type'];
 
-    public function school()
-    {
-        return $this->belongsTo(PartnerSchool::class);
-    }
 }

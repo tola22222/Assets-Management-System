@@ -25,7 +25,7 @@
 <body class="bg-slate-50 text-slate-900">
 
     <div class="flex min-h-screen">
-
+        
         <!-- SIDEBAR -->
         @include('partials.sidebar')
 

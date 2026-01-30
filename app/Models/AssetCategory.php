@@ -6,5 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class AssetCategory extends Model
 {
-    //
+    protected $fillable = [
+        'name',
+        'description',
+    ];
 }

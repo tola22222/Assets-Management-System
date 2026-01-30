@@ -2,64 +2,66 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Controllers\Controller;
+use App\Models\AssetStock;
+use App\Models\Asset; // Assuming you have this
+use App\Models\Location; // Assuming you have this
 use Illuminate\Http\Request;
 
 class AssetStockController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
-    public function index()
+   public function index()
     {
-        //
+        // We eager load 'asset' and 'location' relationships to prevent errors
+        $stocks = AssetStock::with(['asset', 'location'])->latest()->get();
+        
+        // We need these for the "Add New" dropdowns in your modal
+        $assets = Asset::all();
+        $locations = Location::all();
+
+        return view('asset-stocks.index', compact('stocks', 'assets', 'locations'));
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
-    public function create()
-    {
-        //
+   public function store(Request $request)
+{
+    $validated = $request->validate([
+        'asset_id' => 'required|exists:assets,id',
+        'location_id' => 'required|exists:locations,id',
+        'quantity' => 'required|integer|min:0'
+    ]);
+
+    // Check if this asset already exists at this location
+    $stock = AssetStock::where('asset_id', $validated['asset_id'])
+                       ->where('location_id', $validated['location_id'])
+                       ->first();
+
+    if ($stock) {
+        // Increment the existing quantity
+        $stock->increment('quantity', $validated['quantity']);
+        $message = 'Stock quantity updated successfully.';
+    } else {
+        // Create a new record if it doesn't exist
+        AssetStock::create($validated);
+        $message = 'New stock record created successfully.';
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
-    public function store(Request $request)
+    return redirect()->back()->with('success', $message);
+}
+
+    public function update(Request $request, AssetStock $asset_stock)
     {
-        //
+        $validated = $request->validate([
+            'asset_id' => 'required',
+            'location_id' => 'required',
+            'quantity' => 'required|integer|min:0',
+        ]);
+
+        $asset_stock->update($validated);
+        return redirect()->back()->with('success', 'Stock updated.');
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(string $id)
+    public function destroy(AssetStock $asset_stock)
     {
-        //
-    }
-
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(string $id)
-    {
-        //
-    }
-
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, string $id)
-    {
-        //
-    }
-
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(string $id)
-    {
-        //
+        $asset_stock->delete();
+        return redirect()->back()->with('success', 'Stock record removed.');
     }
 }

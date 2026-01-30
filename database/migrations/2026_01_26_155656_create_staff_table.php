@@ -11,10 +11,14 @@ return new class extends Migration
      */
     public function up(): void
     {
-       Schema::create('staff', function (Blueprint $table) {
+        Schema::create('staff', function (Blueprint $table) {
             $table->id();
             $table->string('full_name');
+            $table->string('email')->unique()->nullable();
+            $table->string('phone')->nullable();
+            $table->string('photo_path')->nullable(); // Store the file path
             $table->string('position')->nullable();
+            $table->date('hire_date')->nullable();
             $table->enum('status', ['active', 'inactive'])->default('active');
             $table->timestamps();
         });

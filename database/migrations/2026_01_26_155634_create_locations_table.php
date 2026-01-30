@@ -13,7 +13,6 @@ return new class extends Migration
     {
         Schema::create('locations', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('school_id')->constrained('partner_schools');
             $table->string('name'); // Office, ICT Lab, English LC
             $table->enum('type', ['office', 'lab', 'program'])->default('office');
             $table->timestamps();
