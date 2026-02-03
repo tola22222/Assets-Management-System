@@ -5,10 +5,12 @@ namespace App\Http\Controllers;
 use App\Models\Asset;
 use App\Models\Staff;
 use App\Models\Location;
+use App\Models\Program;
 use App\Models\AssetAssignment;
 use App\Models\ActivityLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class AssetAssignmentController extends Controller
 {
@@ -21,8 +23,9 @@ class AssetAssignmentController extends Controller
         $assets = Asset::where('status', 'active')->get();
         $staffs = Staff::where('status', 'active')->get();
         $locations = Location::all();
+        $programs = Program::all();
 
-        return view('asset-assignments.index', compact('assignments', 'assets', 'staffs', 'locations'));
+        return view('asset-assignments.index', compact('assignments', 'assets', 'staffs', 'locations', 'programs'));
     }
 
     public function store(Request $request)
@@ -36,21 +39,54 @@ class AssetAssignmentController extends Controller
             'assigned_date' => 'required|date',
         ]);
 
-        $data['status'] = 'assigned';
+        DB::transaction(function () use ($data) {
 
-        $assignment = AssetAssignment::create($data);
+            // 1️⃣ Get stock for this asset + location
+            $stock = DB::table('asset_stock')
+                ->where('asset_id', $data['asset_id'])
+                ->where('location_id', $data['location_id'])
+                ->lockForUpdate()
+                ->first();
 
-        $asset = Asset::findOrFail($data['asset_id']);
+            if (!$stock || $stock->quantity < $data['quantity']) {
+                throw new \Exception('Not enough stock available.');
+            }
 
-        ActivityLog::create([
-            'user_id' => Auth::id(),
-            'action' => 'Assignment',
-            'description' => "Assigned Asset {$asset->name}",
-        ]);
+            // 2️⃣ Create assignment
+            $data['status'] = 'assigned';
+            $assignment = AssetAssignment::create($data);
 
-        return redirect()->back()->with('success', 'Asset assigned successfully!');
+            // 3️⃣ Decrease stock
+            DB::table('asset_stock')
+                ->where('id', $stock->id)
+                ->update([
+                    'quantity' => $stock->quantity - $data['quantity'],
+                    'updated_at' => now()
+                ]);
+
+            // 4️⃣ Log movement
+            DB::table('asset_movements')->insert([
+                'asset_id' => $data['asset_id'],
+                'from_location_id' => $data['location_id'],
+                'to_location_id' => null,
+                'movement_type' => 'stock_out',
+                'quantity' => $data['quantity'],
+                'reference_no' => 'ASSIGN-' . $assignment->id,
+                'created_by' => auth()->id(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            // 5️⃣ Activity log
+            ActivityLog::create([
+                'user_id' => auth()->id(),
+                'action' => 'Assignment',
+                'description' => "Assigned asset ID {$data['asset_id']} (Qty: {$data['quantity']})",
+            ]);
+        });
+
+        return redirect()->back()->with('success', 'Asset assigned and stock updated!');
     }
-
 
     public function update(Request $request, AssetAssignment $assetAssignment)
     {

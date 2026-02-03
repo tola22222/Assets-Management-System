@@ -13,6 +13,7 @@ use App\Http\Controllers\ProgramController;
 use App\Http\Controllers\StaffController;
 use App\Http\Controllers\AssetAssignmentController;
 use App\Http\Controllers\AssetVerificationController;
+use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SupplierController;
 
 Route::get('/test-assets', function() {
@@ -23,6 +24,7 @@ Route::resource('asset-categories', AssetCategoryController::class)->names('cate
 Route::resource('assets-registeration', AssetController::class)->names('assets');
 Route::resource('locations', LocationController::class)->names('assets-locations');
 Route::resource('asset-movements', AssetMovementController::class);
+Route::resource('reports', ReportController::class);
 Route::resource('programs', ProgramController::class);
 Route::resource('staff', StaffController::class);
 Route::resource('asset-assignments', AssetAssignmentController::class);
