@@ -50,19 +50,31 @@ jobs:
       - name: Deploy to server
         uses: appleboy/ssh-action@v1
         with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ubuntu
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
-            cd /var/www/asset-management
-            docker pull toladev1/asset-management:latest
-            docker compose down
-            docker compose up -d
-            
-            # Wait for DB to be ready before migrating
-            sleep 10
-            
-            docker exec asset_management_app php artisan migrate --force
-            docker exec asset_management_app php artisan config:cache
-            docker exec asset_management_app php artisan route:cache
-            docker exec asset_management_app php artisan view:cache
+            host: ${{ secrets.EC2_HOST }}
+            username: ubuntu
+            key: ${{ secrets.EC2_SSH_KEY }}
+            script: |
+                # 1. Enter directory
+                cd /var/www/asset-management
+
+                # 2. Create .env if it doesn't exist (CRITICAL)
+                if [ ! -f .env ]; then
+                echo "DB_CONNECTION=mysql" >> .env
+                echo "DB_HOST=db" >> .env
+                echo "DB_DATABASE=asset_management_db" >> .env
+                echo "DB_USERNAME=asset_management_user" >> .env
+                echo "DB_PASSWORD=asset_management_pass" >> .env
+                echo "APP_KEY=$(openssl rand -base64 32)" >> .env
+                fi
+
+                # 3. Pull and Start
+                docker compose pull
+                docker compose down
+                docker compose up -d
+
+                # 4. Wait for containers to be fully ready
+                sleep 5
+
+                # 5. Run commands
+                docker exec asset_management_app php artisan migrate --force
+                docker exec asset_management_app php artisan config:cache
