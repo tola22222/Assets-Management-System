@@ -35,7 +35,6 @@
             PEPY Asset
         </div>
         <div class="text-[10px] uppercase tracking-widest text-slate-400 font-bold mt-2 px-1">
-            Asset Management System
         </div>
     </div>
 

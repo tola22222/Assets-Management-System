@@ -2,64 +2,45 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Controllers\Controller;
+use App\Models\Asset;
+use App\Models\Location;
+use App\Models\AssetVerification;
 use Illuminate\Http\Request;
 
 class AssetVerificationController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
     public function index()
     {
-        //
+        $verifications = AssetVerification::with(['asset', 'location'])
+            ->orderBy('verified_at', 'desc')
+            ->paginate(15);
+
+        return view('asset-verifications.index', compact('verifications'));
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
     public function create()
     {
-        //
+        $assets = Asset::orderBy('name')->get();
+        $locations = Location::orderBy('name')->get();
+        
+        return view('asset-verifications.create', compact('assets', 'locations'));
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
     public function store(Request $request)
     {
-        //
-    }
+        $validated = $request->validate([
+            'asset_id' => 'required|exists:assets,id',
+            'location_id' => 'required|exists:locations,id',
+            'verified_by' => 'required|string|max:255',
+            'quantity_verified' => 'required|integer|min:0',
+            'condition' => 'required|in:good,fair,broken,lost',
+            'remark' => 'nullable|string',
+            'verified_at' => 'required|date',
+        ]);
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(string $id)
-    {
-        //
-    }
+        AssetVerification::create($validated);
 
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(string $id)
-    {
-        //
-    }
-
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, string $id)
-    {
-        //
-    }
-
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(string $id)
-    {
-        //
+        return redirect()->route('asset-verifications.index')
+            ->with('success', 'Asset verification recorded and condition updated.');
     }
 }
