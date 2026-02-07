@@ -6,21 +6,24 @@ on:
       - main
 
 jobs:
+  # ============================
+  # 1️⃣ Build & Push Docker Image
+  # ============================
   build-push:
     runs-on: ubuntu-latest
     steps:
-      # 1️⃣ Checkout code
+      # Checkout repository
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2️⃣ Docker Hub login
+      # Login to Docker Hub
       - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # 3️⃣ Build & Push Laravel Docker image
+      # Build & Push Laravel Docker image
       - name: Build & Push Laravel Image
         uses: docker/build-push-action@v5
         with:
@@ -29,16 +32,19 @@ jobs:
           push: true
           tags: toladev1/asset-management:latest
 
+  # ============================
+  # 2️⃣ Deploy to EC2
+  # ============================
   deploy:
     runs-on: ubuntu-latest
     needs: build-push
     steps:
-      # 1️⃣ Checkout code (needed for scp)
+      # Checkout code (needed for SCP)
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2️⃣ Cleanup old Docker + folder permissions
-      - name: Cleanup old Docker & permissions
+      # Cleanup old Docker containers, networks, images, permissions
+      - name: Cleanup old Docker & folder permissions
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.EC2_HOST }}
@@ -46,8 +52,7 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             set -e
-
-            echo ">>> Fix permissions on ~/asset-management"
+            echo ">>> Preparing ~/asset-management folder"
             sudo mkdir -p ~/asset-management
             sudo chown -R ubuntu:ubuntu ~/asset-management
             chmod -R u+rwX ~/asset-management
@@ -56,7 +61,7 @@ jobs:
             cd ~/asset-management
             docker compose down --remove-orphans || true
 
-            echo ">>> Clean unused Docker resources"
+            echo ">>> Cleanup unused Docker resources"
             docker image prune -af || true
             docker container prune -f || true
             docker network prune -f || true
@@ -64,8 +69,8 @@ jobs:
             echo ">>> Remove old docker-compose.yml safely"
             rm -f ~/asset-management/docker-compose.yml
 
-      # 3️⃣ Copy docker-compose.yml + nginx folder to server
-      - name: Copy Docker files to server
+      # Copy docker-compose.yml and nginx folder
+      - name: Copy docker-compose.yml + nginx folder
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.EC2_HOST }}
@@ -75,9 +80,10 @@ jobs:
             docker-compose.yml
             docker/nginx/
           target: ~/asset-management/
+          overwrite: true
 
-      # 4️⃣ Deploy containers & run Laravel commands
-      - name: Deploy containers
+      # Deploy containers and run Laravel artisan commands
+      - name: Deploy containers & run Laravel commands
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.EC2_HOST }}
@@ -97,16 +103,16 @@ jobs:
               echo "APP_KEY=$(openssl rand -base64 32)" >> .env
             fi
 
-            # Pull latest Laravel image
+            echo ">>> Pull latest Docker images"
             docker compose pull
 
-            # Start containers (app, web, db)
+            echo ">>> Start containers"
             docker compose up -d
 
             # Wait for containers to be ready
             sleep 5
 
-            # Run Laravel artisan commands only if app container exists
+            echo ">>> Run Laravel artisan commands if container exists"
             if docker ps --format '{{.Names}}' | grep -q '^asset_management_app$'; then
               docker exec asset_management_app php artisan migrate --force
               docker exec asset_management_app php artisan config:clear
