@@ -8,30 +8,24 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
     steps:
-      # 1️⃣ Checkout code
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 2️⃣ Docker Hub login
       - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # 3️⃣ Build & push Laravel image
       - name: Build & Push Docker Image
         uses: docker/build-push-action@v5
         with:
           context: .
           file: Dockerfile
           push: true
-          tags: |
-            toladev1/asset-management:latest
+          tags: toladev1/asset-management:latest
 
-      # 4️⃣ Prepare server folders
       - name: Prepare server directory
         uses: appleboy/ssh-action@v1
         with:
@@ -41,20 +35,18 @@ jobs:
           script: |
             sudo mkdir -p /var/www/asset-management/docker/nginx
             sudo chown -R ubuntu:ubuntu /var/www/asset-management
+            # Create a blank .env if it doesn't exist so docker-compose doesn't crash
+            touch /var/www/asset-management/.env
 
-      # 5️⃣ Copy docker-compose & nginx config
       - name: Copy Docker files to server
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
-          source: |
-            docker-compose.yml
-            docker/nginx/
+          source: "docker-compose.yml,docker/nginx/default.conf"
           target: /var/www/asset-management
 
-      # 6️⃣ Deploy containers
       - name: Deploy to server
         uses: appleboy/ssh-action@v1
         with:
@@ -63,17 +55,14 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             cd /var/www/asset-management
-
-            # Pull latest Laravel app image
             docker pull toladev1/asset-management:latest
-
-            # Restart all containers
             docker compose down
             docker compose up -d
-
-            # Laravel production commands
+            
+            # Wait for DB to be ready before migrating
+            sleep 10
+            
             docker exec asset_management_app php artisan migrate --force
-            docker exec asset_management_app php artisan config:clear
             docker exec asset_management_app php artisan config:cache
             docker exec asset_management_app php artisan route:cache
             docker exec asset_management_app php artisan view:cache
