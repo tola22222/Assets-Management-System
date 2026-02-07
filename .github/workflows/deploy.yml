@@ -29,7 +29,7 @@ jobs:
           file: Dockerfile
           push: true
           tags: |
-            yourdockerhub/asset-management:latest
+            toladev1/asset-management:latest
 
       # 4️⃣ Prepare server folders
       - name: Prepare server directory
@@ -63,7 +63,7 @@ jobs:
           script: |
             cd /var/www/asset-management
 
-            docker pull yourdockerhub/asset-management:latest
+            docker pull toladev1/asset-management:latest
 
             docker compose down
             docker compose up -d
