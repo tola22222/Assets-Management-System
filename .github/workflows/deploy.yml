@@ -39,7 +39,9 @@ jobs:
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            mkdir -p /var/www/asset-management/docker/nginx
+            script: |
+            sudo mkdir -p /var/www/asset-management/docker/nginx
+            sudo chown -R ubuntu:ubuntu /var/www/asset-management
 
       # 5️⃣ Copy docker-compose & nginx config
       - name: Copy Docker files to server
