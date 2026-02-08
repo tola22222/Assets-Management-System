@@ -3,8 +3,14 @@
 @section('title', 'Asset Inventory')
 
 @section('content')
-    <div class="max-w-[1600px] mx-auto p-6 space-y-6">
-        <div class="flex justify-between items-center bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+    <div class="space-y-8">
+        <x-page-header
+            title="Asset Inventory"
+            subtitle="Manage and track your organization's assets."
+            buttonText="Register New Asset"
+            buttonAction="openAssetModal('create')"
+        />
+        {{-- <div class="flex justify-between items-center bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
             <div>
                 <h1 class="text-2xl font-bold text-slate-900">Asset Inventory</h1>
                 <p class="text-slate-500 text-sm font-medium">Manage and track your organization's assets.</p>
@@ -16,7 +22,7 @@
                 </svg>
                 Register New Asset
             </button>
-        </div>
+        </div> --}}
 
         <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
             <table class="w-full text-left border-collapse">
