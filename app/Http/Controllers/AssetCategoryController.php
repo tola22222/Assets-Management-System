@@ -22,6 +22,7 @@ class AssetCategoryController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
+            'short_name' => 'nullable|string|max:10',
         ]);
 
         AssetCategory::create($validated);
@@ -45,6 +46,7 @@ class AssetCategoryController extends Controller
     
     $validated = $request->validate([
         'name' => 'required|string|max:255|unique:asset_categories,name,' . $id,
+        'short_name' => 'nullable|string|max:10',
         'description' => 'nullable|string',
     ]);
 

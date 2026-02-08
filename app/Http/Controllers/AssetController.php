@@ -24,16 +24,30 @@ class AssetController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'asset_code' => 'required|unique:assets',
             'name' => 'required|string|max:255',
             'category_id' => 'required|exists:asset_categories,id',
             'purchase_date' => 'nullable|date',
             'purchase_price' => 'nullable|numeric',
             'status' => 'required|string',
-            // Add other validations as needed
+            'description' => 'nullable|string',
+            'model' => 'nullable|string',
+            'brand' => 'nullable|string',
+            'serial_number' => 'nullable|string',
+            'condition' => 'nullable|string',
         ]);
 
-        Asset::create($request->all());
+        // Get category short name
+        $category = AssetCategory::findOrFail($validated['category_id']);
+        $shortName = $category->short_name ?? 'XXXX';
+
+        // Count existing assets in this category to get next number
+        $count = Asset::where('category_id', $category->id)->count() + 1;
+
+        // Generate asset code
+        $validated['asset_code'] = 'PEY-' . strtoupper($shortName) . '-' . str_pad($count, 4, '0', STR_PAD_LEFT);
+
+        Asset::create($validated);
+
         return redirect()->route('assets.index')->with('success', 'Asset registered successfully.');
     }
 

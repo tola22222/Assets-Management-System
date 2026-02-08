@@ -1,107 +1,113 @@
 @extends('layouts.app')
 
+@section('title', 'Asset Inventory Stock')
+
 @section('content')
-    <div x-data="{
-        open: false,
-        editMode: false,
-        action: '',
-        form: { id: '', asset_id: '', location_id: '', quantity: 0 },
-        initForm(data = null) {
-            if (data) {
-                this.editMode = true;
-                this.action = '/asset-stocks/' + data.id;
-                this.form = { ...data };
-            } else {
-                this.editMode = false;
-                this.action = '{{ route('asset-stocks.store') }}';
-                this.form = { id: '', asset_id: '', location_id: '', quantity: 0 };
-            }
-            this.open = true;
-        }
-    }" class="space-y-6">
+<div class="space-y-6">
 
-        <x-page-header
-            title="Asset Inventory Stock"
-            subtitle="Real-time asset distribution across locations."
-            buttonText="Add New Stock"
-            buttonAction="initForm()"
-        />
+    {{-- SUCCESS ALERT --}}
+    @if(session('success'))
+    <div id="alert-success" class="flex items-center p-4 mb-4 text-emerald-800 rounded-lg bg-emerald-50 border border-emerald-200 transition-opacity duration-500">
+        <svg class="flex-shrink-0 w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+            <path d="M10 .5a9.5 9.5 0 1 0 9.5 9.5A9.51 9.51 0 0 0 10 .5Zm3.707 8.207-4 4a1 1 0 0 1-1.414 0l-2-2a1 1 0 0 1 1.414-1.414L9 10.586l3.293-3.293a1 1 0 0 1 1.414 1.414Z"/>
+        </svg>
+        <div class="ms-3 text-sm font-medium">{{ session('success') }}</div>
+        <button type="button" class="ms-auto -mx-1.5 -my-1.5 bg-emerald-50 text-emerald-500 rounded-lg p-1.5 hover:bg-emerald-200 inline-flex items-center justify-center h-8 w-8" onclick="this.parentElement.remove()">
+            <span class="sr-only">Close</span>
+            <svg class="w-3 h-3" fill="none" viewBox="0 0 14 14" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/></svg>
+        </button>
+    </div>
+    @endif
 
-        <div class="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+    {{-- PAGE HEADER --}}
+    <x-page-header
+        title="Asset Inventory Stock"
+        subtitle="Real-time asset distribution"
+        buttonText="Add New Stock"
+        buttonAction="openModal('create')"
+    />
+
+    {{-- TABLE --}}
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+        <div class="overflow-x-auto">
             <table class="w-full text-left border-collapse">
                 <thead>
-                    <tr class="bg-slate-50/50 border-b border-slate-100">
-                        <th class="px-6 py-4 text-[10px] uppercase font-black text-slate-400">Asset Detail</th>
-                        <th class="px-6 py-4 text-[10px] uppercase font-black text-slate-400">Location</th>
-                        <th class="px-6 py-4 text-[10px] uppercase font-black text-slate-400">In Stock</th>
-                        <th class="px-6 py-4 text-[10px] uppercase font-black text-slate-400 text-right">Actions</th>
+                    <tr class="bg-slate-50/50 border-b border-slate-200">
+                        <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">Asset</th>
+                        <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">Location</th>
+                        <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">Quantity</th>
+                        <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 text-right">Actions</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-slate-50">
-                    @foreach ($stocks as $stock)
-                        <tr class="hover:bg-slate-50/50 transition-colors group">
-                            <td class="px-6 py-4">
-                                <div class="flex items-center gap-3">
-                                    <div
-                                        class="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600 font-bold">
-                                        {{ substr($stock->asset->name ?? 'A', 0, 1) }}
-                                    </div>
-                                    <div>
-                                        <p class="font-bold text-slate-800">{{ $stock->asset->name ?? 'Unknown Asset' }}</p>
-                                        <p class="text-xs text-slate-400">ID: #{{ $stock->asset_id }}</p>
-                                    </div>
-                                </div>
-                            </td>
-                            <td class="px-6 py-4">
-                                <span
-                                    class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-600">
-                                    <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                                        <path
-                                            d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" />
-                                    </svg>
-                                    {{ $stock->location->name ?? 'Warehouse' }}
-                                </span>
-                            </td>
-                            <td class="px-6 py-4">
-                                <div class="flex items-center gap-2">
-                                    <span
-                                        class="text-lg font-black {{ $stock->quantity < 5 ? 'text-red-500' : 'text-slate-700' }}">
-                                        {{ $stock->quantity }}
-                                    </span>
-                                    @if ($stock->quantity < 5)
-                                        <span
-                                            class="text-[9px] font-black bg-red-100 text-red-600 px-1.5 py-0.5 rounded uppercase">Low</span>
-                                    @endif
-                                </div>
-                            </td>
-                            <td class="px-6 py-4 text-right">
-                                <div class="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <button @click="initForm({{ json_encode($stock) }})"
-                                        class="p-2 text-slate-400 hover:text-indigo-600 hover:bg-white rounded-lg shadow-sm">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                                        </svg>
-                                    </button>
-                                    <form action="{{ route('asset-stocks.destroy', $stock->id) }}" method="POST"
-                                        onsubmit="return confirm('Delete stock record?')">
-                                        @csrf @method('DELETE')
-                                        <button type="submit"
-                                            class="p-2 text-slate-400 hover:text-red-600 hover:bg-white rounded-lg shadow-sm">
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                            </svg>
-                                        </button>
-                                    </form>
-                                </div>
-                            </td>
-                        </tr>
-                    @endforeach
+                <tbody class="divide-y divide-slate-100">
+                    @forelse($stocks as $stock)
+                    <tr class="group hover:bg-slate-50/80 transition-all">
+                        <td class="px-6 py-4 whitespace-nowrap">{{ $stock->asset->name ?? 'Unknown' }}</td>
+                        <td class="px-6 py-4">{{ $stock->location->name ?? 'Warehouse' }}</td>
+                        <td class="px-6 py-4 font-bold">{{ $stock->quantity }}</td>
+                        <td class="px-6 py-4 text-right flex justify-end gap-2">
+                            <button onclick="openModal('edit', {{ json_encode($stock) }})"
+                                class="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
+                                title="Edit">
+                                Edit
+                            </button>
+
+                            <form action="{{ route('asset-stocks.destroy', $stock->id) }}" method="POST">
+                                @csrf @method('DELETE')
+                                <button type="submit"
+                                    onclick="return confirm('Delete this stock?')"
+                                    class="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                                    title="Delete">
+                                    Delete
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    @empty
+                    <tr>
+                        <td colspan="4" class="px-6 py-12 text-center text-slate-400 font-medium">
+                            No asset stocks found yet.
+                        </td>
+                    </tr>
+                    @endforelse
                 </tbody>
             </table>
         </div>
-
-        @include('asset-stocks.partials.modal')
     </div>
+</div>
+
+{{-- MODAL --}}
+@include('asset-stocks.partials.modal')
+
+<script>
+const modal = document.getElementById('assetStockModal');
+const form = document.getElementById('assetStockForm');
+const modalTitle = document.getElementById('assetModalTitle');
+const methodField = document.getElementById('methodField');
+
+function openModal(mode, data = null) {
+    modal.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+
+    if(mode === 'edit') {
+        modalTitle.innerText = 'Edit Stock';
+        form.action = `/asset-stocks/${data.id}`;
+        methodField.innerHTML = '@method("PUT")';
+        document.getElementById('asset_id').value = data.asset_id;
+        document.getElementById('location_id').value = data.location_id;
+        document.getElementById('quantity').value = data.quantity;
+    } else {
+        modalTitle.innerText = 'Add New Stock';
+        form.action = "{{ route('asset-stocks.store') }}";
+        methodField.innerHTML = '';
+        form.reset();
+    }
+}
+
+function closeModal() {
+    modal.classList.add('hidden');
+    document.body.style.overflow = 'auto';
+}
+</script>
+
 @endsection

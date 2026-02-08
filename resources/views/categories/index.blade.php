@@ -30,8 +30,10 @@
                 <thead>
                     <tr class="bg-slate-50/50 border-b border-slate-200">
                         <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">Category Name</th>
+                        <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">Short Name</th>
                         <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">Description</th>
                         <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 text-right">Actions</th>
+                        
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-100">
@@ -39,6 +41,9 @@
                     <tr class="group hover:bg-slate-50/80 transition-all">
                         <td class="px-6 py-4 whitespace-nowrap">
                             <span class="font-semibold text-slate-700 group-hover:text-indigo-600 transition-colors">{{ $category->name }}</span>
+                        </td>
+                         <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="font-semibold text-slate-700 group-hover:text-indigo-600 transition-colors">{{ $category->short_name }}</span>
                         </td>
                         <td class="px-6 py-4">
                             <span class="text-slate-500 text-sm leading-relaxed">{{ Str::limit($category->description, 80) ?: '---' }}</span>
@@ -99,6 +104,11 @@
                         <input type="text" name="name" id="cat_name" placeholder="e.g. Laptops, Office Furniture" required
                             class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all outline-none">
                     </div>
+                     <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-2">Short Name</label>
+                        <input type="text" name="short_name" id="cat_short_name" placeholder="e.g. LAPTOP, FURNITURE" required
+                            class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all outline-none">
+                    </div>
 
                     <div>
                         <label class="block text-sm font-bold text-slate-700 mb-2">Description <span class="text-slate-400 font-normal">(Optional)</span></label>
@@ -122,6 +132,7 @@
     const modalTitle = document.getElementById('modalTitle');
     const methodField = document.getElementById('methodField');
 
+
     function openModal(mode, data = null) {
         modal.classList.remove('hidden');
         document.body.style.overflow = 'hidden'; // Stop scrolling
@@ -131,6 +142,7 @@
             form.action = `/asset-categories/${data.id}`; // Matches your Route::resource path
             methodField.innerHTML = '@method("PUT")';
             document.getElementById('cat_name').value = data.name;
+            document.getElementById('cat_short_name').value = data.short_name;
             document.getElementById('cat_desc').value = data.description || '';
         } else {
             modalTitle.innerText = 'Create Category';
