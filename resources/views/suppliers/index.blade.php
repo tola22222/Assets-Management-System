@@ -8,16 +8,12 @@
         </div>
     @endif
 
-    <div class="flex justify-between items-center">
-        <div>
-            <h1 class="text-2xl font-bold text-slate-800">Suppliers</h1>
-            <p class="text-slate-500 text-sm">Manage your asset vendors and contacts.</p>
-        </div>
-        <button onclick="document.getElementById('addModal').classList.remove('hidden')" 
-                class="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold hover:bg-indigo-700 transition shadow-sm">
-            + Add Supplier
-        </button>
-    </div>
+     <x-page-header
+        title="Suppliers Management"
+        subtitle="Manage your asset vendors and contacts."
+        buttonText="Add Supplier"
+        buttonAction="document.getElementById('addModal').classList.remove('hidden')"
+    />
 
     <div class="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
         <table class="w-full text-left border-collapse">
@@ -36,7 +32,7 @@
                     <td class="px-6 py-4 text-sm text-slate-600">{{ $supplier->phone ?? 'N/A' }}</td>
                     <td class="px-6 py-4 text-sm text-slate-600 truncate max-w-xs">{{ $supplier->address ?? 'N/A' }}</td>
                     <td class="px-6 py-4 text-right flex justify-end gap-4">
-                        <button onclick="openEditModal({{ $supplier }})" 
+                        <button onclick="openEditModal({{ $supplier }})"
                                 class="text-indigo-600 hover:text-indigo-900 text-sm font-bold transition">
                             Edit
                         </button>

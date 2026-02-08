@@ -1,9 +1,9 @@
 @extends('layouts.app')
 
 @section('content')
-<div x-data="{ 
-    open: false, 
-    editMode: false, 
+<div x-data="{
+    open: false,
+    editMode: false,
     action: '',
     form: { id: '', name: '', type: 'office' },
     initForm(data = null) {
@@ -18,23 +18,20 @@
         }
         this.open = true;
     }
-}" class="max-w-7xl mx-auto p-6">
+}" class="space-y-6">
 
-    <div class="flex justify-between items-center mb-8">
-        <div>
-            <h1 class="text-3xl font-black text-slate-900 tracking-tight">Assets Locations</h1>
-            <p class="text-slate-500 font-medium">Manage offices, labs, and program departments.</p>
-        </div>
-        <button @click="initForm()" class="bg-indigo-600 text-white px-6 py-3 rounded-2xl font-bold shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all">
-            + Add Location
-        </button>
-    </div>
+     <x-page-header
+        title="Assets Locations"
+        subtitle="Manage offices, labs, and program departments."
+        buttonText="Add Location"
+        buttonAction="initForm()"
+    />
 
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
         @foreach($locations as $location)
         <div class="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-md transition-all">
             <div class="flex justify-between items-start mb-4">
-                <span class="px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest 
+                <span class="px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest
                     {{ $location->type == 'lab' ? 'bg-purple-100 text-purple-600' : ($location->type == 'program' ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-600') }}">
                     {{ $location->type }}
                 </span>
