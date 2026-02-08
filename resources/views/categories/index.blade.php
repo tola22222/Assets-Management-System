@@ -3,8 +3,7 @@
 @section('title', 'Manage Asset Categories')
 
 @section('content')
-<div class="max-w-[1600px] mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
-    
+<div class="space-y-6">
     @if(session('success'))
     <div id="alert-success" class="flex items-center p-4 mb-4 text-emerald-800 rounded-lg bg-emerald-50 border border-emerald-200 transition-opacity duration-500">
         <svg class="flex-shrink-0 w-4 h-4" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 20 20">
@@ -18,18 +17,13 @@
     </div>
     @endif
 
-    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-        <div>
-            <h1 class="text-2xl font-extrabold text-slate-900 tracking-tight">Asset Categories</h1>
-            <p class="text-slate-500 text-sm mt-1 font-medium">Classify and organize your hardware, software, and tools.</p>
-        </div>
-        <button onclick="openModal('create')" class="inline-flex items-center justify-center px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-xl transition-all shadow-sm shadow-indigo-200 group">
-            <svg class="w-5 h-5 mr-2 transition-transform group-hover:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
-            Create New Category
-        </button>
-    </div>
+    <x-page-header
+        title="Asset Categories"
+        subtitle="Classify and organize your hardware, software, and tools."
+        buttonText="Create New Category"
+        buttonAction="openModal('create')"
+    />
 
-    
     <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
         <div class="overflow-x-auto">
             <table class="w-full text-left border-collapse">
@@ -99,10 +93,10 @@
                 <form id="categoryForm" method="POST" class="space-y-5">
                     @csrf
                     <div id="methodField"></div>
-                    
+
                     <div>
                         <label class="block text-sm font-bold text-slate-700 mb-2">Name</label>
-                        <input type="text" name="name" id="cat_name" placeholder="e.g. Laptops, Office Furniture" required 
+                        <input type="text" name="name" id="cat_name" placeholder="e.g. Laptops, Office Furniture" required
                             class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all outline-none">
                     </div>
 
@@ -131,7 +125,7 @@
     function openModal(mode, data = null) {
         modal.classList.remove('hidden');
         document.body.style.overflow = 'hidden'; // Stop scrolling
-        
+
         if (mode === 'edit') {
             modalTitle.innerText = 'Edit Category';
             form.action = `/asset-categories/${data.id}`; // Matches your Route::resource path
