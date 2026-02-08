@@ -2,16 +2,13 @@
 
 @section('content')
     <div class="space-y-6">
-        <div class="flex justify-between items-center">
-            <div>
-                <h1 class="text-2xl font-bold text-slate-800">Asset Assignments</h1>
-                <p class="text-slate-500 text-sm">Track which assets are currently deployed.</p>
-            </div>
-            <button onclick="document.getElementById('assignModal').classList.remove('hidden')"
-                class="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold hover:bg-indigo-700 transition shadow-sm">
-                + New Assignment
-            </button>
-        </div>
+
+        <x-page-header
+            title="Asset Inventory Stock"
+            subtitle="Track which assets are currently deployed."
+            buttonText="New Assignment"
+            buttonAction="document.getElementById('assignModal').classList.remove('hidden')"
+        />
 
         <div class="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
             <table class="w-full text-left border-collapse">
@@ -33,7 +30,7 @@
                                 <div class="font-bold text-slate-700">{{ $assign->asset->name }}</div>
                                 <div class="text-[10px] text-slate-400 font-mono">{{ $assign->asset->serial_number }}</div>
                             </td>
-                            
+
                             <td class="px-6 py-4 text-center">
                                 <span class="bg-slate-100 text-slate-700 px-2 py-1 rounded-md text-sm font-bold border border-slate-200">
                                     {{ $assign->quantity }}

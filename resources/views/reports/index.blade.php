@@ -4,15 +4,11 @@
 
 @section('content')
 <div class="space-y-6">
-    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-            <h1 class="text-2xl font-bold text-slate-800">Reports</h1>
-            <p class="text-slate-500 text-sm">Manage procurement of new equipment for school support.</p>
-        </div>
-        <button class="bg-indigo-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition">
-            + New Purchase Order
-        </button>
-    </div>
+
+    <x-page-header
+        title="Reports"
+        subtitle="Manage procurement of new equipment for school support."
+    />
 
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4">
@@ -77,7 +73,7 @@
                         </div>
                     </td>
                 </tr>
-                
+
                 <tr class="hover:bg-slate-50 transition text-slate-400 italic">
                     <td class="px-6 py-4">#PO-2026-002</td>
                     <td class="px-6 py-4 font-semibold text-slate-600">K-Computers Ltd.</td>

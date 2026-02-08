@@ -1,17 +1,14 @@
 @extends('layouts.app')
 
 @section('content')
-<div class="p-6">
-    <div class="flex justify-between items-center mb-6">
-        <div>
-            <h1 class="text-2xl font-bold text-slate-800">Verification & Audit</h1>
-            <p class="text-slate-500 text-sm">Bi-annual condition tracking history.</p>
-        </div>
-        <a href="{{ route('asset-verifications.create') }}" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl flex items-center gap-2 transition font-semibold">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-            Perform New Audit
-        </a>
-    </div>
+<div class="space-y-6">
+
+    <x-page-header
+        title="Asset Inventory Stock"
+        subtitle="Bi-annual condition tracking history."
+        buttonText="Perform New Audit"
+        buttonAction="{{ route('asset-verifications.create') }}"
+    />
 
     <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
         <table class="w-full text-left">

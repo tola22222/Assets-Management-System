@@ -2,13 +2,12 @@
 
 @section('content')
 <div class="space-y-6">
-    <div class="flex justify-between items-center">
-        <h1 class="text-2xl font-bold text-slate-800">Staff Members</h1>
-        <button onclick="document.getElementById('addModal').classList.remove('hidden')" 
-                class="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold hover:bg-indigo-700 transition">
-            + Add Staff
-        </button>
-    </div>
+    <x-page-header
+        title="Staff Management"
+        subtitle="Manage staff members and their details."
+        buttonText="Create New Staff"
+        buttonAction="document.getElementById('addModal').classList.remove('hidden')"
+    />
 
     <div class="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
         <table class="w-full text-left border-collapse">
@@ -99,7 +98,7 @@
         <h2 class="text-xl font-bold mb-4 text-slate-800">Edit Staff Member</h2>
         <form id="editForm" method="POST" enctype="multipart/form-data" class="space-y-3">
             @csrf @method('PUT')
-            
+
             <div>
                 <label class="text-xs font-bold text-slate-500 uppercase">Full Name</label>
                 <input type="text" name="full_name" id="edit_full_name" class="w-full mt-1 p-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none" required>
@@ -147,7 +146,7 @@
     function openEditModal(staff) {
         const form = document.getElementById('editForm');
         form.action = '/staff/' + staff.id;
-        
+
         // Populate all fields correctly
         document.getElementById('edit_full_name').value = staff.full_name;
         document.getElementById('edit_email').value = staff.email || '';
@@ -155,7 +154,7 @@
         document.getElementById('edit_position').value = staff.position || '';
         document.getElementById('edit_hire_date').value = staff.hire_date || '';
         document.getElementById('edit_status').value = staff.status;
-        
+
         document.getElementById('editModal').classList.remove('hidden');
     }
 </script>

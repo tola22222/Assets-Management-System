@@ -2,16 +2,12 @@
 
 @section('content')
     <div class="space-y-6">
-        <div class="flex justify-between items-center">
-            <div>
-                <h1 class="text-2xl font-bold text-slate-800">Programs</h1>
-                <p class="text-slate-500 text-sm">Manage ICT, English, Dream, and Scholarship programs.</p>
-            </div>
-            <button onclick="document.getElementById('addProgramModal').classList.remove('hidden')"
-                class="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold hover:bg-indigo-700 transition">
-                + New Program
-            </button>
-        </div>
+        <x-page-header
+            title="Program Management"
+            subtitle="Manage ICT, English, Dream, and Scholarship programs."
+            buttonText="Create New Program"
+            buttonAction="document.getElementById('addProgramModal').classList.remove('hidden')"
+        />
 
         <div class="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
             <table class="w-full text-left border-collapse">

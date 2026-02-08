@@ -16,7 +16,7 @@ class AssetAssignmentController extends Controller
 {
     public function index()
     {
-        // Eager load the asset and location. 
+        // Eager load the asset and location.
         // Note: For assigned_to, you'll likely use a polymorphic relation in the Model
         $assignments = AssetAssignment::with(['asset', 'location'])->latest()->get();
 
@@ -54,7 +54,7 @@ class AssetAssignmentController extends Controller
 
             // 2️⃣ Create assignment
             $data['status'] = 'assigned';
-            $assignment = AssetAssignment::create($data);
+            $assignment = Asset::create($data);
 
             // 3️⃣ Decrease stock
             DB::table('asset_stock')

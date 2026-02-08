@@ -18,21 +18,14 @@
             }
             this.open = true;
         }
-    }" class="p-6 max-w-7xl mx-auto">
+    }" class="space-y-6">
 
-        <div class="flex flex-col md:flex-row justify-between items-end mb-8 gap-4">
-            <div>
-                <h1 class="text-3xl font-black text-slate-900 tracking-tight">Inventory Stock</h1>
-                <p class="text-slate-500 font-medium">Real-time asset distribution across locations.</p>
-            </div>
-            <button @click="initForm()"
-                class="bg-indigo-600 text-white px-6 py-3 rounded-2xl font-bold shadow-xl shadow-indigo-200 hover:bg-indigo-700 transition-all flex items-center gap-2">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                </svg>
-                Add New Stock
-            </button>
-        </div>
+        <x-page-header
+            title="Asset Inventory Stock"
+            subtitle="Real-time asset distribution across locations."
+            buttonText="Add New Stock"
+            buttonAction="initForm()"
+        />
 
         <div class="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
             <table class="w-full text-left border-collapse">
