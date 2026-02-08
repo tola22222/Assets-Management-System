@@ -1,27 +1,30 @@
 FROM php:8.2-fpm-alpine
 
-# Install system deps
 RUN apk add --no-cache \
   bash curl zip unzip git \
   libpng-dev libjpeg-turbo-dev freetype-dev \
   oniguruma-dev icu-dev \
   mysql-client
 
-# PHP extensions
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
   && docker-php-ext-install gd pdo pdo_mysql intl mbstring opcache
 
-# Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www
 
-# Copy composer first (cache)
+# Copy composer files first
 COPY composer.json composer.lock ./
-RUN composer install --no-dev --optimize-autoloader --no-interaction
 
-# Copy Laravel app
+# Install vendors without scripts (artisan not copied yet)
+RUN composer install --no-dev --optimize-autoloader --no-interaction --no-scripts
+
+# Copy full app
 COPY . .
+
+# Run composer scripts now
+RUN composer dump-autoload --optimize
+RUN php artisan package:discover --ansi
 
 # Permissions
 RUN chown -R www-data:www-data storage bootstrap/cache
