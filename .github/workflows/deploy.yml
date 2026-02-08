@@ -1,4 +1,4 @@
-name: Build & Deploy Asset Management System
+name: Deploy Laravel Docker
 
 on:
   push:
@@ -6,119 +6,49 @@ on:
       - main
 
 jobs:
-  # ============================
-  # 1️⃣ Build & Push Docker Image
-  # ============================
-  build-push:
+  build-and-deploy:
     runs-on: ubuntu-latest
+
     steps:
-      # Checkout repository
-      - name: Checkout repository
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      # Login to Docker Hub
-      - name: Login to Docker Hub
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to DockerHub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # Build & Push Laravel Docker image
-      - name: Build & Push Laravel Image
-        uses: docker/build-push-action@v5
+      - name: Build and Push Docker Image
+        uses: docker/build-push-action@v6
         with:
           context: .
-          file: Dockerfile
+          file: ./Dockerfile
           push: true
-          tags: toladev1/asset-management:latest
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/asset_management_app:latest
 
-  # ============================
-  # 2️⃣ Deploy to EC2
-  # ============================
-  deploy:
-    runs-on: ubuntu-latest
-    needs: build-push
-    steps:
-      # Checkout code (needed for SCP)
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      # Cleanup old Docker containers, networks, images, permissions
-      - name: Cleanup old Docker & folder permissions
-        uses: appleboy/ssh-action@v1
+      - name: Deploy on VPS via SSH
+        uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ubuntu
-          key: ${{ secrets.EC2_SSH_KEY }}
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
           script: |
-            set -e
-            echo ">>> Preparing ~/asset-management folder"
-            sudo mkdir -p ~/asset-management
-            sudo chown -R ubuntu:ubuntu ~/asset-management
-            chmod -R u+rwX ~/asset-management
+            cd /var/www/asset_management_app
 
-            echo ">>> Stop old containers"
-            cd ~/asset-management
-            docker compose down --remove-orphans || true
-
-            echo ">>> Cleanup unused Docker resources"
-            docker image prune -af || true
-            docker container prune -f || true
-            docker network prune -f || true
-
-            echo ">>> Remove old docker-compose.yml safely"
-            rm -f ~/asset-management/docker-compose.yml
-
-      # Copy docker-compose.yml and nginx folder
-      - name: Copy docker-compose.yml + nginx folder
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ubuntu
-          key: ${{ secrets.EC2_SSH_KEY }}
-          source: |
-            docker-compose.yml
-            docker/nginx/
-          target: ~/asset-management/
-          overwrite: true
-
-      # Deploy containers and run Laravel artisan commands
-      - name: Deploy containers & run Laravel commands
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ubuntu
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
-            set -e
-            cd ~/asset-management
-
-            # Ensure minimal .env exists
-            if [ ! -s .env ]; then
-              echo "DB_CONNECTION=mysql" >> .env
-              echo "DB_HOST=db" >> .env
-              echo "DB_DATABASE=asset_management_db" >> .env
-              echo "DB_USERNAME=asset_management_user" >> .env
-              echo "DB_PASSWORD=asset_management_pass" >> .env
-              echo "APP_KEY=$(openssl rand -base64 32)" >> .env
-            fi
-
-            echo ">>> Pull latest Docker images"
             docker compose pull
+            docker compose up -d --remove-orphans
 
-            echo ">>> Start containers"
-            docker compose up -d
+            docker compose exec -T app php artisan migrate --force
+            docker compose exec -T app php artisan storage:link || true
 
-            # Wait for containers to be ready
-            sleep 5
+            docker compose exec -T app php artisan config:clear
+            docker compose exec -T app php artisan route:clear
+            docker compose exec -T app php artisan view:clear
 
-            echo ">>> Run Laravel artisan commands if container exists"
-            if docker ps --format '{{.Names}}' | grep -q '^asset_management_app$'; then
-              docker exec asset_management_app php artisan migrate --force
-              docker exec asset_management_app php artisan config:clear
-              docker exec asset_management_app php artisan config:cache
-              docker exec asset_management_app php artisan route:cache
-              docker exec asset_management_app php artisan view:cache
-            else
-              echo "asset_management_app container not found"
-            fi
+            docker compose exec -T app php artisan config:cache
+            docker compose exec -T app php artisan route:cache
+            docker compose exec -T app php artisan view:cache
