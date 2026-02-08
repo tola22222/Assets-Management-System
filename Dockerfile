@@ -13,16 +13,16 @@ COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www
 
-# Copy composer files first
+# Copy composer files first (for cache)
 COPY composer.json composer.lock ./
 
-# Install vendors without scripts (artisan not copied yet)
+# Install vendors without scripts
 RUN composer install --no-dev --optimize-autoloader --no-interaction --no-scripts
 
 # Copy full app
 COPY . .
 
-# Run composer scripts now
+# Run scripts now
 RUN composer dump-autoload --optimize
 RUN php artisan package:discover --ansi
 

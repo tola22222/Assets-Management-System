@@ -30,14 +30,14 @@ jobs:
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/asset_management_app:latest
 
-      - name: Deploy on VPS via SSH
+      - name: Deploy on EC2 via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            cd /var/www/asset_management_app
+            cd /home/ubuntu/asset_management_app
 
             docker compose pull
             docker compose up -d --remove-orphans
