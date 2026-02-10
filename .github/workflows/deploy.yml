@@ -10,45 +10,64 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # 1️⃣ Checkout source code
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # 2️⃣ Setup Docker Buildx
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      # 3️⃣ Login to DockerHub
       - name: Login to DockerHub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      # 4️⃣ Build & Push Docker Image
       - name: Build and Push Docker Image
         uses: docker/build-push-action@v6
         with:
           context: .
           file: ./Dockerfile
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/asset_management_app:latest
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/asset_management_app:latest
 
+      # 5️⃣ Deploy to EC2 via SSH
       - name: Deploy on EC2 via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
+          port: 22
+          timeout: 120s
+          command_timeout: 15m
           script: |
+            set -e
+
+            echo "🚀 Start deployment"
+
             cd /home/ubuntu/asset_management_app
 
+            echo "📦 Pull latest images"
             docker compose pull
+
+            echo "🔄 Start containers"
             docker compose up -d --remove-orphans
 
+            echo "🗄️ Run migrations"
             docker compose exec -T app php artisan migrate --force
+
+            echo "🔗 Storage link"
             docker compose exec -T app php artisan storage:link || true
 
-            docker compose exec -T app php artisan config:clear
-            docker compose exec -T app php artisan route:clear
-            docker compose exec -T app php artisan view:clear
+            echo "🧹 Clear caches"
+            docker compose exec -T app php artisan optimize:clear
 
-            docker compose exec -T app php artisan config:cache
-            docker compose exec -T app php artisan route:cache
-            docker compose exec -T app php artisan view:cache
+            echo "⚡ Cache config & routes"
+            docker compose exec -T app php artisan optimize
+
+            echo "✅ Deployment finished successfully"
