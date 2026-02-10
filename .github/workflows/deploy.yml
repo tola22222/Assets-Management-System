@@ -36,31 +36,19 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
-          port: 22
-          timeout: 180s
-          command_timeout: 20m
           script: |
-            set -e
-            echo "🚀 Start deployment"
-
             cd /home/ubuntu/asset_management_app
 
-            echo "📦 Pull latest images"
             docker compose pull
-
-            echo "🔄 Start containers"
             docker compose up -d --remove-orphans
 
-            echo "🗄️ Run migrations"
             docker compose exec -T app php artisan migrate --force
-
-            echo "🔗 Storage link"
             docker compose exec -T app php artisan storage:link || true
 
-            echo "🧹 Clear caches"
-            docker compose exec -T app php artisan optimize:clear
+            docker compose exec -T app php artisan config:clear
+            docker compose exec -T app php artisan route:clear
+            docker compose exec -T app php artisan view:clear
 
-            echo "⚡ Cache config & routes"
-            docker compose exec -T app php artisan optimize
-
-            echo "✅ Deployment finished successfully"
+            docker compose exec -T app php artisan config:cache
+            docker compose exec -T app php artisan route:cache
+            docker compose exec -T app php artisan view:cache
