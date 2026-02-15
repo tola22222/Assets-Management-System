@@ -45,7 +45,7 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
-    Route::get('/manage-assets', [AssetController::class, 'index'])->name('assets.index');
+   // Route::get('/manage-assets', [AssetController::class, 'index'])->name('assets.index');
     Route::get('/suppliers', [SupplierController::class, 'index'])->name('suppliers.index');
     route::get('/asset-assignments', [AssetAssignmentController::class, 'index'])->name('asset-assignments.index');
     Route::resource('asset-stocks', AssetStockController::class);
