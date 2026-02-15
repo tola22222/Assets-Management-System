@@ -28,7 +28,7 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/asset_management_app:latest
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/ams_app:latest
 
       - name: Deploy on EC2 via SSH
         uses: appleboy/ssh-action@v1.0.3
@@ -41,7 +41,7 @@ jobs:
 
             docker compose pull
             docker compose up -d --remove-orphans
-            
+
             echo "Wait container ready"
             sleep 15
 
