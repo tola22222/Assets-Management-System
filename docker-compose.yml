@@ -1,7 +1,7 @@
 services:
   app:
-    image: toladev1/asset_management_app:latest
-    container_name: asset_management_app
+    image: toladev1/ams_app:latest
+    container_name: ams_app
     restart: always
     env_file:
       - .env
