@@ -41,6 +41,9 @@ jobs:
 
             docker compose pull
             docker compose up -d --remove-orphans
+            
+            echo "Wait container ready"
+            sleep 15
 
             docker compose exec -T app php artisan migrate --force
             docker compose exec -T app php artisan storage:link || true
