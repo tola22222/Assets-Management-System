@@ -91,7 +91,7 @@
             if (mode === 'edit' && data) {
                 modalTitle.innerText = 'Edit Asset: ' + (data.asset_code || data.name);
                 // Update the form action URL (assuming standard resource naming)
-                form.action = `/assets/${data.id}`;
+                form.action = `/assets-registeration/${data.id}`;
                 methodInput.value = 'PUT';
                 submitBtn.innerText = 'Update Asset';
 

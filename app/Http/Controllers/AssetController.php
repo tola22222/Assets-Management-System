@@ -59,17 +59,37 @@ class AssetController extends Controller
     }
 
     public function update(Request $request, $id)
-    {
-        $asset = Asset::findOrFail($id);
-        $validated = $request->validate([
-            'asset_code' => 'required|unique:assets,asset_code,' . $id,
-            'name' => 'required|string|max:255',
-            'category_id' => 'required|exists:asset_categories,id',
-        ]);
+{
+    $asset = Asset::findOrFail($id);
 
-        $asset->update($request->all());
-        return redirect()->route('assets.index')->with('success', 'Asset updated successfully.');
+    // Validate input
+    $validated = $request->validate([
+        'name' => 'required|string|max:255',
+        'category_id' => 'required|exists:asset_categories,id',
+        'purchase_date' => 'nullable|date',
+        'purchase_price' => 'nullable|numeric',
+        'status' => 'required|string',
+        'description' => 'nullable|string',
+        'model' => 'nullable|string',
+        'brand' => 'nullable|string',
+        'serial_number' => 'nullable|string',
+        'condition' => 'nullable|string',
+    ]);
+
+    // If you want to validate and allow updating asset_code uniquely
+    if ($request->has('asset_code')) {
+        $request->validate([
+            'asset_code' => 'required|unique:assets,asset_code,' . $asset->id,
+        ]);
+        $validated['asset_code'] = $request->asset_code;
     }
+
+    // Update the asset with only validated data
+    $asset->update($validated);
+
+    return redirect()->route('assets.index')->with('success', 'Asset updated successfully.');
+}
+
 
     public function destroy($id)
     {
