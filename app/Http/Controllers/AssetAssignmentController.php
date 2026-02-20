@@ -16,8 +16,6 @@ class AssetAssignmentController extends Controller
 {
     public function index()
     {
-        // Eager load the asset and location.
-        // Note: For assigned_to, you'll likely use a polymorphic relation in the Model
         $assignments = AssetAssignment::with(['asset', 'location'])->latest()->get();
 
         $assets = Asset::where('status', 'active')->get();
@@ -54,7 +52,7 @@ class AssetAssignmentController extends Controller
 
             // 2️⃣ Create assignment
             $data['status'] = 'assigned';
-            $assignment = Asset::create($data);
+            $assignment = AssetAssignment::create($data);
 
             // 3️⃣ Decrease stock
             DB::table('asset_stock')
@@ -79,8 +77,8 @@ class AssetAssignmentController extends Controller
 
             // 5️⃣ Activity log
             ActivityLog::create([
-                'user_id' => auth()->id(),
-                'action' => 'Assignment',
+            'user_id' => Auth::id(),
+            'action' => 'Assignment',
                 'description' => "Assigned asset ID {$data['asset_id']} (Qty: {$data['quantity']})",
             ]);
         });
@@ -95,12 +93,52 @@ class AssetAssignmentController extends Controller
             'location_id' => 'required|exists:locations,id',
         ]);
 
-        $assetAssignment->update($data);
+        DB::transaction(function () use ($data, $assetAssignment) {
 
-        if ($request->status == 'returned') {
-            $assetAssignment->asset->update(['status' => 'available']);
-        }
+            // Update assignment
+            $assetAssignment->update($data);
+
+            // If returned, update asset status safely
+            if ($data['status'] === 'returned') {
+                $asset = $assetAssignment->asset;
+
+                // Get ENUM values for status
+                $enumValues = $this->getAssetEnumValues('status');
+
+                // Set status to 'available' if allowed, otherwise 'active'
+                $asset->status = in_array('available', $enumValues) ? 'available' : 'active';
+                $asset->save();
+
+                // Increase stock back
+                $stock = DB::table('asset_stock')
+                    ->where('asset_id', $asset->id)
+                    ->where('location_id', $assetAssignment->location_id)
+                    ->first();
+
+                if ($stock) {
+                    DB::table('asset_stock')
+                        ->where('id', $stock->id)
+                        ->update([
+                            'quantity' => $stock->quantity + $assetAssignment->quantity,
+                            'updated_at' => now()
+                        ]);
+                }
+            }
+        });
 
         return redirect()->back()->with('success', 'Assignment updated.');
+    }
+
+    /**
+     * Helper to get ENUM values for a column in assets table
+     */
+    private function getAssetEnumValues($column)
+    {
+        $result = DB::select("SHOW COLUMNS FROM assets WHERE Field = ?", [$column]);
+        if (!$result) return [];
+
+        $type = $result[0]->Type ?? '';
+        preg_match("/^enum\('(.*)'\)$/", $type, $matches);
+        return $matches ? explode("','", $matches[1]) : [];
     }
 }
