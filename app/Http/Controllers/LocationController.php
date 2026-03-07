@@ -7,12 +7,14 @@ use Illuminate\Http\Request;
 
 class LocationController extends Controller
 {
+    // Display all locations
     public function index()
     {
         $locations = Location::latest()->get();
         return view('locations.index', compact('locations'));
     }
 
+    // Store new location
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -21,10 +23,12 @@ class LocationController extends Controller
         ]);
 
         Location::create($validated);
+
         return redirect()->back()->with('success', 'Location created successfully.');
     }
 
-    public function update(Request $request, Location $location)
+    // Update location
+    public function update(Request $request, Location $location) // ✅ use $location for route model binding
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
@@ -32,13 +36,14 @@ class LocationController extends Controller
         ]);
 
         $location->update($validated);
+
         return redirect()->back()->with('success', 'Location updated successfully.');
     }
 
+    // Delete location
     public function destroy(Location $location)
     {
-        // Optional: Check if location has stock before deleting
         $location->delete();
-        return redirect()->back()->with('success', 'Location removed successfully.');
+        return redirect()->back()->with('success', 'Location deleted successfully.');
     }
 }

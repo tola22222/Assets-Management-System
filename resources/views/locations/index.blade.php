@@ -94,7 +94,10 @@
         modal.classList.remove('hidden');
         modalTitle.textContent = 'Edit Location';
         formMethod.value = 'PUT';
-        form.action = `/assets-locations/${location.id}`;
+
+        // ✅ Correct resource route URL
+        form.action = `{{ url('locations') }}/${location.id}`;
+
         locationName.value = location.name;
         locationType.value = location.type;
         submitBtn.textContent = 'Update';
