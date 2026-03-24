@@ -20,7 +20,6 @@ class AuthController extends Controller
 
             if (Auth::attempt($credentials, $request->boolean('remember'))) {
 
-
                 ActivityLog::create([
                     'user_id' => Auth::id(),
                     'action' => 'Login',
@@ -28,33 +27,49 @@ class AuthController extends Controller
                 ]);
 
                 return response()->json([
+                    'success' => true,
                     'message' => 'Login successful',
                     'user' => Auth::user(),
                 ], 200);
             }
             return response()->json([
+                'success' => false,
                 'message' => 'The provided credentials do not match our records.',
             ], 401);
         } catch (\Throwable $th) {
-            return back()->withErrors([
-                'email' => 'The provided credentials do not match our records.',
-            ])->onlyInput('email');
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation error',
+                'errors' => $th->getMessage(),
+            ], 422);
         }
     }
 
     public function logout(Request $request)
     {
-        // Optional: Record logout activity before clearing session
-        ActivityLog::create([
-            'user_id' => Auth::id(),
-            'action' => 'Logout',
-            'description' => Auth::user()->name . ' signed out.',
-        ]);
+        try {
+            // Record logout activity
+            if (Auth::check()) {
+                ActivityLog::create([
+                    'user_id' => Auth::id(),
+                    'action' => 'Logout',
+                    'description' => Auth::user()->name . ' signed out.',
+                ]);
+            }
 
-        Auth::logout();
-        $request->session()->invalidate();
-        $request->session()->regenerateToken();
+            Auth::logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
 
-        return redirect('/login');
+            return response()->json([
+                'success' => true,
+                'message' => 'Logged out successfully',
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Logout failed: ' . $e->getMessage(),
+            ], 500);
+        }
     }
 }
