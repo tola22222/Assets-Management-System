@@ -15,13 +15,11 @@ use App\Http\Controllers\AssetAssignmentController;
 use App\Http\Controllers\AssetVerificationController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SupplierController;
-
-Route::get('/test-assets', function () {
-    return 'Assets route works!';
-});
+use App\Http\Controllers\AssetReportController;
 
 
 
+Route::get('/reports', [AssetReportController::class, 'index'])->name('reports.index');
 // --- GUEST ROUTES (Login Page) ---
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
