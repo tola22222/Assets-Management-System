@@ -30,7 +30,16 @@ jobs:
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/ams_app:latest
 
-      # Fixed: copy docker-compose + nginx config to server before deploying
+      - name: Clear old config files on EC2
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            rm -f /home/ubuntu/asset_management_app/docker-compose.yml
+            rm -rf /home/ubuntu/asset_management_app/nginx
+
       - name: Copy config files to EC2
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -39,7 +48,6 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           source: "docker-compose.yml,nginx/default.conf"
           target: /home/ubuntu/asset_management_app
-          overwrite: true
 
       - name: Deploy on EC2 via SSH
         uses: appleboy/ssh-action@v1.0.3
@@ -50,7 +58,6 @@ jobs:
           script: |
             cd /home/ubuntu/asset_management_app
 
-            # Fixed: write .env from GitHub secret if it doesn't exist
             if [ ! -f .env ]; then
               echo "${{ secrets.APP_ENV }}" > .env
             fi
@@ -61,9 +68,7 @@ jobs:
             echo "Waiting for containers to be ready..."
             sleep 20
 
-            # Seed public files into shared volume on first deploy
             docker compose exec -T app php artisan storage:link || true
-
             docker compose exec -T app php artisan migrate --force
 
             docker compose exec -T app php artisan config:clear
