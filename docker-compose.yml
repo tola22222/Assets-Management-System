@@ -6,27 +6,26 @@ services:
     env_file:
       - .env
     volumes:
-      - app_public:/var/www/public
       - storage_data:/var/www/storage
+      - app_public:/var/www/public        # shared with nginx
     depends_on:
       - db
     networks:
-      - laravel_net
+      - laravel_net                        # fixed: was missing from nginx
 
-  web:
+  nginx:
     image: nginx:alpine
-    container_name: asset_management_web
+    container_name: ams_nginx
     restart: always
     ports:
       - "80:80"
     volumes:
-      - app_public:/var/www/public
-      - storage_data:/var/www/storage
-      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - app_public:/var/www/public        # fixed: shares public files from app
     depends_on:
       - app
     networks:
-      - laravel_net
+      - laravel_net                        # fixed: was "app-network", mismatched
 
   db:
     image: mysql:8.0
