@@ -13,50 +13,36 @@ use App\Http\Controllers\Api\AssetApiController;
 use App\Http\Controllers\Api\AssetStockApiController;
 use App\Http\Controllers\Api\AssetVerificationApiController;
 
-// Login route
-Route::post('/login', [AuthController::class, 'login']);
-// Logout route (POST method)
-Route::post('/logout', [AuthController::class, 'logout'])->middleware('web');
-// use App\Http\Controllers\Api\AuthApiController;
-
-// Route::post('/login', [AuthApiController::class, 'login']);
-// Route::middleware('auth:sanctum')->group(function () {
-//     Route::post('/logout', [AuthApiController::class, 'logout']);
-// });
-
-
-Route::apiResource('asset-verifications', AssetVerificationApiController::class);
-Route::apiResource('asset-stocks', AssetStockApiController::class);
-Route::apiResource('assets', AssetApiController::class);
-
-Route::get('asset-assignments', [AssetAssignmentApiController::class, 'index']);
-Route::post('asset-assignments', [AssetAssignmentApiController::class, 'store']);
-
-Route::apiResource('asset-categories', AssetCategoryApiController::class);
-Route::apiResource('suppliers', SupplierApiController::class);
-Route::apiResource('programs', ProgramApiController::class);
-
+// Login route (remove duplicate — was defined twice)
 Route::post('/login', [AuthController::class, 'login']);
 Route::get('/login', [AuthController::class, 'showLogin']);
-
+Route::post('/logout', [AuthController::class, 'logout'])->middleware('web');
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index']);
 });
 
+// API Resources — add names() to avoid colliding with web.php route names
+Route::apiResource('asset-verifications', AssetVerificationApiController::class)->names('api.asset-verifications');
+Route::apiResource('asset-stocks', AssetStockApiController::class)->names('api.asset-stocks');
+Route::apiResource('assets', AssetApiController::class)->names('api.assets');
+Route::apiResource('asset-assignments', AssetAssignmentApiController::class)->names('api.asset-assignments');
+Route::apiResource('asset-categories', AssetCategoryApiController::class)->names('api.asset-categories');
+Route::apiResource('suppliers', SupplierApiController::class)->names('api.suppliers');
+Route::apiResource('programs', ProgramApiController::class)->names('api.programs');
+
 Route::prefix('locations')->group(function () {
-    Route::get('/', [LocationController::class, 'index']);          // List all
-    Route::get('/{id}', [LocationController::class, 'show']);       // View one
-    Route::post('/', [LocationController::class, 'store']);         // Create
-    Route::put('/{id}', [LocationController::class, 'update']);     // Update
-    Route::delete('/{id}', [LocationController::class, 'destroy']); // Delete
+    Route::get('/', [LocationController::class, 'index']);
+    Route::get('/{id}', [LocationController::class, 'show']);
+    Route::post('/', [LocationController::class, 'store']);
+    Route::put('/{id}', [LocationController::class, 'update']);
+    Route::delete('/{id}', [LocationController::class, 'destroy']);
 });
 
-
 Route::prefix('staff')->group(function () {
-    Route::get('/', [StaffController::class, 'index']);             // GET /api/staff
-    Route::get('/{id}', [StaffController::class, 'show']);          // GET /api/staff/1
-    Route::post('/', [StaffController::class, 'store']);            // POST /api/staff (Multipart)
-    Route::post('/{id}', [StaffController::class, 'update']);       // POST /api/staff/1
-    Route::delete('/{id}', [StaffController::class, 'destroy']);    // DELETE /api/staff/1
+    Route::get('/', [StaffController::class, 'index']);
+    Route::get('/{id}', [StaffController::class, 'show']);
+    Route::post('/', [StaffController::class, 'store']);
+    Route::post('/{id}', [StaffController::class, 'update']);
+    Route::delete('/{id}', [StaffController::class, 'destroy']);
 });
