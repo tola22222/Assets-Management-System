@@ -3,15 +3,15 @@ services:
     image: toladev1/ams_app:latest
     container_name: ams_app
     restart: always
-    env_file:
-      - .env
+    command: php -S 0.0.0.0:8080 -t /var/www/public/
     volumes:
+      - ./.env:/var/www/.env
       - storage_data:/var/www/storage
-      - app_public:/var/www/public        # shared with nginx
+      - app_public:/var/www/public
     depends_on:
       - db
     networks:
-      - laravel_net                        # fixed: was missing from nginx
+      - laravel_net
 
   nginx:
     image: nginx:alpine
@@ -21,11 +21,11 @@ services:
       - "80:80"
     volumes:
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
-      - app_public:/var/www/public        # fixed: shares public files from app
+      - app_public:/var/www/public
     depends_on:
       - app
     networks:
-      - laravel_net                        # fixed: was "app-network", mismatched
+      - laravel_net
 
   db:
     image: mysql:8.0
