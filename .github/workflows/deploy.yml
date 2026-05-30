@@ -39,6 +39,7 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           source: "docker-compose.yml,nginx/default.conf"
           target: /home/ubuntu/asset_management_app
+          overwrite: true
 
       - name: Deploy on EC2 via SSH
         uses: appleboy/ssh-action@v1.0.3
