@@ -11,6 +11,7 @@ php artisan db:seed
 php artisan serve
 
 githup
+AWS EC2
 
 
 
