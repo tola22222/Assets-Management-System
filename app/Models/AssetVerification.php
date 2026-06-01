@@ -45,4 +45,31 @@ class AssetVerification extends Model
     {
         return $this->belongsTo(Location::class);
     }
+
+    /**
+     * Get the user who performed the verification.
+     * Note: 'verified_by' stores the user ID
+     */
+    public function verifiedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'verified_by');
+    }
+
+    // OR if using Staff model:
+    // public function verifiedBy(): BelongsTo
+    // {
+    //     return $this->belongsTo(Staff::class, 'verified_by');
+    // }
+
+    /**
+     * Accessor to get verified by name
+     */
+    public function getVerifiedByNameAttribute(): string
+    {
+        if ($this->verified_by) {
+            $user = User::find($this->verified_by);
+            return $user ? $user->name : 'Unknown User';
+        }
+        return '—';
+    }
 }

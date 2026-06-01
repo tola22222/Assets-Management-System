@@ -1,7 +1,4 @@
 @php
-    /**
-     * Define Group Logic
-     */
     $groups = [
         'inventory' => ['assets.*', 'asset-assignments.*', 'asset-stocks.*', 'asset-verifications.*'],
         'people'    => ['staff.*', 'programs.*'],
@@ -16,34 +13,33 @@
         }
     }
 
-    // Design Tokens
-    $baseClass = 'flex items-center justify-between w-full px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200';
+    $baseClass    = 'flex items-center justify-between w-full px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200';
     $subLinkClass = 'flex items-center gap-3 pl-12 pr-4 py-2 rounded-xl text-sm font-medium transition-all duration-200';
 
-    // States
-    $activeTab = 'bg-indigo-50 text-indigo-600 shadow-sm';
-    $inactiveTab = 'text-slate-600 hover:bg-slate-50 hover:text-slate-900';
+    $activeTab    = 'bg-brand-50 text-brand shadow-sm';
+    $inactiveTab  = 'text-slate-600 hover:bg-slate-50 hover:text-slate-900';
 
-    $activeSubLink = 'text-indigo-600 font-bold bg-indigo-50/50';
+    $activeSubLink   = 'text-brand font-bold bg-brand-50';
     $inactiveSubLink = 'text-slate-500 hover:text-slate-900 hover:bg-slate-50';
 @endphp
 
 <aside class="w-72 bg-white border-r border-slate-200 hidden lg:flex flex-col h-screen sticky top-0"
     x-data="{ openGroup: '{{ $openGroup }}' }">
 
-    <div class="px-6 py-6 border-b border-slate-100">
-        <div class="flex items-center gap-3 text-indigo-600 font-bold text-xl tracking-tight">
-            <div class="bg-indigo-600 p-2 rounded-lg shadow-sm">
-                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                </svg>
+    {{-- LOGO --}}
+    <div class="px-6 py-5 border-b border-slate-100">
+        <div class="flex items-center gap-3">
+            <img src="{{ asset('images/logo.png') }}" alt="PEPY Logo" class="h-10 w-10 object-contain flex-shrink-0">
+            <div>
+                <p class="text-brand font-bold text-base leading-tight">PEPY Asset </p>
+                <p class="text-slate-400 text-xs">Asset Management</p>
             </div>
-            <span>PEPY Asset</span>
         </div>
     </div>
 
     <nav class="flex-1 px-4 py-4 space-y-1 overflow-y-auto">
 
+        {{-- Dashboard --}}
         <a href="{{ route('dashboard') }}"
             class="{{ $baseClass }} {{ request()->routeIs('dashboard') ? $activeTab : $inactiveTab }}">
             <div class="flex items-center gap-3">
@@ -54,9 +50,10 @@
             </div>
         </a>
 
+        {{-- Asset Management --}}
         <div class="space-y-1">
             <button @click="openGroup = openGroup === 'inventory' ? '' : 'inventory'"
-                class="{{ $baseClass }} {{ $openGroup === 'inventory' ? 'bg-slate-50 text-indigo-600' : $inactiveTab }}">
+                class="{{ $baseClass }} {{ $openGroup === 'inventory' ? 'bg-slate-50 text-brand' : $inactiveTab }}">
                 <div class="flex items-center gap-3">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
@@ -67,7 +64,6 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                 </svg>
             </button>
-
             <div x-show="openGroup === 'inventory'" x-cloak x-collapse class="space-y-1">
                 <a href="{{ route('assets.index') }}" class="{{ $subLinkClass }} {{ request()->routeIs('assets.*') ? $activeSubLink : $inactiveSubLink }}">Asset Register</a>
                 <a href="{{ route('asset-stocks.index') }}" class="{{ $subLinkClass }} {{ request()->routeIs('asset-stocks.*') ? $activeSubLink : $inactiveSubLink }}">Stock Movements</a>
@@ -76,9 +72,10 @@
             </div>
         </div>
 
+        {{-- People & Programs --}}
         <div class="space-y-1">
             <button @click="openGroup = openGroup === 'people' ? '' : 'people'"
-                class="{{ $baseClass }} {{ $openGroup === 'people' ? 'bg-slate-50 text-indigo-600' : $inactiveTab }}">
+                class="{{ $baseClass }} {{ $openGroup === 'people' ? 'bg-slate-50 text-brand' : $inactiveTab }}">
                 <div class="flex items-center gap-3">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M17 20H7m10 0v-2a5 5 0 00-10 0v2m5-13a3 3 0 110-6 3 3 0 010 6z" />
@@ -89,13 +86,13 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                 </svg>
             </button>
-
             <div x-show="openGroup === 'people'" x-cloak x-collapse class="space-y-1">
                 <a href="{{ route('staff.index') }}" class="{{ $subLinkClass }} {{ request()->routeIs('staff.*') ? $activeSubLink : $inactiveSubLink }}">Staff Directory</a>
                 <a href="{{ route('programs.index') }}" class="{{ $subLinkClass }} {{ request()->routeIs('programs.*') ? $activeSubLink : $inactiveSubLink }}">Programs</a>
             </div>
         </div>
 
+        {{-- Reports --}}
         <a href="{{ route('reports.index') }}"
             class="{{ $baseClass }} {{ request()->routeIs('reports.*') ? $activeTab : $inactiveTab }}">
             <div class="flex items-center gap-3">
@@ -106,9 +103,10 @@
             </div>
         </a>
 
+        {{-- System Setup --}}
         <div class="space-y-1">
             <button @click="openGroup = openGroup === 'settings' ? '' : 'settings'"
-                class="{{ $baseClass }} {{ $openGroup === 'settings' ? 'bg-slate-50 text-indigo-600' : $inactiveTab }}">
+                class="{{ $baseClass }} {{ $openGroup === 'settings' ? 'bg-slate-50 text-brand' : $inactiveTab }}">
                 <div class="flex items-center gap-3">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -119,15 +117,16 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                 </svg>
             </button>
-
             <div x-show="openGroup === 'settings'" x-cloak x-collapse class="space-y-1">
                 <a href="{{ route('categories.index') }}" class="{{ $subLinkClass }} {{ request()->routeIs('categories.*') ? $activeSubLink : $inactiveSubLink }}">Categories</a>
                 <a href="{{ route('assets-locations.index') }}" class="{{ $subLinkClass }} {{ request()->routeIs('assets-locations.*') ? $activeSubLink : $inactiveSubLink }}">Locations</a>
                 <a href="{{ route('suppliers.index') }}" class="{{ $subLinkClass }} {{ request()->routeIs('suppliers.*') ? $activeSubLink : $inactiveSubLink }}">Suppliers</a>
             </div>
         </div>
+
     </nav>
 
+    {{-- Logout --}}
     <div class="p-4 border-t border-slate-100">
         <form action="{{ route('logout') }}" method="POST">
             @csrf
