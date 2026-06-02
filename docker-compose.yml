@@ -7,7 +7,11 @@ services:
     volumes:
       - ./.env:/var/www/.env
       - storage_data:/var/www/storage
-      - app_public:/var/www/public
+      # ✅ FIXED: bind mount instead of named volume so your actual
+      #           public/ files (favicons, images, logo) are served.
+      #           Named volume "app_public" was overwriting public/ with
+      #           an empty volume and hiding all your assets.
+      - ./public:/var/www/public
     depends_on:
       - db
     networks:
@@ -21,7 +25,8 @@ services:
       - "80:80"
     volumes:
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
-      - app_public:/var/www/public
+      # ✅ FIXED: same bind mount so nginx reads the real public/ folder
+      - ./public:/var/www/public
     depends_on:
       - app
     networks:
@@ -48,4 +53,4 @@ networks:
 volumes:
   dbdata:
   storage_data:
-  app_public:
+  # ✅ REMOVED: app_public named volume (was the root cause of 404s)

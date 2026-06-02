@@ -19,15 +19,17 @@ COPY composer.json composer.lock ./
 # Install vendors without scripts
 RUN composer install --no-dev --optimize-autoloader --no-interaction --no-scripts
 
-# Copy full app
+# Copy full app (including public/images, public/favicon*.png)
 COPY . .
 
 # Run scripts now
 RUN composer dump-autoload --optimize
 RUN php artisan package:discover --ansi
 
-# Permissions
-RUN chown -R www-data:www-data storage bootstrap/cache
+# ✅ FIXED: permissions on public/ as well as storage and bootstrap/cache
+RUN chown -R www-data:www-data storage bootstrap/cache public \
+  && chmod -R 755 public \
+  && chmod -R 775 storage bootstrap/cache
 
 EXPOSE 9000
 CMD ["php-fpm"]
