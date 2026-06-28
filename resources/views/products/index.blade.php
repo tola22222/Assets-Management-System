@@ -1,141 +1,186 @@
 @extends('layouts.app')
-
+@section('title', 'Products')
 @section('content')
 <div class="space-y-6">
-    <div class="flex justify-between items-center">
-        <div>
-            <h1 class="text-2xl font-bold text-slate-800">Products</h1>
-            <p class="text-slate-500 text-sm">Define and manage item types for inventory.</p>
-        </div>
-        <button onclick="document.getElementById('addModal').classList.remove('hidden')" 
-                class="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold hover:bg-indigo-700 transition shadow-sm">
-            + New Product
-        </button>
-    </div>
+    @if(session('success'))
+    <div class="bg-emerald-50 dark:bg-emerald-950 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 px-4 py-3 rounded-xl text-sm">{{ session('success') }}</div>
+    @endif
+    @if(session('error'))
+    <div class="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 px-4 py-3 rounded-xl text-sm">{{ session('error') }}</div>
+    @endif
 
-    <div class="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
-        <table class="w-full text-left">
-            <thead class="bg-slate-50 border-b border-slate-200">
-                <tr>
-                    <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Product Name</th>
-                    <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Category</th>
-                    <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Type</th>
-                    <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase text-right">Actions</th>
-                </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-100">
-                @foreach($products as $product)
-                <tr class="hover:bg-slate-50/50 transition">
-                    <td class="px-6 py-4 font-bold text-slate-700">{{ $product->name }}</td>
-                    <td class="px-6 py-4">
-                        <span class="text-sm text-slate-600 bg-slate-100 px-2 py-1 rounded">
-                            {{ $product->category->name }}
-                        </span>
-                    </td>
-                    <td class="px-6 py-4">
-                        @if($product->asset_type === 'Fixed')
-                            <span class="px-2.5 py-1 bg-blue-100 text-blue-700 rounded-lg text-xs font-bold uppercase tracking-wider">
-                                Fixed
-                            </span>
-                        @else
-                            <span class="px-2.5 py-1 bg-amber-100 text-amber-700 rounded-lg text-xs font-bold uppercase tracking-wider">
-                                Consumable
-                            </span>
-                        @endif
-                    </td>
-                    <td class="px-6 py-4 text-right flex justify-end gap-4">
-                        <button onclick="openEditModal({{ $product }})" class="text-indigo-600 hover:text-indigo-900 text-sm font-bold">Edit</button>
-                        <form action="{{ route('products.destroy', $product) }}" method="POST" onsubmit="return confirm('Delete this product?')">
-                            @csrf @method('DELETE')
-                            <button type="submit" class="text-red-500 hover:text-red-700 text-sm font-bold">Delete</button>
-                        </form>
-                    </td>
-                </tr>
-                @endforeach
-            </tbody>
-        </table>
-        <div class="p-4 border-t border-slate-100">
+    <x-page-header
+        title="Products"
+        subtitle="Define and manage item types for inventory."
+        buttonText="New Product"
+        buttonAction="openAddModal()"
+    />
+
+    <div class="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse text-sm">
+                <thead>
+                    <tr class="text-gray-400 dark:text-gray-500 font-semibold bg-gray-50/70 dark:bg-gray-800/70 border-b border-gray-100 dark:border-gray-700">
+                        <th class="p-4 pl-5 font-semibold tracking-wide">Product Name</th>
+                        <th class="p-4 font-semibold tracking-wide">Category</th>
+                        <th class="p-4 font-semibold tracking-wide">Type</th>
+                        <th class="p-4 pr-5 font-semibold tracking-wide text-center">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100 dark:divide-gray-700 font-normal text-gray-600 dark:text-gray-400">
+                    @foreach($products as $product)
+                    <tr class="hover:bg-gray-50/50 dark:hover:bg-gray-800/50 transition">
+                        <td class="p-4 pl-5 font-medium text-gray-900 dark:text-white">{{ $product->name }}</td>
+                        <td class="p-4">
+                            <span class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">{{ $product->category->name }}</span>
+                        </td>
+                        <td class="p-4">
+                            @if($product->asset_type === 'Fixed')
+                                <span class="px-2.5 py-1 rounded-lg text-xs font-bold bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 uppercase">Fixed</span>
+                            @else
+                                <span class="px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 uppercase">Consumable</span>
+                            @endif
+                        </td>
+                        <td class="p-4 pr-5">
+                            <div class="flex items-center justify-center gap-1.5">
+                                <button onclick="openEditModal({{ $product }})"
+                                    class="w-7 h-7 bg-brand text-white rounded flex items-center justify-center hover:bg-brand-dark transition shadow-sm" title="Edit">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487zm0 0L19.5 7.125"/></svg>
+                                </button>
+                                <form action="{{ route('products.destroy', $product) }}" method="POST" class="inline" onsubmit="return confirm('Delete this product?')">
+                                    @csrf @method('DELETE')
+                                    <button type="submit"
+                                        class="w-7 h-7 bg-red-500 text-white rounded flex items-center justify-center hover:bg-red-600 transition shadow-sm" title="Delete">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg>
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+        @if(method_exists($products, 'links'))
+        <div class="p-4 border-t border-gray-100 dark:border-gray-700">
             {{ $products->links() }}
         </div>
+        @endif
     </div>
 </div>
 
-<div id="addModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-    <div class="bg-white rounded-2xl w-full max-w-md p-6 shadow-xl">
-        <h2 class="text-xl font-bold mb-4">New Product</h2>
-        <form action="{{ route('products.store') }}" method="POST" class="space-y-4">
+<div id="addModal" class="fixed inset-0 bg-gray-900/40 backdrop-blur-sm hidden z-[100] flex items-center justify-end p-4">
+    <div class="bg-white dark:bg-gray-800 w-full max-w-2xl rounded-2xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden animate__slide-in-right">
+        <div class="px-6 py-5 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between bg-white dark:bg-gray-800">
+            <h3 class="text-lg font-bold text-gray-900 dark:text-white tracking-wide">New Product</h3>
+            <button onclick="document.getElementById('addModal').classList.add('hidden'); document.body.style.overflow = 'auto';" class="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition p-1.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+        <form action="{{ route('products.store') }}" method="POST" class="flex-1 overflow-y-auto">
             @csrf
-            <div>
-                <label class="text-xs font-bold text-slate-500 uppercase">Category</label>
-                <select name="category_id" class="w-full mt-1 p-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500" required>
-                    <option value="">Select Category</option>
-                    @foreach($categories as $cat)
-                        <option value="{{ $cat->id }}">{{ $cat->name }}</option>
-                    @endforeach
-                </select>
+            <div class="p-6 space-y-5 bg-gray-50/30 dark:bg-gray-900/30">
+                <div class="space-y-1.5">
+                    <label class="text-xs font-semibold text-gray-700 dark:text-gray-300 tracking-wide">Category <span class="text-red-500">*</span></label>
+                    <select name="category_id" required
+                        class="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl px-3.5 py-2.5 text-sm dark:text-gray-200 focus:outline-none focus:border-brand transition">
+                        <option value="">Select Category</option>
+                        @foreach($categories as $cat)
+                            <option value="{{ $cat->id }}">{{ $cat->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="space-y-1.5">
+                    <label class="text-xs font-semibold text-gray-700 dark:text-gray-300 tracking-wide">Product Name <span class="text-red-500">*</span></label>
+                    <input type="text" name="name" required placeholder="e.g. MacBook Air M2"
+                        class="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-brand transition placeholder-gray-300 dark:placeholder-gray-500 dark:text-gray-200">
+                </div>
+                <div class="space-y-1.5">
+                    <label class="text-xs font-semibold text-gray-700 dark:text-gray-300 tracking-wide">Asset Type <span class="text-red-500">*</span></label>
+                    <select name="asset_type" required
+                        class="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl px-3.5 py-2.5 text-sm dark:text-gray-200 focus:outline-none focus:border-brand transition">
+                        <option value="Fixed">Fixed Asset</option>
+                        <option value="Consumable">Consumable</option>
+                    </select>
+                </div>
             </div>
-            <div>
-                <label class="text-xs font-bold text-slate-500 uppercase">Product Name</label>
-                <input type="text" name="name" class="w-full mt-1 p-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500" required placeholder="e.g., MacBook Air M2">
-            </div>
-            <div>
-                <label class="text-xs font-bold text-slate-500 uppercase">Asset Type</label>
-                <select name="asset_type" class="w-full mt-1 p-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500" required>
-                    <option value="Fixed">Fixed Asset</option>
-                    <option value="Consumable">Consumable</option>
-                </select>
-            </div>
-            <div class="flex gap-2 justify-end pt-4">
-                <button type="button" onclick="document.getElementById('addModal').classList.add('hidden')" class="px-4 py-2 text-slate-500">Cancel</button>
-                <button type="submit" class="bg-indigo-600 text-white px-6 py-2 rounded-lg font-bold">Save Product</button>
+            <div class="p-4 border-t border-gray-100 dark:border-gray-700 flex items-center justify-center gap-3 bg-white dark:bg-gray-800">
+                <button type="button" onclick="document.getElementById('addModal').classList.add('hidden'); document.body.style.overflow = 'auto';"
+                    class="border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 font-semibold text-sm px-10 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition">Cancel</button>
+                <button type="submit"
+                    class="bg-brand hover:bg-brand-dark text-white font-semibold text-sm px-12 py-2.5 rounded-xl shadow-sm transition">Save Product</button>
             </div>
         </form>
     </div>
 </div>
 
-<div id="editModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-    <div class="bg-white rounded-2xl w-full max-w-md p-6 shadow-xl">
-        <h2 class="text-xl font-bold mb-4">Edit Product</h2>
-        <form id="editForm" method="POST" class="space-y-4">
+<div id="editModal" class="fixed inset-0 bg-gray-900/40 backdrop-blur-sm hidden z-[100] flex items-center justify-end p-4">
+    <div class="bg-white dark:bg-gray-800 w-full max-w-2xl rounded-2xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden animate__slide-in-right">
+        <div class="px-6 py-5 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between bg-white dark:bg-gray-800">
+            <h3 class="text-lg font-bold text-gray-900 dark:text-white tracking-wide">Edit Product</h3>
+            <button onclick="closeEditModal()" class="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition p-1.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+        <form id="editForm" method="POST" class="flex-1 overflow-y-auto">
             @csrf @method('PUT')
-            <div>
-                <label class="text-xs font-bold text-slate-500 uppercase">Category</label>
-                <select name="category_id" id="edit_category_id" class="w-full mt-1 p-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500" required>
-                    @foreach($categories as $cat)
-                        <option value="{{ $cat->id }}">{{ $cat->name }}</option>
-                    @endforeach
-                </select>
+            <div class="p-6 space-y-5 bg-gray-50/30 dark:bg-gray-900/30">
+                <div class="space-y-1.5">
+                    <label class="text-xs font-semibold text-gray-700 dark:text-gray-300 tracking-wide">Category <span class="text-red-500">*</span></label>
+                    <select name="category_id" id="edit_category_id" required
+                        class="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl px-3.5 py-2.5 text-sm dark:text-gray-200 focus:outline-none focus:border-brand transition">
+                        @foreach($categories as $cat)
+                            <option value="{{ $cat->id }}">{{ $cat->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="space-y-1.5">
+                    <label class="text-xs font-semibold text-gray-700 dark:text-gray-300 tracking-wide">Product Name <span class="text-red-500">*</span></label>
+                    <input type="text" name="name" id="edit_name" required
+                        class="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-brand transition placeholder-gray-300 dark:placeholder-gray-500 dark:text-gray-200">
+                </div>
+                <div class="space-y-1.5">
+                    <label class="text-xs font-semibold text-gray-700 dark:text-gray-300 tracking-wide">Asset Type <span class="text-red-500">*</span></label>
+                    <select name="asset_type" id="edit_asset_type" required
+                        class="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl px-3.5 py-2.5 text-sm dark:text-gray-200 focus:outline-none focus:border-brand transition">
+                        <option value="Fixed">Fixed Asset</option>
+                        <option value="Consumable">Consumable</option>
+                    </select>
+                </div>
             </div>
-            <div>
-                <label class="text-xs font-bold text-slate-500 uppercase">Product Name</label>
-                <input type="text" name="name" id="edit_name" class="w-full mt-1 p-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500" required>
-            </div>
-            <div>
-                <label class="text-xs font-bold text-slate-500 uppercase">Asset Type</label>
-                <select name="asset_type" id="edit_asset_type" class="w-full mt-1 p-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500" required>
-                    <option value="Fixed">Fixed Asset</option>
-                    <option value="Consumable">Consumable</option>
-                </select>
-            </div>
-            <div class="flex gap-2 justify-end pt-4">
-                <button type="button" onclick="closeEditModal()" class="px-4 py-2 text-slate-500">Cancel</button>
-                <button type="submit" class="bg-indigo-600 text-white px-6 py-2 rounded-lg font-bold">Update Product</button>
+            <div class="p-4 border-t border-gray-100 dark:border-gray-700 flex items-center justify-center gap-3 bg-white dark:bg-gray-800">
+                <button type="button" onclick="closeEditModal()"
+                    class="border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 font-semibold text-sm px-10 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition">Cancel</button>
+                <button type="submit"
+                    class="bg-brand hover:bg-brand-dark text-white font-semibold text-sm px-12 py-2.5 rounded-xl shadow-sm transition">Update Product</button>
             </div>
         </form>
     </div>
 </div>
+
+<style>
+.animate__slide-in-right { animation: slideInRight 0.2s ease-out; }
+@keyframes slideInRight { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+</style>
 
 <script>
+    function openAddModal() {
+        document.getElementById('addModal').classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+    }
+
     function openEditModal(product) {
         document.getElementById('editForm').action = `/products/${product.id}`;
         document.getElementById('edit_name').value = product.name;
         document.getElementById('edit_category_id').value = product.category_id;
         document.getElementById('edit_asset_type').value = product.asset_type;
         document.getElementById('editModal').classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
     }
 
     function closeEditModal() {
         document.getElementById('editModal').classList.add('hidden');
+        document.body.style.overflow = 'auto';
     }
 </script>
 @endsection

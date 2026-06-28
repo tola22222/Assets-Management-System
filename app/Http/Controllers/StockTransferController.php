@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Models\StockTransfer;
 use App\Models\StockTransferItem;
-use App\Models\School;
 use App\Models\Product;
 use App\Models\ActivityLog;
 use Illuminate\Http\Request;

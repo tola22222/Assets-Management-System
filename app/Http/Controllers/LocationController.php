@@ -3,47 +3,81 @@
 namespace App\Http\Controllers;
 
 use App\Models\Location;
+use App\Models\ActivityLog;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class LocationController extends Controller
 {
-    // Display all locations
     public function index()
     {
-        $locations = Location::latest()->get();
+        $locations = Location::withCount('assetStocks')->latest()->get();
         return view('locations.index', compact('locations'));
     }
 
-    // Store new location
     public function store(Request $request)
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'type' => 'required|in:office,lab,program',
+            'type' => 'required|in:office,lab,program,classroom,storage',
+            'description' => 'nullable|string',
         ]);
 
-        Location::create($validated);
+        $location = Location::create($validated);
 
-        return redirect()->back()->with('success', 'Location created successfully.');
+        ActivityLog::create([
+            'user_id' => Auth::id(),
+            'action' => 'Create',
+            'description' => 'Created location: ' . $location->name,
+        ]);
+
+        return redirect()->route('assets-locations.index')->with('success', 'Location created successfully.');
     }
 
-    // Update location
-    public function update(Request $request, Location $location) // ✅ use $location for route model binding
+    public function show(Location $location)
+    {
+        $location->load('assetStocks.asset');
+        $assets = $location->assetStocks()->with('asset')->get();
+        return view('locations.show', compact('location', 'assets'));
+    }
+
+    public function edit(Location $location)
+    {
+        return response()->json($location);
+    }
+
+    public function update(Request $request, Location $location)
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'type' => 'required|in:office,lab,program',
+            'type' => 'required|in:office,lab,program,classroom,storage',
+            'description' => 'nullable|string',
         ]);
 
         $location->update($validated);
 
-        return redirect()->back()->with('success', 'Location updated successfully.');
+        ActivityLog::create([
+            'user_id' => Auth::id(),
+            'action' => 'Update',
+            'description' => 'Updated location: ' . $location->name,
+        ]);
+
+        return redirect()->route('assets-locations.index')->with('success', 'Location updated successfully.');
     }
 
-    // Delete location
     public function destroy(Location $location)
     {
+        if ($location->assetStocks()->count() > 0) {
+            return redirect()->route('assets-locations.index')->with('error', 'Cannot delete location with assets.');
+        }
         $location->delete();
-        return redirect()->back()->with('success', 'Location deleted successfully.');
+
+        ActivityLog::create([
+            'user_id' => Auth::id(),
+            'action' => 'Delete',
+            'description' => 'Deleted location: ' . $location->name,
+        ]);
+
+        return redirect()->route('assets-locations.index')->with('success', 'Location deleted.');
     }
 }

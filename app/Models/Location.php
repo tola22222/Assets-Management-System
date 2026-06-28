@@ -6,6 +6,10 @@ use Illuminate\Database\Eloquent\Model;
 
 class Location extends Model
 {
-     protected $fillable = ['name','type'];
+    protected $fillable = ['name', 'type', 'description'];
 
+    public function assetStocks()
+    {
+        return $this->hasMany(AssetStock::class);
+    }
 }

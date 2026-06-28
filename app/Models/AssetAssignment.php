@@ -19,13 +19,21 @@ class AssetAssignment extends Model
         'quantity',
         'assigned_date',
         'due_date',        // ADD THIS
-        'status'
+        'status',
+        'image_path'
     ];
+
+    protected $appends = ['image_url'];
 
     protected $casts = [
         'assigned_date' => 'datetime',
         'due_date' => 'datetime',  // ADD THIS
     ];
+
+    public function getImageUrlAttribute()
+    {
+        return $this->image_path ? asset('storage/' . $this->image_path) : null;
+    }
 
     // Polymorphic relationship for assigned_to (staff OR program)
     public function assignee(): MorphTo
@@ -41,6 +49,21 @@ class AssetAssignment extends Model
     public function location(): BelongsTo
     {
         return $this->belongsTo(Location::class);
+    }
+
+    public function returns()
+    {
+        return $this->hasMany(AssetReturn::class, 'assignment_id');
+    }
+
+    // Get assignee photo URL (staff photo or program placeholder)
+    public function getAssigneePhotoAttribute(): ?string
+    {
+        if ($this->assigned_to_type === 'staff') {
+            $staff = \App\Models\Staff::find($this->assigned_to_id);
+            return $staff?->photo_path_url;
+        }
+        return null;
     }
 
     // Helper attribute to get recipient name

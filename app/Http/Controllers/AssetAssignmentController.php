@@ -3,11 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Models\Asset;
-use App\Models\Staff;
-use App\Models\Location;
-use App\Models\Program;
 use App\Models\AssetAssignment;
+use App\Models\AssetStock;
+use App\Models\Location;
+use App\Models\Staff;
+use App\Models\Program;
 use App\Models\ActivityLog;
+use App\Models\Notification;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -16,129 +19,172 @@ class AssetAssignmentController extends Controller
 {
     public function index()
     {
-        $assignments = AssetAssignment::with(['asset', 'location'])->latest()->get();
-
+        $user = Auth::user();
+        if ($user->isAdmin()) {
+            $assignments = AssetAssignment::with(['asset', 'assignee', 'location'])->latest()->get();
+        } else {
+            $assignments = AssetAssignment::where('assigned_to_type', 'staff')
+                ->where('assigned_to_id', $user->staff_id)
+                ->with(['asset', 'location'])
+                ->latest()
+                ->get();
+        }
         $assets = Asset::where('status', 'active')->get();
-        $staffs = Staff::where('status', 'active')->get();
         $locations = Location::all();
+        $staffList = Staff::where('status', 'active')->get();
         $programs = Program::all();
-
-        return view('asset-assignments.index', compact('assignments', 'assets', 'staffs', 'locations', 'programs'));
+        return view('asset-assignments.index', compact('assignments', 'assets', 'locations', 'staffList', 'programs'));
     }
 
     public function store(Request $request)
     {
-        $data = $request->validate([
+        $validated = $request->validate([
             'asset_id' => 'required|exists:assets,id',
             'assigned_to_type' => 'required|in:staff,program',
-            'assigned_to_id' => 'required',
+            'assigned_to_id' => 'required|integer',
             'location_id' => 'required|exists:locations,id',
             'quantity' => 'required|integer|min:1',
             'assigned_date' => 'required|date',
+            'due_date' => 'nullable|date|after_or_equal:assigned_date',
         ]);
 
-        DB::transaction(function () use ($data) {
+        // Verify polymorphic relation
+        if ($validated['assigned_to_type'] === 'staff') {
+            $assignee = Staff::findOrFail($validated['assigned_to_id']);
+        } else {
+            $assignee = Program::findOrFail($validated['assigned_to_id']);
+        }
 
-            // 1️⃣ Get stock for this asset + location
-            $stock = DB::table('asset_stock')
-                ->where('asset_id', $data['asset_id'])
-                ->where('location_id', $data['location_id'])
-                ->lockForUpdate()
-                ->first();
+        $validated['status'] = 'assigned';
 
-            if (!$stock || $stock->quantity < $data['quantity']) {
-                throw new \Exception('Not enough stock available.');
-            }
+        $assignment = AssetAssignment::create($validated);
 
-            // 2️⃣ Create assignment
-            $data['status'] = 'assigned';
-            $assignment = AssetAssignment::create($data);
+        // Decrement stock
+        $stock = AssetStock::where('asset_id', $validated['asset_id'])
+            ->where('location_id', $validated['location_id'])
+            ->first();
 
-            // 3️⃣ Decrease stock
-            DB::table('asset_stock')
-                ->where('id', $stock->id)
-                ->update([
-                    'quantity' => $stock->quantity - $data['quantity'],
-                    'updated_at' => now()
-                ]);
+        if ($stock && $stock->quantity >= $validated['quantity']) {
+            $stock->decrement('quantity', $validated['quantity']);
+        }
 
-            // 4️⃣ Log movement
-            DB::table('asset_movements')->insert([
-                'asset_id' => $data['asset_id'],
-                'from_location_id' => $data['location_id'],
-                'to_location_id' => null,
-                'movement_type' => 'stock_out',
-                'quantity' => $data['quantity'],
-                'reference_no' => 'ASSIGN-' . $assignment->id,
-                'created_by' => auth()->id(),
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
+        $recipientName = $assignment->recipient_name;
 
-            // 5️⃣ Activity log
-            ActivityLog::create([
+        ActivityLog::create([
             'user_id' => Auth::id(),
-            'action' => 'Assignment',
-                'description' => "Assigned asset ID {$data['asset_id']} (Qty: {$data['quantity']})",
-            ]);
-        });
+            'action' => 'Assign',
+            'description' => 'Assigned asset to ' . $recipientName,
+        ]);
 
-        return redirect()->back()->with('success', 'Asset assigned and stock updated!');
+        Notification::create([
+            'user_id' => Auth::id(),
+            'type' => 'asset_assigned',
+            'message' => 'Asset assigned to ' . $recipientName,
+            'url' => route('asset-assignments.index'),
+        ]);
+
+        return redirect()->route('asset-assignments.index')->with('success', 'Asset assigned successfully.');
+    }
+
+    public function show(AssetAssignment $assetAssignment)
+    {
+        $assetAssignment->load(['asset', 'assignee', 'location', 'returns']);
+        return view('asset-assignments.show', compact('assetAssignment'));
+    }
+
+    public function edit(AssetAssignment $assetAssignment)
+    {
+        return response()->json($assetAssignment->load(['asset', 'assignee']));
     }
 
     public function update(Request $request, AssetAssignment $assetAssignment)
     {
-        $data = $request->validate([
-            'status' => 'required|in:assigned,returned',
+        $validated = $request->validate([
             'location_id' => 'required|exists:locations,id',
+            'due_date' => 'nullable|date',
+            'status' => 'required|in:assigned,active,returned',
         ]);
 
-        DB::transaction(function () use ($data, $assetAssignment) {
+        $assetAssignment->update($validated);
 
-            // Update assignment
-            $assetAssignment->update($data);
+        ActivityLog::create([
+            'user_id' => Auth::id(),
+            'action' => 'Update',
+            'description' => 'Updated assignment for ' . $assetAssignment->recipient_name,
+        ]);
 
-            // If returned, update asset status safely
-            if ($data['status'] === 'returned') {
-                $asset = $assetAssignment->asset;
-
-                // Get ENUM values for status
-                $enumValues = $this->getAssetEnumValues('status');
-
-                // Set status to 'available' if allowed, otherwise 'active'
-                $asset->status = in_array('available', $enumValues) ? 'available' : 'active';
-                $asset->save();
-
-                // Increase stock back
-                $stock = DB::table('asset_stock')
-                    ->where('asset_id', $asset->id)
-                    ->where('location_id', $assetAssignment->location_id)
-                    ->first();
-
-                if ($stock) {
-                    DB::table('asset_stock')
-                        ->where('id', $stock->id)
-                        ->update([
-                            'quantity' => $stock->quantity + $assetAssignment->quantity,
-                            'updated_at' => now()
-                        ]);
-                }
-            }
-        });
-
-        return redirect()->back()->with('success', 'Assignment updated.');
+        return redirect()->route('asset-assignments.index')->with('success', 'Assignment updated successfully.');
     }
 
-    /**
-     * Helper to get ENUM values for a column in assets table
-     */
-    private function getAssetEnumValues($column)
+    public function cancel(AssetAssignment $assetAssignment)
     {
-        $result = DB::select("SHOW COLUMNS FROM assets WHERE Field = ?", [$column]);
-        if (!$result) return [];
+        $assetAssignment->update(['status' => 'returned']);
 
-        $type = $result[0]->Type ?? '';
-        preg_match("/^enum\('(.*)'\)$/", $type, $matches);
-        return $matches ? explode("','", $matches[1]) : [];
+        // Restore stock
+        $stock = AssetStock::firstOrCreate(
+            ['asset_id' => $assetAssignment->asset_id, 'location_id' => $assetAssignment->location_id],
+            ['quantity' => 0]
+        );
+        $stock->increment('quantity', $assetAssignment->quantity);
+
+        ActivityLog::create([
+            'user_id' => Auth::id(),
+            'action' => 'Cancel',
+            'description' => 'Cancelled assignment for ' . $assetAssignment->recipient_name,
+        ]);
+
+        return redirect()->route('asset-assignments.index')->with('success', 'Assignment cancelled.');
+    }
+
+    public function returnAsset(Request $request, AssetAssignment $assetAssignment)
+    {
+        $validated = $request->validate([
+            'condition' => 'required|string',
+            'remark' => 'nullable|string',
+            'image' => 'nullable|image|mimes:jpeg,png,jpg|max:5120',
+        ]);
+
+        $data = [
+            'status' => 'returned',
+        ];
+
+        if ($request->hasFile('image')) {
+            $data['image_path'] = $request->file('image')->store('assignments', 'public');
+        }
+
+        $assetAssignment->update($data);
+
+        // Restore stock
+        $stock = AssetStock::firstOrCreate(
+            ['asset_id' => $assetAssignment->asset_id, 'location_id' => $assetAssignment->location_id],
+            ['quantity' => 0]
+        );
+        $stock->increment('quantity', $assetAssignment->quantity);
+
+        ActivityLog::create([
+            'user_id' => Auth::id(),
+            'action' => 'Return',
+            'description' => 'Processed return for ' . $assetAssignment->recipient_name,
+        ]);
+
+        return redirect()->route('asset-assignments.index')->with('success', 'Asset returned successfully.');
+    }
+
+    public function history(AssetAssignment $assetAssignment)
+    {
+        $history = AssetAssignment::where('asset_id', $assetAssignment->asset_id)
+            ->with(['assignee', 'location'])
+            ->latest()
+            ->get();
+        return response()->json($history);
+    }
+
+    public function destroy(AssetAssignment $assetAssignment)
+    {
+        if ($assetAssignment->status === 'returned') {
+            $assetAssignment->delete();
+            return redirect()->route('asset-assignments.index')->with('success', 'Assignment deleted.');
+        }
+        return redirect()->route('asset-assignments.index')->with('error', 'Cannot delete active assignment.');
     }
 }

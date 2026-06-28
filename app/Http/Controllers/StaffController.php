@@ -7,6 +7,7 @@ use App\Models\ActivityLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 
 class StaffController extends Controller
 {
@@ -18,13 +19,16 @@ class StaffController extends Controller
 
     public function store(Request $request)
     {
+        if (!Auth::user()->isAdmin()) {
+            throw ValidationException::withMessages(['full_name' => 'Only administrators can create staff members.']);
+        }
         $data = $request->validate([
             'full_name' => 'required|string|max:255',
             'email'     => 'nullable|email|unique:staff,email',
             'phone'     => 'nullable|string|max:20',
             'position'  => 'nullable|string|max:100',
             'hire_date' => 'nullable|date',
-            'photo'     => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
+            'photo'     => 'nullable|image|mimes:jpeg,png,jpg|max:5120',
         ]);
 
         if ($request->hasFile('photo')) {
@@ -44,6 +48,9 @@ class StaffController extends Controller
 
     public function update(Request $request, Staff $staff)
     {
+        if (!Auth::user()->isAdmin()) {
+            abort(403, 'Only administrators can update staff members.');
+        }
         $data = $request->validate([
             'full_name' => 'required|string|max:255',
             'email'     => 'nullable|email|unique:staff,email,' . $staff->id,
@@ -51,7 +58,7 @@ class StaffController extends Controller
             'position'  => 'nullable|string|max:100',
             'hire_date' => 'nullable|date',
             'status'    => 'required|in:active,inactive',
-            'photo'     => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
+            'photo'     => 'nullable|image|mimes:jpeg,png,jpg|max:5120',
         ]);
 
         if ($request->hasFile('photo')) {
@@ -75,6 +82,9 @@ class StaffController extends Controller
 
     public function destroy(Staff $staff)
     {
+        if (!Auth::user()->isAdmin()) {
+            abort(403, 'Only administrators can delete staff members.');
+        }
         $name = $staff->full_name;
         
         if ($staff->photo_path) {

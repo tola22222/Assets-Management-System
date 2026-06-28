@@ -1,445 +1,93 @@
 @extends('layouts.app')
-
 @section('title', 'Reports')
-
 @section('content')
-<div class="max-w-screen-xl mx-auto px-4 py-6 space-y-6">
+<div class="space-y-8">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Reports</h1>
+        <p class="text-gray-500 dark:text-gray-400 text-sm">Generate and export reports.</p>
+    </div>
 
-    {{-- Header --}}
-    <div class="flex items-center justify-between">
-        <div>
-            <h1 class="text-xl font-bold text-slate-800">Reports & Analytics</h1>
-            <p class="text-sm text-slate-500 mt-0.5">PEPY Asset Management — full system overview</p>
-        </div>
-        <a href="{{ request()->fullUrlWithQuery(['export' => 1]) }}"
-           class="inline-flex items-center gap-2 px-4 py-2 bg-brand text-white text-sm font-medium rounded-xl hover:bg-brand-dark transition">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3"/>
-            </svg>
-            Export
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        @if(Auth::user()->isAdmin())
+        <a href="{{ route('reports.inventory') }}" class="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition group">
+            <span class="p-3 bg-brand-50 rounded-xl inline-block group-hover:scale-110 transition flex items-center justify-center">
+                <img src="{{ asset('images/Asset.svg') }}" class="w-6 h-6" alt="">
+            </span>
+            <h3 class="font-bold text-gray-900 dark:text-white mt-4">Inventory Report</h3>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">View all assets with details</p>
         </a>
+        <a href="{{ route('reports.assignments') }}" class="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition group">
+            <span class="p-3 bg-emerald-50 rounded-xl inline-block group-hover:scale-110 transition flex items-center justify-center">
+                <img src="{{ asset('images/staff.svg') }}" class="w-6 h-6" alt="">
+            </span>
+            <h3 class="font-bold text-gray-900 dark:text-white mt-4">Assignment Report</h3>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Asset assignment history</p>
+        </a>
+        <a href="{{ route('reports.transfers') }}" class="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition group">
+            <span class="p-3 bg-indigo-50 rounded-xl inline-block group-hover:scale-110 transition flex items-center justify-center">
+                <img src="{{ asset('images/report.svg') }}" class="w-6 h-6" alt="">
+            </span>
+            <h3 class="font-bold text-gray-900 dark:text-white mt-4">Transfer Report</h3>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Asset transfer history</p>
+        </a>
+        <a href="{{ route('reports.verifications') }}" class="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition group">
+            <span class="p-3 bg-purple-50 rounded-xl inline-block group-hover:scale-110 transition flex items-center justify-center">
+                <img src="{{ asset('images/Dasboard.svg') }}" class="w-6 h-6" alt="">
+            </span>
+            <h3 class="font-bold text-gray-900 dark:text-white mt-4">Verification Report</h3>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Asset verification records</p>
+        </a>
+        <a href="{{ route('reports.returns') }}" class="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition group">
+            <span class="p-3 bg-orange-50 rounded-xl inline-block group-hover:scale-110 transition flex items-center justify-center">
+                <svg class="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 9l6-6m0 0l6 6m-6-6v12a6 6 0 01-12 0v-3"/></svg>
+            </span>
+            <h3 class="font-bold text-gray-900 dark:text-white mt-4">Return Report</h3>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Asset return records</p>
+        </a>
+        <a href="{{ route('reports.disposed') }}" class="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition group">
+            <span class="p-3 bg-red-50 rounded-xl inline-block group-hover:scale-110 transition flex items-center justify-center">
+                <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg>
+            </span>
+            <h3 class="font-bold text-gray-900 dark:text-white mt-4">Disposed Assets</h3>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Disposed asset records</p>
+        </a>
+        <a href="{{ route('reports.lost') }}" class="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition group">
+            <span class="p-3 bg-rose-50 rounded-xl inline-block group-hover:scale-110 transition flex items-center justify-center">
+                <svg class="w-6 h-6 text-rose-600" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/></svg>
+            </span>
+            <h3 class="font-bold text-gray-900 dark:text-white mt-4">Lost Assets</h3>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Lost asset records</p>
+        </a>
+        <a href="{{ route('reports.locations') }}" class="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition group">
+            <span class="p-3 bg-teal-50 rounded-xl inline-block group-hover:scale-110 transition flex items-center justify-center">
+                <img src="{{ asset('images/setting.svg') }}" class="w-6 h-6" alt="">
+            </span>
+            <h3 class="font-bold text-gray-900 dark:text-white mt-4">Location Report</h3>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Location information</p>
+        </a>
+        <a href="{{ route('reports.qr-scans') }}" class="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition group">
+            <span class="p-3 bg-gray-50 rounded-xl inline-block group-hover:scale-110 transition flex items-center justify-center">
+                <img src="{{ asset('images/qr-code.svg') }}" class="w-6 h-6" alt="">
+            </span>
+            <h3 class="font-bold text-gray-900 dark:text-white mt-4">QR Scan Report</h3>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">QR scan history</p>
+        </a>
+        @else
+        <a href="{{ route('reports.assignments') }}" class="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition group">
+            <span class="p-3 bg-emerald-50 rounded-xl inline-block group-hover:scale-110 transition flex items-center justify-center">
+                <svg class="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/></svg>
+            </span>
+            <h3 class="font-bold text-gray-900 dark:text-white mt-4">My Assignment History</h3>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">View your assignment records</p>
+        </a>
+        <a href="{{ route('reports.verifications') }}" class="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition group">
+            <span class="p-3 bg-purple-50 rounded-xl inline-block group-hover:scale-110 transition flex items-center justify-center">
+                <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            </span>
+            <h3 class="font-bold text-gray-900 dark:text-white mt-4">My Verification History</h3>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">View your verification records</p>
+        </a>
+        @endif
     </div>
-
-    {{-- Tab Nav --}}
-    <div class="flex gap-1 bg-slate-100 p-1 rounded-xl w-fit flex-wrap">
-        @php
-            $tabs = [
-                'procurement' => ['label' => 'Procurement',       'icon' => 'M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2 5h12M9 21a1 1 0 100-2 1 1 0 000 2zm10 0a1 1 0 100-2 1 1 0 000 2z'],
-                'inventory'   => ['label' => 'Inventory Control', 'icon' => 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4'],
-                'operations'  => ['label' => 'Operations',        'icon' => 'M17 20H7m10 0v-2a5 5 0 00-10 0v2m5-13a3 3 0 110-6 3 3 0 010 6z'],
-                'qa'          => ['label' => 'Quality Assurance', 'icon' => 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z'],
-            ];
-        @endphp
-        @foreach($tabs as $key => $tab)
-            <a href="{{ request()->fullUrlWithQuery(['tab' => $key]) }}"
-               class="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all
-                      {{ $activeTab === $key ? 'bg-white text-brand shadow-sm' : 'text-slate-500 hover:text-slate-800' }}">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="{{ $tab['icon'] }}"/>
-                </svg>
-                {{ $tab['label'] }}
-            </a>
-        @endforeach
-    </div>
-
-    {{-- ══════════════════════════════════════════════════════
-         TAB 1 — PROCUREMENT
-    ══════════════════════════════════════════════════════ --}}
-    @if($activeTab === 'procurement')
-
-        {{-- Stats --}}
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            @php
-                $pCards = [
-                    ['label' => 'Pending Orders',       'value' => $procurementStats['pending_count'],      'color' => 'text-amber-600',  'bg' => 'bg-amber-50'],
-                    ['label' => 'Received This Month',  'value' => $procurementStats['completed_month'],    'color' => 'text-brand',      'bg' => 'bg-brand-50'],
-                    ['label' => 'Total Spend (USD)',     'value' => '$'.number_format($procurementStats['total_procurement'], 2), 'color' => 'text-slate-800', 'bg' => 'bg-slate-50'],
-                ];
-            @endphp
-            @foreach($pCards as $card)
-                <div class="bg-white border border-slate-200 rounded-2xl p-5">
-                    <p class="text-xs text-slate-500 font-medium uppercase tracking-wide">{{ $card['label'] }}</p>
-                    <p class="text-2xl font-bold {{ $card['color'] }} mt-1">{{ $card['value'] }}</p>
-                </div>
-            @endforeach
-        </div>
-
-        {{-- Filters --}}
-        <form method="GET" action="{{ route('reports.index') }}" class="flex flex-wrap gap-3 items-end bg-white border border-slate-200 rounded-2xl p-4">
-            <input type="hidden" name="tab" value="procurement">
-            <div>
-                <label class="block text-xs font-medium text-slate-600 mb-1">Quick View</label>
-                <select name="view" class="px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand outline-none">
-                    <option value="">All Time</option>
-                    <option value="day"   {{ request('view') == 'day'   ? 'selected' : '' }}>Today</option>
-                    <option value="month" {{ request('view') == 'month' ? 'selected' : '' }}>This Month</option>
-                    <option value="year"  {{ request('view') == 'year'  ? 'selected' : '' }}>This Year</option>
-                </select>
-            </div>
-            <div>
-                <label class="block text-xs font-medium text-slate-600 mb-1">From</label>
-                <input type="date" name="start_date" value="{{ request('start_date') }}"
-                    class="px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand outline-none">
-            </div>
-            <div>
-                <label class="block text-xs font-medium text-slate-600 mb-1">To</label>
-                <input type="date" name="end_date" value="{{ request('end_date') }}"
-                    class="px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand outline-none">
-            </div>
-            <button type="submit" class="px-4 py-2 bg-brand text-white text-sm font-medium rounded-lg hover:bg-brand-dark transition">
-                Filter
-            </button>
-            <a href="{{ route('reports.index', ['tab' => 'procurement']) }}" class="px-4 py-2 text-sm text-slate-500 hover:text-slate-800 border border-slate-200 rounded-lg">
-                Reset
-            </a>
-        </form>
-
-        {{-- Table --}}
-        <div class="bg-white border border-slate-200 rounded-2xl overflow-hidden">
-            <div class="px-5 py-4 border-b border-slate-100">
-                <h2 class="font-semibold text-slate-800 text-sm">Purchase Orders</h2>
-                <p class="text-xs text-slate-400 mt-0.5">Suppliers · purchase_orders · purchase_order_items</p>
-            </div>
-            <div class="overflow-x-auto">
-                <table class="w-full text-sm">
-                    <thead class="bg-slate-50 text-xs uppercase text-slate-500 tracking-wide">
-                        <tr>
-                            <th class="px-5 py-3 text-left">PO Number</th>
-                            <th class="px-5 py-3 text-left">Supplier</th>
-                            <th class="px-5 py-3 text-left">Items</th>
-                            <th class="px-5 py-3 text-left">Total (USD)</th>
-                            <th class="px-5 py-3 text-left">Status</th>
-                            <th class="px-5 py-3 text-left">Date</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-100">
-                        @forelse($procurementOrders as $order)
-                            <tr class="hover:bg-slate-50 transition">
-                                <td class="px-5 py-3 font-mono text-xs text-slate-700">{{ $order->po_number ?? 'PO-'.$order->id }}</td>
-                                <td class="px-5 py-3 text-slate-800">{{ $order->supplier->name ?? '—' }}</td>
-                                <td class="px-5 py-3 text-slate-600">{{ $order->items->count() }} item(s)</td>
-                                <td class="px-5 py-3 font-semibold text-slate-800">${{ number_format($order->total_amount, 2) }}</td>
-                                <td class="px-5 py-3">
-                                    @php
-                                        $badge = match($order->status) {
-                                            'received' => 'bg-brand-50 text-brand',
-                                            'pending'  => 'bg-amber-50 text-amber-700',
-                                            'cancelled'=> 'bg-red-50 text-red-600',
-                                            default    => 'bg-slate-100 text-slate-600',
-                                        };
-                                    @endphp
-                                    <span class="px-2.5 py-1 rounded-full text-xs font-medium {{ $badge }}">
-                                        {{ ucfirst($order->status) }}
-                                    </span>
-                                </td>
-                                <td class="px-5 py-3 text-slate-500">{{ $order->created_at->format('d M Y') }}</td>
-                            </tr>
-                        @empty
-                            <tr>
-                                <td colspan="6" class="px-5 py-10 text-center text-slate-400 text-sm">No purchase orders found.</td>
-                            </tr>
-                        @endforelse
-                    </tbody>
-                </table>
-            </div>
-            @if($procurementOrders->hasPages())
-                <div class="px-5 py-4 border-t border-slate-100">
-                    {{ $procurementOrders->links() }}
-                </div>
-            @endif
-        </div>
-
-    {{-- ══════════════════════════════════════════════════════
-         TAB 2 — INVENTORY CONTROL
-    ══════════════════════════════════════════════════════ --}}
-    @elseif($activeTab === 'inventory')
-
-        {{-- Stats --}}
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            @php
-                $iCards = [
-                    ['label' => 'Total Assets',      'value' => $inventoryStats['total_assets'],     'color' => 'text-brand'],
-                    ['label' => 'Total Stock Units',  'value' => $inventoryStats['total_stock'],      'color' => 'text-slate-800'],
-                    ['label' => 'Categories',         'value' => $inventoryStats['total_categories'], 'color' => 'text-violet-600'],
-                    ['label' => 'Low Stock Alerts',   'value' => $inventoryStats['low_stock'],        'color' => 'text-red-500'],
-                ];
-            @endphp
-            @foreach($iCards as $card)
-                <div class="bg-white border border-slate-200 rounded-2xl p-5">
-                    <p class="text-xs text-slate-500 font-medium uppercase tracking-wide">{{ $card['label'] }}</p>
-                    <p class="text-2xl font-bold {{ $card['color'] }} mt-1">{{ $card['value'] }}</p>
-                </div>
-            @endforeach
-        </div>
-
-        {{-- Table --}}
-        <div class="bg-white border border-slate-200 rounded-2xl overflow-hidden">
-            <div class="px-5 py-4 border-b border-slate-100">
-                <h2 class="font-semibold text-slate-800 text-sm">Asset Stock by Location</h2>
-                <p class="text-xs text-slate-400 mt-0.5">asset_stock · asset_movements · locations · asset_categories</p>
-            </div>
-            <div class="overflow-x-auto">
-                <table class="w-full text-sm">
-                    <thead class="bg-slate-50 text-xs uppercase text-slate-500 tracking-wide">
-                        <tr>
-                            <th class="px-5 py-3 text-left">Asset Code</th>
-                            <th class="px-5 py-3 text-left">Name / Brand</th>
-                            <th class="px-5 py-3 text-left">Category</th>
-                            <th class="px-5 py-3 text-left">Location & Qty</th>
-                            <th class="px-5 py-3 text-center">Total Units</th>
-                            <th class="px-5 py-3 text-left">Status</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-100">
-                        @forelse($assets as $asset)
-                            <tr class="hover:bg-slate-50 transition">
-                                <td class="px-5 py-3 font-mono text-xs text-slate-700">{{ $asset->asset_code }}</td>
-                                <td class="px-5 py-3">
-                                    <div class="font-medium text-slate-800">{{ $asset->name }}</div>
-                                    <div class="text-xs text-slate-400">{{ $asset->brand ?? 'No Brand' }} · {{ $asset->model ?? 'N/A' }}</div>
-                                </td>
-                                <td class="px-5 py-3 text-slate-600">{{ $asset->category->name ?? 'Uncategorized' }}</td>
-                                <td class="px-5 py-3">
-                                    @forelse($asset->stocks as $stock)
-                                        <div class="text-xs text-slate-600">
-                                            {{ $stock->location->name ?? 'Unknown' }}:
-                                            <span class="font-semibold text-slate-800">{{ $stock->quantity }}</span>
-                                        </div>
-                                    @empty
-                                        <span class="text-xs text-red-400">No location assigned</span>
-                                    @endforelse
-                                </td>
-                                <td class="px-5 py-3 text-center font-bold text-slate-800">
-                                    {{ $asset->stocks->sum('quantity') }}
-                                </td>
-                                <td class="px-5 py-3">
-                                    <span class="px-2.5 py-1 rounded-full text-xs font-medium
-                                        {{ $asset->status === 'active' ? 'bg-brand-50 text-brand' : 'bg-slate-100 text-slate-500' }}">
-                                        {{ ucfirst($asset->status) }}
-                                    </span>
-                                </td>
-                            </tr>
-                        @empty
-                            <tr>
-                                <td colspan="6" class="px-5 py-10 text-center text-slate-400 text-sm">No assets found.</td>
-                            </tr>
-                        @endforelse
-                    </tbody>
-                </table>
-            </div>
-            @if($assets->hasPages())
-                <div class="px-5 py-4 border-t border-slate-100">
-                    {{ $assets->links() }}
-                </div>
-            @endif
-        </div>
-
-    {{-- ══════════════════════════════════════════════════════
-         TAB 3 — OPERATIONS (CUSTODY)
-    ══════════════════════════════════════════════════════ --}}
-    @elseif($activeTab === 'operations')
-
-        {{-- Stats --}}
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            @php
-                $oCards = [
-                    ['label' => 'Active Assignments',    'value' => $operationsStats['active_assignments'],  'color' => 'text-brand'],
-                    ['label' => 'Returned This Month',   'value' => $operationsStats['returned_this_month'], 'color' => 'text-slate-800'],
-                    ['label' => 'Overdue',               'value' => $operationsStats['overdue'],             'color' => 'text-red-500'],
-                ];
-            @endphp
-            @foreach($oCards as $card)
-                <div class="bg-white border border-slate-200 rounded-2xl p-5">
-                    <p class="text-xs text-slate-500 font-medium uppercase tracking-wide">{{ $card['label'] }}</p>
-                    <p class="text-2xl font-bold {{ $card['color'] }} mt-1">{{ $card['value'] }}</p>
-                </div>
-            @endforeach
-        </div>
-
-        {{-- Filter --}}
-        <form method="GET" action="{{ route('reports.index') }}" class="flex flex-wrap gap-3 items-end bg-white border border-slate-200 rounded-2xl p-4">
-            <input type="hidden" name="tab" value="operations">
-            <div>
-                <label class="block text-xs font-medium text-slate-600 mb-1">Status</label>
-                <select name="assignment_status" class="px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand outline-none">
-                    <option value="">All</option>
-                    <option value="active"   {{ request('assignment_status') == 'active'   ? 'selected' : '' }}>Active</option>
-                    <option value="returned" {{ request('assignment_status') == 'returned' ? 'selected' : '' }}>Returned</option>
-                    <option value="overdue"  {{ request('assignment_status') == 'overdue'  ? 'selected' : '' }}>Overdue</option>
-                </select>
-            </div>
-            <button type="submit" class="px-4 py-2 bg-brand text-white text-sm font-medium rounded-lg hover:bg-brand-dark transition">Filter</button>
-            <a href="{{ route('reports.index', ['tab' => 'operations']) }}" class="px-4 py-2 text-sm text-slate-500 border border-slate-200 rounded-lg hover:text-slate-800">Reset</a>
-        </form>
-
-        {{-- Table --}}
-        <div class="bg-white border border-slate-200 rounded-2xl overflow-hidden">
-            <div class="px-5 py-4 border-b border-slate-100">
-                <h2 class="font-semibold text-slate-800 text-sm">Asset Assignments (Custody)</h2>
-                <p class="text-xs text-slate-400 mt-0.5">asset_assignments · staff · programs</p>
-            </div>
-            <div class="overflow-x-auto">
-                <table class="w-full text-sm">
-                    <thead class="bg-slate-50 text-xs uppercase text-slate-500 tracking-wide">
-                        <tr>
-                            <th class="px-5 py-3 text-left">Asset</th>
-                            <th class="px-5 py-3 text-left">Assigned To</th>
-                            <th class="px-5 py-3 text-left">Type</th>
-                            <th class="px-5 py-3 text-left">Assigned Date</th>
-                            <th class="px-5 py-3 text-left">Status</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-100">
-                        @forelse($assignments as $assignment)
-                            <tr class="hover:bg-slate-50 transition">
-                                <td class="px-5 py-3">
-                                    <div class="font-medium text-slate-800">{{ $assignment->asset->name ?? '—' }}</div>
-                                    <div class="text-xs text-slate-400 font-mono">{{ $assignment->asset->asset_code ?? '' }}</div>
-                                </td>
-                                <td class="px-5 py-3 text-slate-700">
-                                    {{ $assignment->assignee_name ?? $assignment->recipient_name ?? '—' }}
-                                </td>
-                                <td class="px-5 py-3">
-                                    <span class="px-2.5 py-1 rounded-full text-xs font-medium
-                                        {{ $assignment->assigned_to_type === 'staff' ? 'bg-blue-50 text-blue-700' : 'bg-purple-50 text-purple-700' }}">
-                                        {{ ucfirst($assignment->assigned_to_type ?? 'N/A') }}
-                                    </span>
-                                </td>
-                                <td class="px-5 py-3 text-slate-500">{{ optional($assignment->assigned_date)->format('d M Y') ?? '—' }}</td>
-                                <td class="px-5 py-3">
-                                    @php
-                                        $badge = match($assignment->status) {
-                                            'active'   => 'bg-brand-50 text-brand',
-                                            'returned' => 'bg-slate-100 text-slate-500',
-                                            'overdue'  => 'bg-red-50 text-red-500',
-                                            default    => 'bg-slate-100 text-slate-600',
-                                        };
-                                    @endphp
-                                    <span class="px-2.5 py-1 rounded-full text-xs font-medium {{ $badge }}">
-                                        {{ ucfirst($assignment->status) }}
-                                    </span>
-                                </td>
-                            </tr>
-                        @empty
-                            <tr>
-                                <td colspan="5" class="px-5 py-10 text-center text-slate-400 text-sm">No assignments found.</td>
-                            </tr>
-                        @endforelse
-                    </tbody>
-                </table>
-            </div>
-            @if($assignments->hasPages())
-                <div class="px-5 py-4 border-t border-slate-100">
-                    {{ $assignments->links() }}
-                </div>
-            @endif
-        </div>
-
-    {{-- ══════════════════════════════════════════════════════
-         TAB 4 — QUALITY ASSURANCE
-    ══════════════════════════════════════════════════════ --}}
-    @elseif($activeTab === 'qa')
-
-        {{-- Stats --}}
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            @php
-                $qCards = [
-                    ['label' => 'Total Verifications', 'value' => $qaStats['total_verifications'], 'color' => 'text-slate-800'],
-                    ['label' => 'This Month',           'value' => $qaStats['this_month'],          'color' => 'text-brand'],
-                    ['label' => 'Issues Found',         'value' => $qaStats['issues_found'],        'color' => 'text-red-500'],
-                    ['label' => 'Good Condition',       'value' => $qaStats['good_condition'],      'color' => 'text-brand'],
-                ];
-            @endphp
-            @foreach($qCards as $card)
-                <div class="bg-white border border-slate-200 rounded-2xl p-5">
-                    <p class="text-xs text-slate-500 font-medium uppercase tracking-wide">{{ $card['label'] }}</p>
-                    <p class="text-2xl font-bold {{ $card['color'] }} mt-1">{{ $card['value'] }}</p>
-                </div>
-            @endforeach
-        </div>
-
-        {{-- Filter --}}
-        <form method="GET" action="{{ route('reports.index') }}" class="flex flex-wrap gap-3 items-end bg-white border border-slate-200 rounded-2xl p-4">
-            <input type="hidden" name="tab" value="qa">
-            <div>
-                <label class="block text-xs font-medium text-slate-600 mb-1">Condition Found</label>
-                <select name="verification_status" class="px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand outline-none">
-                    <option value="">All</option>
-                    <option value="good"    {{ request('verification_status') == 'good'    ? 'selected' : '' }}>Good</option>
-                    <option value="damaged" {{ request('verification_status') == 'damaged' ? 'selected' : '' }}>Damaged</option>
-                    <option value="missing" {{ request('verification_status') == 'missing' ? 'selected' : '' }}>Missing</option>
-                </select>
-            </div>
-            <button type="submit" class="px-4 py-2 bg-brand text-white text-sm font-medium rounded-lg hover:bg-brand-dark transition">Filter</button>
-            <a href="{{ route('reports.index', ['tab' => 'qa']) }}" class="px-4 py-2 text-sm text-slate-500 border border-slate-200 rounded-lg hover:text-slate-800">Reset</a>
-        </form>
-
-        {{-- Table --}}
-        <div class="bg-white border border-slate-200 rounded-2xl overflow-hidden">
-            <div class="px-5 py-4 border-b border-slate-100">
-                <h2 class="font-semibold text-slate-800 text-sm">Asset Verifications</h2>
-                <p class="text-xs text-slate-400 mt-0.5">asset_verifications</p>
-            </div>
-            <div class="overflow-x-auto">
-                <table class="w-full text-sm">
-                    <thead class="bg-slate-50 text-xs uppercase text-slate-500 tracking-wide">
-                        <tr>
-                            <th class="px-5 py-3 text-left">Asset</th>
-                            <th class="px-5 py-3 text-left">Location</th>
-                            <th class="px-5 py-3 text-left">Verified By</th>
-                            <th class="px-5 py-3 text-left">Quantity</th>
-                            <th class="px-5 py-3 text-left">Condition</th>
-                            <th class="px-5 py-3 text-left">Remark</th>
-                            <th class="px-5 py-3 text-left">Verified At</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-100">
-                        @forelse($verifications as $verification)
-                            <tr class="hover:bg-slate-50 transition">
-                                <td class="px-5 py-3">
-                                    <div class="font-medium text-slate-800">{{ $verification->asset->name ?? '—' }}</div>
-                                    <div class="text-xs text-slate-400 font-mono">{{ $verification->asset->asset_code ?? '' }}</div>
-                                </td>
-                                <td class="px-5 py-3 text-slate-600">{{ $verification->location->name ?? '—' }}</td>
-                                <td class="px-5 py-3 text-slate-700">
-                                    @php
-                                        $user = \App\Models\User::find($verification->verified_by);
-                                    @endphp
-                                    {{ $user ? $user->name : ($verification->verified_by ? 'User #'.$verification->verified_by : '—') }}
-                                </td>
-                                <td class="px-5 py-3 text-slate-600">{{ $verification->quantity_verified ?? '—' }}</td>
-                                <td class="px-5 py-3">
-                                    @php
-                                        $badge = match($verification->condition) {
-                                            'good'    => 'bg-brand-50 text-brand',
-                                            'damaged' => 'bg-amber-50 text-amber-700',
-                                            'missing' => 'bg-red-50 text-red-500',
-                                            default   => 'bg-slate-100 text-slate-600',
-                                        };
-                                    @endphp
-                                    <span class="px-2.5 py-1 rounded-full text-xs font-medium {{ $badge }}">
-                                        {{ ucfirst($verification->condition ?? 'N/A') }}
-                                    </span>
-                                </td>
-                                <td class="px-5 py-3 text-slate-500 text-xs max-w-xs truncate">{{ $verification->remark ?? '—' }}</td>
-                                <td class="px-5 py-3 text-slate-500">{{ optional($verification->verified_at)->format('d M Y') ?? '—' }}</td>
-                            </tr>
-                        @empty
-                            <tr>
-                                <td colspan="7" class="px-5 py-10 text-center text-slate-400 text-sm">No verifications found.</td>
-                            </tr>
-                        @endforelse
-                    </tbody>
-                </table>
-            </div>
-            @if($verifications->hasPages())
-                <div class="px-5 py-4 border-t border-slate-100">
-                    {{ $verifications->links() }}
-                </div>
-            @endif
-        </div>
-
-    @endif
-
 </div>
 @endsection

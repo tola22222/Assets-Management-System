@@ -4,359 +4,208 @@ namespace App\Http\Controllers;
 
 use App\Models\Asset;
 use App\Models\AssetAssignment;
+use App\Models\AssetTransfer;
 use App\Models\AssetVerification;
-use App\Models\PurchaseOrder;
-use App\Models\AssetStock;
+use App\Models\AssetReturn;
+use App\Models\AssetMovement;
+use App\Models\Location;
+use App\Models\Notification;
 use Illuminate\Http\Request;
-use Carbon\Carbon;
+use Illuminate\Support\Facades\Auth;
 
 class ReportController extends Controller
 {
-    public function index(Request $request)
+    public function index()
     {
-        // Check if export is requested
-        if ($request->has('export')) {
-            return $this->export($request);
-        }
-
-        $activeTab = $request->get('tab', 'procurement');
-
-        // ── 1. PROCUREMENT ──────────────────────────────────────────────
-        $procurementQuery = PurchaseOrder::with(['supplier', 'items.asset']);
-
-        if ($request->filled('view')) {
-            $procurementQuery
-                ->when($request->view === 'day',   fn($q) => $q->whereDate('created_at', Carbon::today()))
-                ->when($request->view === 'month', fn($q) => $q->whereMonth('created_at', now()->month)->whereYear('created_at', now()->year))
-                ->when($request->view === 'year',  fn($q) => $q->whereYear('created_at', now()->year));
-        }
-
-        if ($request->filled('start_date') && $request->filled('end_date')) {
-            $procurementQuery->whereBetween('created_at', [$request->start_date, $request->end_date]);
-        }
-
-        $procurementStats = [
-            'pending_count'      => (clone $procurementQuery)->where('status', 'pending')->count(),
-            'completed_month'    => PurchaseOrder::where('status', 'received')->whereMonth('updated_at', now()->month)->count(),
-            'total_procurement'  => (clone $procurementQuery)->sum('total_amount'),
-        ];
-        $procurementOrders = $procurementQuery->latest()->paginate(15, ['*'], 'procurement_page')->withQueryString();
-
-        // ── 2. INVENTORY CONTROL ────────────────────────────────────────
-        $assets = Asset::with(['category', 'stocks.location'])->latest()->paginate(15, ['*'], 'inventory_page')->withQueryString();
-
-        $inventoryStats = [
-            'total_assets'     => Asset::count(),
-            'total_stock'      => AssetStock::sum('quantity'),
-            'total_categories' => \App\Models\AssetCategory::count(),
-            'low_stock'        => AssetStock::where('quantity', '<=', 2)->count(),
-        ];
-
-        // ── 3. OPERATIONS (CUSTODY) ─────────────────────────────────────
-        $assignmentQuery = AssetAssignment::with(['asset']);
-
-        if ($request->filled('assignment_status')) {
-            if ($request->assignment_status === 'overdue') {
-                $assignmentQuery->where('status', 'active')
-                    ->where('assigned_date', '<', now()->subDays(30));
-            } else {
-                $assignmentQuery->where('status', $request->assignment_status);
-            }
-        }
-
-        $assignments = $assignmentQuery->latest()->paginate(15, ['*'], 'ops_page')->withQueryString();
-
-        $operationsStats = [
-            'active_assignments'   => AssetAssignment::where('status', 'active')->count(),
-            'returned_this_month'  => AssetAssignment::where('status', 'returned')->whereMonth('updated_at', now()->month)->count(),
-            'overdue'              => AssetAssignment::where('status', 'active')
-                ->where('assigned_date', '<', now()->subDays(30))
-                ->count(),
-        ];
-
-        // ── 4. QUALITY ASSURANCE ────────────────────────────────────────
-        $verificationQuery = AssetVerification::with(['asset', 'location']);
-
-        if ($request->filled('verification_status')) {
-            $verificationQuery->where('condition', $request->verification_status);
-        }
-
-        $verifications = $verificationQuery->latest()->paginate(15, ['*'], 'qa_page')->withQueryString();
-
-        $qaStats = [
-            'total_verifications' => AssetVerification::count(),
-            'this_month'          => AssetVerification::whereMonth('verified_at', now()->month)->count(),
-            'issues_found'        => AssetVerification::whereIn('condition', ['damaged', 'missing'])->count(),
-            'good_condition'      => AssetVerification::where('condition', 'good')->count(),
-        ];
-
-        return view('reports.index', compact(
-            'activeTab',
-            'procurementOrders', 'procurementStats',
-            'assets',            'inventoryStats',
-            'assignments',       'operationsStats',
-            'verifications',     'qaStats'
-        ));
+        $user = Auth::user();
+        return view('reports.index', compact('user'));
     }
 
-    /**
-     * Export data to CSV based on active tab
-     */
-    public function export(Request $request)
+    public function inventory(Request $request)
     {
-        $activeTab = $request->get('tab', 'procurement');
-        $timestamp = now()->format('Y-m-d_H-i-s');
-        
-        switch ($activeTab) {
-            case 'procurement':
-                return $this->exportProcurement($request, $timestamp);
-            case 'inventory':
-                return $this->exportInventory($timestamp);
-            case 'operations':
-                return $this->exportOperations($request, $timestamp);
-            case 'qa':
-                return $this->exportQA($request, $timestamp);
-            default:
-                return redirect()->route('reports.index')->with('error', 'Invalid export type');
+        $query = Asset::with(['category', 'stocks.location']);
+
+        if ($request->filled('category_id')) {
+            $query->where('category_id', $request->category_id);
         }
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+        if ($request->filled('condition')) {
+            $query->where('condition', $request->condition);
+        }
+
+        $assets = $query->latest()->get();
+
+        if ($request->export === 'csv') {
+            return $this->exportCsv($assets, 'inventory');
+        }
+
+        return view('reports.inventory', compact('assets'));
     }
 
-    /**
-     * Export Procurement data to CSV
-     */
-    private function exportProcurement(Request $request, $timestamp)
+    public function assignments(Request $request)
     {
-        $query = PurchaseOrder::with(['supplier', 'items.asset']);
-        
-        if ($request->filled('view')) {
-            $query
-                ->when($request->view === 'day',   fn($q) => $q->whereDate('created_at', Carbon::today()))
-                ->when($request->view === 'month', fn($q) => $q->whereMonth('created_at', now()->month)->whereYear('created_at', now()->year))
-                ->when($request->view === 'year',  fn($q) => $q->whereYear('created_at', now()->year));
-        }
-        
-        if ($request->filled('start_date') && $request->filled('end_date')) {
-            $query->whereBetween('created_at', [$request->start_date, $request->end_date]);
-        }
-        
-        $orders = $query->latest()->get();
-        
-        $filename = "procurement_report_{$timestamp}.csv";
-        
-        $callback = function() use ($orders) {
-            $file = fopen('php://output', 'w');
-            
-            // Add UTF-8 BOM for Excel compatibility
-            fprintf($file, chr(0xEF).chr(0xBB).chr(0xBF));
-            
-            // Headers
-            fputcsv($file, [
-                'PO Number',
-                'Supplier',
-                'Items Count',
-                'Total Amount (USD)',
-                'Status',
-                'Created Date'
-            ]);
-            
-            // Data rows
-            foreach ($orders as $order) {
-                fputcsv($file, [
-                    $order->po_number ?? 'PO-' . $order->id,
-                    $order->supplier->name ?? '—',
-                    $order->items->count(),
-                    number_format($order->total_amount, 2),
-                    ucfirst($order->status),
-                    $order->created_at->format('Y-m-d H:i:s')
-                ]);
-            }
-            
-            fclose($file);
-        };
-        
-        return response()->stream($callback, 200, [
-            'Content-Type' => 'text/csv; charset=UTF-8',
-            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
-        ]);
-    }
+        $query = AssetAssignment::with(['asset', 'assignee', 'location']);
 
-    /**
-     * Export Inventory data to CSV
-     */
-    private function exportInventory($timestamp)
-    {
-        $assets = Asset::with(['category', 'stocks.location'])->latest()->get();
-        
-        $filename = "inventory_report_{$timestamp}.csv";
-        
-        $callback = function() use ($assets) {
-            $file = fopen('php://output', 'w');
-            fprintf($file, chr(0xEF).chr(0xBB).chr(0xBF));
-            
-            // Headers
-            fputcsv($file, [
-                'Asset Code',
-                'Name',
-                'Brand',
-                'Model',
-                'Category',
-                'Location',
-                'Quantity at Location',
-                'Total Units',
-                'Status'
-            ]);
-            
-            // Data rows
-            foreach ($assets as $asset) {
-                if ($asset->stocks->count() > 0) {
-                    foreach ($asset->stocks as $stock) {
-                        fputcsv($file, [
-                            $asset->asset_code,
-                            $asset->name,
-                            $asset->brand ?? '—',
-                            $asset->model ?? '—',
-                            $asset->category->name ?? 'Uncategorized',
-                            $stock->location->name ?? 'Unknown',
-                            $stock->quantity,
-                            $asset->stocks->sum('quantity'),
-                            ucfirst($asset->status)
-                        ]);
-                    }
-                } else {
-                    // Assets with no stock
-                    fputcsv($file, [
-                        $asset->asset_code,
-                        $asset->name,
-                        $asset->brand ?? '—',
-                        $asset->model ?? '—',
-                        $asset->category->name ?? 'Uncategorized',
-                        'No Location',
-                        0,
-                        $asset->stocks->sum('quantity'),
-                        ucfirst($asset->status)
-                    ]);
-                }
-            }
-            
-            fclose($file);
-        };
-        
-        return response()->stream($callback, 200, [
-            'Content-Type' => 'text/csv; charset=UTF-8',
-            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
-        ]);
-    }
-
-    /**
-     * Export Operations data to CSV
-     */
-    private function exportOperations(Request $request, $timestamp)
-    {
-        $query = AssetAssignment::with(['asset']);
-        
-        if ($request->filled('assignment_status')) {
-            if ($request->assignment_status === 'overdue') {
-                $query->where('status', 'active')
-                    ->where('assigned_date', '<', now()->subDays(30));
-            } else {
-                $query->where('status', $request->assignment_status);
-            }
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
         }
-        
+        if ($request->filled('assigned_to_type')) {
+            $query->where('assigned_to_type', $request->assigned_to_type);
+        }
+
         $assignments = $query->latest()->get();
-        
-        $filename = "operations_report_{$timestamp}.csv";
-        
-        $callback = function() use ($assignments) {
-            $file = fopen('php://output', 'w');
-            fprintf($file, chr(0xEF).chr(0xBB).chr(0xBF));
-            
-            // Headers
-            fputcsv($file, [
-                'Asset Name',
-                'Asset Code',
-                'Assigned To',
-                'Assignment Type',
-                'Quantity',
-                'Assigned Date',
-                'Status'
-            ]);
-            
-            // Data rows
-            foreach ($assignments as $assignment) {
-                fputcsv($file, [
-                    $assignment->asset->name ?? '—',
-                    $assignment->asset->asset_code ?? '—',
-                    $assignment->assignee_name ?? $assignment->recipient_name ?? '—',
-                    ucfirst($assignment->assigned_to_type ?? 'N/A'),
-                    $assignment->quantity ?? 1,
-                    optional($assignment->assigned_date)->format('Y-m-d'),
-                    ucfirst($assignment->status)
-                ]);
-            }
-            
-            fclose($file);
-        };
-        
-        return response()->stream($callback, 200, [
-            'Content-Type' => 'text/csv; charset=UTF-8',
-            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
-        ]);
+
+        if ($request->export === 'csv') {
+            return $this->exportCsv($assignments, 'assignments');
+        }
+
+        return view('reports.assignments', compact('assignments'));
     }
 
-    /**
-     * Export Quality Assurance data to CSV
-     */
-    private function exportQA(Request $request, $timestamp)
+    public function transfers(Request $request)
     {
-        $query = AssetVerification::with(['asset', 'location']);
-        
-        if ($request->filled('verification_status')) {
-            $query->where('condition', $request->verification_status);
+        $query = AssetTransfer::with(['asset', 'fromLocation', 'toLocation', 'requester']);
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
         }
-        
+
+        $transfers = $query->latest()->get();
+
+        if ($request->export === 'csv') {
+            return $this->exportCsv($transfers, 'transfers');
+        }
+
+        return view('reports.transfers', compact('transfers'));
+    }
+
+    public function verifications(Request $request)
+    {
+        $query = AssetVerification::with(['asset', 'location', 'verifiedBy']);
+
+        if ($request->filled('condition')) {
+            $query->where('condition', $request->condition);
+        }
+
         $verifications = $query->latest()->get();
-        
-        $filename = "qa_report_{$timestamp}.csv";
-        
-        $callback = function() use ($verifications) {
+
+        if ($request->export === 'csv') {
+            return $this->exportCsv($verifications, 'verifications');
+        }
+
+        return view('reports.verifications', compact('verifications'));
+    }
+
+    public function returns(Request $request)
+    {
+        $query = AssetReturn::with(['asset', 'assignment', 'returnedBy']);
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        $returns = $query->latest()->get();
+
+        if ($request->export === 'csv') {
+            return $this->exportCsv($returns, 'returns');
+        }
+
+        return view('reports.returns', compact('returns'));
+    }
+
+    public function disposed(Request $request)
+    {
+        $assets = Asset::where('status', 'disposed')
+            ->with('category')
+            ->latest()
+            ->get();
+
+        if ($request->export === 'csv') {
+            return $this->exportCsv($assets, 'disposed');
+        }
+
+        return view('reports.disposed', compact('assets'));
+    }
+
+    public function lost(Request $request)
+    {
+        $assets = Asset::where('condition', 'lost')
+            ->with('category')
+            ->latest()
+            ->get();
+
+        if ($request->export === 'csv') {
+            return $this->exportCsv($assets, 'lost');
+        }
+
+        return view('reports.lost', compact('assets'));
+    }
+
+    public function locations(Request $request)
+    {
+        $locations = Location::withCount('assetStocks')->get();
+
+        if ($request->export === 'csv') {
+            return $this->exportCsv($locations, 'locations');
+        }
+
+        return view('reports.locations', compact('locations'));
+    }
+
+    public function qrScans(Request $request)
+    {
+        $scans = Notification::where('type', 'qr_scan')
+            ->with('user')
+            ->latest()
+            ->get();
+
+        if ($request->export === 'csv') {
+            return $this->exportCsv($scans, 'qr-scans');
+        }
+
+        return view('reports.qr-scans', compact('scans'));
+    }
+
+    private function exportCsv($data, $type)
+    {
+        $headers = [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="' . $type . '-report-' . date('Y-m-d') . '.csv"',
+        ];
+
+        $callback = function () use ($data, $type) {
             $file = fopen('php://output', 'w');
-            fprintf($file, chr(0xEF).chr(0xBB).chr(0xBF));
-            
-            // Headers
-            fputcsv($file, [
-                'Asset Name',
-                'Asset Code',
-                'Location',
-                'Verified By (User ID)',
-                'Quantity Verified',
-                'Condition',
-                'Remark',
-                'Verified At'
-            ]);
-            
-            // Data rows
-            foreach ($verifications as $verification) {
-                $user = \App\Models\User::find($verification->verified_by);
-                
-                fputcsv($file, [
-                    $verification->asset->name ?? '—',
-                    $verification->asset->asset_code ?? '—',
-                    $verification->location->name ?? '—',
-                    $user ? $user->name : ($verification->verified_by ? 'User #'.$verification->verified_by : '—'),
-                    $verification->quantity_verified ?? '—',
-                    ucfirst($verification->condition ?? 'N/A'),
-                    $verification->remark ?? '—',
-                    optional($verification->verified_at)->format('Y-m-d H:i:s')
-                ]);
+
+            switch ($type) {
+                case 'inventory':
+                    fputcsv($file, ['Asset Code', 'Name', 'Category', 'Brand', 'Model', 'Serial No', 'Condition', 'Status', 'Purchase Date', 'Purchase Price']);
+                    foreach ($data as $asset) {
+                        fputcsv($file, [$asset->asset_code, $asset->name, $asset->category->name ?? '', $asset->brand, $asset->model, $asset->serial_number, $asset->condition, $asset->status, $asset->purchase_date, $asset->purchase_price]);
+                    }
+                    break;
+                case 'assignments':
+                    fputcsv($file, ['Asset', 'Assigned To', 'Type', 'Location', 'Date', 'Due Date', 'Status']);
+                    foreach ($data as $a) {
+                        fputcsv($file, [$a->asset->name ?? '', $a->recipient_name, $a->assigned_to_type, $a->location->name ?? '', $a->assigned_date, $a->due_date, $a->status]);
+                    }
+                    break;
+                case 'transfers':
+                    fputcsv($file, ['Asset', 'From', 'To', 'Date', 'Status', 'Requester']);
+                    foreach ($data as $t) {
+                        fputcsv($file, [$t->asset->name ?? '', $t->fromLocation->name ?? '', $t->toLocation->name ?? '', $t->transfer_date, $t->status, $t->requester->name ?? '']);
+                    }
+                    break;
+                default:
+                    foreach ($data as $row) {
+                        fputcsv($file, (array) $row);
+                    }
             }
-            
+
             fclose($file);
         };
-        
-        return response()->stream($callback, 200, [
-            'Content-Type' => 'text/csv; charset=UTF-8',
-            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
-        ]);
+
+        return response()->stream($callback, 200, $headers);
     }
 }

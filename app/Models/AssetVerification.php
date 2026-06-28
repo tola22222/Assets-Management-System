@@ -21,7 +21,15 @@ class AssetVerification extends Model
         'condition',
         'remark',
         'verified_at',
+        'image_path',
     ];
+
+    protected $appends = ['image_url'];
+
+    public function getImageUrlAttribute()
+    {
+        return $this->image_path ? asset('storage/' . $this->image_path) : null;
+    }
 
     /**
      * The attributes that should be cast.
