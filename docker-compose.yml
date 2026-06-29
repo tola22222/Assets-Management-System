@@ -3,15 +3,9 @@ services:
     image: toladev1/ams_app:latest
     container_name: ams_app
     restart: always
-    command: php -S 0.0.0.0:8080 -t /var/www/public/
     volumes:
       - ./.env:/var/www/.env
       - storage_data:/var/www/storage
-      # ✅ FIXED: bind mount instead of named volume so your actual
-      #           public/ files (favicons, images, logo) are served.
-      #           Named volume "app_public" was overwriting public/ with
-      #           an empty volume and hiding all your assets.
-      - ./public:/var/www/public
     depends_on:
       - db
     networks:
@@ -25,7 +19,6 @@ services:
       - "80:80"
     volumes:
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
-      # ✅ FIXED: same bind mount so nginx reads the real public/ folder
       - ./public:/var/www/public
     depends_on:
       - app
@@ -53,4 +46,3 @@ networks:
 volumes:
   dbdata:
   storage_data:
-  # ✅ REMOVED: app_public named volume (was the root cause of 404s)
