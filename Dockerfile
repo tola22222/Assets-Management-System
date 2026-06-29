@@ -13,23 +13,21 @@ COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www
 
-# Copy composer files first (for cache)
 COPY composer.json composer.lock ./
-
-# Install vendors without scripts
 RUN composer install --no-dev --optimize-autoloader --no-interaction --no-scripts
 
-# Copy full app (including public/images, public/favicon*.png)
 COPY . .
 
-# Run scripts now
 RUN composer dump-autoload --optimize
 RUN php artisan package:discover --ansi
 
-# ✅ FIXED: permissions on public/ as well as storage and bootstrap/cache
 RUN chown -R www-data:www-data storage bootstrap/cache public \
   && chmod -R 755 public \
   && chmod -R 775 storage bootstrap/cache
 
+COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
 EXPOSE 9000
+ENTRYPOINT ["entrypoint.sh"]
 CMD ["php-fpm"]

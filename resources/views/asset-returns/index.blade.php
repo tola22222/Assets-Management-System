@@ -45,10 +45,10 @@
                         </td>
                         <td class="p-4 pr-5 text-right">
                             <div class="flex items-center justify-end gap-1.5">
-                                <a href="{{ route('asset-returns.show', $return) }}"
+                                <button onclick="openReturnDetail({{ json_encode($return) }})"
                                     class="w-7 h-7 bg-amber-500 text-white rounded flex items-center justify-center hover:bg-amber-600 transition shadow-sm" title="View">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                                </a>
+                                </button>
                                 @if(Auth::user()->isAdmin() && $return->status === 'pending')
                                 <form action="{{ route('asset-returns.approve', $return) }}" method="POST" class="inline">
                                     @csrf
@@ -151,6 +151,39 @@
     </div>
 </div>
 
+{{-- Return Detail Modal --}}
+<div id="returnDetailModal" class="fixed inset-0 bg-gray-900/40 backdrop-blur-sm hidden z-[100] flex items-center justify-end p-4">
+    <div class="bg-white dark:bg-gray-800 w-full max-w-2xl rounded-2xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden animate__slide-in-right">
+        <div class="px-6 py-5 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between bg-white dark:bg-gray-800">
+            <h3 class="text-lg font-bold text-gray-900 dark:text-white tracking-wide">Return Details</h3>
+            <button onclick="document.getElementById('returnDetailModal').classList.add('hidden'); document.body.style.overflow = 'auto';" class="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition p-1.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+        <div class="flex-1 overflow-y-auto p-6 space-y-5 bg-gray-50/30 dark:bg-gray-900/30">
+            <div class="grid grid-cols-2 gap-x-6 gap-y-4">
+                <div><p class="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide">Asset</p><p id="rdAsset" class="font-semibold text-gray-800 dark:text-gray-200 mt-0.5"></p></div>
+                <div><p class="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide">Returned By</p><p id="rdBy" class="font-semibold text-gray-800 dark:text-gray-200 mt-0.5"></p></div>
+                <div><p class="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide">Condition</p><p id="rdCondition" class="font-semibold text-gray-800 dark:text-gray-200 mt-0.5"></p></div>
+                <div><p class="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide">Return Date</p><p id="rdDate" class="font-semibold text-gray-800 dark:text-gray-200 mt-0.5"></p></div>
+                <div><p class="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide">Status</p><p id="rdStatus" class="font-semibold text-gray-800 dark:text-gray-200 mt-0.5"></p></div>
+            </div>
+            <div id="rdNotesWrap" class="hidden pt-3 border-t border-gray-100 dark:border-gray-700">
+                <p class="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-1">Damage Notes</p>
+                <p id="rdNotes" class="text-gray-600 dark:text-gray-400 text-sm"></p>
+            </div>
+            <div id="rdImageWrap" class="hidden pt-3 border-t border-gray-100 dark:border-gray-700">
+                <p class="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-2">Photo Evidence</p>
+                <div id="rdImage" class="w-48 h-36 bg-gray-100 dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden flex items-center justify-center text-gray-400 text-xs">No Image</div>
+            </div>
+        </div>
+        <div class="p-4 border-t border-gray-100 dark:border-gray-700 flex items-center justify-center bg-white dark:bg-gray-800">
+            <button type="button" onclick="document.getElementById('returnDetailModal').classList.add('hidden'); document.body.style.overflow = 'auto';"
+                class="border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 font-semibold text-sm px-10 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition">Close</button>
+        </div>
+    </div>
+</div>
+
 <style>
 .animate__slide-in-right { animation: slideInRight 0.2s ease-out; }
 @keyframes slideInRight { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
@@ -164,6 +197,27 @@
     function closeModal() {
         document.getElementById('returnModal').classList.add('hidden');
         document.body.style.overflow = 'auto';
+    }
+    function openReturnDetail(data) {
+        document.getElementById('rdAsset').textContent = data.asset ? data.asset.name : (data.asset_name || 'N/A');
+        document.getElementById('rdBy').textContent = data.returned_by ? data.returned_by.name : (data.returned_by_name || 'N/A');
+        document.getElementById('rdCondition').textContent = data.condition || 'N/A';
+        document.getElementById('rdDate').textContent = data.return_date || 'N/A';
+        document.getElementById('rdStatus').textContent = (data.status || 'pending').toUpperCase();
+        if (data.damage_notes) {
+            document.getElementById('rdNotesWrap').classList.remove('hidden');
+            document.getElementById('rdNotes').textContent = data.damage_notes;
+        } else {
+            document.getElementById('rdNotesWrap').classList.add('hidden');
+        }
+        if (data.image_url) {
+            document.getElementById('rdImageWrap').classList.remove('hidden');
+            document.getElementById('rdImage').innerHTML = '<img src="' + data.image_url + '" class="w-full h-full object-cover">';
+        } else {
+            document.getElementById('rdImageWrap').classList.add('hidden');
+        }
+        document.getElementById('returnDetailModal').classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
     }
 </script>
 @endsection

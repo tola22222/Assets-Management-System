@@ -75,21 +75,18 @@
                         <td class="p-4 font-medium text-gray-900 dark:text-white">{{ $asset->purchase_price ? '$'.number_format($asset->purchase_price, 2) : 'N/A' }}</td>
                         <td class="p-4 pr-5">
                             <div class="flex items-center justify-center gap-1.5">
-                                <a href="{{ route('assets.show', $asset->id) }}"
+                                <button onclick="openAssetDetail({{ json_encode($asset) }})"
                                     class="w-7 h-7 bg-amber-500 text-white rounded flex items-center justify-center hover:bg-amber-600 transition shadow-sm" title="View">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-                                </a>
+                                </button>
                                 <button onclick="openAssetModal('edit', {{ json_encode($asset) }})"
                                     class="w-7 h-7 bg-brand text-white rounded flex items-center justify-center hover:bg-brand-dark transition shadow-sm" title="Edit">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487zm0 0L19.5 7.125"/></svg>
                                 </button>
-                                <form action="{{ route('assets.destroy', $asset->id) }}" method="POST" class="inline" onsubmit="return confirm('Delete this asset?')">
-                                    @csrf @method('DELETE')
-                                    <button type="submit"
-                                        class="w-7 h-7 bg-red-500 text-white rounded flex items-center justify-center hover:bg-red-600 transition shadow-sm" title="Delete">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg>
-                                    </button>
-                                </form>
+                                <button onclick="openDeleteModal('{{ route('assets.destroy', $asset->id) }}', '{{ $asset->name }}')"
+                                    class="w-7 h-7 bg-red-500 text-white rounded flex items-center justify-center hover:bg-red-600 transition shadow-sm" title="Delete">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg>
+                                </button>
                             </div>
                         </td>
                     </tr>
@@ -210,14 +207,73 @@
     </div>
 </div>
 
+{{-- Asset Detail Modal --}}
+<div id="assetDetailModal" class="fixed inset-0 bg-gray-900/40 backdrop-blur-sm hidden z-[100] flex items-center justify-end p-4">
+    <div class="bg-white dark:bg-gray-800 w-full max-w-2xl rounded-2xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden animate__slide-in-right">
+        <div class="px-6 py-5 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between bg-white dark:bg-gray-800">
+            <h3 id="detailModalTitle" class="text-lg font-bold text-gray-900 dark:text-white tracking-wide">Asset Details</h3>
+            <button onclick="closeAssetDetail()" class="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition p-1.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+        <div class="flex-1 overflow-y-auto p-6 space-y-6 bg-gray-50/30 dark:bg-gray-900/30">
+            <div class="flex items-start gap-6">
+                <div id="detailImage" class="w-28 h-24 bg-gray-100 dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden flex-shrink-0 flex items-center justify-center text-gray-400 dark:text-gray-500 text-xs">No Image</div>
+                <div class="flex-1">
+                    <h4 id="detailName" class="text-xl font-bold text-gray-900 dark:text-white"></h4>
+                    <p id="detailCode" class="text-sm font-mono text-gray-400 dark:text-gray-500 mt-1"></p>
+                    <span id="detailStatus" class="inline-block mt-2 px-2.5 py-1 rounded-full text-xs font-semibold"></span>
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-x-6 gap-y-4">
+                <div><p class="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide">Category</p><p id="detailCategory" class="font-semibold text-gray-800 dark:text-gray-200 mt-0.5"></p></div>
+                <div><p class="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide">Brand</p><p id="detailBrand" class="font-semibold text-gray-800 dark:text-gray-200 mt-0.5"></p></div>
+                <div><p class="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide">Model</p><p id="detailModel" class="font-semibold text-gray-800 dark:text-gray-200 mt-0.5"></p></div>
+                <div><p class="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide">Serial Number</p><p id="detailSerial" class="font-semibold text-gray-800 dark:text-gray-200 mt-0.5"></p></div>
+                <div><p class="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide">Purchase Date</p><p id="detailDate" class="font-semibold text-gray-800 dark:text-gray-200 mt-0.5"></p></div>
+                <div><p class="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide">Purchase Price</p><p id="detailPrice" class="font-semibold text-gray-800 dark:text-gray-200 mt-0.5"></p></div>
+            </div>
+            <div id="detailDescWrap" class="hidden pt-3 border-t border-gray-100 dark:border-gray-700">
+                <p class="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-1">Description</p>
+                <p id="detailDesc" class="text-gray-600 dark:text-gray-400 text-sm"></p>
+            </div>
+        </div>
+        <div class="p-4 border-t border-gray-100 dark:border-gray-700 flex items-center justify-center bg-white dark:bg-gray-800">
+            <button type="button" onclick="closeAssetDetail()"
+                class="border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 font-semibold text-sm px-10 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition">Close</button>
+        </div>
+    </div>
+</div>
+
+{{-- Delete Confirmation Modal --}}
+<div id="deleteModal" class="fixed inset-0 bg-gray-900/40 backdrop-blur-sm hidden z-[150] flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-gray-800 w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden p-6 animate__fade-in">
+        <div class="text-center">
+            <div class="w-14 h-14 mx-auto bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center">
+                <svg class="w-7 h-7 text-red-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/></svg>
+            </div>
+            <h3 class="text-lg font-bold text-gray-900 dark:text-white mt-4">Delete Confirmation</h3>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">Are you sure you want to delete <strong id="deleteItemName">this item</strong>? This action cannot be undone.</p>
+            <form id="deleteForm" method="POST" class="mt-6">
+                @csrf @method('DELETE')
+                <div class="flex items-center justify-center gap-3">
+                    <button type="button" onclick="closeDeleteModal()"
+                        class="border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 font-semibold text-sm px-6 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition">Cancel</button>
+                    <button type="submit"
+                        class="bg-red-500 hover:bg-red-600 text-white font-semibold text-sm px-6 py-2.5 rounded-xl shadow-sm transition">Delete</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <style>
-.animate__slide-in-right {
-    animation: slideInRight 0.2s ease-out;
-}
-@keyframes slideInRight {
-    from { transform: translateX(100%); opacity: 0; }
-    to { transform: translateX(0); opacity: 1; }
-}
+.animate__slide-in-right { animation: slideInRight 0.2s ease-out; }
+@keyframes slideInRight { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+.animate__fade-in { animation: fadeIn 0.15s ease-out; }
+@keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
 </style>
 
 <script>
@@ -245,5 +301,49 @@
         }
     }
     function closeAssetModal() { modal.classList.add('hidden'); document.body.style.overflow = 'auto'; }
+
+    function openAssetDetail(data) {
+        document.getElementById('detailModalTitle').textContent = data.name + ' (' + (data.asset_code || '') + ')';
+        document.getElementById('detailName').textContent = data.name;
+        document.getElementById('detailCode').textContent = data.asset_code || 'N/A';
+        document.getElementById('detailCategory').textContent = data.category ? data.category.name : (data.category_name || 'N/A');
+        document.getElementById('detailBrand').textContent = data.brand || 'N/A';
+        document.getElementById('detailModel').textContent = data.model || 'N/A';
+        document.getElementById('detailSerial').textContent = data.serial_number || 'N/A';
+        document.getElementById('detailDate').textContent = data.purchase_date || 'N/A';
+        document.getElementById('detailPrice').textContent = data.purchase_price ? '$' + parseFloat(data.purchase_price).toFixed(2) : 'N/A';
+        const statusEl = document.getElementById('detailStatus');
+        statusEl.textContent = (data.status || 'active').toUpperCase();
+        statusEl.className = 'inline-block mt-2 px-2.5 py-1 rounded-full text-xs font-semibold ' + (data.status === 'active' ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30' : 'text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800');
+        if (data.description) {
+            document.getElementById('detailDescWrap').classList.remove('hidden');
+            document.getElementById('detailDesc').textContent = data.description;
+        } else {
+            document.getElementById('detailDescWrap').classList.add('hidden');
+        }
+        const imgEl = document.getElementById('detailImage');
+        if (data.image_url) {
+            imgEl.innerHTML = '<img src="' + data.image_url + '" class="w-full h-full object-cover">';
+        } else {
+            imgEl.innerHTML = 'No Image';
+        }
+        document.getElementById('assetDetailModal').classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+    }
+    function closeAssetDetail() {
+        document.getElementById('assetDetailModal').classList.add('hidden');
+        document.body.style.overflow = 'auto';
+    }
+
+    function openDeleteModal(action, name) {
+        document.getElementById('deleteForm').action = action;
+        document.getElementById('deleteItemName').textContent = name;
+        document.getElementById('deleteModal').classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+    }
+    function closeDeleteModal() {
+        document.getElementById('deleteModal').classList.add('hidden');
+        document.body.style.overflow = 'auto';
+    }
 </script>
 @endsection

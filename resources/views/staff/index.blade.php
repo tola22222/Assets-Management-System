@@ -71,13 +71,10 @@
                                     class="w-7 h-7 bg-brand text-white rounded flex items-center justify-center hover:bg-brand-dark transition shadow-sm" title="Edit">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487zm0 0L19.5 7.125"/></svg>
                                 </button>
-                                <form action="{{ route('staff.destroy', $staff->id) }}" method="POST" class="inline" onsubmit="return confirm('Delete this staff member?')">
-                                    @csrf @method('DELETE')
-                                    <button type="submit"
-                                        class="w-7 h-7 bg-red-500 text-white rounded flex items-center justify-center hover:bg-red-600 transition shadow-sm" title="Delete">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg>
-                                    </button>
-                                </form>
+                                <button onclick="openDeleteModal('{{ route('staff.destroy', $staff->id) }}', '{{ $staff->full_name }}')"
+                                    class="w-7 h-7 bg-red-500 text-white rounded flex items-center justify-center hover:bg-red-600 transition shadow-sm" title="Delete">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg>
+                                </button>
                             </div>
                         </td>
                         @endif
@@ -98,72 +95,96 @@
     </div>
 </div>
 
-<div id="staffModal" class="fixed inset-0 bg-gray-900/40 backdrop-blur-sm hidden z-[100] flex items-center justify-center p-4">
-    <div class="bg-white dark:bg-gray-800 w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden animate__fade-in">
-        <div class="px-6 py-5 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+<div id="staffModal" class="fixed inset-0 bg-gray-900/40 backdrop-blur-sm hidden z-[100] flex items-center justify-end p-4">
+    <div class="bg-white dark:bg-gray-800 w-full max-w-2xl rounded-2xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden animate__slide-in-right">
+        <div class="px-6 py-5 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between bg-white dark:bg-gray-800">
             <h3 id="modalTitle" class="text-lg font-bold text-gray-900 dark:text-white tracking-wide">Add New Staff</h3>
-            <button onclick="closeModal()" class="text-gray-400 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition p-1.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700">
+            <button onclick="closeModal()" class="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition p-1.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
             </button>
         </div>
-        <form id="staffForm" method="POST" enctype="multipart/form-data" class="p-6 space-y-5">
+        <form id="staffForm" method="POST" enctype="multipart/form-data" class="flex-1 overflow-y-auto">
             @csrf
             <div id="methodField"></div>
-
-            <div class="space-y-1.5">
-                <label class="text-xs font-semibold text-gray-700 dark:text-gray-300 tracking-wide">Full Name <span class="text-red-500">*</span></label>
-                <input type="text" name="full_name" id="stf_full_name" placeholder="e.g. John Doe" required
-                    class="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-brand transition placeholder-gray-300 dark:placeholder-gray-500 dark:text-gray-200">
-            </div>
-            <div class="grid grid-cols-2 gap-4">
+            <div class="p-6 space-y-5 bg-gray-50/30 dark:bg-gray-900/30">
                 <div class="space-y-1.5">
-                    <label class="text-xs font-semibold text-gray-700 dark:text-gray-300 tracking-wide">Email</label>
-                    <input type="email" name="email" id="stf_email" placeholder="john@example.com"
+                    <label class="text-xs font-semibold text-gray-700 dark:text-gray-300 tracking-wide">Full Name <span class="text-red-500">*</span></label>
+                    <input type="text" name="full_name" id="stf_full_name" placeholder="e.g. John Doe" required
                         class="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-brand transition placeholder-gray-300 dark:placeholder-gray-500 dark:text-gray-200">
                 </div>
-                <div class="space-y-1.5">
-                    <label class="text-xs font-semibold text-gray-700 dark:text-gray-300 tracking-wide">Phone</label>
-                    <input type="text" name="phone" id="stf_phone" placeholder="+855 12 345 678"
-                        class="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-brand transition placeholder-gray-300 dark:placeholder-gray-500 dark:text-gray-200">
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="space-y-1.5">
+                        <label class="text-xs font-semibold text-gray-700 dark:text-gray-300 tracking-wide">Email</label>
+                        <input type="email" name="email" id="stf_email" placeholder="john@example.com"
+                            class="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-brand transition placeholder-gray-300 dark:placeholder-gray-500 dark:text-gray-200">
+                    </div>
+                    <div class="space-y-1.5">
+                        <label class="text-xs font-semibold text-gray-700 dark:text-gray-300 tracking-wide">Phone</label>
+                        <input type="text" name="phone" id="stf_phone" placeholder="+855 12 345 678"
+                            class="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-brand transition placeholder-gray-300 dark:placeholder-gray-500 dark:text-gray-200">
+                    </div>
                 </div>
-            </div>
-            <div class="grid grid-cols-2 gap-4">
-                <div class="space-y-1.5">
-                    <label class="text-xs font-semibold text-gray-700 dark:text-gray-300 tracking-wide">Position</label>
-                    <input type="text" name="position" id="stf_position" placeholder="e.g. Teacher"
-                        class="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-brand transition placeholder-gray-300 dark:placeholder-gray-500 dark:text-gray-200">
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="space-y-1.5">
+                        <label class="text-xs font-semibold text-gray-700 dark:text-gray-300 tracking-wide">Position</label>
+                        <input type="text" name="position" id="stf_position" placeholder="e.g. Teacher"
+                            class="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-brand transition placeholder-gray-300 dark:placeholder-gray-500 dark:text-gray-200">
+                    </div>
+                    <div class="space-y-1.5">
+                        <label class="text-xs font-semibold text-gray-700 dark:text-gray-300 tracking-wide">Hire Date</label>
+                        <input type="date" name="hire_date" id="stf_hire_date"
+                            class="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-brand transition dark:text-gray-200">
+                    </div>
                 </div>
                 <div class="space-y-1.5">
-                    <label class="text-xs font-semibold text-gray-700 dark:text-gray-300 tracking-wide">Hire Date</label>
-                    <input type="date" name="hire_date" id="stf_hire_date"
+                    <label class="text-xs font-semibold text-gray-700 dark:text-gray-300 tracking-wide">Photo</label>
+                    <input type="file" name="photo" accept="image/jpeg,image/png"
+                        class="w-full text-sm text-gray-500 dark:text-gray-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-brand file:text-white hover:file:bg-brand-dark transition">
+                </div>
+                <div id="statusField" class="space-y-1.5 hidden">
+                    <label class="text-xs font-semibold text-gray-700 dark:text-gray-300 tracking-wide">Status</label>
+                    <select name="status" id="stf_status"
                         class="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-brand transition dark:text-gray-200">
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                    </select>
                 </div>
             </div>
-            <div class="space-y-1.5">
-                <label class="text-xs font-semibold text-gray-700 dark:text-gray-300 tracking-wide">Photo</label>
-                <input type="file" name="photo" accept="image/jpeg,image/png"
-                    class="w-full text-sm text-gray-500 dark:text-gray-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-brand file:text-white hover:file:bg-brand-dark transition">
-            </div>
-            <div id="statusField" class="space-y-1.5 hidden">
-                <label class="text-xs font-semibold text-gray-700 dark:text-gray-300 tracking-wide">Status</label>
-                <select name="status" id="stf_status"
-                    class="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-brand transition dark:text-gray-200">
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
-                </select>
-            </div>
-
-            <div class="flex items-center justify-end gap-3 pt-4 border-t border-gray-100 dark:border-gray-700">
+            <div class="p-4 border-t border-gray-100 dark:border-gray-700 flex items-center justify-center gap-3 bg-white dark:bg-gray-800">
                 <button type="button" onclick="closeModal()"
-                    class="border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 font-semibold text-sm px-6 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition">Cancel</button>
+                    class="border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 font-semibold text-sm px-10 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition">Cancel</button>
                 <button type="submit"
-                    class="bg-brand hover:bg-brand-dark text-white font-semibold text-sm px-6 py-2.5 rounded-xl shadow-sm transition">Save Changes</button>
+                    class="bg-brand hover:bg-brand-dark text-white font-semibold text-sm px-12 py-2.5 rounded-xl shadow-sm transition">Save Changes</button>
             </div>
         </form>
     </div>
 </div>
 
+{{-- Delete Confirmation Modal --}}
+<div id="deleteModal" class="fixed inset-0 bg-gray-900/40 backdrop-blur-sm hidden z-[150] flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-gray-800 w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden p-6 animate__fade-in">
+        <div class="text-center">
+            <div class="w-14 h-14 mx-auto bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center">
+                <svg class="w-7 h-7 text-red-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/></svg>
+            </div>
+            <h3 class="text-lg font-bold text-gray-900 dark:text-white mt-4">Delete Confirmation</h3>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">Are you sure you want to delete <strong id="deleteItemName">this item</strong>? This action cannot be undone.</p>
+            <form id="deleteForm" method="POST" class="mt-6">
+                @csrf @method('DELETE')
+                <div class="flex items-center justify-center gap-3">
+                    <button type="button" onclick="closeDeleteModal()"
+                        class="border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 font-semibold text-sm px-6 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition">Cancel</button>
+                    <button type="submit"
+                        class="bg-red-500 hover:bg-red-600 text-white font-semibold text-sm px-6 py-2.5 rounded-xl shadow-sm transition">Delete</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <style>
+.animate__slide-in-right { animation: slideInRight 0.2s ease-out; }
+@keyframes slideInRight { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 .animate__fade-in { animation: fadeIn 0.15s ease-out; }
 @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
 </style>
@@ -198,5 +219,16 @@
     }
 
     function closeModal() { modal.classList.add('hidden'); document.body.style.overflow = 'auto'; }
+
+    function openDeleteModal(action, name) {
+        document.getElementById('deleteForm').action = action;
+        document.getElementById('deleteItemName').textContent = name;
+        document.getElementById('deleteModal').classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+    }
+    function closeDeleteModal() {
+        document.getElementById('deleteModal').classList.add('hidden');
+        document.body.style.overflow = 'auto';
+    }
 </script>
 @endsection

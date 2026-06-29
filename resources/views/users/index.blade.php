@@ -66,21 +66,15 @@
                                     class="w-7 h-7 bg-amber-500 text-white rounded flex items-center justify-center hover:bg-amber-600 transition shadow-sm" title="Reset Password">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z"/></svg>
                                 </button>
-                                <form action="{{ route('users.lock', $user->id) }}" method="POST" class="inline">
-                                    @csrf
-                                    <button type="submit"
-                                        class="w-7 h-7 bg-gray-500 text-white rounded flex items-center justify-center hover:bg-gray-600 transition shadow-sm" title="{{ $user->is_locked ? 'Unlock' : 'Lock' }}">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/></svg>
-                                    </button>
-                                </form>
+                                <button onclick="openLockModal('{{ route('users.lock', $user->id) }}', '{{ $user->name }}', {{ $user->is_locked ? 'true' : 'false' }})"
+                                    class="w-7 h-7 bg-gray-500 text-white rounded flex items-center justify-center hover:bg-gray-600 transition shadow-sm" title="{{ $user->is_locked ? 'Unlock' : 'Lock' }}">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/></svg>
+                                </button>
                                 @if($user->id !== Auth::id())
-                                <form action="{{ route('users.destroy', $user->id) }}" method="POST" class="inline" onsubmit="return confirm('Delete this user?')">
-                                    @csrf @method('DELETE')
-                                    <button type="submit"
-                                        class="w-7 h-7 bg-red-500 text-white rounded flex items-center justify-center hover:bg-red-600 transition shadow-sm" title="Delete">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg>
-                                    </button>
-                                </form>
+                                <button onclick="openDeleteModal('{{ route('users.destroy', $user->id) }}', '{{ $user->name }}')"
+                                    class="w-7 h-7 bg-red-500 text-white rounded flex items-center justify-center hover:bg-red-600 transition shadow-sm" title="Delete">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg>
+                                </button>
                                 @endif
                             </div>
                         </td>
@@ -189,9 +183,55 @@
     </div>
 </div>
 
+{{-- Lock/Unlock Confirmation Modal --}}
+<div id="lockModal" class="fixed inset-0 bg-gray-900/40 backdrop-blur-sm hidden z-[150] flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-gray-800 w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden p-6 animate__fade-in">
+        <div class="text-center">
+            <div class="w-14 h-14 mx-auto bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center">
+                <svg class="w-7 h-7 text-gray-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/></svg>
+            </div>
+            <h3 class="text-lg font-bold text-gray-900 dark:text-white mt-4" id="lockModalTitle">Lock User</h3>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">Are you sure you want to <strong id="lockAction">lock</strong> user <strong id="lockUserName">this user</strong>?</p>
+            <form id="lockForm" method="POST" class="mt-6">
+                @csrf
+                <div class="flex items-center justify-center gap-3">
+                    <button type="button" onclick="closeLockModal()"
+                        class="border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 font-semibold text-sm px-6 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition">Cancel</button>
+                    <button type="submit" id="lockSubmitBtn"
+                        class="bg-gray-500 hover:bg-gray-600 text-white font-semibold text-sm px-6 py-2.5 rounded-xl shadow-sm transition">Yes, Lock</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{{-- Delete Confirmation Modal --}}
+<div id="deleteModal" class="fixed inset-0 bg-gray-900/40 backdrop-blur-sm hidden z-[150] flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-gray-800 w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden p-6 animate__fade-in">
+        <div class="text-center">
+            <div class="w-14 h-14 mx-auto bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center">
+                <svg class="w-7 h-7 text-red-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/></svg>
+            </div>
+            <h3 class="text-lg font-bold text-gray-900 dark:text-white mt-4">Delete Confirmation</h3>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">Are you sure you want to delete <strong id="deleteItemName">this item</strong>? This action cannot be undone.</p>
+            <form id="deleteForm" method="POST" class="mt-6">
+                @csrf @method('DELETE')
+                <div class="flex items-center justify-center gap-3">
+                    <button type="button" onclick="closeDeleteModal()"
+                        class="border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 font-semibold text-sm px-6 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition">Cancel</button>
+                    <button type="submit"
+                        class="bg-red-500 hover:bg-red-600 text-white font-semibold text-sm px-6 py-2.5 rounded-xl shadow-sm transition">Delete</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <style>
 .animate__slide-in-right { animation: slideInRight 0.2s ease-out; }
 @keyframes slideInRight { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+.animate__fade-in { animation: fadeIn 0.15s ease-out; }
+@keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
 </style>
 
 <script>
@@ -227,6 +267,39 @@
 
     function closeModal() {
         document.getElementById('userModal').classList.add('hidden');
+    }
+
+    function openLockModal(action, name, isLocked) {
+        document.getElementById('lockForm').action = action;
+        document.getElementById('lockUserName').textContent = name;
+        if (isLocked) {
+            document.getElementById('lockModalTitle').textContent = 'Unlock User';
+            document.getElementById('lockAction').textContent = 'unlock';
+            document.getElementById('lockSubmitBtn').textContent = 'Yes, Unlock';
+            document.getElementById('lockSubmitBtn').className = 'bg-emerald-500 hover:bg-emerald-600 text-white font-semibold text-sm px-6 py-2.5 rounded-xl shadow-sm transition';
+        } else {
+            document.getElementById('lockModalTitle').textContent = 'Lock User';
+            document.getElementById('lockAction').textContent = 'lock';
+            document.getElementById('lockSubmitBtn').textContent = 'Yes, Lock';
+            document.getElementById('lockSubmitBtn').className = 'bg-gray-500 hover:bg-gray-600 text-white font-semibold text-sm px-6 py-2.5 rounded-xl shadow-sm transition';
+        }
+        document.getElementById('lockModal').classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+    }
+    function closeLockModal() {
+        document.getElementById('lockModal').classList.add('hidden');
+        document.body.style.overflow = 'auto';
+    }
+
+    function openDeleteModal(action, name) {
+        document.getElementById('deleteForm').action = action;
+        document.getElementById('deleteItemName').textContent = name;
+        document.getElementById('deleteModal').classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+    }
+    function closeDeleteModal() {
+        document.getElementById('deleteModal').classList.add('hidden');
+        document.body.style.overflow = 'auto';
     }
 </script>
 @endsection
