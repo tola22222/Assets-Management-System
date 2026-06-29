@@ -21,6 +21,8 @@ COPY . .
 RUN composer dump-autoload --optimize
 RUN php artisan package:discover --ansi
 
+RUN cp -r /var/www/public /var/www/public_original
+
 RUN chown -R www-data:www-data storage bootstrap/cache public \
   && chmod -R 755 public \
   && chmod -R 775 storage bootstrap/cache
