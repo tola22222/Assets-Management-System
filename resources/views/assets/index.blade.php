@@ -226,16 +226,6 @@
                     <p id="detailCode" class="text-sm font-mono text-gray-400 dark:text-gray-500 mt-1"></p>
                     <span id="detailStatus" class="inline-block mt-2 px-2.5 py-1 rounded-full text-xs font-semibold"></span>
                 </div>
-                <div id="detailQrWrap" class="hidden flex-shrink-0 text-center">
-                    <img id="detailQrImage" src="" alt="QR Code" class="w-24 h-24 border border-gray-200 dark:border-gray-600 rounded-xl p-1.5 bg-white mx-auto">
-                    <div class="flex items-center justify-center gap-2 mt-1.5">
-                        <a id="detailQrPrint" href="#" target="_blank"
-                            class="text-xs font-semibold text-brand hover:text-brand-dark underline underline-offset-2 transition">Print</a>
-                        <span class="text-gray-300 dark:text-gray-600">|</span>
-                        <a id="detailQrDownload" href="#"
-                            class="text-xs font-semibold text-brand hover:text-brand-dark underline underline-offset-2 transition">Download PNG</a>
-                    </div>
-                </div>
             </div>
             <div class="grid grid-cols-2 gap-x-6 gap-y-4">
                 <div><p class="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide">Category</p><p id="detailCategory" class="font-semibold text-gray-800 dark:text-gray-200 mt-0.5"></p></div>
@@ -336,15 +326,6 @@
             imgEl.innerHTML = '<img src="' + data.image_url + '" class="w-full h-full object-cover">';
         } else {
             imgEl.innerHTML = 'No Image';
-        }
-        const qrWrap = document.getElementById('detailQrWrap');
-        if (data.qr_code_url) {
-            qrWrap.classList.remove('hidden');
-            document.getElementById('detailQrImage').src = data.qr_code_url;
-            document.getElementById('detailQrPrint').href = '/assets-registeration/' + data.id + '/print-qr';
-            document.getElementById('detailQrDownload').href = '/assets-registeration/' + data.id + '/download-qr';
-        } else {
-            qrWrap.classList.add('hidden');
         }
         document.getElementById('assetDetailModal').classList.remove('hidden');
         document.body.style.overflow = 'hidden';
