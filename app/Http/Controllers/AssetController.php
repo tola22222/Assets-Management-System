@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Storage;
 use Endroid\QrCode\Builder\Builder;
 use Endroid\QrCode\Encoding\Encoding;
 use Endroid\QrCode\Writer\PngWriter;
+use SimpleSoftwareIO\QrCode\Facades\QrCode;
 
 class AssetController extends Controller
 {
@@ -27,6 +28,23 @@ class AssetController extends Controller
     {
         $categories = AssetCategory::orderBy('name')->get();
         return view('assets.create', compact('categories'));
+    }
+
+    private function generateQrCode(Asset $asset): void
+    {
+        $url = route('asset.public.show', $asset->asset_code);
+
+        $qrImage = QrCode::format('png')
+            ->size(300)
+            ->errorCorrection('H')
+            ->margin(1)
+            ->generate($url);
+
+        $path = 'qrcodes/' . $asset->asset_code . '.png';
+
+        Storage::disk('public')->put($path, $qrImage);
+
+        $asset->update(['qr_code_path' => $path]);
     }
 
     public function store(Request $request)
@@ -196,26 +214,26 @@ class AssetController extends Controller
         return view('assets.print-qr', compact('asset', 'qrUrl'));
     }
 
-    private function generateQrCode(Asset $asset)
-    {
-        try {
-            $filename = 'qrcodes/' . $asset->asset_code . '.png';
+    // private function generateQrCode(Asset $asset)
+    // {
+    //     try {
+    //         $filename = 'qrcodes/' . $asset->asset_code . '.png';
 
-            $qrSize = \App\Models\Setting::where('key', 'qr_size')->value('value') ?? 300;
+    //         $qrSize = \App\Models\Setting::where('key', 'qr_size')->value('value') ?? 300;
 
-            $builder = new Builder(
-                writer: new PngWriter(),
-                data: route('asset.public.show', $asset->asset_code),
-                encoding: new Encoding('UTF-8'),
-                size: (int) $qrSize,
-                margin: 10,
-            );
+    //         $builder = new Builder(
+    //             writer: new PngWriter(),
+    //             data: route('asset.public.show', $asset->asset_code),
+    //             encoding: new Encoding('UTF-8'),
+    //             size: (int) $qrSize,
+    //             margin: 10,
+    //         );
 
-            $builder->build()->saveToFile(Storage::disk('public')->path($filename));
+    //         $builder->build()->saveToFile(Storage::disk('public')->path($filename));
 
-            $asset->update(['qr_code_path' => $filename]);
-        } catch (\Exception $e) {
-            \Log::error('QR Code generation failed for asset ' . $asset->asset_code . ': ' . $e->getMessage());
-        }
-    }
+    //         $asset->update(['qr_code_path' => $filename]);
+    //     } catch (\Exception $e) {
+    //         \Log::error('QR Code generation failed for asset ' . $asset->asset_code . ': ' . $e->getMessage());
+    //     }
+    // }
 }
