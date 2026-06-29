@@ -26,6 +26,7 @@ use App\Http\Controllers\SearchController;
 
 // --- PUBLIC ROUTES ---
 Route::get('/asset/{assetCode}', [AssetController::class, 'publicShow'])->name('asset.public.show');
+Route::post('/asset/{assetCode}/update-condition', [AssetController::class, 'publicUpdateCondition'])->name('asset.public.update-condition');
 
 // --- GUEST ROUTES ---
 Route::middleware('guest')->group(function () {

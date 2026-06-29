@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\Storage;
 use Endroid\QrCode\Builder\Builder;
 use Endroid\QrCode\Encoding\Encoding;
 use Endroid\QrCode\Writer\PngWriter;
-use SimpleSoftwareIO\QrCode\Facades\QrCode;
+use Endroid\QrCode\ErrorCorrectionLevel;
 
 class AssetController extends Controller
 {
@@ -34,15 +34,18 @@ class AssetController extends Controller
     {
         $url = route('asset.public.show', $asset->asset_code);
 
-        $qrImage = QrCode::format('png')
-            ->size(300)
-            ->errorCorrection('H')
-            ->margin(1)
-            ->generate($url);
+        $result = (new Builder(
+            writer: new PngWriter,
+            data: $url,
+            encoding: new Encoding('UTF-8'),
+            errorCorrectionLevel: ErrorCorrectionLevel::High,
+            size: 300,
+            margin: 10,
+        ))->build();
 
         $path = 'qrcodes/' . $asset->asset_code . '.png';
 
-        Storage::disk('public')->put($path, $qrImage);
+        Storage::disk('public')->put($path, $result->getString());
 
         $asset->update(['qr_code_path' => $path]);
     }
@@ -180,8 +183,36 @@ class AssetController extends Controller
 
     public function publicShow($assetCode)
     {
-        $asset = Asset::with('category')->where('asset_code', $assetCode)->firstOrFail();
-        return view('assets.public-show', compact('asset'));
+        $asset = Asset::with(['category', 'stocks.location', 'assignments' => function ($q) {
+            $q->with('assignee')->latest();
+        }])->where('asset_code', $assetCode)->firstOrFail();
+        $locations = \App\Models\Location::all();
+        return view('assets.public-show', compact('asset', 'locations'));
+    }
+
+    public function publicUpdateCondition(Request $request, $assetCode)
+    {
+        $asset = Asset::where('asset_code', $assetCode)->firstOrFail();
+
+        $validated = $request->validate([
+            'condition' => 'required|in:good,fair,broken,lost',
+            'remark' => 'nullable|string|max:500',
+        ]);
+
+        $asset->update(['condition' => $validated['condition']]);
+
+        \App\Models\AssetVerification::create([
+            'asset_id' => $asset->id,
+            'verified_by' => null,
+            'location_id' => $request->location_id,
+            'quantity_verified' => 1,
+            'condition' => $validated['condition'],
+            'remark' => $validated['remark'] ?? null,
+            'verified_at' => now(),
+        ]);
+
+        return redirect()->route('asset.public.show', $assetCode)
+            ->with('success', 'Condition updated successfully.');
     }
 
     public function downloadQr($id)
