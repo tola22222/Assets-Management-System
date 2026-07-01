@@ -1,5 +1,5 @@
 @php $user = Auth::user(); @endphp
-<header class="bg-white dark:bg-gray-900 h-16 lg:h-20 px-4 lg:px-8 flex items-center justify-between border-b border-gray-200 dark:border-gray-700 sticky top-0 z-30">
+<header class="bg-white dark:bg-gray-900 h-16 lg:h-20 px-4 lg:px-8 flex items-center justify-between border-b border-gray-200 dark:border-gray-700 sticky top-0 z-30" x-data="{ mobileSearch: false }">
     <div class="flex items-center gap-3 lg:hidden">
         <button @click="sidebarOpen = !sidebarOpen" class="p-1.5 text-gray-500 dark:text-gray-400 hover:text-brand rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
@@ -19,7 +19,13 @@
             class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg py-2 pl-10 pr-4 text-sm focus:outline-none focus:border-brand transition dark:text-gray-200 dark:placeholder-gray-500">
     </form>
 
-    <div class="flex items-center gap-3">
+    <div class="flex items-center gap-1 sm:gap-3">
+
+        <button @click="mobileSearch = !mobileSearch" class="sm:hidden p-2 text-gray-400 hover:text-brand rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition" title="Search">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            </svg>
+        </button>
 
         <a href="{{ route('qr-scan.index') }}" class="p-2 text-gray-400 hover:text-brand rounded-lg hover:bg-gray-100 lg:hidden transition" title="Scan QR">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
@@ -46,4 +52,16 @@
                 src="{{ $user->photo_url ?? 'https://ui-avatars.com/api/?name=User&background=128a43&color=fff' }}" alt="Avatar">
         </a>
     </div>
+
+    <form action="{{ route('search') }}" method="GET" x-show="mobileSearch" x-cloak x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 -translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100 translate-y-0" x-transition:leave-end="opacity-0 -translate-y-2" class="sm:hidden absolute top-full left-0 right-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-4 py-3 shadow-lg">
+        <div class="relative">
+            <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-gray-400">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                </svg>
+            </span>
+            <input type="text" name="q" placeholder="{{ __('messages.search_placeholder') }}" autofocus
+                class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:border-brand transition dark:text-gray-200 dark:placeholder-gray-500">
+        </div>
+    </form>
 </header>

@@ -1,5 +1,5 @@
 @extends('layouts.app')
-@section('title', 'QR Scanner')
+@section('title', 'Search Asset Tracker')
 @section('content')
 <div class="max-w-2xl mx-auto space-y-8">
     @if(session('error'))
@@ -7,7 +7,7 @@
     @endif
 
     <div class="text-center">
-        <h1 class="text-2xl font-bold text-slate-800 dark:text-white">QR Code Scanner</h1>
+        <h1 class="text-2xl font-bold text-slate-800 dark:text-white">Search Asset Tracker</h1>
         <p class="text-slate-500 dark:text-gray-400 mt-1">Scan an asset QR code to view details</p>
     </div>
 
