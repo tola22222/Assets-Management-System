@@ -203,7 +203,7 @@ class AssetController extends Controller
 
         \App\Models\AssetVerification::create([
             'asset_id' => $asset->id,
-            'verified_by' => null,
+            'verified_by' => 'Public Scan',
             'location_id' => $request->location_id,
             'quantity_verified' => 1,
             'condition' => $validated['condition'],
