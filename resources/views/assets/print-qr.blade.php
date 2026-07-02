@@ -3,6 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <title>Print QR - {{ $asset->asset_code }}</title>
+    <link rel="icon" type="image/png" href="{{ asset('images/Favicon1080x1080.png') }}">
+    <link rel="apple-touch-icon" href="{{ asset('images/Favicon1080x1080.png') }}">
     <style>
         body {
             margin: 0;

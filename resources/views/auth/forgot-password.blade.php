@@ -5,13 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Forgot Password - PEPY Asset Management</title>
 
-    <link rel="icon" type="image/png" sizes="16x16"        href="{{ asset('favicon-16x16.png') }}">
-    <link rel="icon" type="image/png" sizes="32x32"        href="{{ asset('favicon-32x32.png') }}">
-    <link rel="icon" type="image/png" sizes="96x96"        href="{{ asset('favicon-96x96.png') }}">
-    <link rel="icon" type="image/png" sizes="1080x1080"     href="{{ asset('Favicon1080x1080.png') }}">
-    <link rel="apple-touch-icon" sizes="180x180"           href="{{ asset('favicon-180x180.png') }}">
-    <link rel="apple-touch-icon" sizes="1080x1080"          href="{{ asset('Favicon1080x1080.png') }}">
-    <link rel="shortcut icon"                               href="{{ asset('favicon.ico') }}">
+    <link rel="icon" type="image/png" href="{{ asset('images/Favicon1080x1080.png') }}">
+    <link rel="apple-touch-icon" href="{{ asset('images/Favicon1080x1080.png') }}">
 
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
