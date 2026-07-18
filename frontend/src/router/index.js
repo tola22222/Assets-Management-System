@@ -10,6 +10,13 @@ import AssetTransfersIndex from '../pages/asset-transfers/Index.vue'
 import AssetReturnsIndex from '../pages/asset-returns/Index.vue'
 import AssetVerificationsIndex from '../pages/asset-verifications/Index.vue'
 import AssetDisposalsIndex from '../pages/asset-disposals/Index.vue'
+import ProgramsIndex from '../pages/programs/Index.vue'
+import StaffIndex from '../pages/staff/Index.vue'
+import SuppliersIndex from '../pages/suppliers/Index.vue'
+import UsersIndex from '../pages/users/Index.vue'
+import SettingsIndex from '../pages/settings/Index.vue'
+import ActivityLogsIndex from '../pages/activity-logs/Index.vue'
+import ReportsIndex from '../pages/reports/Index.vue'
 
 const routes = [
   { path: '/login', name: 'login', component: Login, meta: { guest: true } },
@@ -23,6 +30,13 @@ const routes = [
   { path: '/asset-returns', name: 'asset-returns', component: AssetReturnsIndex, meta: { requiresAuth: true } },
   { path: '/asset-verifications', name: 'asset-verifications', component: AssetVerificationsIndex, meta: { requiresAuth: true } },
   { path: '/asset-disposals', name: 'asset-disposals', component: AssetDisposalsIndex, meta: { requiresAuth: true } },
+  { path: '/programs', name: 'programs', component: ProgramsIndex, meta: { requiresAuth: true } },
+  { path: '/staff', name: 'staff', component: StaffIndex, meta: { requiresAuth: true } },
+  { path: '/suppliers', name: 'suppliers', component: SuppliersIndex, meta: { requiresAuth: true } },
+  { path: '/users', name: 'users', component: UsersIndex, meta: { requiresAuth: true, adminOnly: true } },
+  { path: '/settings', name: 'settings', component: SettingsIndex, meta: { requiresAuth: true, adminOnly: true } },
+  { path: '/activity-logs', name: 'activity-logs', component: ActivityLogsIndex, meta: { requiresAuth: true, adminOnly: true } },
+  { path: '/reports', name: 'reports', component: ReportsIndex, meta: { requiresAuth: true } },
 ]
 
 const router = createRouter({
@@ -39,6 +53,13 @@ router.beforeEach((to) => {
 
   if (to.meta.guest && isAuthenticated) {
     return { name: 'dashboard' }
+  }
+
+  if (to.meta.adminOnly) {
+    const user = JSON.parse(localStorage.getItem('user') || 'null')
+    if (user?.role !== 'admin') {
+      return { name: 'dashboard' }
+    }
   }
 })
 

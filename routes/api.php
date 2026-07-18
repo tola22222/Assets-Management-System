@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\ActivityLogController;
 use App\Http\Controllers\Api\AssetAssignmentController;
 use App\Http\Controllers\Api\AssetCategoryController;
 use App\Http\Controllers\Api\AssetController;
@@ -12,6 +13,12 @@ use App\Http\Controllers\Api\AssetVerificationController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\LocationController;
+use App\Http\Controllers\Api\ProgramController;
+use App\Http\Controllers\Api\ReportController;
+use App\Http\Controllers\Api\SettingController;
+use App\Http\Controllers\Api\StaffController;
+use App\Http\Controllers\Api\SupplierController;
+use App\Http\Controllers\Api\UserController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/login', [AuthController::class, 'login']);
@@ -50,4 +57,29 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('asset-disposals', AssetDisposalController::class)->only(['index', 'store', 'destroy']);
 
     Route::apiResource('asset-movements', AssetMovementController::class)->only(['index', 'destroy']);
+
+    Route::apiResource('programs', ProgramController::class)->except(['create', 'show', 'edit']);
+    Route::apiResource('staff', StaffController::class)->except(['create', 'show', 'edit']);
+    Route::apiResource('suppliers', SupplierController::class)->except(['create', 'show', 'edit']);
+
+    Route::get('/reports/inventory', [ReportController::class, 'inventory']);
+    Route::get('/reports/assignments', [ReportController::class, 'assignments']);
+    Route::get('/reports/transfers', [ReportController::class, 'transfers']);
+    Route::get('/reports/verifications', [ReportController::class, 'verifications']);
+    Route::get('/reports/returns', [ReportController::class, 'returns']);
+    Route::get('/reports/disposed', [ReportController::class, 'disposed']);
+    Route::get('/reports/lost', [ReportController::class, 'lost']);
+    Route::get('/reports/locations', [ReportController::class, 'locations']);
+    Route::get('/reports/qr-scans', [ReportController::class, 'qrScans']);
+
+    Route::middleware('role:admin')->group(function () {
+        Route::apiResource('users', UserController::class)->except(['create', 'show']);
+        Route::post('/users/{user}/lock', [UserController::class, 'lock']);
+        Route::post('/users/{user}/reset-password', [UserController::class, 'resetPassword']);
+
+        Route::get('/settings', [SettingController::class, 'index']);
+        Route::post('/settings', [SettingController::class, 'update']);
+
+        Route::apiResource('activity-logs', ActivityLogController::class)->only(['index', 'show', 'destroy']);
+    });
 });

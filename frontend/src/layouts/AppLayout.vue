@@ -46,8 +46,26 @@ async function handleLogout() {
         </div>
 
         <div>
+          <p class="px-2 text-[11px] font-semibold text-white/40 uppercase tracking-wider mb-1.5">People &amp; Programs</p>
+          <div class="space-y-0.5">
+            <RouterLink to="/staff" class="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-white/70 hover:bg-white/10 hover:text-white transition" active-class="bg-white/10 text-white font-semibold">Staff Directory</RouterLink>
+            <RouterLink to="/programs" class="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-white/70 hover:bg-white/10 hover:text-white transition" active-class="bg-white/10 text-white font-semibold">Programs</RouterLink>
+            <RouterLink to="/suppliers" class="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-white/70 hover:bg-white/10 hover:text-white transition" active-class="bg-white/10 text-white font-semibold">Suppliers</RouterLink>
+          </div>
+        </div>
+
+        <div>
           <p class="px-2 text-[11px] font-semibold text-white/40 uppercase tracking-wider mb-1.5">Insight</p>
-          <span class="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-white/50 cursor-not-allowed">Reports</span>
+          <RouterLink to="/reports" class="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-white/70 hover:bg-white/10 hover:text-white transition" active-class="bg-white/10 text-white font-semibold">Reports</RouterLink>
+        </div>
+
+        <div v-if="auth.user?.role === 'admin'">
+          <p class="px-2 text-[11px] font-semibold text-white/40 uppercase tracking-wider mb-1.5">Setting</p>
+          <div class="space-y-0.5">
+            <RouterLink to="/users" class="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-white/70 hover:bg-white/10 hover:text-white transition" active-class="bg-white/10 text-white font-semibold">User Management</RouterLink>
+            <RouterLink to="/settings" class="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-white/70 hover:bg-white/10 hover:text-white transition" active-class="bg-white/10 text-white font-semibold">System Settings</RouterLink>
+            <RouterLink to="/activity-logs" class="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-white/70 hover:bg-white/10 hover:text-white transition" active-class="bg-white/10 text-white font-semibold">Activity Logs</RouterLink>
+          </div>
         </div>
       </nav>
 

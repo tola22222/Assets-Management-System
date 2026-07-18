@@ -25,9 +25,13 @@ export function useApiCrud(endpoint, { entityName = 'Item' } = {}) {
   }
 
   async function update(id, payload, config = {}) {
-    const isFormData = payload instanceof FormData
-    if (isFormData) payload.append('_method', 'PUT')
-    const { data } = await http.post(`${endpoint}/${id}`, payload, config)
+    let data
+    if (payload instanceof FormData) {
+      payload.append('_method', 'PUT')
+      ;({ data } = await http.post(`${endpoint}/${id}`, payload, config))
+    } else {
+      ;({ data } = await http.put(`${endpoint}/${id}`, payload, config))
+    }
     toast.success(`${entityName} updated successfully.`)
     await fetchAll()
     return data
