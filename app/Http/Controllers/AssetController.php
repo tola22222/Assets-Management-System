@@ -7,13 +7,10 @@ use App\Models\AssetCategory;
 use App\Models\ActivityLog;
 use App\Models\Notification;
 use App\Models\User;
+use App\Services\AssetCodeService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
-use Endroid\QrCode\Builder\Builder;
-use Endroid\QrCode\Encoding\Encoding;
-use Endroid\QrCode\Writer\PngWriter;
-use Endroid\QrCode\ErrorCorrectionLevel;
 
 class AssetController extends Controller
 {
@@ -28,26 +25,6 @@ class AssetController extends Controller
     {
         $categories = AssetCategory::orderBy('name')->get();
         return view('assets.create', compact('categories'));
-    }
-
-    private function generateQrCode(Asset $asset): void
-    {
-        $url = route('asset.public.show', $asset->asset_code);
-
-        $result = (new Builder(
-            writer: new PngWriter,
-            data: $url,
-            encoding: new Encoding('UTF-8'),
-            errorCorrectionLevel: ErrorCorrectionLevel::High,
-            size: 300,
-            margin: 10,
-        ))->build();
-
-        $path = 'qrcodes/' . $asset->asset_code . '.png';
-
-        Storage::disk('public')->put($path, $result->getString());
-
-        $asset->update(['qr_code_path' => $path]);
     }
 
     public function store(Request $request)
@@ -70,16 +47,12 @@ class AssetController extends Controller
             $validated['image_path'] = $request->file('image')->store('assets', 'public');
         }
 
-        // Generate asset code: SHORTNAME-YYYY-XXXXXX
-        $category = \App\Models\AssetCategory::find($validated['category_id']);
-        $prefix = $category ? strtoupper($category->short_name) : 'AST';
-        $year = date('Y');
-        $count = Asset::whereYear('created_at', $year)->count() + 1;
-        $validated['asset_code'] = $prefix . '-' . $year . '-' . str_pad($count, 6, '0', STR_PAD_LEFT);
+        $category = AssetCategory::find($validated['category_id']);
+        $validated['asset_code'] = AssetCodeService::nextCode($category);
 
         $asset = Asset::create($validated);
 
-        $this->generateQrCode($asset);
+        AssetCodeService::generateQrCode($asset);
 
         ActivityLog::create([
             'user_id' => Auth::id(),
@@ -142,7 +115,7 @@ class AssetController extends Controller
         $asset->update($validated);
 
         if (!$asset->qr_code_path) {
-            $this->generateQrCode($asset);
+            AssetCodeService::generateQrCode($asset);
         }
 
         ActivityLog::create([
@@ -219,7 +192,7 @@ class AssetController extends Controller
     {
         $asset = Asset::findOrFail($id);
         if (!$asset->qr_code_path || !Storage::disk('public')->exists($asset->qr_code_path)) {
-            $this->generateQrCode($asset);
+            AssetCodeService::generateQrCode($asset);
         }
         $extension = pathinfo($asset->qr_code_path, PATHINFO_EXTENSION);
         return Storage::disk('public')->download($asset->qr_code_path, $asset->asset_code . '-qr.' . $extension);
@@ -231,7 +204,7 @@ class AssetController extends Controller
         if ($asset->qr_code_path) {
             Storage::disk('public')->delete($asset->qr_code_path);
         }
-        $this->generateQrCode($asset);
+        AssetCodeService::generateQrCode($asset);
         return redirect()->route('assets.index')->with('success', 'QR Code regenerated successfully.');
     }
 
@@ -239,7 +212,7 @@ class AssetController extends Controller
     {
         $asset = Asset::findOrFail($id);
         if (!$asset->qr_code_path || !Storage::disk('public')->exists($asset->qr_code_path)) {
-            $this->generateQrCode($asset);
+            AssetCodeService::generateQrCode($asset);
         }
         $qrUrl = $asset->qr_code_url;
         return view('assets.print-qr', compact('asset', 'qrUrl'));

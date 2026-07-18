@@ -6,6 +6,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\PartnerSchoolController;
 use App\Http\Controllers\AssetCategoryController;
 use App\Http\Controllers\AssetController;
+use App\Http\Controllers\AssetImportController;
 use App\Http\Controllers\LocationController;
 use App\Http\Controllers\AssetStockController;
 use App\Http\Controllers\AssetMovementController;
@@ -53,6 +54,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
 
     // Assets
+    Route::get('/assets-registeration/import', [AssetImportController::class, 'index'])->name('assets.import');
+    Route::get('/assets-registeration/import/template', [AssetImportController::class, 'template'])->name('assets.import.template');
+    Route::post('/assets-registeration/import', [AssetImportController::class, 'store'])->name('assets.import.store');
     Route::get('/assets-registeration/{asset}/download-qr', [AssetController::class, 'downloadQr'])->name('assets.download-qr');
     Route::post('/assets-registeration/{asset}/regenerate-qr', [AssetController::class, 'regenerateQr'])->name('assets.regenerate-qr');
     Route::get('/assets-registeration/{asset}/print-qr', [AssetController::class, 'printQr'])->name('assets.print-qr');

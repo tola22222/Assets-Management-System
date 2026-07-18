@@ -26,6 +26,11 @@
                 <input type="text" x-model="search" placeholder="Search Item"
                     class="w-full bg-white border border-gray-200 rounded-xl py-2.5 pl-11 pr-4 text-sm tracking-wide placeholder-gray-400 focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand transition">
             </div>
+            <a href="{{ route('assets.import') }}"
+                class="border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-semibold text-sm px-5 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3"/></svg>
+                Import
+            </a>
             <button onclick="openAssetModal('create')"
                 class="bg-brand hover:bg-brand-dark text-white font-semibold text-sm px-5 py-2.5 rounded-xl shadow-sm flex items-center gap-2 transition">
                 <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
