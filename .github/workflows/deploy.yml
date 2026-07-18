@@ -142,11 +142,35 @@ jobs:
               echo "${{ secrets.APP_ENV }}" > .env
             fi
 
-            docker compose pull
+            # Only pull app/nginx here so the pinned mysql image never changes
+            # underneath a running db container on a routine deploy.
+            docker compose pull app nginx
             docker compose up -d --remove-orphans
 
-            echo "Waiting for containers to be ready..."
-            sleep 20
+            echo "Waiting for database to accept connections from the app container..."
+            DB_READY=0
+            for i in $(seq 1 30); do
+              if docker compose exec -T app php -r "
+                try { new PDO('mysql:host='.getenv('DB_HOST').';port='.getenv('DB_PORT'), getenv('DB_USERNAME'), getenv('DB_PASSWORD')); exit(0); }
+                catch (Exception \$e) { fwrite(STDERR, \$e->getMessage().PHP_EOL); exit(1); }
+              "; then
+                echo "Database is reachable (attempt $i)."
+                DB_READY=1
+                break
+              fi
+              echo "Attempt $i/30: database not reachable yet, retrying in 3s..."
+              sleep 3
+            done
+
+            if [ "$DB_READY" != "1" ]; then
+              echo "Database still unreachable after 90s. Diagnostics:"
+              docker compose ps
+              echo "--- db health ---"
+              docker inspect --format '{{json .State.Health}}' asset_management_db || true
+              echo "--- db logs (last 100 lines) ---"
+              docker logs asset_management_db --tail 100 || true
+              exit 1
+            fi
 
             docker compose exec -T app php artisan storage:link || true
             docker compose exec -T app php artisan migrate --force
