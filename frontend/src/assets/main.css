@@ -1,0 +1,21 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-display: 'Georgia', 'Iowan Old Style', serif;
+
+  --color-brand: #1f3d2e;
+  --color-brand-dark: #16281e;
+  --color-brand-light: #2c5342;
+  --color-accent: #c9a24b;
+  --color-accent-light: #e3c988;
+  --color-cream: #f5f1e8;
+  --color-card: #ffffff;
+  --color-ink: #1c1c1a;
+}
+
+body {
+  background-color: var(--color-cream);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+}

@@ -1,0 +1,34 @@
+{
+  "app_name": "PEPY Assets",
+  "app_subtitle": "Empowering Youth",
+  "login": {
+    "title": "Sign in",
+    "email": "Email address",
+    "password": "Password",
+    "submit": "Sign in",
+    "error": "The provided credentials do not match our records."
+  },
+  "dashboard": {
+    "greeting": "Good morning",
+    "subtitle": "Snapshot of PEPY's fixed assets across the office and all learning centers",
+    "add_asset": "Add asset",
+    "total_assets": "Total assets on register",
+    "categories": "Asset categories",
+    "locations": "Offices & learning centers",
+    "recorded_value": "Recorded value",
+    "by_category": "Assets by category",
+    "by_location": "Assets by location",
+    "needs_attention": "Needs attention",
+    "needs_attention_subtitle": "Records requiring follow-up"
+  },
+  "nav": {
+    "overview": "Overview",
+    "manage": "Manage",
+    "insight": "Insight",
+    "dashboard": "Dashboard",
+    "asset_register": "Asset Register",
+    "add_asset": "Add Asset",
+    "locations": "Locations",
+    "reports": "Reports"
+  }
+}
