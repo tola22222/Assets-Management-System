@@ -41,8 +41,8 @@
                         </td>
                         <td class="p-4 hidden md:table-cell text-gray-500 dark:text-gray-400">{{ $user->email }}</td>
                         <td class="p-4 hidden md:table-cell">
-                            <span class="px-2.5 py-1 rounded-lg text-xs font-semibold {{ $user->role === 'admin' ? 'bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300' : 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300' }}">
-                                {{ ucfirst($user->role) }}
+                            <span class="px-2.5 py-1 rounded-lg text-xs font-semibold {{ $user->role === 'admin' ? 'bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300' : ($user->role === 'executive_director' ? 'bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300' : 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300') }}">
+                                {{ $user->role === 'executive_director' ? 'Executive Director' : ucfirst($user->role) }}
                             </span>
                         </td>
                         <td class="p-4 hidden md:table-cell text-gray-500 dark:text-gray-400">{{ $user->staff->full_name ?? 'N/A' }}</td>
@@ -128,6 +128,7 @@
                         class="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-brand transition dark:text-gray-200">
                         <option value="staff">Staff</option>
                         <option value="admin">Admin</option>
+                        <option value="executive_director">Executive Director</option>
                     </select>
                 </div>
                 <div class="space-y-1.5">

@@ -15,6 +15,7 @@ return [
     'transfers' => 'Transfers',
     'returns' => 'Returns',
     'verification' => 'Verification',
+    'disposals' => 'Disposals',
 
     // Sidebar - Staff
     'my_assets' => 'My Assets',

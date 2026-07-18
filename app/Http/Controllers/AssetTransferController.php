@@ -8,6 +8,7 @@ use App\Models\AssetMovement;
 use App\Models\Location;
 use App\Models\ActivityLog;
 use App\Models\Notification;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;

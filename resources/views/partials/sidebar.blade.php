@@ -2,7 +2,7 @@
     $user = Auth::user();
     $isAdmin = $user && $user->isAdmin();
     $groups = [
-        'inventory' => ['assets.*', 'asset-assignments.*', 'asset-stocks.*', 'asset-verifications.*', 'asset-transfers.*', 'asset-returns.*'],
+        'inventory' => ['assets.*', 'asset-assignments.*', 'asset-stocks.*', 'asset-verifications.*', 'asset-transfers.*', 'asset-returns.*', 'asset-disposals.*'],
         'people'    => ['staff.*', 'programs.*'],
         'settings'  => ['categories.*', 'assets-locations.*', 'suppliers.*'],
         'setting'   => ['users.*', 'settings.*'],
@@ -71,6 +71,8 @@
                         class="{{ $subClass }} {{ request()->routeIs('asset-returns.*') ? $subActive : $subInactive }}">{{ __('messages.returns') }}</a>
                     <a href="{{ route('asset-verifications.index') }}"
                         class="{{ $subClass }} {{ request()->routeIs('asset-verifications.*') ? $subActive : $subInactive }}">{{ __('messages.verification') }}</a>
+                    <a href="{{ route('asset-disposals.index') }}"
+                        class="{{ $subClass }} {{ request()->routeIs('asset-disposals.*') ? $subActive : $subInactive }}">{{ __('messages.disposals') }}</a>
                 </div>
             </div>
             @else

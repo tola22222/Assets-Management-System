@@ -15,6 +15,7 @@ return [
     'transfers' => 'ការផ្ទេរ',
     'returns' => 'ការប្រគល់',
     'verification' => 'ការផ្ទៀងផ្ទាត់',
+    'disposals' => 'ការចោលទ្រព្យសម្បត្តិ',
 
     // Sidebar - Staff
     'my_assets' => 'ទ្រព្យសកម្មរបស់ខ្ញុំ',

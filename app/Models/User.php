@@ -49,6 +49,16 @@ class User extends Authenticatable
         return $this->role === 'staff';
     }
 
+    public function isExecutiveDirector(): bool
+    {
+        return $this->role === 'executive_director';
+    }
+
+    public function canApproveDisposal(): bool
+    {
+        return $this->isAdmin() || $this->isExecutiveDirector();
+    }
+
     public function staff()
     {
         return $this->belongsTo(Staff::class, 'staff_id');

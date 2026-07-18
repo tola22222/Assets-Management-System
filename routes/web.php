@@ -18,6 +18,7 @@ use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\AssetReportController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\AssetTransferController;
+use App\Http\Controllers\AssetDisposalController;
 use App\Http\Controllers\AssetReturnController;
 use App\Http\Controllers\QrScanController;
 use App\Http\Controllers\SettingController;
@@ -94,6 +95,15 @@ Route::middleware('auth')->group(function () {
     // Asset Verifications
     Route::resource('asset-verifications', AssetVerificationController::class)->except(['create', 'edit', 'update']);
     Route::post('/asset-verifications/{assetVerification}/complete', [AssetVerificationController::class, 'complete'])->name('asset-verifications.complete');
+
+    // Asset Disposals (OP&HR requests, Executive Director approves)
+    Route::get('/asset-disposals', [AssetDisposalController::class, 'index'])->name('asset-disposals.index');
+    Route::post('/asset-disposals', [AssetDisposalController::class, 'store'])->name('asset-disposals.store');
+    Route::delete('/asset-disposals/{assetDisposal}', [AssetDisposalController::class, 'destroy'])->name('asset-disposals.destroy');
+    Route::middleware('role:admin,executive_director')->group(function () {
+        Route::post('/asset-disposals/{assetDisposal}/approve', [AssetDisposalController::class, 'approve'])->name('asset-disposals.approve');
+        Route::post('/asset-disposals/{assetDisposal}/reject', [AssetDisposalController::class, 'reject'])->name('asset-disposals.reject');
+    });
 
     // Asset Movements
     Route::resource('asset-movements', AssetMovementController::class)->except(['create', 'store', 'show', 'edit', 'update', 'destroy']);
