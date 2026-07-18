@@ -13,8 +13,11 @@ use App\Http\Controllers\Api\AssetVerificationController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\LocationController;
+use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\ProgramController;
+use App\Http\Controllers\Api\QrScanController;
 use App\Http\Controllers\Api\ReportController;
+use App\Http\Controllers\Api\SearchController;
 use App\Http\Controllers\Api\SettingController;
 use App\Http\Controllers\Api\StaffController;
 use App\Http\Controllers\Api\SupplierController;
@@ -82,4 +85,15 @@ Route::middleware('auth:sanctum')->group(function () {
 
         Route::apiResource('activity-logs', ActivityLogController::class)->only(['index', 'show', 'destroy']);
     });
+
+    Route::post('/qr-scan', [QrScanController::class, 'scan']);
+    Route::get('/qr-scan/{assetCode}', [QrScanController::class, 'result']);
+    Route::post('/qr-scan/{assetCode}/verify', [QrScanController::class, 'verify']);
+
+    Route::get('/search', SearchController::class);
+
+    Route::get('/notifications', [NotificationController::class, 'index']);
+    Route::post('/notifications/{notification}/mark-read', [NotificationController::class, 'markAsRead']);
+    Route::post('/notifications/mark-all-read', [NotificationController::class, 'markAllAsRead']);
+    Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount']);
 });

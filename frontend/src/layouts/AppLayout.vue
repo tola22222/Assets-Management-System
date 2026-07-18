@@ -1,6 +1,7 @@
 <script setup>
 import { useAuthStore } from '../stores/auth'
 import { useRouter } from 'vue-router'
+import NotificationBell from '../components/ui/NotificationBell.vue'
 
 const auth = useAuthStore()
 const router = useRouter()
@@ -25,9 +26,11 @@ async function handleLogout() {
       <nav class="flex-1 px-3 space-y-6 mt-2">
         <div>
           <p class="px-2 text-[11px] font-semibold text-white/40 uppercase tracking-wider mb-1.5">Overview</p>
-          <RouterLink to="/" class="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-semibold bg-white/10 text-white">
-            Dashboard
-          </RouterLink>
+          <div class="space-y-0.5">
+            <RouterLink to="/" class="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-white/70 hover:bg-white/10 hover:text-white transition" exact-active-class="bg-white/10 text-white font-semibold">Dashboard</RouterLink>
+            <RouterLink to="/qr-scan" class="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-white/70 hover:bg-white/10 hover:text-white transition" active-class="bg-white/10 text-white font-semibold">QR Scanner</RouterLink>
+            <RouterLink to="/search" class="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-white/70 hover:bg-white/10 hover:text-white transition" active-class="bg-white/10 text-white font-semibold">Search</RouterLink>
+          </div>
         </div>
 
         <div>
@@ -76,8 +79,13 @@ async function handleLogout() {
       </div>
     </aside>
 
-    <main class="flex-1 min-w-0">
-      <slot />
+    <main class="flex-1 min-w-0 flex flex-col">
+      <div class="flex items-center justify-end px-6 py-3 border-b border-gray-200/70 bg-white/60">
+        <NotificationBell />
+      </div>
+      <div class="flex-1 min-w-0">
+        <slot />
+      </div>
     </main>
   </div>
 </template>

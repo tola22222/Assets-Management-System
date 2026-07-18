@@ -17,6 +17,9 @@ import UsersIndex from '../pages/users/Index.vue'
 import SettingsIndex from '../pages/settings/Index.vue'
 import ActivityLogsIndex from '../pages/activity-logs/Index.vue'
 import ReportsIndex from '../pages/reports/Index.vue'
+import QrScanIndex from '../pages/qr-scan/Index.vue'
+import SearchIndex from '../pages/search/Index.vue'
+import NotificationsIndex from '../pages/notifications/Index.vue'
 
 const routes = [
   { path: '/login', name: 'login', component: Login, meta: { guest: true } },
@@ -37,6 +40,9 @@ const routes = [
   { path: '/settings', name: 'settings', component: SettingsIndex, meta: { requiresAuth: true, adminOnly: true } },
   { path: '/activity-logs', name: 'activity-logs', component: ActivityLogsIndex, meta: { requiresAuth: true, adminOnly: true } },
   { path: '/reports', name: 'reports', component: ReportsIndex, meta: { requiresAuth: true } },
+  { path: '/qr-scan', name: 'qr-scan', component: QrScanIndex, meta: { requiresAuth: true } },
+  { path: '/search', name: 'search', component: SearchIndex, meta: { requiresAuth: true } },
+  { path: '/notifications', name: 'notifications', component: NotificationsIndex, meta: { requiresAuth: true } },
 ]
 
 const router = createRouter({
