@@ -42,7 +42,7 @@ jobs:
 
             mkdir -p $APP_DIR/nginx
 
-            # Write docker-compose.yml directly GÇö no SCP needed
+            # Write docker-compose.yml directly Gï¿½ï¿½ no SCP needed
             cat > $APP_DIR/docker-compose.yml << 'EOF'
             services:
               app:
@@ -55,7 +55,8 @@ jobs:
                   - storage_data:/var/www/storage
                   - app_public:/var/www/public
                 depends_on:
-                  - db
+                  db:
+                    condition: service_healthy
                 networks:
                   - laravel_net
 
@@ -86,6 +87,12 @@ jobs:
                   - dbdata:/var/lib/mysql
                 networks:
                   - laravel_net
+                healthcheck:
+                  test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot_pass"]
+                  interval: 5s
+                  timeout: 5s
+                  retries: 10
+                  start_period: 30s
 
             networks:
               laravel_net:
@@ -97,7 +104,7 @@ jobs:
               app_public:
             EOF
 
-            # Write nginx/default.conf directly GÇö no SCP needed
+            # Write nginx/default.conf directly Gï¿½ï¿½ no SCP needed
             cat > $APP_DIR/nginx/default.conf << 'EOF'
             server {
                 listen 80;
