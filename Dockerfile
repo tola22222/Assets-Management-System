@@ -1,3 +1,13 @@
+FROM node:20-alpine AS frontend-build
+
+WORKDIR /frontend
+
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci
+
+COPY frontend/ ./
+RUN npm run build
+
 FROM php:8.2-fpm-alpine
 
 RUN apk add --no-cache \
@@ -17,6 +27,7 @@ COPY composer.json composer.lock ./
 RUN composer install --no-dev --optimize-autoloader --no-interaction --no-scripts
 
 COPY . .
+COPY --from=frontend-build /frontend/dist ./public/app
 
 RUN composer dump-autoload --optimize
 RUN php artisan package:discover --ansi

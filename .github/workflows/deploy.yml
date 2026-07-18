@@ -135,6 +135,37 @@ jobs:
                     deny all;
                 }
             }
+
+            server {
+                listen 80;
+                server_name app.pepyasset.online;
+                root /var/www/public;
+
+                # API requests go straight to the Laravel app, same as the main site.
+                location /api/ {
+                    try_files $uri $uri/ /index.php?$query_string;
+                }
+
+                location ~ \.php$ {
+                    include fastcgi_params;
+                    fastcgi_pass app:9000;
+                    fastcgi_index index.php;
+                    fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+                    fastcgi_param PATH_INFO $fastcgi_path_info;
+                }
+
+                # Everything else is the Vue3 SPA static build, with history-mode fallback.
+                location / {
+                    root /var/www/public/app;
+                    try_files $uri $uri/ /index.html;
+                }
+
+                location ~* \.(jpg|jpeg|png|gif|css|js|ico|svg|woff|woff2|ttf)$ {
+                    root /var/www/public/app;
+                    expires 30d;
+                    access_log off;
+                }
+            }
             EOF
 
             cd $APP_DIR
