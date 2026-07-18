@@ -33,9 +33,10 @@ async function handleLogout() {
         <div>
           <p class="px-2 text-[11px] font-semibold text-white/40 uppercase tracking-wider mb-1.5">Manage</p>
           <div class="space-y-0.5">
-            <span class="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-white/50 cursor-not-allowed">Asset Register</span>
-            <span class="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-white/50 cursor-not-allowed">Add Asset</span>
-            <span class="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-white/50 cursor-not-allowed">Locations</span>
+            <RouterLink to="/assets" class="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-white/70 hover:bg-white/10 hover:text-white transition" active-class="bg-white/10 text-white font-semibold">Asset Register</RouterLink>
+            <RouterLink to="/categories" class="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-white/70 hover:bg-white/10 hover:text-white transition" active-class="bg-white/10 text-white font-semibold">Categories</RouterLink>
+            <RouterLink to="/locations" class="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-white/70 hover:bg-white/10 hover:text-white transition" active-class="bg-white/10 text-white font-semibold">Locations</RouterLink>
+            <RouterLink to="/asset-stocks" class="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-white/70 hover:bg-white/10 hover:text-white transition" active-class="bg-white/10 text-white font-semibold">Stock Movements</RouterLink>
           </div>
         </div>
 

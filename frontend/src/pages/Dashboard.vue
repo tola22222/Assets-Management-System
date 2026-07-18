@@ -38,9 +38,9 @@ onMounted(async () => {
           <h1 class="font-display text-3xl font-bold text-ink">Good morning, {{ auth.user?.name?.split(' ')[0] || auth.user?.name }}</h1>
           <p class="text-gray-500 text-sm mt-1">Snapshot of PEPY's fixed assets across the office and all learning centers</p>
         </div>
-        <button class="bg-brand hover:bg-brand-dark text-white font-semibold text-sm px-5 py-2.5 rounded-xl transition flex-shrink-0">
+        <RouterLink to="/assets" class="bg-brand hover:bg-brand-dark text-white font-semibold text-sm px-5 py-2.5 rounded-xl transition flex-shrink-0">
           + Add asset
-        </button>
+        </RouterLink>
       </div>
 
       <div v-if="loading" class="text-gray-400 text-sm">Loading…</div>
