@@ -97,6 +97,27 @@
         </div>
 
         <div class="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm p-8">
+            <h3 class="font-bold text-gray-900 dark:text-white text-lg mb-6">Asset Count Report Schedule</h3>
+            <form action="{{ route('settings.update') }}" method="POST" class="space-y-4">
+                @csrf
+                <div class="space-y-1.5">
+                    <label class="text-xs font-semibold text-gray-700 dark:text-gray-300 tracking-wide">Report Interval (months)</label>
+                    <input type="number" name="report_interval_months" value="{{ $settings['report_interval_months'] ?? 6 }}" min="1" max="24"
+                        class="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-brand transition dark:text-gray-200">
+                    <p class="text-xs text-gray-400 dark:text-gray-500">Default 6 — matches the Feb/Aug counting cycle. Finance Manager, Executive Director and Admin users are notified in-app and by email when a cycle is due.</p>
+                </div>
+                <div class="text-sm text-gray-600 dark:text-gray-300">
+                    <span class="font-semibold">Next report due:</span>
+                    {{ $nextReportDue ? $nextReportDue->format('d M Y') : 'On the next scheduled check (no report sent yet)' }}
+                </div>
+                <div class="pt-2">
+                    <button type="submit"
+                        class="bg-brand hover:bg-brand-dark text-white font-semibold text-sm px-6 py-2.5 rounded-xl shadow-sm transition">{{ __('messages.save_settings') }}</button>
+                </div>
+            </form>
+        </div>
+
+        <div class="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm p-8">
             <h3 class="font-bold text-gray-900 dark:text-white text-lg mb-6">{{ __('messages.database_management') }}</h3>
             <div class="space-y-4">
                 <form action="{{ route('settings.backup') }}" method="POST">

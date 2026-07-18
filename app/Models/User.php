@@ -54,6 +54,11 @@ class User extends Authenticatable
         return $this->role === 'executive_director';
     }
 
+    public function isFinanceManager(): bool
+    {
+        return $this->role === 'finance_manager';
+    }
+
     public function canApproveDisposal(): bool
     {
         return $this->isAdmin() || $this->isExecutiveDirector();

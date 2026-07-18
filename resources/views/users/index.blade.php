@@ -41,8 +41,16 @@
                         </td>
                         <td class="p-4 hidden md:table-cell text-gray-500 dark:text-gray-400">{{ $user->email }}</td>
                         <td class="p-4 hidden md:table-cell">
-                            <span class="px-2.5 py-1 rounded-lg text-xs font-semibold {{ $user->role === 'admin' ? 'bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300' : ($user->role === 'executive_director' ? 'bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300' : 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300') }}">
-                                {{ $user->role === 'executive_director' ? 'Executive Director' : ucfirst($user->role) }}
+                            @php
+                                $roleLabels = ['executive_director' => 'Executive Director', 'finance_manager' => 'Finance Manager'];
+                                $roleColors = [
+                                    'admin' => 'bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300',
+                                    'executive_director' => 'bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300',
+                                    'finance_manager' => 'bg-teal-100 dark:bg-teal-900/50 text-teal-700 dark:text-teal-300',
+                                ];
+                            @endphp
+                            <span class="px-2.5 py-1 rounded-lg text-xs font-semibold {{ $roleColors[$user->role] ?? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300' }}">
+                                {{ $roleLabels[$user->role] ?? ucfirst($user->role) }}
                             </span>
                         </td>
                         <td class="p-4 hidden md:table-cell text-gray-500 dark:text-gray-400">{{ $user->staff->full_name ?? 'N/A' }}</td>
@@ -129,6 +137,7 @@
                         <option value="staff">Staff</option>
                         <option value="admin">Admin</option>
                         <option value="executive_director">Executive Director</option>
+                        <option value="finance_manager">Finance Manager</option>
                     </select>
                 </div>
                 <div class="space-y-1.5">

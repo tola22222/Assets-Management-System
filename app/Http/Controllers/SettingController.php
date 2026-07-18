@@ -13,7 +13,14 @@ class SettingController extends Controller
     public function index()
     {
         $settings = Setting::pluck('value', 'key')->toArray();
-        return view('settings.index', compact('settings'));
+
+        $intervalMonths = (int) ($settings['report_interval_months'] ?? 6);
+        $lastSentAt = $settings['last_scheduled_report_at'] ?? null;
+        $nextReportDue = $lastSentAt
+            ? \Illuminate\Support\Carbon::parse($lastSentAt)->addMonths($intervalMonths)
+            : null;
+
+        return view('settings.index', compact('settings', 'nextReportDue'));
     }
 
     public function update(Request $request)
@@ -27,6 +34,7 @@ class SettingController extends Controller
             'address' => 'nullable|string',
             'qr_size' => 'nullable|integer|min:100|max:1000',
             'locale' => 'nullable|in:en,km',
+            'report_interval_months' => 'nullable|integer|min:1|max:24',
             'logo' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
         ]);
 

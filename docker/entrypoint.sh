@@ -18,4 +18,11 @@ if [ -n "$DB_HOST" ]; then
   done
 fi
 
+(
+  while true; do
+    php /var/www/artisan schedule:run --no-interaction >> /var/www/storage/logs/scheduler.log 2>&1
+    sleep 60
+  done
+) &
+
 exec docker-php-entrypoint "$@"
