@@ -23,7 +23,7 @@ class AssetAssignment extends Model
         'image_path'
     ];
 
-    protected $appends = ['image_url'];
+    protected $appends = ['image_url', 'recipient_name'];
 
     protected $casts = [
         'assigned_date' => 'datetime',

@@ -37,6 +37,11 @@ async function handleLogout() {
             <RouterLink to="/categories" class="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-white/70 hover:bg-white/10 hover:text-white transition" active-class="bg-white/10 text-white font-semibold">Categories</RouterLink>
             <RouterLink to="/locations" class="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-white/70 hover:bg-white/10 hover:text-white transition" active-class="bg-white/10 text-white font-semibold">Locations</RouterLink>
             <RouterLink to="/asset-stocks" class="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-white/70 hover:bg-white/10 hover:text-white transition" active-class="bg-white/10 text-white font-semibold">Stock Movements</RouterLink>
+            <RouterLink to="/asset-assignments" class="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-white/70 hover:bg-white/10 hover:text-white transition" active-class="bg-white/10 text-white font-semibold">Assignments</RouterLink>
+            <RouterLink to="/asset-transfers" class="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-white/70 hover:bg-white/10 hover:text-white transition" active-class="bg-white/10 text-white font-semibold">Transfers</RouterLink>
+            <RouterLink to="/asset-returns" class="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-white/70 hover:bg-white/10 hover:text-white transition" active-class="bg-white/10 text-white font-semibold">Returns</RouterLink>
+            <RouterLink to="/asset-verifications" class="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-white/70 hover:bg-white/10 hover:text-white transition" active-class="bg-white/10 text-white font-semibold">Verifications</RouterLink>
+            <RouterLink to="/asset-disposals" class="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-white/70 hover:bg-white/10 hover:text-white transition" active-class="bg-white/10 text-white font-semibold">Disposals</RouterLink>
           </div>
         </div>
 
