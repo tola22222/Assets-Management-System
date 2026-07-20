@@ -154,16 +154,20 @@ jobs:
                     fastcgi_param PATH_INFO $fastcgi_path_info;
                 }
 
-                # Everything else is the Vue3 SPA static build, with history-mode fallback.
-                location / {
-                    root /var/www/public/app;
-                    try_files $uri $uri/ /index.html;
-                }
-
+                # The SPA is built with base '/app/', so its own HTML/JS already
+                # requests assets as /app/assets/*, /app/favicon.png, etc. — root
+                # stays at public/ (not public/app) so those paths resolve directly
+                # without doubling up to /app/app/*. Anything without a matching
+                # static file falls back to the SPA shell so vue-router's
+                # history-mode client-side routing can take over (e.g. /app/login).
                 location ~* \.(jpg|jpeg|png|gif|css|js|ico|svg|woff|woff2|ttf)$ {
-                    root /var/www/public/app;
+                    try_files $uri =404;
                     expires 30d;
                     access_log off;
+                }
+
+                location / {
+                    try_files $uri /app/index.html;
                 }
             }
             EOF

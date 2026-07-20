@@ -9,15 +9,17 @@ import tailwindcss from '@tailwindcss/vite'
 // '/app' as the script and strip it from deep-link paths, breaking vue-router.
 // Laravel's `spa` route serves everything from frontend/dist instead.
 //
-// The default (production) build is unchanged: base '/', output to dist/ — that is
-// what the Docker image copies into public/app and nginx serves at the root of
-// app.pepyasset.online. Do NOT change the production branch.
-export default defineConfig(({ mode }) => {
-  const isLocal = mode === 'artisan'
-
+// The default (production) build uses the SAME '/app/' base: the Docker image
+// copies this build into public/app, and both nginx server blocks (the default
+// host, where Laravel's `spa` route mounts it at /app/*, and app.pepyasset.online,
+// whose nginx block also serves it nested at /app/ — see .github/workflows/deploy.yml)
+// reach it via that path. Do not switch this back to base '/' — the JS/CSS bundle
+// would then request assets at the domain root instead of /app/assets/*, which is
+// where they're actually served, and the app renders as a blank white screen.
+export default defineConfig(() => {
   return {
     plugins: [vue(), tailwindcss()],
-    base: isLocal ? '/app/' : '/',
+    base: '/app/',
     server: {
       port: 5173,
       proxy: {
