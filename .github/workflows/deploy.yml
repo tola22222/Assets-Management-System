@@ -177,6 +177,25 @@ jobs:
             # Only pull app/nginx here so the pinned mysql image never changes
             # underneath a running db container on a routine deploy.
             docker compose pull app nginx
+
+            # The app/nginx services share a named volume (app_public) mounted at
+            # /var/www/public so nginx can serve static files without proxying
+            # everything through PHP. Docker only seeds a named volume from the
+            # image the FIRST time it's created — it does NOT resync on later
+            # deploys, so every subsequent image update (new SPA build, new
+            # favicon, etc.) was silently invisible in production while the
+            # volume kept serving whatever was baked in on day one. Re-sync the
+            # volume from the freshly pulled image before starting containers.
+            echo "Syncing public/ assets from the new image into the shared volume..."
+            PUBLIC_VOLUME=$(docker volume ls --filter name=app_public --format '{{.Name}}' | head -n1)
+            if [ -n "$PUBLIC_VOLUME" ]; then
+              docker run --rm -v "$PUBLIC_VOLUME":/target toladev1/ams_app:latest \
+                sh -c "cp -a /var/www/public/. /target/ && chown -R www-data:www-data /target"
+              echo "Synced into volume: $PUBLIC_VOLUME"
+            else
+              echo "No existing app_public volume found (first deploy) — image content will seed it normally."
+            fi
+
             docker compose up -d --remove-orphans
 
             echo "Waiting for database to accept connections from the app container..."
