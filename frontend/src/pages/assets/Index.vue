@@ -15,6 +15,7 @@ const { items: assetsList, loading, fetchAll, destroy } = useApiCrud('/assets', 
 const toast = useToastStore()
 
 const categories = ref([])
+const locations = ref([])
 const search = ref('')
 const showModal = ref(false)
 const editingId = ref(null)
@@ -28,7 +29,7 @@ const flagCondition = ref('')
 const flagSubmitting = ref(false)
 
 const emptyForm = () => ({
-  name: '', category_id: '', description: '', model: '', brand: '',
+  name: '', category_id: '', location_id: '', description: '', model: '', brand: '',
   serial_number: '', purchase_date: '', purchase_price: '', condition: 'good', status: 'active',
 })
 const form = reactive(emptyForm())
@@ -51,6 +52,11 @@ async function loadCategories() {
   categories.value = data
 }
 
+async function loadLocations() {
+  const { data } = await http.get('/locations')
+  locations.value = data
+}
+
 function openCreate() {
   editingId.value = null
   Object.assign(form, emptyForm())
@@ -61,7 +67,7 @@ function openCreate() {
 function openEdit(asset) {
   editingId.value = asset.id
   Object.assign(form, {
-    name: asset.name, category_id: asset.category_id, description: asset.description || '',
+    name: asset.name, category_id: asset.category_id, location_id: asset.location_id || '', description: asset.description || '',
     model: asset.model || '', brand: asset.brand || '', serial_number: asset.serial_number || '',
     purchase_date: asset.purchase_date || '', purchase_price: asset.purchase_price || '',
     condition: asset.condition, status: asset.status,
@@ -162,6 +168,7 @@ function printQr(asset) {
 onMounted(() => {
   fetchAll()
   loadCategories()
+  loadLocations()
 })
 </script>
 
@@ -258,6 +265,13 @@ onMounted(() => {
             <select v-model="form.category_id" required class="select">
               <option value="">{{ t('assets.select_category') }}</option>
               <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option>
+            </select>
+          </div>
+          <div>
+            <label class="label">{{ t('assets.location_required') }} <span class="text-red-500">*</span></label>
+            <select v-model="form.location_id" required class="select">
+              <option value="">{{ t('assets.select_location') }}</option>
+              <option v-for="l in locations" :key="l.id" :value="l.id">{{ l.name }}</option>
             </select>
           </div>
           <div>

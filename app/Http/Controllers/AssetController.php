@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\ActivityLog;
 use App\Models\Asset;
 use App\Models\AssetCategory;
+use App\Models\Location;
 use App\Models\Notification;
 use App\Services\AssetCodeService;
 use Illuminate\Http\Request;
@@ -15,17 +16,19 @@ class AssetController extends Controller
 {
     public function index()
     {
-        $assets = Asset::with('category')->latest()->get();
+        $assets = Asset::with(['category', 'location'])->latest()->get();
         $categories = AssetCategory::orderBy('name')->get();
+        $locations = Location::orderBy('name')->get();
 
-        return view('assets.index', compact('assets', 'categories'));
+        return view('assets.index', compact('assets', 'categories', 'locations'));
     }
 
     public function create()
     {
         $categories = AssetCategory::orderBy('name')->get();
+        $locations = Location::orderBy('name')->get();
 
-        return view('assets.create', compact('categories'));
+        return view('assets.create', compact('categories', 'locations'));
     }
 
     public function store(Request $request)
@@ -86,8 +89,9 @@ class AssetController extends Controller
     {
         $asset = Asset::findOrFail($id);
         $categories = AssetCategory::all();
+        $locations = Location::orderBy('name')->get();
 
-        return view('assets.edit', compact('asset', 'categories'));
+        return view('assets.edit', compact('asset', 'categories', 'locations'));
     }
 
     public function update(Request $request, $id)

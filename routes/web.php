@@ -1,35 +1,33 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\AuthController;
-use App\Http\Controllers\DashboardController;
-use App\Http\Controllers\PartnerSchoolController;
+use App\Http\Controllers\AssetAssignmentController;
 use App\Http\Controllers\AssetCategoryController;
 use App\Http\Controllers\AssetController;
-use App\Http\Controllers\AssetImportController;
-use App\Http\Controllers\LocationController;
-use App\Http\Controllers\AssetStockController;
-use App\Http\Controllers\AssetMovementController;
-use App\Http\Controllers\ProgramController;
-use App\Http\Controllers\StaffController;
-use App\Http\Controllers\AssetAssignmentController;
-use App\Http\Controllers\AssetVerificationController;
-use App\Http\Controllers\ReportController;
-use App\Http\Controllers\SupplierController;
-use App\Http\Controllers\AssetReportController;
-use App\Http\Controllers\UserController;
-use App\Http\Controllers\AssetTransferController;
 use App\Http\Controllers\AssetDisposalController;
+use App\Http\Controllers\AssetImportController;
+use App\Http\Controllers\AssetMovementController;
 use App\Http\Controllers\AssetReturnController;
-use App\Http\Controllers\QrScanController;
-use App\Http\Controllers\SettingController;
+use App\Http\Controllers\AssetStockController;
+use App\Http\Controllers\AssetTransferController;
+use App\Http\Controllers\AssetVerificationController;
+use App\Http\Controllers\AuthController;
+use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\LocationController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\ProgramController;
+use App\Http\Controllers\QrScanController;
+use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SearchController;
+use App\Http\Controllers\SettingController;
+use App\Http\Controllers\StaffController;
+use App\Http\Controllers\SupplierController;
+use App\Http\Controllers\UserController;
+use Illuminate\Support\Facades\Route;
 
 // --- PUBLIC ROUTES ---
 Route::get('/asset/{assetCode}', [AssetController::class, 'publicShow'])->name('asset.public.show');
 Route::post('/asset/{assetCode}/update-condition', [AssetController::class, 'publicUpdateCondition'])->name('asset.public.update-condition');
-Route::get('/asset/{assetCode}/update-condition', fn($code) => redirect()->route('asset.public.show', $code));
+Route::get('/asset/{assetCode}/update-condition', fn ($code) => redirect()->route('asset.public.show', $code));
 
 // --- VUE 3 SPA ---
 // Serve the built Vue app under /app so `php artisan serve` shows the frontend
@@ -115,7 +113,7 @@ Route::middleware('auth')->group(function () {
     Route::resource('locations', LocationController::class)->except(['create'])->names('assets-locations');
 
     // Asset Stocks
-    Route::resource('asset-stocks', AssetStockController::class)->except(['create', 'show', 'edit']);
+    Route::resource('asset-stocks', AssetStockController::class)->except(['create', 'show', 'edit', 'update']);
 
     // Asset Assignments
     Route::resource('asset-assignments', AssetAssignmentController::class)->except(['create']);

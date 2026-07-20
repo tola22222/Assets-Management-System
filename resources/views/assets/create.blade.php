@@ -22,6 +22,15 @@
                     </select>
                 </div>
                 <div>
+                    <label class="block text-sm font-bold text-slate-700 dark:text-gray-300 mb-1">Location *</label>
+                    <select name="location_id" required class="w-full px-4 py-2.5 border border-slate-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-brand focus:border-brand outline-none dark:bg-gray-700 dark:text-gray-200">
+                        <option value="">Select Location</option>
+                        @foreach($locations as $loc)
+                            <option value="{{ $loc->id }}">{{ $loc->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
                     <label class="block text-sm font-bold text-slate-700 dark:text-gray-300 mb-1">Brand</label>
                     <input type="text" name="brand" class="w-full px-4 py-2.5 border border-slate-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-brand focus:border-brand outline-none dark:bg-gray-700 dark:text-gray-200 dark:placeholder-gray-500">
                 </div>

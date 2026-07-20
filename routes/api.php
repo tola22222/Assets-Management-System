@@ -4,8 +4,8 @@ use App\Http\Controllers\Api\ActivityLogController;
 use App\Http\Controllers\Api\AssetAssignmentController;
 use App\Http\Controllers\Api\AssetCategoryController;
 use App\Http\Controllers\Api\AssetController;
-use App\Http\Controllers\Api\AssetImportController;
 use App\Http\Controllers\Api\AssetDisposalController;
+use App\Http\Controllers\Api\AssetImportController;
 use App\Http\Controllers\Api\AssetMovementController;
 use App\Http\Controllers\Api\AssetReturnController;
 use App\Http\Controllers\Api\AssetStockController;
@@ -48,7 +48,7 @@ Route::name('api.')->group(function () {
 
         Route::apiResource('categories', AssetCategoryController::class)->except(['show']);
         Route::apiResource('locations', LocationController::class);
-        Route::apiResource('asset-stocks', AssetStockController::class)->except(['show']);
+        Route::apiResource('asset-stocks', AssetStockController::class)->except(['show', 'update']);
 
         Route::post('/asset-assignments/{asset_assignment}/cancel', [AssetAssignmentController::class, 'cancel']);
         Route::post('/asset-assignments/{asset_assignment}/return', [AssetAssignmentController::class, 'returnAsset']);

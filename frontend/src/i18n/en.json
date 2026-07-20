@@ -150,6 +150,8 @@
     "name_required": "Name",
     "category_required": "Category",
     "select_category": "Select Category",
+    "location_required": "Location",
+    "select_location": "Select Location",
     "brand": "Brand",
     "model": "Model",
     "serial_number": "Serial Number",
@@ -370,15 +372,17 @@
     "delete_failed": "Delete failed."
   },
   "asset_stocks": {
-    "title": "Stock Movements",
-    "subtitle": "Quantity of each asset held at each location",
-    "new": "New Stock Record",
-    "empty": "No stock records yet.",
-    "asset_required": "Asset *",
+    "title": "Receive Assets",
+    "subtitle": "Every unit received gets its own Asset ID, tag, and QR code",
+    "new": "Receive Assets",
+    "empty": "No assets received yet.",
+    "hint": "Each unit received gets its own Asset ID, tag, and QR code — quantity creates that many individual asset records, not a shared counter.",
     "location_required": "Location *",
     "quantity_required": "Quantity *",
-    "save": "Save",
-    "entity": "Stock record"
+    "reference": "Receipt #",
+    "received_at": "Received",
+    "save": "Receive",
+    "entity": "Receipt"
   },
   "asset_assignments": {
     "title": "Asset Assignments",

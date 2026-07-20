@@ -32,7 +32,7 @@ class UserController extends Controller
         ActivityLog::create([
             'user_id' => Auth::id(),
             'action' => 'Create',
-            'description' => 'Created user: ' . $user->name,
+            'description' => 'Created user: '.$user->name,
         ]);
 
         return response()->json($user, 201);
@@ -42,7 +42,7 @@ class UserController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email,' . $user->id,
+            'email' => 'required|email|unique:users,email,'.$user->id,
             'role' => 'required|in:operations_hr_manager,staff,executive_director,finance_manager',
             'staff_id' => 'nullable|exists:staff,id',
         ]);
@@ -52,7 +52,7 @@ class UserController extends Controller
         ActivityLog::create([
             'user_id' => Auth::id(),
             'action' => 'Update',
-            'description' => 'Updated user: ' . $user->name,
+            'description' => 'Updated user: '.$user->name,
         ]);
 
         return response()->json($user->fresh());
@@ -60,12 +60,12 @@ class UserController extends Controller
 
     public function lock(User $user)
     {
-        $user->update(['is_locked' => !$user->is_locked]);
+        $user->update(['is_locked' => ! $user->is_locked]);
 
         ActivityLog::create([
             'user_id' => Auth::id(),
             'action' => 'Update',
-            'description' => ($user->is_locked ? 'Locked' : 'Unlocked') . ' user: ' . $user->name,
+            'description' => ($user->is_locked ? 'Locked' : 'Unlocked').' user: '.$user->name,
         ]);
 
         return response()->json($user->fresh());
@@ -82,7 +82,7 @@ class UserController extends Controller
         ActivityLog::create([
             'user_id' => Auth::id(),
             'action' => 'Password Reset',
-            'description' => 'Reset password for user: ' . $user->name,
+            'description' => 'Reset password for user: '.$user->name,
         ]);
 
         return response()->json(['message' => 'Password reset successfully.']);
@@ -99,7 +99,7 @@ class UserController extends Controller
         ActivityLog::create([
             'user_id' => Auth::id(),
             'action' => 'Delete',
-            'description' => 'Deleted user: ' . $user->name,
+            'description' => 'Deleted user: '.$user->name,
         ]);
 
         return response()->json(['message' => 'User deleted.']);

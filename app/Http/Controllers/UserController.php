@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\User;
-use App\Models\Staff;
 use App\Models\ActivityLog;
+use App\Models\Staff;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -15,6 +15,7 @@ class UserController extends Controller
     {
         $users = User::with('staff')->latest()->get();
         $staffList = Staff::where('status', 'active')->get();
+
         return view('users.index', compact('users', 'staffList'));
     }
 
@@ -35,7 +36,7 @@ class UserController extends Controller
         ActivityLog::create([
             'user_id' => Auth::id(),
             'action' => 'Create',
-            'description' => 'Created user: ' . $user->name,
+            'description' => 'Created user: '.$user->name,
         ]);
 
         return redirect()->route('users.index')->with('success', 'User created successfully.');
@@ -50,7 +51,7 @@ class UserController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email,' . $user->id,
+            'email' => 'required|email|unique:users,email,'.$user->id,
             'role' => 'required|in:operations_hr_manager,staff,executive_director,finance_manager',
             'staff_id' => 'nullable|exists:staff,id',
         ]);
@@ -60,7 +61,7 @@ class UserController extends Controller
         ActivityLog::create([
             'user_id' => Auth::id(),
             'action' => 'Update',
-            'description' => 'Updated user: ' . $user->name,
+            'description' => 'Updated user: '.$user->name,
         ]);
 
         return redirect()->route('users.index')->with('success', 'User updated successfully.');
@@ -68,15 +69,15 @@ class UserController extends Controller
 
     public function lock(User $user)
     {
-        $user->update(['is_locked' => !$user->is_locked]);
+        $user->update(['is_locked' => ! $user->is_locked]);
 
         ActivityLog::create([
             'user_id' => Auth::id(),
             'action' => 'Update',
-            'description' => ($user->is_locked ? 'Locked' : 'Unlocked') . ' user: ' . $user->name,
+            'description' => ($user->is_locked ? 'Locked' : 'Unlocked').' user: '.$user->name,
         ]);
 
-        return redirect()->route('users.index')->with('success', 'User ' . ($user->is_locked ? 'locked' : 'unlocked') . ' successfully.');
+        return redirect()->route('users.index')->with('success', 'User '.($user->is_locked ? 'locked' : 'unlocked').' successfully.');
     }
 
     public function resetPassword(Request $request, User $user)
@@ -90,7 +91,7 @@ class UserController extends Controller
         ActivityLog::create([
             'user_id' => Auth::id(),
             'action' => 'Password Reset',
-            'description' => 'Reset password for user: ' . $user->name,
+            'description' => 'Reset password for user: '.$user->name,
         ]);
 
         return redirect()->route('users.index')->with('success', 'Password reset successfully.');
@@ -107,7 +108,7 @@ class UserController extends Controller
         ActivityLog::create([
             'user_id' => Auth::id(),
             'action' => 'Delete',
-            'description' => 'Deleted user: ' . $user->name,
+            'description' => 'Deleted user: '.$user->name,
         ]);
 
         return redirect()->route('users.index')->with('success', 'User deleted successfully.');
