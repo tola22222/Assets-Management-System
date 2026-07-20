@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\Asset;
-use App\Models\AssetCategory;
 use App\Models\Notification;
 use App\Models\User;
 use App\Services\AssetCodeService;
@@ -17,13 +16,14 @@ class AssetController extends Controller
 {
     public function index()
     {
-        return response()->json(Asset::with('category')->latest()->get());
+        return response()->json(Asset::with(['category', 'location'])->latest()->get());
     }
 
     public function show(Asset $asset)
     {
         return response()->json($asset->load([
             'category',
+            'location',
             'stocks.location',
             'assignments' => fn ($q) => $q->latest(),
             'verifications' => fn ($q) => $q->latest(),
@@ -38,8 +38,7 @@ class AssetController extends Controller
             $validated['image_path'] = $request->file('image')->store('assets', 'public');
         }
 
-        $category = AssetCategory::find($validated['category_id']);
-        $validated['asset_code'] = AssetCodeService::nextCode($category);
+        $validated['asset_code'] = AssetCodeService::nextCode($validated['location_id'], $validated['category_id']);
 
         $asset = Asset::create($validated);
         AssetCodeService::generateQrCode($asset);
@@ -47,17 +46,17 @@ class AssetController extends Controller
         ActivityLog::create([
             'user_id' => Auth::id(),
             'action' => 'Create',
-            'description' => 'Registered asset: ' . $asset->name . ' (' . $asset->asset_code . ')',
+            'description' => 'Registered asset: '.$asset->name.' ('.$asset->asset_code.')',
         ]);
 
         Notification::create([
             'user_id' => Auth::id(),
             'type' => 'asset_registered',
-            'message' => 'Asset registered: ' . $asset->name . ' (' . $asset->asset_code . ')',
+            'message' => 'Asset registered: '.$asset->name.' ('.$asset->asset_code.')',
             'url' => null,
         ]);
 
-        return response()->json($asset->fresh('category'), 201);
+        return response()->json($asset->fresh(['category', 'location']), 201);
     }
 
     public function update(Request $request, Asset $asset)
@@ -73,17 +72,17 @@ class AssetController extends Controller
 
         $asset->update($validated);
 
-        if (!$asset->qr_code_path) {
+        if (! $asset->qr_code_path) {
             AssetCodeService::generateQrCode($asset);
         }
 
         ActivityLog::create([
             'user_id' => Auth::id(),
             'action' => 'Update',
-            'description' => 'Updated asset: ' . $asset->name,
+            'description' => 'Updated asset: '.$asset->name,
         ]);
 
-        return response()->json($asset->fresh('category'));
+        return response()->json($asset->fresh(['category', 'location']));
     }
 
     public function destroy(Asset $asset)
@@ -99,7 +98,7 @@ class AssetController extends Controller
         ActivityLog::create([
             'user_id' => Auth::id(),
             'action' => 'Delete',
-            'description' => 'Deleted asset: ' . $asset->name,
+            'description' => 'Deleted asset: '.$asset->name,
         ]);
 
         return response()->json(['message' => 'Asset deleted.']);
@@ -112,27 +111,27 @@ class AssetController extends Controller
             'condition' => 'nullable|string|in:broken,lost',
         ]);
 
-        if (!empty($validated['condition'])) {
+        if (! empty($validated['condition'])) {
             $asset->update(['condition' => $validated['condition']]);
         }
 
         ActivityLog::create([
             'user_id' => Auth::id(),
             'action' => 'Flag',
-            'description' => 'Flagged issue on asset: ' . $asset->name . ' (' . $asset->asset_code . ') — ' . $validated['note'],
+            'description' => 'Flagged issue on asset: '.$asset->name.' ('.$asset->asset_code.') — '.$validated['note'],
         ]);
 
-        $recipients = User::whereIn('role', ['admin', 'executive_director', 'finance_manager'])->get();
+        $recipients = User::whereIn('role', ['operations_hr_manager', 'executive_director', 'finance_manager'])->get();
         foreach ($recipients as $recipient) {
             Notification::create([
                 'user_id' => $recipient->id,
                 'type' => 'asset_flagged',
-                'message' => Auth::user()->name . ' flagged an issue on ' . $asset->name . ' (' . $asset->asset_code . '): ' . $validated['note'],
+                'message' => Auth::user()->name.' flagged an issue on '.$asset->name.' ('.$asset->asset_code.'): '.$validated['note'],
                 'url' => null,
             ]);
         }
 
-        return response()->json($asset->fresh('category'));
+        return response()->json($asset->fresh(['category', 'location']));
     }
 
     public function regenerateQr(Asset $asset)
@@ -150,6 +149,7 @@ class AssetController extends Controller
         return $request->validate([
             'name' => 'required|string|max:255',
             'category_id' => 'required|exists:asset_categories,id',
+            'location_id' => 'required|exists:locations,id',
             'purchase_date' => 'nullable|date',
             'purchase_price' => 'nullable|numeric',
             'status' => 'required|string',

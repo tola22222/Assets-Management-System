@@ -17,7 +17,7 @@ class AssetReturnController extends Controller
     public function index()
     {
         $user = Auth::user();
-        if ($user->isAdmin()) {
+        if ($user->isOperationsHrManager()) {
             $returns = AssetReturn::with(['asset', 'assignment', 'returnedBy'])
                 ->latest()
                 ->get();
@@ -52,7 +52,7 @@ class AssetReturnController extends Controller
         $return = AssetReturn::create($validated);
 
         Notification::create([
-            'user_id' => User::where('role', 'admin')->first()->id,
+            'user_id' => User::where('role', 'operations_hr_manager')->first()->id,
             'type' => 'return_request',
             'message' => 'New asset return request submitted.',
             'url' => route('asset-returns.index'),

@@ -17,7 +17,7 @@ class AssetReturnController extends Controller
     {
         $user = $request->user();
 
-        if ($user->isAdmin()) {
+        if ($user->isOperationsHrManager()) {
             $returns = AssetReturn::with(['asset', 'assignment', 'returnedBy'])->latest()->get();
         } else {
             $returns = AssetReturn::where('returned_by', $user->id)->with(['asset', 'assignment'])->latest()->get();
@@ -46,7 +46,7 @@ class AssetReturnController extends Controller
 
         $return = AssetReturn::create($validated);
 
-        $admin = User::where('role', 'admin')->first();
+        $admin = User::where('role', 'operations_hr_manager')->first();
         if ($admin) {
             Notification::create([
                 'user_id' => $admin->id,

@@ -12,12 +12,12 @@ class DatabaseSeeder extends Seeder
 
     public function run(): void
     {
-        if (!User::where('email', 'admin@ams.com')->exists()) {
+        if (! User::where('email', 'admin@ams.com')->exists()) {
             User::create([
-                'name' => 'Administrator',
+                'name' => 'Operations & HR Manager',
                 'email' => 'admin@ams.com',
                 'password' => bcrypt('password123'),
-                'role' => 'admin',
+                'role' => 'operations_hr_manager',
                 'is_active' => true,
             ]);
         }

@@ -52,7 +52,7 @@ class SendScheduledAssetReport extends Command
         ];
 
         $periodLabel = now()->format('F Y');
-        $recipients = User::whereIn('role', ['finance_manager', 'executive_director', 'admin'])->get();
+        $recipients = User::whereIn('role', ['finance_manager', 'executive_director', 'operations_hr_manager'])->get();
 
         foreach ($recipients as $recipient) {
             Notification::create([

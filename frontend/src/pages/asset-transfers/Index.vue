@@ -85,7 +85,7 @@ onMounted(() => {
               <td class="p-4 text-muted">{{ t2.requester?.name || t('common.n_a') }}</td>
               <td class="p-4"><StatusBadge :status="t2.status" /></td>
               <td class="p-4 pr-5 text-right whitespace-nowrap">
-                <template v-if="t2.status === 'pending' && auth.user?.role === 'admin'">
+                <template v-if="t2.status === 'pending' && auth.user?.role === 'operations_hr_manager'">
                   <div class="flex items-center justify-end gap-1.5">
                     <button @click="approve(t2.id)" :title="t('common.approve')" class="w-7 h-7 rounded-lg bg-brand text-white flex items-center justify-center hover:bg-brand-dark transition">
                       <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>

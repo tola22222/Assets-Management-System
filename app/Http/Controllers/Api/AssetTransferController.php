@@ -32,14 +32,14 @@ class AssetTransferController extends Controller
         ]);
 
         $validated['requested_by'] = Auth::id();
-        $validated['status'] = Auth::user()->isAdmin() ? 'approved' : 'pending';
+        $validated['status'] = Auth::user()->isOperationsHrManager() ? 'approved' : 'pending';
 
         $transfer = AssetTransfer::create($validated);
 
         if ($transfer->status === 'approved') {
             $this->processTransfer($transfer);
         } else {
-            $admin = User::where('role', 'admin')->first();
+            $admin = User::where('role', 'operations_hr_manager')->first();
             if ($admin) {
                 Notification::create([
                     'user_id' => $admin->id,

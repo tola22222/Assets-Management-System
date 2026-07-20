@@ -18,7 +18,7 @@ class StaffController extends Controller
 
     public function store(Request $request)
     {
-        abort_unless(Auth::user()->isAdmin(), 403, 'Only administrators can create staff members.');
+        abort_unless(Auth::user()->isOperationsHrManager(), 403, 'Only administrators can create staff members.');
 
         $data = $request->validate([
             'full_name' => 'required|string|max:255',
@@ -46,7 +46,7 @@ class StaffController extends Controller
 
     public function update(Request $request, Staff $staff)
     {
-        abort_unless(Auth::user()->isAdmin(), 403, 'Only administrators can update staff members.');
+        abort_unless(Auth::user()->isOperationsHrManager(), 403, 'Only administrators can update staff members.');
 
         $data = $request->validate([
             'full_name' => 'required|string|max:255',
@@ -78,7 +78,7 @@ class StaffController extends Controller
 
     public function destroy(Staff $staff)
     {
-        abort_unless(Auth::user()->isAdmin(), 403, 'Only administrators can delete staff members.');
+        abort_unless(Auth::user()->isOperationsHrManager(), 403, 'Only administrators can delete staff members.');
 
         $name = $staff->full_name;
 

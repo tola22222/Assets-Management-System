@@ -40,7 +40,7 @@ class AssetDisposalController extends Controller
         $disposal = AssetDisposal::create($validated);
 
         User::where(function ($q) {
-            $q->where('role', 'admin')->orWhere('role', 'executive_director');
+            $q->where('role', 'operations_hr_manager')->orWhere('role', 'executive_director');
         })->get()->each(function ($approver) use ($disposal) {
             Notification::create([
                 'user_id' => $approver->id,

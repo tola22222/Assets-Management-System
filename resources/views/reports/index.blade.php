@@ -8,7 +8,7 @@
     </div>
 
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        @if(Auth::user()->isAdmin())
+        @if(Auth::user()->isOperationsHrManager())
         <a href="{{ route('reports.inventory') }}" class="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition group">
             <span class="p-3 bg-brand-50 rounded-xl inline-block group-hover:scale-110 transition flex items-center justify-center">
                 <img src="{{ asset('images/Asset.svg') }}" class="w-6 h-6" alt="">

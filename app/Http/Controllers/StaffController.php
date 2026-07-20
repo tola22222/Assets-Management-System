@@ -19,7 +19,7 @@ class StaffController extends Controller
 
     public function store(Request $request)
     {
-        if (!Auth::user()->isAdmin()) {
+        if (!Auth::user()->isOperationsHrManager()) {
             throw ValidationException::withMessages(['full_name' => 'Only administrators can create staff members.']);
         }
         $data = $request->validate([
@@ -48,7 +48,7 @@ class StaffController extends Controller
 
     public function update(Request $request, Staff $staff)
     {
-        if (!Auth::user()->isAdmin()) {
+        if (!Auth::user()->isOperationsHrManager()) {
             abort(403, 'Only administrators can update staff members.');
         }
         $data = $request->validate([
@@ -82,7 +82,7 @@ class StaffController extends Controller
 
     public function destroy(Staff $staff)
     {
-        if (!Auth::user()->isAdmin()) {
+        if (!Auth::user()->isOperationsHrManager()) {
             abort(403, 'Only administrators can delete staff members.');
         }
         $name = $staff->full_name;

@@ -36,7 +36,7 @@ class AssetTransferController extends Controller
         ]);
 
         $validated['requested_by'] = Auth::id();
-        $validated['status'] = Auth::user()->isAdmin() ? 'approved' : 'pending';
+        $validated['status'] = Auth::user()->isOperationsHrManager() ? 'approved' : 'pending';
 
         $transfer = AssetTransfer::create($validated);
 
@@ -44,7 +44,7 @@ class AssetTransferController extends Controller
             $this->processTransfer($transfer);
         } else {
             Notification::create([
-                'user_id' => User::where('role', 'admin')->first()->id,
+                'user_id' => User::where('role', 'operations_hr_manager')->first()->id,
                 'type' => 'transfer_request',
                 'message' => 'New asset transfer request for ' . ($transfer->asset->name ?? 'Asset'),
                 'url' => route('asset-transfers.index'),

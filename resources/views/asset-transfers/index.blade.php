@@ -23,7 +23,7 @@
                         <th class="p-4 font-semibold tracking-wide">Date</th>
                         <th class="p-4 font-semibold tracking-wide">Requester</th>
                         <th class="p-4 font-semibold tracking-wide">Status</th>
-                        @if(Auth::user()->isAdmin())
+                        @if(Auth::user()->isOperationsHrManager())
                         <th class="p-4 pr-5 font-semibold tracking-wide text-right">Actions</th>
                         @endif
                     </tr>
@@ -42,7 +42,7 @@
                                 {{ strtoupper($transfer->status) }}
                             </span>
                         </td>
-                        @if(Auth::user()->isAdmin())
+                        @if(Auth::user()->isOperationsHrManager())
                         <td class="p-4 pr-5 text-right">
                             <div class="flex items-center justify-end gap-1.5">
                                 @if($transfer->status === 'pending')

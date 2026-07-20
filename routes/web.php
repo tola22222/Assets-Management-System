@@ -144,7 +144,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/asset-disposals', [AssetDisposalController::class, 'index'])->name('asset-disposals.index');
     Route::post('/asset-disposals', [AssetDisposalController::class, 'store'])->name('asset-disposals.store');
     Route::delete('/asset-disposals/{assetDisposal}', [AssetDisposalController::class, 'destroy'])->name('asset-disposals.destroy');
-    Route::middleware('role:admin,executive_director')->group(function () {
+    Route::middleware('role:operations_hr_manager,executive_director')->group(function () {
         Route::post('/asset-disposals/{assetDisposal}/approve', [AssetDisposalController::class, 'approve'])->name('asset-disposals.approve');
         Route::post('/asset-disposals/{assetDisposal}/reject', [AssetDisposalController::class, 'reject'])->name('asset-disposals.reject');
     });
@@ -160,7 +160,7 @@ Route::middleware('auth')->group(function () {
     Route::resource('suppliers', SupplierController::class)->except(['create', 'show', 'edit']);
 
     // Users (Admin only)
-    Route::middleware('role:admin')->group(function () {
+    Route::middleware('role:operations_hr_manager')->group(function () {
         Route::resource('users', UserController::class)->except(['create', 'show']);
         Route::post('/users/{user}/lock', [UserController::class, 'lock'])->name('users.lock');
         Route::post('/users/{user}/reset-password', [UserController::class, 'resetPassword'])->name('users.reset-password');
@@ -180,7 +180,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/reports/data-completeness', [ReportController::class, 'dataCompleteness'])->name('reports.data-completeness');
 
     // Settings (Admin only)
-    Route::middleware('role:admin')->group(function () {
+    Route::middleware('role:operations_hr_manager')->group(function () {
         Route::get('/settings', [SettingController::class, 'index'])->name('settings.index');
         Route::post('/settings', [SettingController::class, 'update'])->name('settings.update');
         Route::post('/settings/backup', [SettingController::class, 'backup'])->name('settings.backup');
@@ -189,7 +189,7 @@ Route::middleware('auth')->group(function () {
     });
 
     // Activity Logs (Admin only)
-    Route::middleware('role:admin')->group(function () {
+    Route::middleware('role:operations_hr_manager')->group(function () {
         Route::get('/activity-logs', [\App\Http\Controllers\ActivityLogController::class, 'index'])->name('activity-logs.index');
         Route::get('/activity-logs/{activityLog}', [\App\Http\Controllers\ActivityLogController::class, 'show'])->name('activity-logs.show');
         Route::delete('/activity-logs/{activityLog}', [\App\Http\Controllers\ActivityLogController::class, 'destroy'])->name('activity-logs.destroy');

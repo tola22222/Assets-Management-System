@@ -2,30 +2,30 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 
 class Asset extends Model
 {
     use HasFactory;
 
     protected $fillable = [
-        'asset_code','name','category_id','description',
-        'model','brand','serial_number','purchase_date',
-        'purchase_price','condition','status','image_path',
-        'qr_code_path'
+        'asset_code', 'name', 'category_id', 'location_id', 'description',
+        'model', 'brand', 'serial_number', 'purchase_date',
+        'purchase_price', 'condition', 'status', 'image_path',
+        'qr_code_path',
     ];
 
     protected $appends = ['image_url', 'qr_code_url'];
 
     public function getImageUrlAttribute()
     {
-        return $this->image_path ? asset('storage/' . $this->image_path) : null;
+        return $this->image_path ? asset('storage/'.$this->image_path) : null;
     }
 
     public function getQrCodeUrlAttribute()
     {
-        return $this->qr_code_path ? asset('storage/' . $this->qr_code_path) : null;
+        return $this->qr_code_path ? asset('storage/'.$this->qr_code_path) : null;
     }
 
     public function getPublicUrlAttribute()
@@ -36,6 +36,11 @@ class Asset extends Model
     public function category()
     {
         return $this->belongsTo(AssetCategory::class);
+    }
+
+    public function location()
+    {
+        return $this->belongsTo(Location::class);
     }
 
     public function stocks()
@@ -62,5 +67,4 @@ class Asset extends Model
     {
         return $this->hasMany(AssetDisposal::class);
     }
-
 }

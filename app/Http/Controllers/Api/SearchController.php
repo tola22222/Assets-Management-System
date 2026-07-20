@@ -23,7 +23,7 @@ class SearchController extends Controller
         }
 
         $user = $request->user();
-        $isAdmin = $user->isAdmin();
+        $isAdmin = $user->isOperationsHrManager();
 
         $results = [];
 

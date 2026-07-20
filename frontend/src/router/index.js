@@ -67,7 +67,7 @@ router.beforeEach((to) => {
 
   if (to.meta.adminOnly) {
     const user = JSON.parse(localStorage.getItem('user') || 'null')
-    if (user?.role !== 'admin') {
+    if (user?.role !== 'operations_hr_manager') {
       return { name: 'dashboard' }
     }
   }

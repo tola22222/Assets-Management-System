@@ -18,7 +18,7 @@ class AssetAssignmentController extends Controller
     {
         $user = $request->user();
 
-        if ($user->isAdmin()) {
+        if ($user->isOperationsHrManager()) {
             $assignments = AssetAssignment::with(['asset', 'location'])->latest()->get();
         } else {
             $assignments = AssetAssignment::where('assigned_to_type', 'staff')

@@ -1,6 +1,6 @@
 @php
     $user = Auth::user();
-    $isAdmin = $user && $user->isAdmin();
+    $isAdmin = $user && $user->isOperationsHrManager();
     $groups = [
         'inventory' => ['assets.*', 'asset-assignments.*', 'asset-stocks.*', 'asset-verifications.*', 'asset-transfers.*', 'asset-returns.*', 'asset-disposals.*'],
         'people'    => ['staff.*', 'programs.*'],

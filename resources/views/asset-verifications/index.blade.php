@@ -9,7 +9,7 @@
     <div class="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 px-4 py-3 rounded-xl text-sm">{{ session('error') }}</div>
     @endif
 
-    @if(Auth::user()->isAdmin())
+    @if(Auth::user()->isOperationsHrManager())
     <x-page-header title="Asset Verifications" subtitle="Verify asset conditions"
         buttonText="New Verification" buttonAction="openVerificationModal()" />
     @else
@@ -27,7 +27,7 @@
                         <th class="p-4 font-semibold tracking-wide">Condition</th>
                         <th class="p-4 font-semibold tracking-wide">Date</th>
                         <th class="p-4 font-semibold tracking-wide">Status</th>
-                        @if(Auth::user()->isAdmin())
+                        @if(Auth::user()->isOperationsHrManager())
                         <th class="p-4 pr-5 font-semibold tracking-wide text-right">Actions</th>
                         @endif
                     </tr>
@@ -50,7 +50,7 @@
                                 {{ $verification->verified_at ? 'COMPLETED' : 'PENDING' }}
                             </span>
                         </td>
-                        @if(Auth::user()->isAdmin())
+                        @if(Auth::user()->isOperationsHrManager())
                         <td class="p-4 pr-5 text-right">
                             <div class="flex items-center justify-end gap-1.5">
                                 @if(!$verification->verified_at)

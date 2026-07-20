@@ -1,7 +1,7 @@
 <?php
 
 use Illuminate\Database\Migrations\Migration;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -11,11 +11,15 @@ return new class extends Migration
      */
     public function up(): void
     {
-        DB::statement('ALTER TABLE asset_verifications MODIFY verified_by VARCHAR(255) NULL');
+        Schema::table('asset_verifications', function (Blueprint $table) {
+            $table->string('verified_by')->nullable()->change();
+        });
     }
 
     public function down(): void
     {
-        DB::statement('ALTER TABLE asset_verifications MODIFY verified_by VARCHAR(255) NOT NULL');
+        Schema::table('asset_verifications', function (Blueprint $table) {
+            $table->string('verified_by')->nullable(false)->change();
+        });
     }
 };

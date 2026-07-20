@@ -16,7 +16,7 @@ class AssetVerificationController extends Controller
     public function index()
     {
         $user = Auth::user();
-        if ($user->isAdmin()) {
+        if ($user->isOperationsHrManager()) {
             $verifications = AssetVerification::with(['asset', 'location', 'verifiedBy'])->latest()->get();
         } else {
             $assignedAssetIds = AssetAssignment::where('assigned_to_type', 'staff')

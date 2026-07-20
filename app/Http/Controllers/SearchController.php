@@ -23,7 +23,7 @@ class SearchController extends Controller
         }
 
         $user = Auth::user();
-        $isAdmin = $user->isAdmin();
+        $isAdmin = $user->isOperationsHrManager();
 
         $results = [];
 

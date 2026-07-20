@@ -43,7 +43,7 @@
                 <span class="px-2.5 py-1 rounded-lg text-xs font-bold {{ $assetAssignment->status_badge_class }}">{{ strtoupper($assetAssignment->status) }}</span>
             </div>
         </div>
-        @if(Auth::user()->isAdmin() && $assetAssignment->status !== 'returned')
+        @if(Auth::user()->isOperationsHrManager() && $assetAssignment->status !== 'returned')
         <div class="flex flex-col sm:flex-row gap-3 mt-8 pt-6 border-t border-slate-100">
             <a href="{{ route('asset-assignments.index') }}" class="px-6 py-2.5 border border-slate-300 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 text-center">Back</a>
         </div>

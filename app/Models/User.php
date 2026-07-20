@@ -9,7 +9,7 @@ use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
 {
-    use HasFactory, Notifiable, HasApiTokens;
+    use HasApiTokens, HasFactory, Notifiable;
 
     protected $fillable = [
         'name',
@@ -42,9 +42,9 @@ class User extends Authenticatable
         ];
     }
 
-    public function isAdmin(): bool
+    public function isOperationsHrManager(): bool
     {
-        return $this->role === 'admin';
+        return $this->role === 'operations_hr_manager';
     }
 
     public function isStaff(): bool
@@ -64,7 +64,7 @@ class User extends Authenticatable
 
     public function canApproveDisposal(): bool
     {
-        return $this->isAdmin() || $this->isExecutiveDirector();
+        return $this->isOperationsHrManager() || $this->isExecutiveDirector();
     }
 
     public function staff()
@@ -89,7 +89,7 @@ class User extends Authenticatable
 
     public function getPhotoUrlAttribute()
     {
-        return $this->photo_path ? asset('storage/' . $this->photo_path) :
-            'https://ui-avatars.com/api/?name=' . urlencode($this->name) . '&background=128a43&color=fff';
+        return $this->photo_path ? asset('storage/'.$this->photo_path) :
+            'https://ui-avatars.com/api/?name='.urlencode($this->name).'&background=128a43&color=fff';
     }
 }

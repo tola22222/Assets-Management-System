@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Asset;
 use App\Models\AssetCategory;
+use App\Models\Location;
 use Illuminate\Http\UploadedFile;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 
@@ -34,6 +35,8 @@ class AssetImportService
     ];
 
     private array $categoryCache = [];
+
+    private array $locationCache = [];
 
     public function import(UploadedFile $file, bool $generateQr = true): array
     {
@@ -71,12 +74,14 @@ class AssetImportService
             // Section headers ("Motor & Vehicle ( MOV )" → code "PEY-SR-MOV", no
             // sequence) and subtotal rows ("Total MOV" → code "Till 0086") are skipped.
             if ($preserveCodes) {
-                if (!$this->isAssetCode($code) || $name === '') {
+                if (! $this->isAssetCode($code) || $name === '') {
                     $skipped++;
+
                     continue;
                 }
             } elseif ($name === '') {
                 $skipped++;
+
                 continue;
             }
 
@@ -86,13 +91,17 @@ class AssetImportService
                     ? $this->categoryFromCode($code)
                     : $this->categoryByName($get('category'));
             } catch (\RuntimeException $e) {
-                $errors[] = "Row {$lineNo}: " . $e->getMessage();
+                $errors[] = "Row {$lineNo}: ".$e->getMessage();
+
                 continue;
             }
+
+            $location = $this->resolveLocation($get('location'));
 
             $payload = [
                 'name' => $name,
                 'category_id' => $category->id,
+                'location_id' => $location->id,
                 'serial_number' => $get('serial') ?: null,
                 'model' => $get('model') ?: null,
                 'brand' => $get('brand') ?: null,
@@ -110,11 +119,12 @@ class AssetImportService
                 if ($existing) {
                     $existing->update($payload);
                     $updated++;
+
                     continue;
                 }
                 $asset = Asset::create($payload + ['asset_code' => $code]);
             } else {
-                $asset = Asset::create($payload + ['asset_code' => AssetCodeService::nextCode($category)]);
+                $asset = Asset::create($payload + ['asset_code' => AssetCodeService::nextCode($location->id, $category->id)]);
             }
 
             if ($generateQr) {
@@ -167,21 +177,37 @@ class AssetImportService
                 if ($h === '') {
                     continue;
                 }
-                if (str_contains($h, 'asset id')) $map['code'] = $col;
-                elseif ($h === 'name') $map['name'] = $col;
-                elseif ($h === 'description') $map['description_or_name'] = $col;
-                elseif ($h === 'category') $map['category'] = $col;
-                elseif (str_contains($h, 'purchase date') || $h === 'date') $map['date'] = $col;
-                elseif ($h === 'location') $map['location'] = $col;
-                elseif ($h === 'price' || str_contains($h, 'purchase price')) $map['price'] = $col;
-                elseif (str_contains($h, 'serial')) $map['serial'] = $col;
-                elseif ($h === 'model') $map['model'] = $col;
-                elseif ($h === 'brand') $map['brand'] = $col;
-                elseif ($h === 'condition') $map['condition'] = $col;
-                elseif ($h === 'status') $map['status'] = $col;
-                elseif (str_contains($h, 'using')) $map['using'] = $col;
-                elseif (str_contains($h, 'used by')) $map['used_by'] = $col;
-                elseif (str_contains($h, 'remark')) $map['remark'] = $col;
+                if (str_contains($h, 'asset id')) {
+                    $map['code'] = $col;
+                } elseif ($h === 'name') {
+                    $map['name'] = $col;
+                } elseif ($h === 'description') {
+                    $map['description_or_name'] = $col;
+                } elseif ($h === 'category') {
+                    $map['category'] = $col;
+                } elseif (str_contains($h, 'purchase date') || $h === 'date') {
+                    $map['date'] = $col;
+                } elseif ($h === 'location') {
+                    $map['location'] = $col;
+                } elseif ($h === 'price' || str_contains($h, 'purchase price')) {
+                    $map['price'] = $col;
+                } elseif (str_contains($h, 'serial')) {
+                    $map['serial'] = $col;
+                } elseif ($h === 'model') {
+                    $map['model'] = $col;
+                } elseif ($h === 'brand') {
+                    $map['brand'] = $col;
+                } elseif ($h === 'condition') {
+                    $map['condition'] = $col;
+                } elseif ($h === 'status') {
+                    $map['status'] = $col;
+                } elseif (str_contains($h, 'using')) {
+                    $map['using'] = $col;
+                } elseif (str_contains($h, 'used by')) {
+                    $map['used_by'] = $col;
+                } elseif (str_contains($h, 'remark')) {
+                    $map['remark'] = $col;
+                }
             }
 
             $hasPepy = isset($map['code']) && isset($map['description_or_name']);
@@ -192,6 +218,7 @@ class AssetImportService
                     $map['name'] = $map['description_or_name']; // Description is the item name
                 }
                 unset($map['description_or_name']);
+
                 return [$map, $index];
             }
         }
@@ -250,7 +277,7 @@ class AssetImportService
             throw new \RuntimeException('category is required.');
         }
         $existing = AssetCategory::whereRaw('LOWER(name) = ?', [strtolower($name)])->first();
-        if (!$existing) {
+        if (! $existing) {
             throw new \RuntimeException("category \"{$name}\" not found.");
         }
 
@@ -270,9 +297,37 @@ class AssetImportService
         return $this->categoryCache[$shortName] = $category;
     }
 
+    /**
+     * Match the register's free-text "Location" cell (e.g. "PEPY Office",
+     * "Kralanh HS") against a known site by name. Falls back to the PEPY
+     * Office site so a row with a blank/unrecognized location doesn't abort
+     * the whole import — the row is still flagged in its description.
+     */
+    private function resolveLocation(string $name): Location
+    {
+        $key = strtolower(trim($name));
+        if (isset($this->locationCache[$key])) {
+            return $this->locationCache[$key];
+        }
+
+        $location = $key !== ''
+            ? Location::whereRaw('LOWER(name) = ?', [$key])->first()
+            : null;
+
+        $location ??= Location::whereRaw('UPPER(code) = ?', ['SR'])->first();
+        $location ??= Location::first();
+
+        if (! $location) {
+            throw new \RuntimeException('No locations exist to assign this asset to. Seed at least one site first.');
+        }
+
+        return $this->locationCache[$key] = $location;
+    }
+
     private function parsePrice(string $raw): ?float
     {
         $clean = preg_replace('/[^0-9.\-]/', '', $raw);
+
         return ($clean !== '' && is_numeric($clean) && (float) $clean > 0) ? (float) $clean : null;
     }
 
@@ -290,6 +345,7 @@ class AssetImportService
             }
         }
         $ts = strtotime($raw);
+
         return $ts ? date('Y-m-d', $ts) : null;
     }
 
@@ -300,8 +356,12 @@ class AssetImportService
             return $c;
         }
         $hay = strtolower($remark);
-        if (str_contains($hay, 'lost')) return 'lost';
-        if (str_contains($hay, 'broken') || str_contains($hay, 'damage')) return 'broken';
+        if (str_contains($hay, 'lost')) {
+            return 'lost';
+        }
+        if (str_contains($hay, 'broken') || str_contains($hay, 'damage')) {
+            return 'broken';
+        }
 
         return 'good';
     }
@@ -309,6 +369,7 @@ class AssetImportService
     private function parseStatus(string $status): string
     {
         $s = strtolower(trim($status));
+
         return in_array($s, ['active', 'disposed'], true) ? $s : 'active';
     }
 
@@ -316,10 +377,18 @@ class AssetImportService
     private function buildNote(string $location, string $using, string $usedBy, string $remark): ?string
     {
         $parts = [];
-        if ($location !== '') $parts[] = "Location: {$location}";
-        if ($using !== '')    $parts[] = "Using: {$using}";
-        if ($usedBy !== '')   $parts[] = "Used by: {$usedBy}";
-        if ($remark !== '')   $parts[] = "Remark: {$remark}";
+        if ($location !== '') {
+            $parts[] = "Location: {$location}";
+        }
+        if ($using !== '') {
+            $parts[] = "Using: {$using}";
+        }
+        if ($usedBy !== '') {
+            $parts[] = "Used by: {$usedBy}";
+        }
+        if ($remark !== '') {
+            $parts[] = "Remark: {$remark}";
+        }
 
         return $parts ? implode(' · ', $parts) : null;
     }

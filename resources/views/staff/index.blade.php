@@ -16,7 +16,7 @@
     </div>
     @endif
 
-    @if(Auth::user()->isAdmin())
+    @if(Auth::user()->isOperationsHrManager())
     <x-page-header
         title="Staff"
         subtitle="Manage staff members and their details."
@@ -38,7 +38,7 @@
                         <th class="p-4 pl-5 font-semibold tracking-wide">Name</th>
                         <th class="p-4 font-semibold tracking-wide hidden md:table-cell">Position</th>
                         <th class="p-4 font-semibold tracking-wide hidden md:table-cell">Status</th>
-                        @if(Auth::user()->isAdmin())
+                        @if(Auth::user()->isOperationsHrManager())
                         <th class="p-4 pr-5 font-semibold tracking-wide text-center">Actions</th>
                         @endif
                     </tr>
@@ -64,7 +64,7 @@
                                 {{ ucfirst($staff->status) }}
                             </span>
                         </td>
-                        @if(Auth::user()->isAdmin())
+                        @if(Auth::user()->isOperationsHrManager())
                         <td class="p-4 pr-5">
                             <div class="flex items-center justify-center gap-1.5">
                                 <button onclick="openModal('edit', {{ json_encode($staff) }})"
@@ -81,7 +81,7 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="{{ Auth::user()->isAdmin() ? 4 : 3 }}" class="px-6 py-12 text-center">
+                        <td colspan="{{ Auth::user()->isOperationsHrManager() ? 4 : 3 }}" class="px-6 py-12 text-center">
                             <div class="flex flex-col items-center gap-2">
                                 <svg class="w-10 h-10 text-gray-300 dark:text-gray-500" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
                                 <p class="text-gray-400 dark:text-gray-500 text-sm font-medium">No staff members found yet.</p>

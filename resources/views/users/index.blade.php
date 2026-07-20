@@ -42,9 +42,9 @@
                         <td class="p-4 hidden md:table-cell text-gray-500 dark:text-gray-400">{{ $user->email }}</td>
                         <td class="p-4 hidden md:table-cell">
                             @php
-                                $roleLabels = ['executive_director' => 'Executive Director', 'finance_manager' => 'Finance Manager'];
+                                $roleLabels = ['executive_director' => 'Executive Director', 'finance_manager' => 'Finance Manager', 'operations_hr_manager' => 'Operations & HR Manager', 'staff' => 'Staff'];
                                 $roleColors = [
-                                    'admin' => 'bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300',
+                                    'operations_hr_manager' => 'bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300',
                                     'executive_director' => 'bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300',
                                     'finance_manager' => 'bg-teal-100 dark:bg-teal-900/50 text-teal-700 dark:text-teal-300',
                                 ];
@@ -135,7 +135,7 @@
                     <select name="role" id="usr_role"
                         class="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-brand transition dark:text-gray-200">
                         <option value="staff">Staff</option>
-                        <option value="admin">Admin</option>
+                        <option value="operations_hr_manager">Operations & HR Manager</option>
                         <option value="executive_director">Executive Director</option>
                         <option value="finance_manager">Finance Manager</option>
                     </select>

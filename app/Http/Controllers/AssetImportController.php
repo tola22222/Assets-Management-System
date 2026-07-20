@@ -2,16 +2,18 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ActivityLog;
 use App\Models\Asset;
 use App\Models\AssetCategory;
-use App\Models\ActivityLog;
+use App\Models\Location;
 use App\Services\AssetCodeService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class AssetImportController extends Controller
 {
-    private const REQUIRED_COLUMNS = ['name', 'category'];
+    private const REQUIRED_COLUMNS = ['name', 'category', 'location'];
+
     private const OPTIONAL_COLUMNS = [
         'description', 'model', 'brand', 'serial_number',
         'purchase_date', 'purchase_price', 'condition', 'status',
@@ -29,7 +31,7 @@ class AssetImportController extends Controller
         $handle = fopen('php://temp', 'w+');
         fputcsv($handle, $columns);
         fputcsv($handle, [
-            'Dell Laptop', 'IT Equipment', 'Core i5, 8GB RAM', 'Latitude 5420', 'Dell',
+            'Dell Laptop', 'IT Equipment', 'PEPY Office', 'Core i5, 8GB RAM', 'Latitude 5420', 'Dell',
             'SN123456', '2026-01-15', '650.00', 'good', 'active',
         ]);
         rewind($handle);
@@ -51,18 +53,20 @@ class AssetImportController extends Controller
         $handle = fopen($request->file('file')->getRealPath(), 'r');
         $header = fgetcsv($handle);
 
-        if (!$header) {
+        if (! $header) {
             return back()->with('error', 'The uploaded file is empty.');
         }
 
         $header = array_map(fn ($h) => strtolower(trim($h)), $header);
         $missing = array_diff(self::REQUIRED_COLUMNS, $header);
-        if (!empty($missing)) {
+        if (! empty($missing)) {
             fclose($handle);
-            return back()->with('error', 'Missing required column(s): ' . implode(', ', $missing));
+
+            return back()->with('error', 'Missing required column(s): '.implode(', ', $missing));
         }
 
         $categories = AssetCategory::all()->keyBy(fn ($c) => strtolower($c->name));
+        $locations = Location::all()->keyBy(fn ($l) => strtolower($l->name));
 
         $created = 0;
         $errors = [];
@@ -81,37 +85,51 @@ class AssetImportController extends Controller
 
             if ($name === '' || $categoryName === '') {
                 $errors[] = "Row {$rowNumber}: name and category are required.";
+
                 continue;
             }
 
             $category = $categories->get(strtolower($categoryName));
-            if (!$category) {
+            if (! $category) {
                 $errors[] = "Row {$rowNumber}: category \"{$categoryName}\" not found.";
+
+                continue;
+            }
+
+            $locationName = trim((string) ($data['location'] ?? ''));
+            $location = $locations->get(strtolower($locationName));
+            if (! $location) {
+                $errors[] = "Row {$rowNumber}: location \"{$locationName}\" not found.";
+
                 continue;
             }
 
             $condition = strtolower(trim((string) ($data['condition'] ?? 'good')));
-            if (!in_array($condition, ['good', 'fair', 'broken', 'lost'])) {
+            if (! in_array($condition, ['good', 'fair', 'broken', 'lost'])) {
                 $errors[] = "Row {$rowNumber}: invalid condition \"{$data['condition']}\", must be good/fair/broken/lost.";
+
                 continue;
             }
 
             $status = strtolower(trim((string) ($data['status'] ?? 'active')));
-            if (!in_array($status, ['active', 'disposed'])) {
+            if (! in_array($status, ['active', 'disposed'])) {
                 $errors[] = "Row {$rowNumber}: invalid status \"{$data['status']}\", must be active/disposed.";
+
                 continue;
             }
 
             $purchaseDate = trim((string) ($data['purchase_date'] ?? ''));
-            if ($purchaseDate !== '' && !strtotime($purchaseDate)) {
+            if ($purchaseDate !== '' && ! strtotime($purchaseDate)) {
                 $errors[] = "Row {$rowNumber}: invalid purchase_date \"{$purchaseDate}\".";
+
                 continue;
             }
 
             $asset = Asset::create([
-                'asset_code' => AssetCodeService::nextCode($category),
+                'asset_code' => AssetCodeService::nextCode($location->id, $category->id),
                 'name' => $name,
                 'category_id' => $category->id,
+                'location_id' => $location->id,
                 'description' => trim((string) ($data['description'] ?? '')) ?: null,
                 'model' => trim((string) ($data['model'] ?? '')) ?: null,
                 'brand' => trim((string) ($data['brand'] ?? '')) ?: null,
@@ -131,7 +149,7 @@ class AssetImportController extends Controller
         ActivityLog::create([
             'user_id' => Auth::id(),
             'action' => 'Import',
-            'description' => "Bulk imported {$created} asset(s) from spreadsheet" . (count($errors) ? ', ' . count($errors) . ' row(s) skipped' : ''),
+            'description' => "Bulk imported {$created} asset(s) from spreadsheet".(count($errors) ? ', '.count($errors).' row(s) skipped' : ''),
         ]);
 
         return back()->with('success', "{$created} asset(s) imported successfully.")->with('importErrors', $errors);

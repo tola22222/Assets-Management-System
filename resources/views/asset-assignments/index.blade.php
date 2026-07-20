@@ -9,7 +9,7 @@
     <div class="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 px-4 py-3 rounded-xl text-sm">{{ session('error') }}</div>
     @endif
 
-    @if(Auth::user()->isAdmin())
+    @if(Auth::user()->isOperationsHrManager())
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
             <h1 class="text-xl font-bold text-gray-800 tracking-tight">Asset Assignments</h1>
@@ -40,7 +40,7 @@
                         <th class="p-4 font-semibold tracking-wide">Date</th>
                         <th class="p-4 font-semibold tracking-wide">Due Date</th>
                         <th class="p-4 font-semibold tracking-wide">Status</th>
-                        @if(Auth::user()->isAdmin())
+                        @if(Auth::user()->isOperationsHrManager())
                         <th class="p-4 pr-5 font-semibold tracking-wide text-right">Actions</th>
                         @endif
                     </tr>
@@ -61,7 +61,7 @@
                                 {{ strtoupper($assignment->status) }}
                             </span>
                         </td>
-                        @if(Auth::user()->isAdmin())
+                        @if(Auth::user()->isOperationsHrManager())
                         <td class="p-4 pr-5 text-right">
                             <div class="flex items-center justify-end gap-1.5">
                                 @if($assignment->status !== 'returned')
@@ -98,7 +98,7 @@
     </div>
 </div>
 
-@if(Auth::user()->isAdmin())
+@if(Auth::user()->isOperationsHrManager())
 {{-- Assignment Modal -- slide-in from right --}}
 <div id="assignmentModal" class="fixed inset-0 bg-gray-900/40 backdrop-blur-sm hidden z-[100] flex items-center justify-end p-4">
     <div class="bg-white dark:bg-gray-800 w-full max-w-2xl rounded-2xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden animate__slide-in-right">

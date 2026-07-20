@@ -25,11 +25,11 @@ const newPassword = ref('')
 const newPasswordConfirm = ref('')
 
 const roleLabels = computed(() => ({
-  admin: t('users.role_admin'), staff: t('users.role_staff'),
+  operations_hr_manager: t('users.role_admin'), staff: t('users.role_staff'),
   executive_director: t('users.role_executive_director'), finance_manager: t('users.role_finance_manager'),
 }))
 const roleColors = {
-  admin: 'bg-purple-100 text-purple-700',
+  operations_hr_manager: 'bg-purple-100 text-purple-700',
   executive_director: 'bg-amber-100 text-amber-700',
   finance_manager: 'bg-teal-100 text-teal-700',
   staff: 'bg-blue-100 text-blue-700',
@@ -181,7 +181,7 @@ onMounted(() => {
             <label class="text-xs font-semibold text-muted tracking-wide">{{ t('users.role_required') }}</label>
             <select v-model="form.role" class="input">
               <option value="staff">{{ t('users.role_staff') }}</option>
-              <option value="admin">{{ t('users.role_admin') }}</option>
+              <option value="operations_hr_manager">{{ t('users.role_admin') }}</option>
               <option value="executive_director">{{ t('users.role_executive_director') }}</option>
               <option value="finance_manager">{{ t('users.role_finance_manager') }}</option>
             </select>

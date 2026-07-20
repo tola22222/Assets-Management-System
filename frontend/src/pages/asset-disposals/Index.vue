@@ -20,7 +20,7 @@ const showModal = ref(false)
 const imageFile = ref(null)
 const form = reactive({ asset_id: '', recommended_action: 'disposal', reason: '' })
 
-const canApprove = () => ['admin', 'executive_director'].includes(auth.user?.role)
+const canApprove = () => ['operations_hr_manager', 'executive_director'].includes(auth.user?.role)
 
 async function loadAssets() {
   const { data } = await http.get('/assets')

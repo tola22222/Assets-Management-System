@@ -29,13 +29,13 @@ return new class extends Migration
         $cols = ['id', 'asset_code', 'name', 'category_id', 'description',
             'model', 'brand', 'serial_number', 'purchase_date', 'purchase_price',
             'condition', 'status', 'image_path', 'qr_code_path', 'created_at', 'updated_at'];
-        $select = implode(', ', array_map(fn($c) => "`$c`", $cols));
+        $select = implode(', ', array_map(fn ($c) => "`$c`", $cols));
 
         DB::statement("INSERT INTO assets_new ($select) SELECT $select FROM assets");
-        DB::statement('SET FOREIGN_KEY_CHECKS=0');
+        Schema::disableForeignKeyConstraints();
         Schema::drop('assets');
         Schema::rename('assets_new', 'assets');
-        DB::statement('SET FOREIGN_KEY_CHECKS=1');
+        Schema::enableForeignKeyConstraints();
     }
 
     public function down(): void
@@ -59,7 +59,7 @@ return new class extends Migration
         $cols = ['id', 'asset_code', 'name', 'category_id', 'description',
             'model', 'brand', 'serial_number', 'purchase_date', 'purchase_price',
             'created_at', 'updated_at'];
-        $select = implode(', ', array_map(fn($c) => "`$c`", $cols));
+        $select = implode(', ', array_map(fn ($c) => "`$c`", $cols));
 
         DB::statement("INSERT INTO assets_old ($select) SELECT $select FROM assets");
         DB::statement('SET FOREIGN_KEY_CHECKS=0');

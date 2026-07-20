@@ -2,11 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ActivityLog;
 use App\Models\Asset;
 use App\Models\AssetCategory;
-use App\Models\ActivityLog;
 use App\Models\Notification;
-use App\Models\User;
 use App\Services\AssetCodeService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -18,12 +17,14 @@ class AssetController extends Controller
     {
         $assets = Asset::with('category')->latest()->get();
         $categories = AssetCategory::orderBy('name')->get();
+
         return view('assets.index', compact('assets', 'categories'));
     }
 
     public function create()
     {
         $categories = AssetCategory::orderBy('name')->get();
+
         return view('assets.create', compact('categories'));
     }
 
@@ -32,6 +33,7 @@ class AssetController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'category_id' => 'required|exists:asset_categories,id',
+            'location_id' => 'required|exists:locations,id',
             'purchase_date' => 'nullable|date',
             'purchase_price' => 'nullable|numeric',
             'status' => 'required|string',
@@ -47,8 +49,7 @@ class AssetController extends Controller
             $validated['image_path'] = $request->file('image')->store('assets', 'public');
         }
 
-        $category = AssetCategory::find($validated['category_id']);
-        $validated['asset_code'] = AssetCodeService::nextCode($category);
+        $validated['asset_code'] = AssetCodeService::nextCode($validated['location_id'], $validated['category_id']);
 
         $asset = Asset::create($validated);
 
@@ -57,13 +58,13 @@ class AssetController extends Controller
         ActivityLog::create([
             'user_id' => Auth::id(),
             'action' => 'Create',
-            'description' => 'Registered asset: ' . $asset->name . ' (' . $asset->asset_code . ')',
+            'description' => 'Registered asset: '.$asset->name.' ('.$asset->asset_code.')',
         ]);
 
         Notification::create([
             'user_id' => Auth::id(),
             'type' => 'asset_registered',
-            'message' => 'Asset registered: ' . $asset->name . ' (' . $asset->asset_code . ')',
+            'message' => 'Asset registered: '.$asset->name.' ('.$asset->asset_code.')',
             'url' => route('assets.show', $asset->id),
         ]);
 
@@ -77,6 +78,7 @@ class AssetController extends Controller
         }, 'verifications' => function ($q) {
             $q->latest();
         }])->findOrFail($id);
+
         return view('assets.show', compact('asset'));
     }
 
@@ -84,6 +86,7 @@ class AssetController extends Controller
     {
         $asset = Asset::findOrFail($id);
         $categories = AssetCategory::all();
+
         return view('assets.edit', compact('asset', 'categories'));
     }
 
@@ -94,6 +97,7 @@ class AssetController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'category_id' => 'required|exists:asset_categories,id',
+            'location_id' => 'required|exists:locations,id',
             'purchase_date' => 'nullable|date',
             'purchase_price' => 'nullable|numeric',
             'status' => 'required|string',
@@ -114,20 +118,20 @@ class AssetController extends Controller
 
         $asset->update($validated);
 
-        if (!$asset->qr_code_path) {
+        if (! $asset->qr_code_path) {
             AssetCodeService::generateQrCode($asset);
         }
 
         ActivityLog::create([
             'user_id' => Auth::id(),
             'action' => 'Update',
-            'description' => 'Updated asset: ' . $asset->name,
+            'description' => 'Updated asset: '.$asset->name,
         ]);
 
         Notification::create([
             'user_id' => Auth::id(),
             'type' => 'asset_updated',
-            'message' => 'Asset updated: ' . $asset->name,
+            'message' => 'Asset updated: '.$asset->name,
             'url' => route('assets.show', $asset->id),
         ]);
 
@@ -148,7 +152,7 @@ class AssetController extends Controller
         ActivityLog::create([
             'user_id' => Auth::id(),
             'action' => 'Delete',
-            'description' => 'Deleted asset: ' . $asset->name,
+            'description' => 'Deleted asset: '.$asset->name,
         ]);
 
         return redirect()->route('assets.index');
@@ -160,6 +164,7 @@ class AssetController extends Controller
             $q->with('assignee')->latest();
         }])->where('asset_code', $assetCode)->firstOrFail();
         $locations = \App\Models\Location::all();
+
         return view('assets.public-show', compact('asset', 'locations'));
     }
 
@@ -191,11 +196,12 @@ class AssetController extends Controller
     public function downloadQr($id)
     {
         $asset = Asset::findOrFail($id);
-        if (!$asset->qr_code_path || !Storage::disk('public')->exists($asset->qr_code_path)) {
+        if (! $asset->qr_code_path || ! Storage::disk('public')->exists($asset->qr_code_path)) {
             AssetCodeService::generateQrCode($asset);
         }
         $extension = pathinfo($asset->qr_code_path, PATHINFO_EXTENSION);
-        return Storage::disk('public')->download($asset->qr_code_path, $asset->asset_code . '-qr.' . $extension);
+
+        return Storage::disk('public')->download($asset->qr_code_path, $asset->asset_code.'-qr.'.$extension);
     }
 
     public function regenerateQr($id)
@@ -205,16 +211,18 @@ class AssetController extends Controller
             Storage::disk('public')->delete($asset->qr_code_path);
         }
         AssetCodeService::generateQrCode($asset);
+
         return redirect()->route('assets.index')->with('success', 'QR Code regenerated successfully.');
     }
 
     public function printQr($id)
     {
         $asset = Asset::findOrFail($id);
-        if (!$asset->qr_code_path || !Storage::disk('public')->exists($asset->qr_code_path)) {
+        if (! $asset->qr_code_path || ! Storage::disk('public')->exists($asset->qr_code_path)) {
             AssetCodeService::generateQrCode($asset);
         }
         $qrUrl = $asset->qr_code_url;
+
         return view('assets.print-qr', compact('asset', 'qrUrl'));
     }
 

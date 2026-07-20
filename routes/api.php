@@ -66,8 +66,8 @@ Route::name('api.')->group(function () {
         Route::post('/asset-verifications/{asset_verification}/complete', [AssetVerificationController::class, 'complete']);
         Route::apiResource('asset-verifications', AssetVerificationController::class)->only(['index', 'store', 'destroy']);
 
-        Route::post('/asset-disposals/{asset_disposal}/approve', [AssetDisposalController::class, 'approve'])->middleware('role:admin,executive_director');
-        Route::post('/asset-disposals/{asset_disposal}/reject', [AssetDisposalController::class, 'reject'])->middleware('role:admin,executive_director');
+        Route::post('/asset-disposals/{asset_disposal}/approve', [AssetDisposalController::class, 'approve'])->middleware('role:operations_hr_manager,executive_director');
+        Route::post('/asset-disposals/{asset_disposal}/reject', [AssetDisposalController::class, 'reject'])->middleware('role:operations_hr_manager,executive_director');
         Route::apiResource('asset-disposals', AssetDisposalController::class)->only(['index', 'store', 'destroy']);
 
         Route::apiResource('asset-movements', AssetMovementController::class)->only(['index', 'destroy']);
@@ -87,7 +87,7 @@ Route::name('api.')->group(function () {
         Route::get('/reports/qr-scans', [ReportController::class, 'qrScans']);
         Route::get('/reports/data-completeness', [ReportController::class, 'dataCompleteness']);
 
-        Route::middleware('role:admin')->group(function () {
+        Route::middleware('role:operations_hr_manager')->group(function () {
             Route::apiResource('users', UserController::class)->except(['create', 'show']);
             Route::post('/users/{user}/lock', [UserController::class, 'lock']);
             Route::post('/users/{user}/reset-password', [UserController::class, 'resetPassword']);
