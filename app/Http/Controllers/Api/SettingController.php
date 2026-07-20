@@ -7,6 +7,7 @@ use App\Models\ActivityLog;
 use App\Models\Setting;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Response;
 
 class SettingController extends Controller
 {
@@ -48,5 +49,95 @@ class SettingController extends Controller
         ]);
 
         return response()->json(Setting::pluck('value', 'key'));
+    }
+
+    public function backup()
+    {
+        $databasePath = database_path('database.sqlite');
+        if (!file_exists($databasePath)) {
+            return response()->json(['message' => 'Database file not found.'], 422);
+        }
+
+        $backupPath = storage_path('app/backups');
+        if (!is_dir($backupPath)) {
+            mkdir($backupPath, 0755, true);
+        }
+
+        $filename = 'backup-' . date('Y-m-d-His') . '.sqlite';
+        copy($databasePath, $backupPath . '/' . $filename);
+
+        ActivityLog::create([
+            'user_id' => Auth::id(),
+            'action' => 'Backup',
+            'description' => 'Created database backup: ' . $filename,
+        ]);
+
+        return response()->json(['message' => 'Database backed up successfully.', 'filename' => $filename]);
+    }
+
+    public function listBackups()
+    {
+        $backupPath = storage_path('app/backups');
+        if (!is_dir($backupPath)) {
+            return response()->json([]);
+        }
+
+        $files = array_map(function ($file) use ($backupPath) {
+            return [
+                'name' => $file,
+                'size' => filesize($backupPath . '/' . $file),
+                'date' => date('Y-m-d H:i:s', filemtime($backupPath . '/' . $file)),
+            ];
+        }, array_diff(scandir($backupPath), ['.', '..']));
+
+        usort($files, fn ($a, $b) => strcmp($b['date'], $a['date']));
+
+        return response()->json(array_values($files));
+    }
+
+    public function downloadBackup(string $filename)
+    {
+        $backupPath = storage_path('app/backups/' . basename($filename));
+        if (!file_exists($backupPath)) {
+            return response()->json(['message' => 'Backup file not found.'], 404);
+        }
+
+        return Response::download($backupPath);
+    }
+
+    public function restoreBackup(string $filename)
+    {
+        $backupPath = storage_path('app/backups/' . basename($filename));
+        if (!file_exists($backupPath)) {
+            return response()->json(['message' => 'Backup file not found.'], 404);
+        }
+
+        copy($backupPath, database_path('database.sqlite'));
+
+        ActivityLog::create([
+            'user_id' => Auth::id(),
+            'action' => 'Restore',
+            'description' => 'Restored database from backup: ' . $filename,
+        ]);
+
+        return response()->json(['message' => 'Database restored successfully.']);
+    }
+
+    public function deleteBackup(string $filename)
+    {
+        $backupPath = storage_path('app/backups/' . basename($filename));
+        if (!file_exists($backupPath)) {
+            return response()->json(['message' => 'Backup file not found.'], 404);
+        }
+
+        unlink($backupPath);
+
+        ActivityLog::create([
+            'user_id' => Auth::id(),
+            'action' => 'Delete',
+            'description' => 'Deleted database backup: ' . $filename,
+        ]);
+
+        return response()->json(['message' => 'Backup deleted.']);
     }
 }

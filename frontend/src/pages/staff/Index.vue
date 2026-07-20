@@ -1,14 +1,19 @@
 <script setup>
 import { ref, onMounted, reactive } from 'vue'
+import { useI18n } from 'vue-i18n'
 import http from '../../api/http'
 import AppLayout from '../../layouts/AppLayout.vue'
 import PageHeader from '../../components/ui/PageHeader.vue'
 import Modal from '../../components/ui/Modal.vue'
 import ConfirmDialog from '../../components/ui/ConfirmDialog.vue'
+import SearchInput from '../../components/ui/SearchInput.vue'
 import { useApiCrud } from '../../composables/useApiCrud'
+import { useTableSearch } from '../../composables/useTableSearch'
 import { useToastStore } from '../../stores/toast'
 
-const { items: staffList, loading, fetchAll, destroy } = useApiCrud('/staff', { entityName: 'Staff member' })
+const { t } = useI18n()
+const { items: staffList, loading, fetchAll, destroy } = useApiCrud('/staff', { entityName: t('staff.entity') })
+const { search, filtered } = useTableSearch(staffList, ['full_name', 'position', 'phone', 'email'])
 const toast = useToastStore()
 
 const showModal = ref(false)
@@ -48,15 +53,15 @@ async function handleSubmit() {
     if (editingId.value) {
       fd.append('_method', 'PUT')
       await http.post(`/staff/${editingId.value}`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })
-      toast.success('Staff updated successfully.')
+      toast.success(t('staff.updated'))
     } else {
       await http.post('/staff', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
-      toast.success('Staff member created.')
+      toast.success(t('staff.created'))
     }
     showModal.value = false
     await fetchAll()
   } catch (e) {
-    toast.error(e.response?.data?.message || 'Could not save staff member.')
+    toast.error(e.response?.data?.message || t('staff.save_failed'))
   }
 }
 
@@ -71,83 +76,97 @@ onMounted(fetchAll)
 <template>
   <AppLayout>
     <div class="p-8 max-w-5xl mx-auto space-y-6">
-      <PageHeader title="Staff Directory" subtitle="Personnel who can be assigned assets" buttonText="New Staff" @action="openCreate" />
+      <PageHeader :title="t('staff.title')" :subtitle="t('staff.subtitle')" :buttonText="t('staff.new')" @action="openCreate" />
 
-      <div class="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-        <table class="w-full text-left text-sm">
-          <thead>
-            <tr class="text-gray-400 font-semibold bg-gray-50/70 border-b border-gray-100">
-              <th class="p-4 pl-5">Name</th>
-              <th class="p-4">Position</th>
-              <th class="p-4">Phone</th>
-              <th class="p-4">Status</th>
-              <th class="p-4 pr-5 text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-gray-100">
-            <tr v-for="s in staffList" :key="s.id" class="hover:bg-gray-50/50">
-              <td class="p-4 pl-5 font-medium text-ink flex items-center gap-3">
-                <img v-if="s.photo_path_url" :src="s.photo_path_url" class="w-8 h-8 rounded-full object-cover" alt="" />
-                <span v-else class="w-8 h-8 rounded-full bg-gray-100 flex-shrink-0"></span>
-                {{ s.full_name }}
-              </td>
-              <td class="p-4 text-gray-500">{{ s.position || '—' }}</td>
-              <td class="p-4 text-gray-500">{{ s.phone || '—' }}</td>
-              <td class="p-4">
-                <span class="px-2 py-0.5 rounded-lg text-xs font-bold" :class="s.status === 'active' ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-200 text-gray-600'">{{ s.status }}</span>
-              </td>
-              <td class="p-4 pr-5 text-right">
-                <button @click="openEdit(s)" class="text-brand hover:underline mr-3 text-sm font-semibold">Edit</button>
-                <button @click="deletingId = s.id" class="text-red-500 hover:underline text-sm font-semibold">Delete</button>
-              </td>
-            </tr>
-            <tr v-if="!loading && !staffList.length">
-              <td colspan="5" class="p-8 text-center text-gray-400">No staff members yet.</td>
-            </tr>
-          </tbody>
-        </table>
+      <div class="w-full sm:max-w-xs">
+        <SearchInput v-model="search" :placeholder="t('staff.search_placeholder')" />
+      </div>
+
+      <div class="table-wrap">
+        <div class="overflow-x-auto">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>{{ t('common.name') }}</th>
+                <th>{{ t('staff.position') }}</th>
+                <th>{{ t('common.phone') }}</th>
+                <th>{{ t('common.status') }}</th>
+                <th class="text-right">{{ t('common.actions') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="s in filtered" :key="s.id">
+                <td>
+                  <div class="flex items-center gap-3">
+                    <img v-if="s.photo_path_url" :src="s.photo_path_url" class="w-8 h-8 rounded-full object-cover flex-shrink-0" alt="" />
+                    <span v-else class="w-8 h-8 rounded-full bg-surface-3 border border-line flex-shrink-0"></span>
+                    <span class="font-medium text-fg">{{ s.full_name }}</span>
+                  </div>
+                </td>
+                <td>{{ s.position || '—' }}</td>
+                <td>{{ s.phone || '—' }}</td>
+                <td>
+                  <span class="badge" :class="s.status === 'active' ? 'badge-success' : 'badge-neutral'">{{ t(`status.${s.status}`) }}</span>
+                </td>
+                <td class="text-right">
+                  <div class="flex items-center justify-end gap-1.5">
+                    <button @click="openEdit(s)" title="Edit" class="w-7 h-7 rounded-lg bg-brand text-white flex items-center justify-center hover:bg-brand-dark transition">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487z" /></svg>
+                    </button>
+                    <button @click="deletingId = s.id" title="Delete" class="w-7 h-7 rounded-lg bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9 9m9.968-3.21c.342.052.682.107 1.022.166M18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+              <tr v-if="!loading && !filtered.length">
+                <td colspan="5" class="py-10 text-center text-faint">{{ search ? t('staff.empty_search') : t('staff.empty') }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
 
-    <Modal v-if="showModal" :title="editingId ? 'Edit Staff' : 'New Staff'" @close="showModal = false">
+    <Modal v-if="showModal" :title="editingId ? t('staff.edit_title') : t('staff.create_title')" @close="showModal = false">
       <form @submit.prevent="handleSubmit" class="p-6 space-y-4">
         <div class="space-y-1.5">
-          <label class="text-xs font-semibold text-gray-700 tracking-wide">Full Name *</label>
-          <input v-model="form.full_name" required class="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-brand" />
+          <label class="text-xs font-semibold text-muted tracking-wide">{{ t('staff.full_name') }}</label>
+          <input v-model="form.full_name" required class="input" />
         </div>
         <div class="grid grid-cols-2 gap-4">
           <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-gray-700 tracking-wide">Email</label>
-            <input v-model="form.email" type="email" class="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-brand" />
+            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('common.email') }}</label>
+            <input v-model="form.email" type="email" class="input" />
           </div>
           <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-gray-700 tracking-wide">Phone</label>
-            <input v-model="form.phone" class="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-brand" />
+            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('common.phone') }}</label>
+            <input v-model="form.phone" class="input" />
           </div>
         </div>
         <div class="grid grid-cols-2 gap-4">
           <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-gray-700 tracking-wide">Position</label>
-            <input v-model="form.position" class="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-brand" />
+            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('staff.position') }}</label>
+            <input v-model="form.position" class="input" />
           </div>
           <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-gray-700 tracking-wide">Hire Date</label>
-            <input v-model="form.hire_date" type="date" class="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-brand" />
+            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('staff.hire_date') }}</label>
+            <input v-model="form.hire_date" type="date" class="input" />
           </div>
         </div>
         <div v-if="editingId" class="space-y-1.5">
-          <label class="text-xs font-semibold text-gray-700 tracking-wide">Status *</label>
-          <select v-model="form.status" class="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-brand">
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
+          <label class="text-xs font-semibold text-muted tracking-wide">{{ t('staff.status_required') }}</label>
+          <select v-model="form.status" class="input">
+            <option value="active">{{ t('staff.status_active') }}</option>
+            <option value="inactive">{{ t('staff.status_inactive') }}</option>
           </select>
         </div>
         <div class="space-y-1.5">
-          <label class="text-xs font-semibold text-gray-700 tracking-wide">Photo</label>
+          <label class="text-xs font-semibold text-muted tracking-wide">{{ t('staff.photo') }}</label>
           <input type="file" accept="image/jpeg,image/png" @change="handleFileChange" class="w-full text-sm" />
         </div>
-        <button type="submit" class="bg-brand hover:bg-brand-dark text-white font-semibold text-sm px-6 py-2.5 rounded-xl w-full transition">
-          {{ editingId ? 'Save Changes' : 'Add Staff' }}
+        <button type="submit" class="btn-primary w-full">
+          {{ editingId ? t('staff.save_changes') : t('staff.add_button') }}
         </button>
       </form>
     </Modal>

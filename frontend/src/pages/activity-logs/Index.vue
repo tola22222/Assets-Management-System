@@ -32,14 +32,14 @@ onMounted(() => loadPage(1))
   <AppLayout>
     <div class="p-8 max-w-5xl mx-auto space-y-6">
       <div>
-        <h1 class="text-xl font-bold text-ink tracking-tight">Activity Logs</h1>
-        <p class="text-gray-500 text-sm mt-0.5">Full audit trail of actions taken in the system</p>
+        <h1 class="text-xl font-bold text-fg tracking-tight">Activity Logs</h1>
+        <p class="text-muted text-sm mt-0.5">Full audit trail of actions taken in the system</p>
       </div>
 
-      <div class="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+      <div class="bg-surface rounded-2xl border border-line overflow-hidden">
         <table class="w-full text-left text-sm">
           <thead>
-            <tr class="text-gray-400 font-semibold bg-gray-50/70 border-b border-gray-100">
+            <tr class="text-faint font-semibold bg-surface-2/70 border-b border-line">
               <th class="p-4 pl-5">User</th>
               <th class="p-4">Action</th>
               <th class="p-4">Description</th>
@@ -47,18 +47,20 @@ onMounted(() => loadPage(1))
               <th class="p-4 pr-5 text-right">Actions</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-gray-100">
-            <tr v-for="log in logs" :key="log.id" class="hover:bg-gray-50/50">
-              <td class="p-4 pl-5 font-medium text-ink">{{ log.user?.name || 'System' }}</td>
-              <td class="p-4 text-gray-500">{{ log.action }}</td>
-              <td class="p-4 text-gray-500">{{ log.description }}</td>
-              <td class="p-4 text-gray-500">{{ new Date(log.created_at).toLocaleString() }}</td>
+          <tbody class="divide-y divide-line">
+            <tr v-for="log in logs" :key="log.id" class="hover:bg-surface-2/50">
+              <td class="p-4 pl-5 font-medium text-fg">{{ log.user?.name || 'System' }}</td>
+              <td class="p-4 text-muted">{{ log.action }}</td>
+              <td class="p-4 text-muted">{{ log.description }}</td>
+              <td class="p-4 text-muted">{{ new Date(log.created_at).toLocaleString() }}</td>
               <td class="p-4 pr-5 text-right">
-                <button @click="removeLog(log.id)" class="text-red-500 hover:underline text-sm font-semibold">Delete</button>
+                <button @click="removeLog(log.id)" title="Delete" class="w-7 h-7 rounded-lg bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9 9m9.968-3.21c.342.052.682.107 1.022.166M18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
+                </button>
               </td>
             </tr>
             <tr v-if="!loading && !logs.length">
-              <td colspan="5" class="p-8 text-center text-gray-400">No activity recorded yet.</td>
+              <td colspan="5" class="p-8 text-center text-faint">No activity recorded yet.</td>
             </tr>
           </tbody>
         </table>
@@ -67,7 +69,7 @@ onMounted(() => loadPage(1))
       <div v-if="lastPage > 1" class="flex items-center justify-center gap-2">
         <button v-for="p in lastPage" :key="p" @click="loadPage(p)"
           class="w-8 h-8 rounded-lg text-sm font-semibold transition"
-          :class="p === currentPage ? 'bg-brand text-white' : 'text-gray-500 hover:bg-gray-100'">
+          :class="p === currentPage ? 'bg-brand text-white' : 'text-muted hover:bg-surface-3'">
           {{ p }}
         </button>
       </div>

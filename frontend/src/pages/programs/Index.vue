@@ -1,13 +1,18 @@
 <script setup>
 import { ref, onMounted, reactive } from 'vue'
+import { useI18n } from 'vue-i18n'
 import AppLayout from '../../layouts/AppLayout.vue'
 import PageHeader from '../../components/ui/PageHeader.vue'
 import Modal from '../../components/ui/Modal.vue'
 import ConfirmDialog from '../../components/ui/ConfirmDialog.vue'
+import SearchInput from '../../components/ui/SearchInput.vue'
 import { useApiCrud } from '../../composables/useApiCrud'
+import { useTableSearch } from '../../composables/useTableSearch'
 import { useToastStore } from '../../stores/toast'
 
-const { items: programs, loading, fetchAll, create, update, destroy } = useApiCrud('/programs', { entityName: 'Program' })
+const { t } = useI18n()
+const { items: programs, loading, fetchAll, create, update, destroy } = useApiCrud('/programs', { entityName: t('programs.entity') })
+const { search, filtered } = useTableSearch(programs, ['name', 'description'])
 const toast = useToastStore()
 
 const showModal = ref(false)
@@ -33,7 +38,7 @@ async function handleSubmit() {
     else await create(form)
     showModal.value = false
   } catch (e) {
-    toast.error(e.response?.data?.message || 'Could not save program.')
+    toast.error(e.response?.data?.message || t('programs.save_failed'))
   }
 }
 
@@ -41,7 +46,7 @@ async function confirmDelete() {
   try {
     await destroy(deletingId.value)
   } catch (e) {
-    toast.error(e.response?.data?.message || 'Could not delete program.')
+    toast.error(e.response?.data?.message || t('programs.delete_failed'))
   } finally {
     deletingId.value = null
   }
@@ -53,46 +58,58 @@ onMounted(fetchAll)
 <template>
   <AppLayout>
     <div class="p-8 max-w-4xl mx-auto space-y-6">
-      <PageHeader title="Programs" subtitle="Programs assets can be assigned to" buttonText="New Program" @action="openCreate" />
+      <PageHeader :title="t('programs.title')" :subtitle="t('programs.subtitle')" :buttonText="t('programs.new')" @action="openCreate" />
 
-      <div class="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-        <table class="w-full text-left text-sm">
-          <thead>
-            <tr class="text-gray-400 font-semibold bg-gray-50/70 border-b border-gray-100">
-              <th class="p-4 pl-5">Name</th>
-              <th class="p-4">Description</th>
-              <th class="p-4 pr-5 text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-gray-100">
-            <tr v-for="p in programs" :key="p.id" class="hover:bg-gray-50/50">
-              <td class="p-4 pl-5 font-medium text-ink">{{ p.name }}</td>
-              <td class="p-4 text-gray-500">{{ p.description || '—' }}</td>
-              <td class="p-4 pr-5 text-right">
-                <button @click="openEdit(p)" class="text-brand hover:underline mr-3 text-sm font-semibold">Edit</button>
-                <button @click="deletingId = p.id" class="text-red-500 hover:underline text-sm font-semibold">Delete</button>
-              </td>
-            </tr>
-            <tr v-if="!loading && !programs.length">
-              <td colspan="3" class="p-8 text-center text-gray-400">No programs yet.</td>
-            </tr>
-          </tbody>
-        </table>
+      <div class="w-full sm:max-w-xs">
+        <SearchInput v-model="search" :placeholder="t('programs.search_placeholder')" />
+      </div>
+
+      <div class="table-wrap">
+        <div class="overflow-x-auto">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>{{ t('common.name') }}</th>
+                <th>{{ t('common.description') }}</th>
+                <th class="text-right">{{ t('common.actions') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="p in filtered" :key="p.id">
+                <td class="font-medium text-fg">{{ p.name }}</td>
+                <td>{{ p.description || '—' }}</td>
+                <td class="text-right">
+                  <div class="flex items-center justify-end gap-1.5">
+                    <button @click="openEdit(p)" title="Edit" class="w-7 h-7 rounded-lg bg-brand text-white flex items-center justify-center hover:bg-brand-dark transition">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487z" /></svg>
+                    </button>
+                    <button @click="deletingId = p.id" title="Delete" class="w-7 h-7 rounded-lg bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9 9m9.968-3.21c.342.052.682.107 1.022.166M18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+              <tr v-if="!loading && !filtered.length">
+                <td colspan="3" class="py-10 text-center text-faint">{{ search ? t('programs.empty_search') : t('programs.empty') }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
 
-    <Modal v-if="showModal" :title="editingId ? 'Edit Program' : 'New Program'" @close="showModal = false">
+    <Modal v-if="showModal" :title="editingId ? t('programs.edit_title') : t('programs.create_title')" @close="showModal = false">
       <form @submit.prevent="handleSubmit" class="p-6 space-y-4">
         <div class="space-y-1.5">
-          <label class="text-xs font-semibold text-gray-700 tracking-wide">Name *</label>
-          <input v-model="form.name" required class="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-brand" />
+          <label class="text-xs font-semibold text-muted tracking-wide">{{ t('programs.name_required') }}</label>
+          <input v-model="form.name" required class="input" />
         </div>
         <div class="space-y-1.5">
-          <label class="text-xs font-semibold text-gray-700 tracking-wide">Description</label>
-          <textarea v-model="form.description" rows="2" class="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-brand"></textarea>
+          <label class="text-xs font-semibold text-muted tracking-wide">{{ t('common.description') }}</label>
+          <textarea v-model="form.description" rows="2" class="input"></textarea>
         </div>
-        <button type="submit" class="bg-brand hover:bg-brand-dark text-white font-semibold text-sm px-6 py-2.5 rounded-xl w-full transition">
-          {{ editingId ? 'Save Changes' : 'Create Program' }}
+        <button type="submit" class="btn-primary w-full">
+          {{ editingId ? t('programs.save_changes') : t('programs.create_button') }}
         </button>
       </form>
     </Modal>

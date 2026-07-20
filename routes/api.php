@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\ActivityLogController;
 use App\Http\Controllers\Api\AssetAssignmentController;
 use App\Http\Controllers\Api\AssetCategoryController;
 use App\Http\Controllers\Api\AssetController;
+use App\Http\Controllers\Api\AssetImportController;
 use App\Http\Controllers\Api\AssetDisposalController;
 use App\Http\Controllers\Api\AssetMovementController;
 use App\Http\Controllers\Api\AssetReturnController;
@@ -33,10 +34,16 @@ Route::name('api.')->group(function () {
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('/logout', [AuthController::class, 'logout']);
         Route::get('/me', [AuthController::class, 'me']);
+        Route::post('/profile', [AuthController::class, 'updateProfile']);
+        Route::post('/profile/password', [AuthController::class, 'changePassword']);
 
         Route::get('/dashboard', [DashboardController::class, 'index']);
 
+        // Bulk import — defined before the resource so "import" is not treated as an {asset}.
+        Route::get('/assets/import/template', [AssetImportController::class, 'template']);
+        Route::post('/assets/import', [AssetImportController::class, 'store']);
         Route::post('/assets/{asset}/regenerate-qr', [AssetController::class, 'regenerateQr']);
+        Route::post('/assets/{asset}/flag', [AssetController::class, 'flagIssue']);
         Route::apiResource('assets', AssetController::class);
 
         Route::apiResource('categories', AssetCategoryController::class)->except(['show']);
@@ -78,6 +85,7 @@ Route::name('api.')->group(function () {
         Route::get('/reports/lost', [ReportController::class, 'lost']);
         Route::get('/reports/locations', [ReportController::class, 'locations']);
         Route::get('/reports/qr-scans', [ReportController::class, 'qrScans']);
+        Route::get('/reports/data-completeness', [ReportController::class, 'dataCompleteness']);
 
         Route::middleware('role:admin')->group(function () {
             Route::apiResource('users', UserController::class)->except(['create', 'show']);
@@ -86,6 +94,11 @@ Route::name('api.')->group(function () {
 
             Route::get('/settings', [SettingController::class, 'index']);
             Route::post('/settings', [SettingController::class, 'update']);
+            Route::post('/settings/backup', [SettingController::class, 'backup']);
+            Route::get('/settings/backups', [SettingController::class, 'listBackups']);
+            Route::get('/settings/backups/{filename}/download', [SettingController::class, 'downloadBackup']);
+            Route::post('/settings/backups/{filename}/restore', [SettingController::class, 'restoreBackup']);
+            Route::delete('/settings/backups/{filename}', [SettingController::class, 'deleteBackup']);
 
             Route::apiResource('activity-logs', ActivityLogController::class)->only(['index', 'show', 'destroy']);
         });

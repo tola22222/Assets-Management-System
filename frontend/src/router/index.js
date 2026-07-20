@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import Login from '../pages/Login.vue'
 import Dashboard from '../pages/Dashboard.vue'
 import AssetsIndex from '../pages/assets/Index.vue'
+import AssetsImport from '../pages/assets/Import.vue'
 import CategoriesIndex from '../pages/categories/Index.vue'
 import LocationsIndex from '../pages/locations/Index.vue'
 import AssetStocksIndex from '../pages/asset-stocks/Index.vue'
@@ -20,11 +21,13 @@ import ReportsIndex from '../pages/reports/Index.vue'
 import QrScanIndex from '../pages/qr-scan/Index.vue'
 import SearchIndex from '../pages/search/Index.vue'
 import NotificationsIndex from '../pages/notifications/Index.vue'
+import ProfileIndex from '../pages/profile/Index.vue'
 
 const routes = [
   { path: '/login', name: 'login', component: Login, meta: { guest: true } },
   { path: '/', name: 'dashboard', component: Dashboard, meta: { requiresAuth: true } },
   { path: '/assets', name: 'assets', component: AssetsIndex, meta: { requiresAuth: true } },
+  { path: '/assets/import', name: 'assets-import', component: AssetsImport, meta: { requiresAuth: true } },
   { path: '/categories', name: 'categories', component: CategoriesIndex, meta: { requiresAuth: true } },
   { path: '/locations', name: 'locations', component: LocationsIndex, meta: { requiresAuth: true } },
   { path: '/asset-stocks', name: 'asset-stocks', component: AssetStocksIndex, meta: { requiresAuth: true } },
@@ -43,10 +46,11 @@ const routes = [
   { path: '/qr-scan', name: 'qr-scan', component: QrScanIndex, meta: { requiresAuth: true } },
   { path: '/search', name: 'search', component: SearchIndex, meta: { requiresAuth: true } },
   { path: '/notifications', name: 'notifications', component: NotificationsIndex, meta: { requiresAuth: true } },
+  { path: '/profile', name: 'profile', component: ProfileIndex, meta: { requiresAuth: true } },
 ]
 
 const router = createRouter({
-  history: createWebHistory(),
+  history: createWebHistory(import.meta.env.BASE_URL),
   routes,
 })
 

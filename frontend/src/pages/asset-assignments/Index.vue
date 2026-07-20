@@ -1,5 +1,6 @@
 <script setup>
 import { ref, onMounted, reactive } from 'vue'
+import { useI18n } from 'vue-i18n'
 import http from '../../api/http'
 import AppLayout from '../../layouts/AppLayout.vue'
 import PageHeader from '../../components/ui/PageHeader.vue'
@@ -9,7 +10,8 @@ import { useApiCrud } from '../../composables/useApiCrud'
 import { useToastStore } from '../../stores/toast'
 import { useAuthStore } from '../../stores/auth'
 
-const { items: assignments, loading, fetchAll } = useApiCrud('/asset-assignments', { entityName: 'Assignment' })
+const { t } = useI18n()
+const { items: assignments, loading, fetchAll } = useApiCrud('/asset-assignments', { entityName: t('asset_assignments.entity') })
 const toast = useToastStore()
 const auth = useAuthStore()
 
@@ -42,17 +44,17 @@ function openCreate() {
 async function handleSubmit() {
   try {
     await http.post('/asset-assignments', form)
-    toast.success('Asset assigned successfully.')
+    toast.success(t('asset_assignments.assigned_successfully'))
     showModal.value = false
     await fetchAll()
   } catch (e) {
-    toast.error(e.response?.data?.message || 'Could not create assignment.')
+    toast.error(e.response?.data?.message || t('asset_assignments.assign_failed'))
   }
 }
 
 async function cancelAssignment(id) {
   await http.post(`/asset-assignments/${id}/cancel`)
-  toast.success('Assignment cancelled.')
+  toast.success(t('asset_assignments.cancelled'))
   await fetchAll()
 }
 
@@ -61,7 +63,7 @@ async function submitReturn() {
   fd.append('condition', returnCondition.value)
   fd.append('remark', returnRemark.value)
   await http.post(`/asset-assignments/${returningId.value}/return`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })
-  toast.success('Asset returned successfully.')
+  toast.success(t('asset_assignments.returned_successfully'))
   returningId.value = null
   await fetchAll()
 }
@@ -75,110 +77,116 @@ onMounted(() => {
 <template>
   <AppLayout>
     <div class="p-8 max-w-6xl mx-auto space-y-6">
-      <PageHeader title="Asset Assignments" subtitle="Assets checked out to staff or programs" buttonText="New Assignment" @action="openCreate" />
+      <PageHeader :title="t('asset_assignments.title')" :subtitle="t('asset_assignments.subtitle')" :buttonText="t('asset_assignments.new')" @action="openCreate" />
 
-      <div class="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+      <div class="bg-surface rounded-2xl border border-line overflow-hidden">
         <table class="w-full text-left text-sm">
           <thead>
-            <tr class="text-gray-400 font-semibold bg-gray-50/70 border-b border-gray-100">
-              <th class="p-4 pl-5">Asset</th>
-              <th class="p-4">Recipient</th>
-              <th class="p-4">Location</th>
-              <th class="p-4">Qty</th>
-              <th class="p-4">Status</th>
-              <th class="p-4 pr-5 text-right">Actions</th>
+            <tr class="text-faint font-semibold bg-surface-2/70 border-b border-line">
+              <th class="p-4 pl-5">{{ t('common.asset') }}</th>
+              <th class="p-4">{{ t('asset_assignments.recipient') }}</th>
+              <th class="p-4">{{ t('common.location') }}</th>
+              <th class="p-4">{{ t('asset_assignments.qty') }}</th>
+              <th class="p-4">{{ t('common.status') }}</th>
+              <th class="p-4 pr-5 text-right">{{ t('common.actions') }}</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-gray-100">
-            <tr v-for="a in assignments" :key="a.id" class="hover:bg-gray-50/50">
-              <td class="p-4 pl-5 font-medium text-ink">{{ a.asset?.name || 'N/A' }}</td>
-              <td class="p-4 text-gray-500">{{ a.recipient_name }}</td>
-              <td class="p-4 text-gray-500">{{ a.location?.name || 'N/A' }}</td>
-              <td class="p-4 text-gray-500">{{ a.quantity }}</td>
+          <tbody class="divide-y divide-line">
+            <tr v-for="a in assignments" :key="a.id" class="hover:bg-surface-2/50">
+              <td class="p-4 pl-5 font-medium text-fg">{{ a.asset?.name || t('common.n_a') }}</td>
+              <td class="p-4 text-muted">{{ a.recipient_name }}</td>
+              <td class="p-4 text-muted">{{ a.location?.name || t('common.n_a') }}</td>
+              <td class="p-4 text-muted">{{ a.quantity }}</td>
               <td class="p-4"><StatusBadge :status="a.status" /></td>
               <td class="p-4 pr-5 text-right whitespace-nowrap">
                 <template v-if="a.status !== 'returned'">
-                  <button @click="returningId = a.id; returnCondition = 'good'; returnRemark = ''" class="text-brand hover:underline mr-3 text-sm font-semibold">Return</button>
-                  <button @click="cancelAssignment(a.id)" class="text-red-500 hover:underline text-sm font-semibold">Cancel</button>
+                  <div class="flex items-center justify-end gap-1.5">
+                    <button @click="returningId = a.id; returnCondition = 'good'; returnRemark = ''" :title="t('common.return')" class="w-7 h-7 rounded-lg bg-brand text-white flex items-center justify-center hover:bg-brand-dark transition">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" /></svg>
+                    </button>
+                    <button @click="cancelAssignment(a.id)" :title="t('common.cancel')" class="w-7 h-7 rounded-lg bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                  </div>
                 </template>
               </td>
             </tr>
             <tr v-if="!loading && !assignments.length">
-              <td colspan="6" class="p-8 text-center text-gray-400">No assignments yet.</td>
+              <td colspan="6" class="p-8 text-center text-faint">{{ t('asset_assignments.empty') }}</td>
             </tr>
           </tbody>
         </table>
       </div>
     </div>
 
-    <Modal v-if="showModal" title="New Assignment" @close="showModal = false">
+    <Modal v-if="showModal" :title="t('asset_assignments.modal_title')" @close="showModal = false">
       <form @submit.prevent="handleSubmit" class="p-6 space-y-4">
         <div class="space-y-1.5">
-          <label class="text-xs font-semibold text-gray-700 tracking-wide">Asset *</label>
-          <select v-model="form.asset_id" required class="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-brand">
-            <option value="">Select Asset</option>
+          <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_assignments.asset_required') }}</label>
+          <select v-model="form.asset_id" required class="input">
+            <option value="">{{ t('common.select_asset') }}</option>
             <option v-for="a in assets" :key="a.id" :value="a.id">{{ a.name }} ({{ a.asset_code }})</option>
           </select>
         </div>
         <div class="grid grid-cols-2 gap-4">
           <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-gray-700 tracking-wide">Assign To *</label>
-            <select v-model="form.assigned_to_type" class="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-brand">
-              <option value="staff">Staff</option>
-              <option value="program">Program</option>
+            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_assignments.assign_to') }}</label>
+            <select v-model="form.assigned_to_type" class="input">
+              <option value="staff">{{ t('asset_assignments.staff') }}</option>
+              <option value="program">{{ t('asset_assignments.program') }}</option>
             </select>
           </div>
           <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-gray-700 tracking-wide">Recipient *</label>
-            <select v-model="form.assigned_to_id" required class="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-brand">
-              <option value="">Select</option>
+            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_assignments.recipient_required') }}</label>
+            <select v-model="form.assigned_to_id" required class="input">
+              <option value="">{{ t('asset_assignments.select_recipient') }}</option>
               <option v-for="r in (form.assigned_to_type === 'staff' ? staffList : programs)" :key="r.id" :value="r.id">{{ r.full_name || r.name }}</option>
             </select>
           </div>
         </div>
         <div class="grid grid-cols-2 gap-4">
           <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-gray-700 tracking-wide">Location *</label>
-            <select v-model="form.location_id" required class="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-brand">
-              <option value="">Select Location</option>
+            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_assignments.location_required') }}</label>
+            <select v-model="form.location_id" required class="input">
+              <option value="">{{ t('common.select_location') }}</option>
               <option v-for="l in locations" :key="l.id" :value="l.id">{{ l.name }}</option>
             </select>
           </div>
           <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-gray-700 tracking-wide">Quantity *</label>
-            <input v-model.number="form.quantity" type="number" min="1" required class="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-brand" />
+            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_assignments.quantity_required') }}</label>
+            <input v-model.number="form.quantity" type="number" min="1" required class="input" />
           </div>
         </div>
         <div class="grid grid-cols-2 gap-4">
           <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-gray-700 tracking-wide">Assigned Date *</label>
-            <input v-model="form.assigned_date" type="date" required class="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-brand" />
+            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_assignments.assigned_date') }}</label>
+            <input v-model="form.assigned_date" type="date" required class="input" />
           </div>
           <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-gray-700 tracking-wide">Due Date</label>
-            <input v-model="form.due_date" type="date" class="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-brand" />
+            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_assignments.due_date') }}</label>
+            <input v-model="form.due_date" type="date" class="input" />
           </div>
         </div>
-        <button type="submit" class="bg-brand hover:bg-brand-dark text-white font-semibold text-sm px-6 py-2.5 rounded-xl w-full transition">Assign Asset</button>
+        <button type="submit" class="btn-primary w-full">{{ t('asset_assignments.assign_button') }}</button>
       </form>
     </Modal>
 
-    <Modal v-if="returningId" title="Return Asset" @close="returningId = null">
+    <Modal v-if="returningId" :title="t('asset_assignments.return_title')" @close="returningId = null">
       <form @submit.prevent="submitReturn" class="p-6 space-y-4">
         <div class="space-y-1.5">
-          <label class="text-xs font-semibold text-gray-700 tracking-wide">Condition *</label>
-          <select v-model="returnCondition" class="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-brand">
-            <option value="good">Good</option>
-            <option value="fair">Fair</option>
-            <option value="broken">Broken</option>
-            <option value="lost">Lost</option>
+          <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_assignments.condition_required') }}</label>
+          <select v-model="returnCondition" class="input">
+            <option value="good">{{ t('asset_assignments.condition_good') }}</option>
+            <option value="fair">{{ t('asset_assignments.condition_fair') }}</option>
+            <option value="broken">{{ t('asset_assignments.condition_broken') }}</option>
+            <option value="lost">{{ t('asset_assignments.condition_lost') }}</option>
           </select>
         </div>
         <div class="space-y-1.5">
-          <label class="text-xs font-semibold text-gray-700 tracking-wide">Remark</label>
-          <textarea v-model="returnRemark" rows="2" class="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-brand"></textarea>
+          <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_assignments.remark') }}</label>
+          <textarea v-model="returnRemark" rows="2" class="input"></textarea>
         </div>
-        <button type="submit" class="bg-brand hover:bg-brand-dark text-white font-semibold text-sm px-6 py-2.5 rounded-xl w-full transition">Confirm Return</button>
+        <button type="submit" class="btn-primary w-full">{{ t('asset_assignments.confirm_return') }}</button>
       </form>
     </Modal>
   </AppLayout>

@@ -3,6 +3,7 @@ import { createPinia } from 'pinia'
 import App from './App.vue'
 import router from './router'
 import i18n from './i18n'
+import './composables/useThemeColor' // applies the persisted brand color before mount
 import './assets/main.css'
 
 const app = createApp(App)

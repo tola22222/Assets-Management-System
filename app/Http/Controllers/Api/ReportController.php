@@ -81,4 +81,27 @@ class ReportController extends Controller
     {
         return response()->json(Notification::where('type', 'qr_scan')->with('user')->latest()->get());
     }
+
+    public function dataCompleteness()
+    {
+        $assets = Asset::with('category')
+            ->where('status', '!=', 'disposed')
+            ->where(function ($q) {
+                $q->whereNull('purchase_price')
+                    ->orWhereNull('purchase_date')
+                    ->orWhereNull('serial_number');
+            })
+            ->latest()
+            ->get()
+            ->map(function ($asset) {
+                $missing = [];
+                if (is_null($asset->purchase_price)) $missing[] = 'Purchase Price';
+                if (is_null($asset->purchase_date)) $missing[] = 'Purchase Date';
+                if (blank($asset->serial_number)) $missing[] = 'Serial Number';
+                $asset->missing_fields = implode(', ', $missing);
+                return $asset;
+            });
+
+        return response()->json($assets);
+    }
 }

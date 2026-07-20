@@ -72,6 +72,13 @@
             <h3 class="font-bold text-gray-900 dark:text-white mt-4">QR Scan Report</h3>
             <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">QR scan history</p>
         </a>
+        <a href="{{ route('reports.data-completeness') }}" class="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition group">
+            <span class="p-3 bg-amber-50 rounded-xl inline-block group-hover:scale-110 transition flex items-center justify-center">
+                <svg class="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"/></svg>
+            </span>
+            <h3 class="font-bold text-gray-900 dark:text-white mt-4">Data Completeness</h3>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Assets missing price, date, or serial no.</p>
+        </a>
         @else
         <a href="{{ route('reports.assignments') }}" class="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition group">
             <span class="p-3 bg-emerald-50 rounded-xl inline-block group-hover:scale-110 transition flex items-center justify-center">

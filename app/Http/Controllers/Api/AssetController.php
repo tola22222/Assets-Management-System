@@ -7,6 +7,7 @@ use App\Models\ActivityLog;
 use App\Models\Asset;
 use App\Models\AssetCategory;
 use App\Models\Notification;
+use App\Models\User;
 use App\Services\AssetCodeService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -102,6 +103,36 @@ class AssetController extends Controller
         ]);
 
         return response()->json(['message' => 'Asset deleted.']);
+    }
+
+    public function flagIssue(Request $request, Asset $asset)
+    {
+        $validated = $request->validate([
+            'note' => 'required|string|max:1000',
+            'condition' => 'nullable|string|in:broken,lost',
+        ]);
+
+        if (!empty($validated['condition'])) {
+            $asset->update(['condition' => $validated['condition']]);
+        }
+
+        ActivityLog::create([
+            'user_id' => Auth::id(),
+            'action' => 'Flag',
+            'description' => 'Flagged issue on asset: ' . $asset->name . ' (' . $asset->asset_code . ') — ' . $validated['note'],
+        ]);
+
+        $recipients = User::whereIn('role', ['admin', 'executive_director', 'finance_manager'])->get();
+        foreach ($recipients as $recipient) {
+            Notification::create([
+                'user_id' => $recipient->id,
+                'type' => 'asset_flagged',
+                'message' => Auth::user()->name . ' flagged an issue on ' . $asset->name . ' (' . $asset->asset_code . '): ' . $validated['note'],
+                'url' => null,
+            ]);
+        }
+
+        return response()->json($asset->fresh('category'));
     }
 
     public function regenerateQr(Asset $asset)

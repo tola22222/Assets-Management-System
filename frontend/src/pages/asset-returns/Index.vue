@@ -1,5 +1,6 @@
 <script setup>
 import { ref, onMounted, reactive } from 'vue'
+import { useI18n } from 'vue-i18n'
 import http from '../../api/http'
 import AppLayout from '../../layouts/AppLayout.vue'
 import PageHeader from '../../components/ui/PageHeader.vue'
@@ -9,7 +10,8 @@ import { useApiCrud } from '../../composables/useApiCrud'
 import { useToastStore } from '../../stores/toast'
 import { useAuthStore } from '../../stores/auth'
 
-const { items: returnsList, loading, fetchAll } = useApiCrud('/asset-returns', { entityName: 'Return' })
+const { t } = useI18n()
+const { items: returnsList, loading, fetchAll } = useApiCrud('/asset-returns', { entityName: t('asset_returns.entity') })
 const toast = useToastStore()
 const auth = useAuthStore()
 
@@ -35,23 +37,23 @@ function onAssignmentChange() {
 async function handleSubmit() {
   try {
     await http.post('/asset-returns', form)
-    toast.success('Return request submitted.')
+    toast.success(t('asset_returns.submitted'))
     showModal.value = false
     await fetchAll()
   } catch (e) {
-    toast.error(e.response?.data?.message || 'Could not submit return.')
+    toast.error(e.response?.data?.message || t('asset_returns.submit_failed'))
   }
 }
 
 async function approve(id) {
   await http.post(`/asset-returns/${id}/approve`)
-  toast.success('Return approved.')
+  toast.success(t('asset_returns.approved'))
   await fetchAll()
 }
 
 async function reject(id) {
   await http.post(`/asset-returns/${id}/reject`)
-  toast.success('Return rejected.')
+  toast.success(t('asset_returns.rejected'))
   await fetchAll()
 }
 
@@ -64,67 +66,73 @@ onMounted(() => {
 <template>
   <AppLayout>
     <div class="p-8 max-w-6xl mx-auto space-y-6">
-      <PageHeader title="Asset Returns" subtitle="Return requests for assigned assets" buttonText="New Return" @action="openCreate" />
+      <PageHeader :title="t('asset_returns.title')" :subtitle="t('asset_returns.subtitle')" :buttonText="t('asset_returns.new')" @action="openCreate" />
 
-      <div class="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+      <div class="bg-surface rounded-2xl border border-line overflow-hidden">
         <table class="w-full text-left text-sm">
           <thead>
-            <tr class="text-gray-400 font-semibold bg-gray-50/70 border-b border-gray-100">
-              <th class="p-4 pl-5">Asset</th>
-              <th class="p-4">Condition</th>
-              <th class="p-4">Returned By</th>
-              <th class="p-4">Status</th>
-              <th class="p-4 pr-5 text-right">Actions</th>
+            <tr class="text-faint font-semibold bg-surface-2/70 border-b border-line">
+              <th class="p-4 pl-5">{{ t('common.asset') }}</th>
+              <th class="p-4">{{ t('asset_returns.condition') }}</th>
+              <th class="p-4">{{ t('asset_returns.returned_by') }}</th>
+              <th class="p-4">{{ t('common.status') }}</th>
+              <th class="p-4 pr-5 text-right">{{ t('common.actions') }}</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-gray-100">
-            <tr v-for="r in returnsList" :key="r.id" class="hover:bg-gray-50/50">
-              <td class="p-4 pl-5 font-medium text-ink">{{ r.asset?.name || 'N/A' }}</td>
-              <td class="p-4 text-gray-500 capitalize">{{ r.condition }}</td>
-              <td class="p-4 text-gray-500">{{ r.returned_by?.name || 'N/A' }}</td>
+          <tbody class="divide-y divide-line">
+            <tr v-for="r in returnsList" :key="r.id" class="hover:bg-surface-2/50">
+              <td class="p-4 pl-5 font-medium text-fg">{{ r.asset?.name || t('common.n_a') }}</td>
+              <td class="p-4 text-muted capitalize">{{ r.condition }}</td>
+              <td class="p-4 text-muted">{{ r.returned_by?.name || t('common.n_a') }}</td>
               <td class="p-4"><StatusBadge :status="r.status" /></td>
               <td class="p-4 pr-5 text-right whitespace-nowrap">
                 <template v-if="r.status === 'pending' && auth.user?.role === 'admin'">
-                  <button @click="approve(r.id)" class="text-brand hover:underline mr-3 text-sm font-semibold">Approve</button>
-                  <button @click="reject(r.id)" class="text-red-500 hover:underline text-sm font-semibold">Reject</button>
+                  <div class="flex items-center justify-end gap-1.5">
+                    <button @click="approve(r.id)" :title="t('common.approve')" class="w-7 h-7 rounded-lg bg-brand text-white flex items-center justify-center hover:bg-brand-dark transition">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    </button>
+                    <button @click="reject(r.id)" :title="t('common.reject')" class="w-7 h-7 rounded-lg bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    </button>
+                  </div>
                 </template>
               </td>
             </tr>
             <tr v-if="!loading && !returnsList.length">
-              <td colspan="5" class="p-8 text-center text-gray-400">No return requests yet.</td>
+              <td colspan="5" class="p-8 text-center text-faint">{{ t('asset_returns.empty') }}</td>
             </tr>
           </tbody>
         </table>
       </div>
     </div>
 
-    <Modal v-if="showModal" title="New Return Request" @close="showModal = false">
+    <Modal v-if="showModal" :title="t('asset_returns.modal_title')" @close="showModal = false">
       <form @submit.prevent="handleSubmit" class="p-6 space-y-4">
         <div class="space-y-1.5">
-          <label class="text-xs font-semibold text-gray-700 tracking-wide">Assignment *</label>
-          <select v-model="form.assignment_id" required @change="onAssignmentChange" class="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-brand">
-            <option value="">Select Assignment</option>
+          <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_returns.assignment_required') }}</label>
+          <select v-model="form.assignment_id" required @change="onAssignmentChange" class="input">
+            <option value="">{{ t('asset_returns.select_assignment') }}</option>
             <option v-for="a in assignments" :key="a.id" :value="a.id">{{ a.asset?.name }} — {{ a.recipient_name }}</option>
           </select>
         </div>
         <div class="space-y-1.5">
-          <label class="text-xs font-semibold text-gray-700 tracking-wide">Condition *</label>
-          <select v-model="form.condition" class="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-brand">
-            <option value="good">Good</option>
-            <option value="fair">Fair</option>
-            <option value="broken">Broken</option>
-            <option value="lost">Lost</option>
+          <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_returns.condition_required') }}</label>
+          <select v-model="form.condition" class="input">
+            <option value="good">{{ t('asset_returns.condition_good') }}</option>
+            <option value="fair">{{ t('asset_returns.condition_fair') }}</option>
+            <option value="broken">{{ t('asset_returns.condition_broken') }}</option>
+            <option value="lost">{{ t('asset_returns.condition_lost') }}</option>
           </select>
         </div>
         <div class="space-y-1.5">
-          <label class="text-xs font-semibold text-gray-700 tracking-wide">Return Date *</label>
-          <input v-model="form.return_date" type="date" required class="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-brand" />
+          <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_returns.return_date_required') }}</label>
+          <input v-model="form.return_date" type="date" required class="input" />
         </div>
         <div class="space-y-1.5">
-          <label class="text-xs font-semibold text-gray-700 tracking-wide">Damage Notes</label>
-          <textarea v-model="form.damage_notes" rows="2" class="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-brand"></textarea>
+          <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_returns.damage_notes') }}</label>
+          <textarea v-model="form.damage_notes" rows="2" class="input"></textarea>
         </div>
-        <button type="submit" class="bg-brand hover:bg-brand-dark text-white font-semibold text-sm px-6 py-2.5 rounded-xl w-full transition">Submit Return</button>
+        <button type="submit" class="btn-primary w-full">{{ t('asset_returns.submit_button') }}</button>
       </form>
     </Modal>
   </AppLayout>

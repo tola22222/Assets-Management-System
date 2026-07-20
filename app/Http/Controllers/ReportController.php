@@ -168,6 +168,33 @@ class ReportController extends Controller
         return view('reports.qr-scans', compact('scans'));
     }
 
+    public function dataCompleteness(Request $request)
+    {
+        $assets = Asset::with('category')
+            ->where('status', '!=', 'disposed')
+            ->where(function ($q) {
+                $q->whereNull('purchase_price')
+                    ->orWhereNull('purchase_date')
+                    ->orWhereNull('serial_number');
+            })
+            ->latest()
+            ->get()
+            ->map(function ($asset) {
+                $missing = [];
+                if (is_null($asset->purchase_price)) $missing[] = 'Purchase Price';
+                if (is_null($asset->purchase_date)) $missing[] = 'Purchase Date';
+                if (blank($asset->serial_number)) $missing[] = 'Serial Number';
+                $asset->missing_fields = implode(', ', $missing);
+                return $asset;
+            });
+
+        if ($request->export === 'csv') {
+            return $this->exportCsv($assets, 'data-completeness');
+        }
+
+        return view('reports.data-completeness', compact('assets'));
+    }
+
     private function exportCsv($data, $type)
     {
         $headers = [
@@ -195,6 +222,12 @@ class ReportController extends Controller
                     fputcsv($file, ['Asset', 'From', 'To', 'Date', 'Status', 'Requester']);
                     foreach ($data as $t) {
                         fputcsv($file, [$t->asset->name ?? '', $t->fromLocation->name ?? '', $t->toLocation->name ?? '', $t->transfer_date, $t->status, $t->requester->name ?? '']);
+                    }
+                    break;
+                case 'data-completeness':
+                    fputcsv($file, ['Asset Code', 'Name', 'Category', 'Missing Fields']);
+                    foreach ($data as $asset) {
+                        fputcsv($file, [$asset->asset_code, $asset->name, $asset->category->name ?? '', $asset->missing_fields]);
                     }
                     break;
                 default:

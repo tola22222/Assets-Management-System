@@ -13,6 +13,7 @@ const reportTypes = [
   { key: 'lost', label: 'Lost Assets' },
   { key: 'locations', label: 'Locations' },
   { key: 'qr-scans', label: 'QR Scans' },
+  { key: 'data-completeness', label: 'Data Completeness' },
 ]
 
 const selected = ref('inventory')
@@ -29,6 +30,7 @@ const columns = {
   lost: [['asset_code', 'Code'], ['name', 'Name'], ['updated_at', 'Last Updated']],
   locations: [['name', 'Name'], ['type', 'Type'], ['asset_stocks_count', 'Stock Records']],
   'qr-scans': [['message', 'Scan'], ['created_at', 'Date']],
+  'data-completeness': [['asset_code', 'Code'], ['name', 'Name'], ['category', 'Category', (r) => r.category?.name], ['missing_fields', 'Missing Fields']],
 }
 
 async function load() {
@@ -66,10 +68,10 @@ onMounted(load)
     <div class="p-8 max-w-6xl mx-auto space-y-6">
       <div class="flex items-center justify-between gap-4">
         <div>
-          <h1 class="text-xl font-bold text-ink tracking-tight">Reports</h1>
-          <p class="text-gray-500 text-sm mt-0.5">Export and review asset data</p>
+          <h1 class="text-xl font-bold text-fg tracking-tight">Reports</h1>
+          <p class="text-muted text-sm mt-0.5">Export and review asset data</p>
         </div>
-        <button @click="exportCsv" class="border border-gray-200 text-gray-700 font-semibold text-sm px-5 py-2.5 rounded-xl hover:bg-gray-50 transition">
+        <button @click="exportCsv" class="border border-line text-muted font-semibold text-sm px-5 py-2.5 rounded-xl hover:bg-surface-2 transition">
           Export CSV
         </button>
       </div>
@@ -77,24 +79,24 @@ onMounted(load)
       <div class="flex flex-wrap gap-2">
         <button v-for="t in reportTypes" :key="t.key" @click="selected = t.key"
           class="px-4 py-2 rounded-xl text-sm font-semibold transition"
-          :class="selected === t.key ? 'bg-brand text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'">
+          :class="selected === t.key ? 'bg-brand text-white' : 'bg-surface border border-line text-muted hover:bg-surface-2'">
           {{ t.label }}
         </button>
       </div>
 
-      <div class="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+      <div class="bg-surface rounded-2xl border border-line overflow-hidden">
         <table class="w-full text-left text-sm">
           <thead>
-            <tr class="text-gray-400 font-semibold bg-gray-50/70 border-b border-gray-100">
+            <tr class="text-faint font-semibold bg-surface-2/70 border-b border-line">
               <th v-for="col in columns[selected]" :key="col[0]" class="p-4 pl-5 first:pl-5">{{ col[1] }}</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-gray-100">
-            <tr v-for="(row, i) in rows" :key="i" class="hover:bg-gray-50/50">
-              <td v-for="col in columns[selected]" :key="col[0]" class="p-4 pl-5 first:pl-5 text-gray-600">{{ cell(row, col) }}</td>
+          <tbody class="divide-y divide-line">
+            <tr v-for="(row, i) in rows" :key="i" class="hover:bg-surface-2/50">
+              <td v-for="col in columns[selected]" :key="col[0]" class="p-4 pl-5 first:pl-5 text-muted">{{ cell(row, col) }}</td>
             </tr>
             <tr v-if="!loading && !rows.length">
-              <td :colspan="columns[selected].length" class="p-8 text-center text-gray-400">No data for this report.</td>
+              <td :colspan="columns[selected].length" class="p-8 text-center text-faint">No data for this report.</td>
             </tr>
           </tbody>
         </table>

@@ -1,4 +1,5 @@
 import { ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import http from '../api/http'
 import { useToastStore } from '../stores/toast'
 
@@ -6,6 +7,7 @@ export function useApiCrud(endpoint, { entityName = 'Item' } = {}) {
   const items = ref([])
   const loading = ref(false)
   const toast = useToastStore()
+  const { t } = useI18n()
 
   async function fetchAll(params = {}) {
     loading.value = true
@@ -19,7 +21,7 @@ export function useApiCrud(endpoint, { entityName = 'Item' } = {}) {
 
   async function create(payload, config = {}) {
     const { data } = await http.post(endpoint, payload, config)
-    toast.success(`${entityName} created successfully.`)
+    toast.success(t('common.created_successfully', { entity: entityName }))
     await fetchAll()
     return data
   }
@@ -32,14 +34,14 @@ export function useApiCrud(endpoint, { entityName = 'Item' } = {}) {
     } else {
       ;({ data } = await http.put(`${endpoint}/${id}`, payload, config))
     }
-    toast.success(`${entityName} updated successfully.`)
+    toast.success(t('common.updated_successfully', { entity: entityName }))
     await fetchAll()
     return data
   }
 
   async function destroy(id) {
     await http.delete(`${endpoint}/${id}`)
-    toast.success(`${entityName} deleted successfully.`)
+    toast.success(t('common.deleted_successfully', { entity: entityName }))
     await fetchAll()
   }
 

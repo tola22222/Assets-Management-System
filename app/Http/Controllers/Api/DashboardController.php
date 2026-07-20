@@ -56,24 +56,25 @@ class DashboardController extends Controller
             ->sortByDesc('total')
             ->values();
 
-        $pendingVerifications = AssetVerification::whereNull('verified_at')->count();
-        $pendingReturns = AssetReturn::where('status', 'pending')->count();
-        $pendingTransfers = AssetTransfer::where('status', 'pending')->count();
-        $pendingDisposals = AssetDisposal::pending()->count();
-
-        $needsAttention = [];
-        if ($pendingVerifications > 0) {
-            $needsAttention[] = ['label' => 'Verifications awaiting completion', 'count' => $pendingVerifications, 'type' => 'verification'];
-        }
-        if ($pendingReturns > 0) {
-            $needsAttention[] = ['label' => 'Returns awaiting approval', 'count' => $pendingReturns, 'type' => 'return'];
-        }
-        if ($pendingTransfers > 0) {
-            $needsAttention[] = ['label' => 'Transfers awaiting approval', 'count' => $pendingTransfers, 'type' => 'transfer'];
-        }
-        if ($pendingDisposals > 0) {
-            $needsAttention[] = ['label' => 'Disposal requests awaiting review', 'count' => $pendingDisposals, 'type' => 'disposal'];
-        }
+        // Record-level "needs attention" — real assets missing required fields or
+        // flagged by condition. Prioritised: broken/lost first, then missing fields.
+        $needsAttention = collect();
+        $add = function ($query, string $reason, string $severity) use ($needsAttention) {
+            foreach ($query->latest()->take(3)->get() as $a) {
+                $needsAttention->push([
+                    'name' => $a->name,
+                    'code' => $a->asset_code,
+                    'reason' => $reason,
+                    'severity' => $severity,
+                ]);
+            }
+        };
+        $add(Asset::where('condition', 'lost'), 'lost', 'danger');
+        $add(Asset::where('condition', 'broken'), 'damaged', 'danger');
+        $add(Asset::whereNull('purchase_price')->where('status', 'active'), 'no price', 'warning');
+        $add(Asset::whereNull('purchase_date')->where('status', 'active'), 'no date', 'warning');
+        $add(Asset::whereNull('serial_number')->where('status', 'active'), 'no serial', 'info');
+        $needsAttention = $needsAttention->unique('code')->take(6)->values();
 
         $pricedCount = Asset::whereNotNull('purchase_price')->count();
 

@@ -1,25 +1,28 @@
 <script setup>
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 defineProps({
-  items: { type: Array, required: true }, // [{ label, count, type }]
+  items: { type: Array, required: true }, // [{ name, code, reason, severity }]
 })
 
-const dotColor = {
-  verification: 'bg-brand',
-  return: 'bg-accent',
-  transfer: 'bg-brand-light',
-  disposal: 'bg-red-500',
+const dot = {
+  danger: 'bg-red-500',
+  warning: 'bg-amber-500',
+  info: 'bg-brand',
 }
 </script>
 
 <template>
-  <ul class="divide-y divide-dashed divide-gray-200">
-    <li v-for="item in items" :key="item.type" class="flex items-center justify-between py-2.5 first:pt-0 last:pb-0">
+  <ul class="divide-y divide-dashed divide-line">
+    <li v-for="(item, i) in items" :key="i" class="flex items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0">
       <div class="flex items-center gap-2.5 min-w-0">
-        <span class="w-2 h-2 rounded-full flex-shrink-0" :class="dotColor[item.type] || 'bg-gray-400'"></span>
-        <span class="font-semibold text-ink text-sm truncate">{{ item.label }}</span>
+        <span class="w-1.5 h-1.5 rounded-full flex-shrink-0" :class="dot[item.severity] || 'bg-faint'"></span>
+        <span class="font-semibold text-fg text-sm truncate">{{ item.name }}</span>
+        <span v-if="item.code" class="font-mono text-[11px] text-faint truncate flex-shrink-0">{{ item.code }}</span>
       </div>
-      <span class="text-sm text-gray-500 flex-shrink-0">{{ item.count }}</span>
+      <span class="text-xs text-muted flex-shrink-0 whitespace-nowrap">{{ item.reason }}</span>
     </li>
-    <li v-if="!items.length" class="py-4 text-center text-sm text-gray-400">Nothing needs attention right now.</li>
+    <li v-if="!items.length" class="py-6 text-center text-sm text-faint">{{ t('dashboard.no_attention') }}</li>
   </ul>
 </template>

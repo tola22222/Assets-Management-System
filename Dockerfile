@@ -13,11 +13,11 @@ FROM php:8.2-fpm-alpine
 RUN apk add --no-cache \
   bash curl zip unzip git \
   libpng-dev libjpeg-turbo-dev freetype-dev \
-  oniguruma-dev icu-dev \
+  oniguruma-dev icu-dev libzip-dev \
   mysql-client
 
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
-  && docker-php-ext-install gd pdo pdo_mysql intl mbstring opcache
+  && docker-php-ext-install gd pdo pdo_mysql intl mbstring opcache zip
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 

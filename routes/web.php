@@ -31,6 +31,46 @@ Route::get('/asset/{assetCode}', [AssetController::class, 'publicShow'])->name('
 Route::post('/asset/{assetCode}/update-condition', [AssetController::class, 'publicUpdateCondition'])->name('asset.public.update-condition');
 Route::get('/asset/{assetCode}/update-condition', fn($code) => redirect()->route('asset.public.show', $code));
 
+// --- VUE 3 SPA ---
+// Serve the built Vue app under /app so `php artisan serve` shows the frontend
+// with no separate Vite process. Build it with:  cd frontend && npm run build:local
+//
+// Files are served from frontend/dist (NOT public/) on purpose: a real public/app
+// directory makes PHP's built-in server strip "/app" from deep-link paths. Serving
+// through this route means Laravel sees the full path and history-mode routing works.
+// In the Docker image frontend/dist is absent, so this falls back to public/app,
+// though in production nginx serves those static files before Laravel is reached.
+Route::get('/app/{path?}', function (string $path = '') {
+    $dist = is_dir(base_path('frontend/dist')) ? base_path('frontend/dist') : public_path('app');
+
+    // Serve a real built asset (js/css/img) with a correct Content-Type.
+    if ($path !== '' && is_file($dist.'/'.$path)) {
+        $mimes = [
+            'js' => 'application/javascript', 'mjs' => 'application/javascript',
+            'css' => 'text/css', 'svg' => 'image/svg+xml', 'json' => 'application/json',
+            'map' => 'application/json', 'ico' => 'image/x-icon', 'png' => 'image/png',
+            'jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'gif' => 'image/gif',
+            'webp' => 'image/webp', 'woff' => 'font/woff', 'woff2' => 'font/woff2', 'ttf' => 'font/ttf',
+        ];
+        $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+        $response = response()->file($dist.'/'.$path);
+        if (isset($mimes[$ext])) {
+            $response->headers->set('Content-Type', $mimes[$ext]);
+        }
+
+        return $response;
+    }
+
+    // Otherwise it's a client-side route: return the SPA shell.
+    abort_unless(is_file($dist.'/index.html'), 404, 'Build the SPA first:  cd frontend && npm run build:local');
+
+    return response()->file($dist.'/index.html');
+})->where('path', '.*')->name('spa');
+
+// Site root shows the Vue frontend first. Keeps the "dashboard" name so existing
+// route('dashboard') references (e.g. post-login redirects) still resolve.
+Route::get('/', fn () => redirect('/app'))->name('dashboard');
+
 // --- GUEST ROUTES ---
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
@@ -50,8 +90,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/profile', [AuthController::class, 'showProfile'])->name('profile.show');
     Route::post('/profile', [AuthController::class, 'updateProfile'])->name('profile.update');
 
-    // Dashboard
-    Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
+    // Legacy Blade dashboard (kept reachable; site root now shows the Vue SPA).
+    Route::get('/blade', [DashboardController::class, 'index']);
 
     // Assets
     Route::get('/assets-registeration/import', [AssetImportController::class, 'index'])->name('assets.import');
@@ -137,6 +177,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/reports/lost', [ReportController::class, 'lost'])->name('reports.lost');
     Route::get('/reports/locations', [ReportController::class, 'locations'])->name('reports.locations');
     Route::get('/reports/qr-scans', [ReportController::class, 'qrScans'])->name('reports.qr-scans');
+    Route::get('/reports/data-completeness', [ReportController::class, 'dataCompleteness'])->name('reports.data-completeness');
 
     // Settings (Admin only)
     Route::middleware('role:admin')->group(function () {

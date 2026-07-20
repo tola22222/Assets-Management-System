@@ -34,21 +34,23 @@ onMounted(load)
     <div class="p-8 max-w-3xl mx-auto space-y-6">
       <div class="flex items-center justify-between">
         <div>
-          <h1 class="text-xl font-bold text-ink tracking-tight">Notifications</h1>
-          <p class="text-gray-500 text-sm mt-0.5">Recent activity relevant to you</p>
+          <h1 class="text-xl font-bold text-fg tracking-tight">Notifications</h1>
+          <p class="text-muted text-sm mt-0.5">Recent activity relevant to you</p>
         </div>
-        <button @click="markAllRead" class="text-sm font-semibold text-brand hover:underline">Mark all as read</button>
+        <button @click="markAllRead" class="text-sm font-semibold text-brand-600 dark:text-brand-300 hover:underline">Mark all as read</button>
       </div>
 
-      <div class="bg-white rounded-2xl border border-gray-200 divide-y divide-gray-100">
+      <div class="bg-surface rounded-2xl border border-line divide-y divide-line">
         <div v-for="n in notifications" :key="n.id" class="p-4 flex items-start justify-between gap-4" :class="!n.is_read && 'bg-brand-50/40'">
           <div>
-            <p class="text-sm text-ink" :class="!n.is_read && 'font-semibold'">{{ n.message }}</p>
-            <p class="text-xs text-gray-400 mt-0.5">{{ new Date(n.created_at).toLocaleString() }}</p>
+            <p class="text-sm text-fg" :class="!n.is_read && 'font-semibold'">{{ n.message }}</p>
+            <p class="text-xs text-faint mt-0.5">{{ new Date(n.created_at).toLocaleString() }}</p>
           </div>
-          <button v-if="!n.is_read" @click="markRead(n)" class="text-xs font-semibold text-brand hover:underline flex-shrink-0">Mark read</button>
+          <button v-if="!n.is_read" @click="markRead(n)" title="Mark read" class="w-7 h-7 rounded-lg bg-brand text-white flex items-center justify-center hover:bg-brand-dark transition flex-shrink-0">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
+          </button>
         </div>
-        <p v-if="!loading && !notifications.length" class="p-8 text-center text-gray-400 text-sm">No notifications yet.</p>
+        <p v-if="!loading && !notifications.length" class="p-8 text-center text-faint text-sm">No notifications yet.</p>
       </div>
     </div>
   </AppLayout>
