@@ -3,6 +3,7 @@
 use App\Services\AssetCodeService;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
 return new class extends Migration
@@ -31,7 +32,17 @@ return new class extends Migration
                 continue;
             }
 
-            $newCode = AssetCodeService::nextCode($office ? $office->id : null, $category->id);
+            // A single asset with an unrecognized category short_name (stray
+            // legacy category from a bad import) or a missing PEPY Office
+            // location must not abort the whole migration — skip it and keep
+            // its existing code; it can be fixed up manually afterward.
+            try {
+                $newCode = AssetCodeService::nextCode($office ? $office->id : null, $category->id);
+            } catch (\InvalidArgumentException $e) {
+                Log::warning("Skipped renaming asset #{$asset->id} ({$asset->asset_code}) to PEY format: {$e->getMessage()}");
+
+                continue;
+            }
 
             DB::table('assets')->where('id', $asset->id)->update([
                 'asset_code' => $newCode,
