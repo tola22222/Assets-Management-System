@@ -202,7 +202,13 @@ class AssetImportService
         foreach ($rows as $index => $row) {
             $map = [];
             foreach ($row as $col => $cell) {
-                $h = strtolower(trim((string) $cell));
+                // Normalize underscores to spaces so the template's own
+                // snake_case headers (purchase_date, purchase_price) match
+                // the same rules as the free-text "Purchase Price" headers
+                // used in the real PEPY register — without this, a file
+                // built from the downloadable template silently imported
+                // with no price or date at all.
+                $h = str_replace('_', ' ', strtolower(trim((string) $cell)));
                 if ($h === '') {
                     continue;
                 }

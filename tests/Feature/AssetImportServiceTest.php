@@ -54,7 +54,40 @@ class AssetImportServiceTest extends TestCase
 
         $response->assertStatus(200);
         $response->assertJson(['created' => 1, 'updated' => 0, 'skipped' => 0, 'errors' => []]);
-        $this->assertDatabaseHas('assets', ['name' => 'Dell Laptop', 'serial_number' => 'SN123456']);
+        $this->assertDatabaseHas('assets', [
+            'name' => 'Dell Laptop',
+            'serial_number' => 'SN123456',
+            'purchase_date' => '2026-01-15',
+            'purchase_price' => 650,
+        ]);
+    }
+
+    /**
+     * The downloadable template's own columns are snake_case
+     * (purchase_date, purchase_price) — detectHeader() only recognized the
+     * space-separated "purchase date"/"purchase price" phrasing used by the
+     * real PEPY register, so a file built from PEPY's own template silently
+     * imported with no price or date at all.
+     */
+    public function test_the_templates_own_snake_case_headers_are_recognized(): void
+    {
+        $user = User::factory()->create(['role' => 'operations_hr_manager']);
+        Location::where('code', 'SR')->firstOrFail();
+        AssetCategory::create(['name' => 'Computer Equipment', 'short_name' => 'COM']);
+
+        $csv = "name,category,location,serial_number,purchase_date,purchase_price\n"
+            ."Dell Laptop,Computer Equipment,PEPY Office,SN123456,2026-01-15,650.00\n";
+        $file = UploadedFile::fake()->createWithContent('register.csv', $csv);
+
+        $response = $this->actingAs($user)->postJson('/api/assets/import', ['file' => $file, 'generate_qr' => '0']);
+
+        $response->assertStatus(200);
+        $response->assertJson(['created' => 1, 'errors' => []]);
+        $this->assertDatabaseHas('assets', [
+            'name' => 'Dell Laptop',
+            'purchase_date' => '2026-01-15',
+            'purchase_price' => 650,
+        ]);
     }
 
     public function test_the_template_layout_requires_a_recognized_location(): void
