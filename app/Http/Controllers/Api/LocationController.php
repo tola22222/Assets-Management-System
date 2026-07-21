@@ -12,7 +12,7 @@ class LocationController extends Controller
 {
     public function index()
     {
-        return response()->json(Location::withCount('assets')->latest()->get());
+        return response()->json(Location::withCount('assets')->orderBy('name')->get());
     }
 
     public function show(Location $location)

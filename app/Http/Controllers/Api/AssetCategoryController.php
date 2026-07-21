@@ -14,7 +14,7 @@ class AssetCategoryController extends Controller
 {
     public function index()
     {
-        return response()->json(AssetCategory::withCount('assets')->latest()->get());
+        return response()->json(AssetCategory::withCount('assets')->orderBy('name')->get());
     }
 
     public function store(Request $request)

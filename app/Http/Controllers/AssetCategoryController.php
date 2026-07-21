@@ -10,7 +10,7 @@ class AssetCategoryController extends Controller
 {
     public function index()
     {
-        $categories = AssetCategory::latest()->get();
+        $categories = AssetCategory::orderBy('name')->get();
         return view('categories.index', ['categories' => $categories, 'categoryCodes' => AssetCodeService::CATEGORY_CODES]);
     }
 

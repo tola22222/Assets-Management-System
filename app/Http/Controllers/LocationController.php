@@ -11,7 +11,7 @@ class LocationController extends Controller
 {
     public function index()
     {
-        $locations = Location::withCount('assets')->latest()->get();
+        $locations = Location::withCount('assets')->orderBy('name')->get();
         return view('locations.index', compact('locations'));
     }
 
