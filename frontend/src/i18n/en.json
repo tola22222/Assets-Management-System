@@ -192,6 +192,7 @@
     "how_it_works": "How it works",
     "step1": "Upload your register as .xlsx, .xls or .csv. The first sheet is read.",
     "step2": "Existing Asset IDs (e.g. PEY-SR-FAF-0928) are kept — the category is detected from the code (MOV / FAF / COM / EQU).",
+    "step_location": "For new assets (no existing Asset ID), Location is required and must match an existing site name exactly (e.g. \"PEPY Office\", \"Kralanh HS\") — download the template to see the exact column.",
     "step3": "Section headings and subtotal rows are skipped automatically. Prices and dates are cleaned up.",
     "step4": "Re-importing is safe — rows are matched by Asset ID, so existing assets are updated, not duplicated.",
     "download_template": "Download CSV template",

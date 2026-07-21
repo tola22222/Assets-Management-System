@@ -107,7 +107,23 @@ class AssetImportService
                 continue;
             }
 
-            $location = $this->resolveLocation($get('location'));
+            // The historical PEPY layout's location text is known to be messy
+            // (typos, blanks) across 900+ rows, so it deliberately falls back
+            // to PEPY Office rather than abort those rows — see resolveLocation().
+            // The template layout has no such excuse: location is a required
+            // field on the Register Asset form and in the database, so a
+            // missing/unrecognized one is a row error here, same as category.
+            if ($preserveCodes) {
+                $location = $this->resolveLocation($get('location'));
+            } else {
+                try {
+                    $location = $this->requireLocation($get('location'));
+                } catch (\RuntimeException $e) {
+                    $errors[] = "Row {$lineNo}: ".$e->getMessage();
+
+                    continue;
+                }
+            }
 
             $payload = [
                 'name' => $name,
@@ -308,6 +324,24 @@ class AssetImportService
         }
 
         return $existing;
+    }
+
+    /** Strict counterpart to resolveLocation() for the template layout — see the call site for why. */
+    private function requireLocation(string $name): Location
+    {
+        if ($name === '') {
+            throw new \RuntimeException('location is required.');
+        }
+        $key = strtolower($name);
+        if (isset($this->locationCache[$key])) {
+            return $this->locationCache[$key];
+        }
+        $existing = Location::whereRaw('LOWER(name) = ?', [$key])->first();
+        if (! $existing) {
+            throw new \RuntimeException("location \"{$name}\" not found.");
+        }
+
+        return $this->locationCache[$key] = $existing;
     }
 
     /** Find a category by short_name, creating it if missing. Cached per run. */

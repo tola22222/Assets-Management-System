@@ -75,6 +75,7 @@ function reset() {
         <ul class="text-sm text-muted space-y-1.5">
           <li class="flex gap-2"><span class="text-brand-600 dark:text-brand-300">•</span> {{ t('import.step1') }}</li>
           <li class="flex gap-2"><span class="text-brand-600 dark:text-brand-300">•</span> {{ t('import.step2') }}</li>
+          <li class="flex gap-2"><span class="text-brand-600 dark:text-brand-300">•</span> {{ t('import.step_location') }}</li>
           <li class="flex gap-2"><span class="text-brand-600 dark:text-brand-300">•</span> {{ t('import.step3') }}</li>
           <li class="flex gap-2"><span class="text-brand-600 dark:text-brand-300">•</span> {{ t('import.step4') }}</li>
         </ul>

@@ -46,8 +46,8 @@ class AssetImportServiceTest extends TestCase
         Location::where('code', 'SR')->firstOrFail();
         AssetCategory::create(['name' => 'Computer Equipment', 'short_name' => 'COM']);
 
-        $csv = "name,category,description,model,brand,serial_number,purchase_date,purchase_price,condition,status\n"
-            ."Dell Laptop,Computer Equipment,Core i5,Latitude 5420,Dell,SN123456,2026-01-15,650.00,good,active\n";
+        $csv = "name,category,location,description,model,brand,serial_number,purchase_date,purchase_price,condition,status\n"
+            ."Dell Laptop,Computer Equipment,PEPY Office,Core i5,Latitude 5420,Dell,SN123456,2026-01-15,650.00,good,active\n";
         $file = UploadedFile::fake()->createWithContent('register.csv', $csv);
 
         $response = $this->actingAs($user)->postJson('/api/assets/import', ['file' => $file, 'generate_qr' => '0']);
@@ -55,5 +55,25 @@ class AssetImportServiceTest extends TestCase
         $response->assertStatus(200);
         $response->assertJson(['created' => 1, 'updated' => 0, 'skipped' => 0, 'errors' => []]);
         $this->assertDatabaseHas('assets', ['name' => 'Dell Laptop', 'serial_number' => 'SN123456']);
+    }
+
+    public function test_the_template_layout_requires_a_recognized_location(): void
+    {
+        $user = User::factory()->create(['role' => 'operations_hr_manager']);
+        AssetCategory::create(['name' => 'Computer Equipment', 'short_name' => 'COM']);
+
+        $csv = "name,category,location,description,model,brand,serial_number,purchase_date,purchase_price,condition,status\n"
+            ."Dell Laptop,Computer Equipment,,Core i5,Latitude 5420,Dell,SN123456,2026-01-15,650.00,good,active\n"
+            ."HP Desktop,Computer Equipment,Nonexistent Site,,,,,,,\n";
+        $file = UploadedFile::fake()->createWithContent('register.csv', $csv);
+
+        $response = $this->actingAs($user)->postJson('/api/assets/import', ['file' => $file, 'generate_qr' => '0']);
+
+        $response->assertStatus(200);
+        $response->assertJson(['created' => 0, 'updated' => 0, 'skipped' => 0]);
+        $this->assertCount(2, $response->json('errors'));
+        $this->assertStringContainsString('location is required', $response->json('errors')[0]);
+        $this->assertStringContainsString('location "Nonexistent Site" not found', $response->json('errors')[1]);
+        $this->assertDatabaseCount('assets', 0);
     }
 }

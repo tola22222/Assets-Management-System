@@ -34,11 +34,11 @@ class AssetImportController extends Controller
 
     public function template()
     {
-        $columns = ['name', 'category', 'description', 'model', 'brand', 'serial_number', 'purchase_date', 'purchase_price', 'condition', 'status'];
+        $columns = ['name', 'category', 'location', 'description', 'model', 'brand', 'serial_number', 'purchase_date', 'purchase_price', 'condition', 'status'];
 
         $handle = fopen('php://temp', 'w+');
         fputcsv($handle, $columns);
-        fputcsv($handle, ['Dell Laptop', 'Computer Equipment', 'Core i5, 8GB RAM', 'Latitude 5420', 'Dell', 'SN123456', '2026-01-15', '650.00', 'good', 'active']);
+        fputcsv($handle, ['Dell Laptop', 'Computer Equipment', 'PEPY Office', 'Core i5, 8GB RAM', 'Latitude 5420', 'Dell', 'SN123456', '2026-01-15', '650.00', 'good', 'active']);
         rewind($handle);
         $csv = stream_get_contents($handle);
         fclose($handle);
