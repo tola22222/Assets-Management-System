@@ -38,6 +38,7 @@ Route::name('api.')->group(function () {
         Route::post('/profile/password', [AuthController::class, 'changePassword']);
 
         Route::get('/dashboard', [DashboardController::class, 'index']);
+        Route::get('/dashboard/by-period', [DashboardController::class, 'byPeriod']);
 
         // Bulk import — defined before the resource so "import" is not treated as an {asset}.
         Route::get('/assets/import/template', [AssetImportController::class, 'template']);
