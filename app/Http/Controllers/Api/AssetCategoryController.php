@@ -19,10 +19,14 @@ class AssetCategoryController extends Controller
 
     public function store(Request $request)
     {
+        $request->merge(['short_name' => $this->normalizeCode($request->short_name)]);
+
         $validated = $request->validate([
             'name' => 'required|string|max:255|unique:asset_categories,name',
-            'short_name' => ['nullable', 'string', Rule::in(AssetCodeService::CATEGORY_CODES)],
+            'short_name' => ['nullable', 'regex:'.AssetCodeService::CODE_FORMAT, Rule::unique('asset_categories', 'short_name')],
             'description' => 'nullable|string',
+        ], [
+            'short_name.regex' => 'Short code must be 2-6 letters or numbers (e.g. MOV, ELEC).',
         ]);
 
         $category = AssetCategory::create($validated);
@@ -38,10 +42,14 @@ class AssetCategoryController extends Controller
 
     public function update(Request $request, AssetCategory $category)
     {
+        $request->merge(['short_name' => $this->normalizeCode($request->short_name)]);
+
         $validated = $request->validate([
             'name' => 'required|string|max:255|unique:asset_categories,name,' . $category->id,
-            'short_name' => ['nullable', 'string', Rule::in(AssetCodeService::CATEGORY_CODES)],
+            'short_name' => ['nullable', 'regex:'.AssetCodeService::CODE_FORMAT, Rule::unique('asset_categories', 'short_name')->ignore($category->id)],
             'description' => 'nullable|string',
+        ], [
+            'short_name.regex' => 'Short code must be 2-6 letters or numbers (e.g. MOV, ELEC).',
         ]);
 
         $category->update($validated);
@@ -66,5 +74,12 @@ class AssetCategoryController extends Controller
         ]);
 
         return response()->json(['message' => 'Category deleted.']);
+    }
+
+    private function normalizeCode(?string $code): ?string
+    {
+        $code = strtoupper(trim((string) $code));
+
+        return $code === '' ? null : $code;
     }
 }

@@ -15,6 +15,10 @@ const { search, filtered } = useTableSearch(categories, ['name', 'short_name', '
 
 const CATEGORY_CODES = ['MOV', 'FAF', 'COM', 'EQU']
 
+function uppercaseShortName(e) {
+  form.short_name = e.target.value.toUpperCase()
+}
+
 const showModal = ref(false)
 const editingId = ref(null)
 const deletingId = ref(null)
@@ -103,10 +107,12 @@ onMounted(fetchAll)
           </div>
           <div class="space-y-1.5">
             <label class="text-xs font-semibold text-muted tracking-wide">{{ t('categories.short_name') }}</label>
-            <select v-model="form.short_name" class="input">
-              <option value="">-- Select a code --</option>
-              <option v-for="code in CATEGORY_CODES" :key="code" :value="code">{{ code }}</option>
-            </select>
+            <input :value="form.short_name" @input="uppercaseShortName" list="category-codes" maxlength="6"
+              placeholder="e.g. MOV, or your own like ELEC" class="input" />
+            <datalist id="category-codes">
+              <option v-for="code in CATEGORY_CODES" :key="code" :value="code" />
+            </datalist>
+            <p class="text-xs text-faint">2-6 letters/numbers. MOV/FAF/COM/EQU are the Manual's defaults — you can also type your own.</p>
           </div>
           <div class="space-y-1.5">
             <label class="text-xs font-semibold text-muted tracking-wide">{{ t('common.description') }}</label>
