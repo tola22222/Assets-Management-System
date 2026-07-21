@@ -71,59 +71,60 @@ onMounted(() => {
     <div class="p-8 max-w-6xl mx-auto space-y-6">
       <PageHeader :title="t('asset_verifications.title')" :subtitle="t('asset_verifications.subtitle')" :buttonText="t('asset_verifications.new')" @action="openCreate" />
 
-      <div class="flex flex-col sm:flex-row sm:items-center gap-3 flex-wrap">
-        <div class="w-full sm:max-w-xs">
-          <SearchInput v-model="search" :placeholder="t('common.search')" />
+      <div class="table-wrap">
+        <div class="table-toolbar">
+          <div class="w-full sm:max-w-xs">
+            <SearchInput v-model="search" :placeholder="t('common.search')" />
+          </div>
+          <select v-model="filters.condition" class="filter-select">
+            <option value="">{{ t('asset_returns.condition') }}: {{ t('common.all') }}</option>
+            <option value="good">{{ t('asset_verifications.condition_good') }}</option>
+            <option value="fair">{{ t('asset_verifications.condition_fair') }}</option>
+            <option value="broken">{{ t('asset_verifications.condition_broken') }}</option>
+            <option value="lost">{{ t('asset_verifications.condition_lost') }}</option>
+          </select>
+          <select v-model="filters.completed" class="filter-select">
+            <option value="">{{ t('common.status') }}: {{ t('common.all') }}</option>
+            <option value="yes">{{ t('asset_verifications.complete') }}</option>
+            <option value="no">{{ t('asset_verifications.pending') }}</option>
+          </select>
+          <button v-if="hasActiveFilters" @click="clearFilters" class="btn-subtle btn-sm">{{ t('common.clear_filters') }}</button>
         </div>
-        <select v-model="filters.condition" class="filter-select">
-          <option value="">{{ t('asset_returns.condition') }}: {{ t('common.all') }}</option>
-          <option value="good">{{ t('asset_verifications.condition_good') }}</option>
-          <option value="fair">{{ t('asset_verifications.condition_fair') }}</option>
-          <option value="broken">{{ t('asset_verifications.condition_broken') }}</option>
-          <option value="lost">{{ t('asset_verifications.condition_lost') }}</option>
-        </select>
-        <select v-model="filters.completed" class="filter-select">
-          <option value="">{{ t('common.status') }}: {{ t('common.all') }}</option>
-          <option value="yes">{{ t('asset_verifications.complete') }}</option>
-          <option value="no">{{ t('asset_verifications.pending') }}</option>
-        </select>
-        <button v-if="hasActiveFilters" @click="clearFilters" class="btn-subtle btn-sm">{{ t('common.clear_filters') }}</button>
-      </div>
-
-      <div class="bg-surface rounded-2xl border border-line overflow-hidden">
-        <table class="w-full text-left text-sm">
-          <thead>
-            <tr class="text-faint font-semibold bg-surface-2/70 border-b border-line">
-              <th class="p-4 pl-5 th-sort" @click="toggleSort('asset')">{{ t('common.asset') }}<TableSortIcon :active="sortKey === 'asset'" :direction="sortDir" /></th>
-              <th class="p-4 th-sort" @click="toggleSort('location')">{{ t('common.location') }}<TableSortIcon :active="sortKey === 'location'" :direction="sortDir" /></th>
-              <th class="p-4 th-sort" @click="toggleSort('condition')">{{ t('asset_returns.condition') }}<TableSortIcon :active="sortKey === 'condition'" :direction="sortDir" /></th>
-              <th class="p-4 th-sort" @click="toggleSort('verified_by')">{{ t('asset_verifications.verified_by') }}<TableSortIcon :active="sortKey === 'verified_by'" :direction="sortDir" /></th>
-              <th class="p-4">{{ t('common.status') }}</th>
-              <th class="p-4 pr-5 text-right">{{ t('common.actions') }}</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-line">
-            <tr v-for="v in sortedVerifications" :key="v.id" class="hover:bg-surface-2/50">
-              <td class="p-4 pl-5 font-medium text-fg">{{ v.asset?.name || t('common.n_a') }}</td>
-              <td class="p-4 text-muted">{{ v.location?.name || t('common.n_a') }}</td>
-              <td class="p-4 text-muted capitalize">{{ v.condition }}</td>
-              <td class="p-4 text-muted">{{ v.verified_by?.name || t('common.n_a') }}</td>
-              <td class="p-4">
-                <span class="px-2.5 py-1 rounded-lg text-xs font-bold" :class="v.verified_at ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'">
-                  {{ v.verified_at ? t('asset_verifications.complete') : t('asset_verifications.pending') }}
-                </span>
-              </td>
-              <td class="p-4 pr-5 text-right">
-                <button v-if="!v.verified_at" @click="complete(v.id)" :title="t('common.mark_complete')" class="w-7 h-7 rounded-lg bg-brand text-white flex items-center justify-center hover:bg-brand-dark transition">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                </button>
-              </td>
-            </tr>
-            <tr v-if="!loading && !sortedVerifications.length">
-              <td colspan="6" class="p-8 text-center text-faint">{{ t('asset_verifications.empty') }}</td>
-            </tr>
-          </tbody>
-        </table>
+        <div class="overflow-x-auto">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th class="th-sort" @click="toggleSort('asset')">{{ t('common.asset') }}<TableSortIcon :active="sortKey === 'asset'" :direction="sortDir" /></th>
+                <th class="th-sort" @click="toggleSort('location')">{{ t('common.location') }}<TableSortIcon :active="sortKey === 'location'" :direction="sortDir" /></th>
+                <th class="th-sort" @click="toggleSort('condition')">{{ t('asset_returns.condition') }}<TableSortIcon :active="sortKey === 'condition'" :direction="sortDir" /></th>
+                <th class="th-sort" @click="toggleSort('verified_by')">{{ t('asset_verifications.verified_by') }}<TableSortIcon :active="sortKey === 'verified_by'" :direction="sortDir" /></th>
+                <th>{{ t('common.status') }}</th>
+                <th class="text-right">{{ t('common.actions') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="v in sortedVerifications" :key="v.id">
+                <td class="font-medium text-fg">{{ v.asset?.name || t('common.n_a') }}</td>
+                <td>{{ v.location?.name || t('common.n_a') }}</td>
+                <td class="capitalize">{{ v.condition }}</td>
+                <td>{{ v.verified_by?.name || t('common.n_a') }}</td>
+                <td>
+                  <span class="px-2.5 py-1 rounded-lg text-xs font-bold" :class="v.verified_at ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'">
+                    {{ v.verified_at ? t('asset_verifications.complete') : t('asset_verifications.pending') }}
+                  </span>
+                </td>
+                <td class="text-right">
+                  <button v-if="!v.verified_at" @click="complete(v.id)" :title="t('common.mark_complete')" class="w-7 h-7 rounded-lg bg-brand text-white flex items-center justify-center hover:bg-brand-dark transition">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                  </button>
+                </td>
+              </tr>
+              <tr v-if="!loading && !sortedVerifications.length">
+                <td colspan="6" class="py-10 text-center text-faint">{{ t('asset_verifications.empty') }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
 

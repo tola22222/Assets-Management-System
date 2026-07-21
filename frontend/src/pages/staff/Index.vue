@@ -85,19 +85,18 @@ onMounted(fetchAll)
     <div class="p-8 max-w-5xl mx-auto space-y-6">
       <PageHeader :title="t('staff.title')" :subtitle="t('staff.subtitle')" :buttonText="t('staff.new')" @action="openCreate" />
 
-      <div class="flex flex-col sm:flex-row sm:items-center gap-3 flex-wrap">
-        <div class="w-full sm:max-w-xs">
-          <SearchInput v-model="search" :placeholder="t('staff.search_placeholder')" />
-        </div>
-        <select v-model="filters.status" class="filter-select">
-          <option value="">{{ t('common.status') }}: {{ t('common.all') }}</option>
-          <option value="active">{{ t('staff.status_active') }}</option>
-          <option value="inactive">{{ t('staff.status_inactive') }}</option>
-        </select>
-        <button v-if="hasActiveFilters" @click="clearFilters" class="btn-subtle btn-sm">{{ t('common.clear_filters') }}</button>
-      </div>
-
       <div class="table-wrap">
+        <div class="table-toolbar">
+          <div class="w-full sm:max-w-xs">
+            <SearchInput v-model="search" :placeholder="t('staff.search_placeholder')" />
+          </div>
+          <select v-model="filters.status" class="filter-select">
+            <option value="">{{ t('common.status') }}: {{ t('common.all') }}</option>
+            <option value="active">{{ t('staff.status_active') }}</option>
+            <option value="inactive">{{ t('staff.status_inactive') }}</option>
+          </select>
+          <button v-if="hasActiveFilters" @click="clearFilters" class="btn-subtle btn-sm">{{ t('common.clear_filters') }}</button>
+        </div>
         <div class="overflow-x-auto">
           <table class="data-table">
             <thead>

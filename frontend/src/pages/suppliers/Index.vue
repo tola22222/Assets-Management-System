@@ -52,11 +52,12 @@ onMounted(fetchAll)
     <div class="p-8 max-w-4xl mx-auto space-y-6">
       <PageHeader :title="t('suppliers.title')" :subtitle="t('suppliers.subtitle')" :buttonText="t('suppliers.new')" @action="openCreate" />
 
-      <div class="w-full sm:max-w-xs">
-        <SearchInput v-model="search" :placeholder="t('suppliers.search_placeholder')" />
-      </div>
-
       <div class="table-wrap">
+        <div class="table-toolbar">
+          <div class="w-full sm:max-w-xs">
+            <SearchInput v-model="search" :placeholder="t('suppliers.search_placeholder')" />
+          </div>
+        </div>
         <div class="overflow-x-auto">
           <table class="data-table">
             <thead>

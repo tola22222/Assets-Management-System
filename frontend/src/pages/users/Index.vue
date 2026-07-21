@@ -117,26 +117,25 @@ onMounted(() => {
     <div class="p-8 max-w-5xl mx-auto space-y-6">
       <PageHeader :title="t('users.title')" :subtitle="t('users.subtitle')" :buttonText="t('users.new')" @action="openCreate" />
 
-      <div class="flex flex-col sm:flex-row sm:items-center gap-3 flex-wrap">
-        <div class="w-full sm:max-w-xs">
-          <SearchInput v-model="search" :placeholder="t('users.search_placeholder')" />
-        </div>
-        <select v-model="filters.role" class="filter-select">
-          <option value="">{{ t('users.role') }}: {{ t('common.all') }}</option>
-          <option value="operations_hr_manager">{{ t('users.role_admin') }}</option>
-          <option value="executive_director">{{ t('users.role_executive_director') }}</option>
-          <option value="finance_manager">{{ t('users.role_finance_manager') }}</option>
-          <option value="staff">{{ t('users.role_staff') }}</option>
-        </select>
-        <select v-model="filters.is_locked" class="filter-select">
-          <option value="">{{ t('common.status') }}: {{ t('common.all') }}</option>
-          <option value="false">{{ t('status.active') }}</option>
-          <option value="true">{{ t('status.locked') }}</option>
-        </select>
-        <button v-if="hasActiveFilters" @click="clearFilters" class="btn-subtle btn-sm">{{ t('common.clear_filters') }}</button>
-      </div>
-
       <div class="table-wrap">
+        <div class="table-toolbar">
+          <div class="w-full sm:max-w-xs">
+            <SearchInput v-model="search" :placeholder="t('users.search_placeholder')" />
+          </div>
+          <select v-model="filters.role" class="filter-select">
+            <option value="">{{ t('users.role') }}: {{ t('common.all') }}</option>
+            <option value="operations_hr_manager">{{ t('users.role_admin') }}</option>
+            <option value="executive_director">{{ t('users.role_executive_director') }}</option>
+            <option value="finance_manager">{{ t('users.role_finance_manager') }}</option>
+            <option value="staff">{{ t('users.role_staff') }}</option>
+          </select>
+          <select v-model="filters.is_locked" class="filter-select">
+            <option value="">{{ t('common.status') }}: {{ t('common.all') }}</option>
+            <option value="false">{{ t('status.active') }}</option>
+            <option value="true">{{ t('status.locked') }}</option>
+          </select>
+          <button v-if="hasActiveFilters" @click="clearFilters" class="btn-subtle btn-sm">{{ t('common.clear_filters') }}</button>
+        </div>
         <div class="overflow-x-auto">
           <table class="data-table">
             <thead>

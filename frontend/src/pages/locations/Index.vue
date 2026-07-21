@@ -66,20 +66,19 @@ onMounted(fetchAll)
     <div class="p-8 max-w-5xl mx-auto space-y-6">
       <PageHeader :title="t('locations.title')" :subtitle="t('locations.subtitle')" :buttonText="t('locations.new')" @action="openCreate" />
 
-      <div class="flex flex-col sm:flex-row sm:items-center gap-3 flex-wrap">
-        <div class="w-full sm:max-w-xs">
-          <SearchInput v-model="search" :placeholder="t('locations.search_placeholder')" />
-        </div>
-        <select v-model="filters.type" class="filter-select">
-          <option value="">{{ t('locations.type') }}: {{ t('common.all') }}</option>
-          <option value="office">{{ t('locations.type_office') }}</option>
-          <option value="lab">{{ t('locations.type_lab') }}</option>
-          <option value="program">{{ t('locations.type_program') }}</option>
-        </select>
-        <button v-if="hasActiveFilters" @click="clearFilters" class="btn-subtle btn-sm">{{ t('common.clear_filters') }}</button>
-      </div>
-
       <div class="table-wrap">
+        <div class="table-toolbar">
+          <div class="w-full sm:max-w-xs">
+            <SearchInput v-model="search" :placeholder="t('locations.search_placeholder')" />
+          </div>
+          <select v-model="filters.type" class="filter-select">
+            <option value="">{{ t('locations.type') }}: {{ t('common.all') }}</option>
+            <option value="office">{{ t('locations.type_office') }}</option>
+            <option value="lab">{{ t('locations.type_lab') }}</option>
+            <option value="program">{{ t('locations.type_program') }}</option>
+          </select>
+          <button v-if="hasActiveFilters" @click="clearFilters" class="btn-subtle btn-sm">{{ t('common.clear_filters') }}</button>
+        </div>
         <div class="overflow-x-auto">
           <table class="data-table">
             <thead>

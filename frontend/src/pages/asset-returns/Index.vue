@@ -83,61 +83,62 @@ onMounted(() => {
     <div class="p-8 max-w-6xl mx-auto space-y-6">
       <PageHeader :title="t('asset_returns.title')" :subtitle="t('asset_returns.subtitle')" :buttonText="t('asset_returns.new')" @action="openCreate" />
 
-      <div class="flex flex-col sm:flex-row sm:items-center gap-3 flex-wrap">
-        <div class="w-full sm:max-w-xs">
-          <SearchInput v-model="search" :placeholder="t('common.search')" />
+      <div class="table-wrap">
+        <div class="table-toolbar">
+          <div class="w-full sm:max-w-xs">
+            <SearchInput v-model="search" :placeholder="t('common.search')" />
+          </div>
+          <select v-model="filters.status" class="filter-select">
+            <option value="">{{ t('common.status') }}: {{ t('common.all') }}</option>
+            <option value="pending">{{ t('status.pending') }}</option>
+            <option value="approved">{{ t('status.approved') }}</option>
+            <option value="rejected">{{ t('status.rejected') }}</option>
+          </select>
+          <select v-model="filters.condition" class="filter-select">
+            <option value="">{{ t('asset_returns.condition') }}: {{ t('common.all') }}</option>
+            <option value="good">{{ t('asset_returns.condition_good') }}</option>
+            <option value="fair">{{ t('asset_returns.condition_fair') }}</option>
+            <option value="broken">{{ t('asset_returns.condition_broken') }}</option>
+            <option value="lost">{{ t('asset_returns.condition_lost') }}</option>
+          </select>
+          <button v-if="hasActiveFilters" @click="clearFilters" class="btn-subtle btn-sm">{{ t('common.clear_filters') }}</button>
         </div>
-        <select v-model="filters.status" class="filter-select">
-          <option value="">{{ t('common.status') }}: {{ t('common.all') }}</option>
-          <option value="pending">{{ t('status.pending') }}</option>
-          <option value="approved">{{ t('status.approved') }}</option>
-          <option value="rejected">{{ t('status.rejected') }}</option>
-        </select>
-        <select v-model="filters.condition" class="filter-select">
-          <option value="">{{ t('asset_returns.condition') }}: {{ t('common.all') }}</option>
-          <option value="good">{{ t('asset_returns.condition_good') }}</option>
-          <option value="fair">{{ t('asset_returns.condition_fair') }}</option>
-          <option value="broken">{{ t('asset_returns.condition_broken') }}</option>
-          <option value="lost">{{ t('asset_returns.condition_lost') }}</option>
-        </select>
-        <button v-if="hasActiveFilters" @click="clearFilters" class="btn-subtle btn-sm">{{ t('common.clear_filters') }}</button>
-      </div>
-
-      <div class="bg-surface rounded-2xl border border-line overflow-hidden">
-        <table class="w-full text-left text-sm">
-          <thead>
-            <tr class="text-faint font-semibold bg-surface-2/70 border-b border-line">
-              <th class="p-4 pl-5 th-sort" @click="toggleSort('asset')">{{ t('common.asset') }}<TableSortIcon :active="sortKey === 'asset'" :direction="sortDir" /></th>
-              <th class="p-4 th-sort" @click="toggleSort('condition')">{{ t('asset_returns.condition') }}<TableSortIcon :active="sortKey === 'condition'" :direction="sortDir" /></th>
-              <th class="p-4 th-sort" @click="toggleSort('returned_by')">{{ t('asset_returns.returned_by') }}<TableSortIcon :active="sortKey === 'returned_by'" :direction="sortDir" /></th>
-              <th class="p-4 th-sort" @click="toggleSort('status')">{{ t('common.status') }}<TableSortIcon :active="sortKey === 'status'" :direction="sortDir" /></th>
-              <th class="p-4 pr-5 text-right">{{ t('common.actions') }}</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-line">
-            <tr v-for="r in sortedReturns" :key="r.id" class="hover:bg-surface-2/50">
-              <td class="p-4 pl-5 font-medium text-fg">{{ r.asset?.name || t('common.n_a') }}</td>
-              <td class="p-4 text-muted capitalize">{{ r.condition }}</td>
-              <td class="p-4 text-muted">{{ r.returned_by?.name || t('common.n_a') }}</td>
-              <td class="p-4"><StatusBadge :status="r.status" /></td>
-              <td class="p-4 pr-5 text-right whitespace-nowrap">
-                <template v-if="r.status === 'pending' && auth.user?.role === 'operations_hr_manager'">
-                  <div class="flex items-center justify-end gap-1.5">
-                    <button @click="approve(r.id)" :title="t('common.approve')" class="w-7 h-7 rounded-lg bg-brand text-white flex items-center justify-center hover:bg-brand-dark transition">
-                      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                    </button>
-                    <button @click="reject(r.id)" :title="t('common.reject')" class="w-7 h-7 rounded-lg bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition">
-                      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                    </button>
-                  </div>
-                </template>
-              </td>
-            </tr>
-            <tr v-if="!loading && !sortedReturns.length">
-              <td colspan="5" class="p-8 text-center text-faint">{{ t('asset_returns.empty') }}</td>
-            </tr>
-          </tbody>
-        </table>
+        <div class="overflow-x-auto">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th class="th-sort" @click="toggleSort('asset')">{{ t('common.asset') }}<TableSortIcon :active="sortKey === 'asset'" :direction="sortDir" /></th>
+                <th class="th-sort" @click="toggleSort('condition')">{{ t('asset_returns.condition') }}<TableSortIcon :active="sortKey === 'condition'" :direction="sortDir" /></th>
+                <th class="th-sort" @click="toggleSort('returned_by')">{{ t('asset_returns.returned_by') }}<TableSortIcon :active="sortKey === 'returned_by'" :direction="sortDir" /></th>
+                <th class="th-sort" @click="toggleSort('status')">{{ t('common.status') }}<TableSortIcon :active="sortKey === 'status'" :direction="sortDir" /></th>
+                <th class="text-right">{{ t('common.actions') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="r in sortedReturns" :key="r.id">
+                <td class="font-medium text-fg">{{ r.asset?.name || t('common.n_a') }}</td>
+                <td class="capitalize">{{ r.condition }}</td>
+                <td>{{ r.returned_by?.name || t('common.n_a') }}</td>
+                <td><StatusBadge :status="r.status" /></td>
+                <td class="text-right whitespace-nowrap">
+                  <template v-if="r.status === 'pending' && auth.user?.role === 'operations_hr_manager'">
+                    <div class="flex items-center justify-end gap-1.5">
+                      <button @click="approve(r.id)" :title="t('common.approve')" class="w-7 h-7 rounded-lg bg-brand text-white flex items-center justify-center hover:bg-brand-dark transition">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                      </button>
+                      <button @click="reject(r.id)" :title="t('common.reject')" class="w-7 h-7 rounded-lg bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                      </button>
+                    </div>
+                  </template>
+                </td>
+              </tr>
+              <tr v-if="!loading && !sortedReturns.length">
+                <td colspan="5" class="py-10 text-center text-faint">{{ t('asset_returns.empty') }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
 

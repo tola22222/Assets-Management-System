@@ -93,57 +93,58 @@ onMounted(() => {
     <div class="p-8 max-w-6xl mx-auto space-y-6">
       <PageHeader :title="t('asset_assignments.title')" :subtitle="t('asset_assignments.subtitle')" :buttonText="t('asset_assignments.new')" @action="openCreate" />
 
-      <div class="flex flex-col sm:flex-row sm:items-center gap-3 flex-wrap">
-        <div class="w-full sm:max-w-xs">
-          <SearchInput v-model="search" :placeholder="t('common.search')" />
+      <div class="table-wrap">
+        <div class="table-toolbar">
+          <div class="w-full sm:max-w-xs">
+            <SearchInput v-model="search" :placeholder="t('common.search')" />
+          </div>
+          <select v-model="filters.status" class="filter-select">
+            <option value="">{{ t('common.status') }}: {{ t('common.all') }}</option>
+            <option value="assigned">{{ t('status.assigned') }}</option>
+            <option value="active">{{ t('status.active') }}</option>
+            <option value="returned">{{ t('status.returned') }}</option>
+            <option value="overdue">{{ t('status.overdue') }}</option>
+          </select>
+          <button v-if="hasActiveFilters" @click="clearFilters" class="btn-subtle btn-sm">{{ t('common.clear_filters') }}</button>
         </div>
-        <select v-model="filters.status" class="filter-select">
-          <option value="">{{ t('common.status') }}: {{ t('common.all') }}</option>
-          <option value="assigned">{{ t('status.assigned') }}</option>
-          <option value="active">{{ t('status.active') }}</option>
-          <option value="returned">{{ t('status.returned') }}</option>
-          <option value="overdue">{{ t('status.overdue') }}</option>
-        </select>
-        <button v-if="hasActiveFilters" @click="clearFilters" class="btn-subtle btn-sm">{{ t('common.clear_filters') }}</button>
-      </div>
-
-      <div class="bg-surface rounded-2xl border border-line overflow-hidden">
-        <table class="w-full text-left text-sm">
-          <thead>
-            <tr class="text-faint font-semibold bg-surface-2/70 border-b border-line">
-              <th class="p-4 pl-5 th-sort" @click="toggleSort('asset')">{{ t('common.asset') }}<TableSortIcon :active="sortKey === 'asset'" :direction="sortDir" /></th>
-              <th class="p-4 th-sort" @click="toggleSort('recipient_name')">{{ t('asset_assignments.recipient') }}<TableSortIcon :active="sortKey === 'recipient_name'" :direction="sortDir" /></th>
-              <th class="p-4 th-sort" @click="toggleSort('location')">{{ t('common.location') }}<TableSortIcon :active="sortKey === 'location'" :direction="sortDir" /></th>
-              <th class="p-4 th-sort" @click="toggleSort('quantity')">{{ t('asset_assignments.qty') }}<TableSortIcon :active="sortKey === 'quantity'" :direction="sortDir" /></th>
-              <th class="p-4 th-sort" @click="toggleSort('status')">{{ t('common.status') }}<TableSortIcon :active="sortKey === 'status'" :direction="sortDir" /></th>
-              <th class="p-4 pr-5 text-right">{{ t('common.actions') }}</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-line">
-            <tr v-for="a in sortedAssignments" :key="a.id" class="hover:bg-surface-2/50">
-              <td class="p-4 pl-5 font-medium text-fg">{{ a.asset?.name || t('common.n_a') }}</td>
-              <td class="p-4 text-muted">{{ a.recipient_name }}</td>
-              <td class="p-4 text-muted">{{ a.location?.name || t('common.n_a') }}</td>
-              <td class="p-4 text-muted">{{ a.quantity }}</td>
-              <td class="p-4"><StatusBadge :status="a.status" /></td>
-              <td class="p-4 pr-5 text-right whitespace-nowrap">
-                <template v-if="a.status !== 'returned'">
-                  <div class="flex items-center justify-end gap-1.5">
-                    <button @click="returningId = a.id; returnCondition = 'good'; returnRemark = ''" :title="t('common.return')" class="w-7 h-7 rounded-lg bg-brand text-white flex items-center justify-center hover:bg-brand-dark transition">
-                      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" /></svg>
-                    </button>
-                    <button @click="cancelAssignment(a.id)" :title="t('common.cancel')" class="w-7 h-7 rounded-lg bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition">
-                      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-                    </button>
-                  </div>
-                </template>
-              </td>
-            </tr>
-            <tr v-if="!loading && !sortedAssignments.length">
-              <td colspan="6" class="p-8 text-center text-faint">{{ t('asset_assignments.empty') }}</td>
-            </tr>
-          </tbody>
-        </table>
+        <div class="overflow-x-auto">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th class="th-sort" @click="toggleSort('asset')">{{ t('common.asset') }}<TableSortIcon :active="sortKey === 'asset'" :direction="sortDir" /></th>
+                <th class="th-sort" @click="toggleSort('recipient_name')">{{ t('asset_assignments.recipient') }}<TableSortIcon :active="sortKey === 'recipient_name'" :direction="sortDir" /></th>
+                <th class="th-sort" @click="toggleSort('location')">{{ t('common.location') }}<TableSortIcon :active="sortKey === 'location'" :direction="sortDir" /></th>
+                <th class="th-sort" @click="toggleSort('quantity')">{{ t('asset_assignments.qty') }}<TableSortIcon :active="sortKey === 'quantity'" :direction="sortDir" /></th>
+                <th class="th-sort" @click="toggleSort('status')">{{ t('common.status') }}<TableSortIcon :active="sortKey === 'status'" :direction="sortDir" /></th>
+                <th class="text-right">{{ t('common.actions') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="a in sortedAssignments" :key="a.id">
+                <td class="font-medium text-fg">{{ a.asset?.name || t('common.n_a') }}</td>
+                <td>{{ a.recipient_name }}</td>
+                <td>{{ a.location?.name || t('common.n_a') }}</td>
+                <td>{{ a.quantity }}</td>
+                <td><StatusBadge :status="a.status" /></td>
+                <td class="text-right whitespace-nowrap">
+                  <template v-if="a.status !== 'returned'">
+                    <div class="flex items-center justify-end gap-1.5">
+                      <button @click="returningId = a.id; returnCondition = 'good'; returnRemark = ''" :title="t('common.return')" class="w-7 h-7 rounded-lg bg-brand text-white flex items-center justify-center hover:bg-brand-dark transition">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" /></svg>
+                      </button>
+                      <button @click="cancelAssignment(a.id)" :title="t('common.cancel')" class="w-7 h-7 rounded-lg bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                      </button>
+                    </div>
+                  </template>
+                </td>
+              </tr>
+              <tr v-if="!loading && !sortedAssignments.length">
+                <td colspan="6" class="py-10 text-center text-faint">{{ t('asset_assignments.empty') }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
 

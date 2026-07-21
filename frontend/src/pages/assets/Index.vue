@@ -184,37 +184,36 @@ onMounted(() => {
     <div class="p-6 sm:p-8 max-w-6xl mx-auto space-y-6">
       <PageHeader :title="t('assets.title')" :subtitle="t('assets.subtitle')" :buttonText="t('assets.register')" @action="openCreate" />
 
-      <div class="flex flex-col sm:flex-row sm:items-center gap-3 flex-wrap">
-        <div class="w-full sm:max-w-xs">
-          <SearchInput v-model="search" :placeholder="t('assets.search_placeholder')" />
-        </div>
-        <select v-model="filters.category_id" class="filter-select">
-          <option value="">{{ t('assets.category') }}: {{ t('common.all') }}</option>
-          <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option>
-        </select>
-        <select v-model="filters.status" class="filter-select">
-          <option value="">{{ t('common.status') }}: {{ t('common.all') }}</option>
-          <option value="active">{{ t('status.active') }}</option>
-          <option value="disposed">{{ t('status.disposed') }}</option>
-        </select>
-        <select v-model="filters.condition" class="filter-select">
-          <option value="">{{ t('assets.condition') }}: {{ t('common.all') }}</option>
-          <option value="good">{{ t('assets.condition_good') }}</option>
-          <option value="fair">{{ t('assets.condition_fair') }}</option>
-          <option value="broken">{{ t('assets.condition_broken') }}</option>
-          <option value="lost">{{ t('assets.condition_lost') }}</option>
-        </select>
-        <button v-if="hasActiveFilters" @click="clearFilters" class="btn-subtle btn-sm">{{ t('common.clear_filters') }}</button>
-        <div class="flex items-center gap-3 sm:ml-auto">
-          <p class="text-sm text-faint">{{ t('assets.count_of', { filtered: filtered.length, total: assetsList.length }) }}</p>
-          <RouterLink to="/assets/import" class="btn-ghost btn-sm">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
-            {{ t('assets.import') }}
-          </RouterLink>
-        </div>
-      </div>
-
       <div class="table-wrap">
+        <div class="table-toolbar">
+          <div class="w-full sm:max-w-xs">
+            <SearchInput v-model="search" :placeholder="t('assets.search_placeholder')" />
+          </div>
+          <select v-model="filters.category_id" class="filter-select">
+            <option value="">{{ t('assets.category') }}: {{ t('common.all') }}</option>
+            <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option>
+          </select>
+          <select v-model="filters.status" class="filter-select">
+            <option value="">{{ t('common.status') }}: {{ t('common.all') }}</option>
+            <option value="active">{{ t('status.active') }}</option>
+            <option value="disposed">{{ t('status.disposed') }}</option>
+          </select>
+          <select v-model="filters.condition" class="filter-select">
+            <option value="">{{ t('assets.condition') }}: {{ t('common.all') }}</option>
+            <option value="good">{{ t('assets.condition_good') }}</option>
+            <option value="fair">{{ t('assets.condition_fair') }}</option>
+            <option value="broken">{{ t('assets.condition_broken') }}</option>
+            <option value="lost">{{ t('assets.condition_lost') }}</option>
+          </select>
+          <button v-if="hasActiveFilters" @click="clearFilters" class="btn-subtle btn-sm">{{ t('common.clear_filters') }}</button>
+          <div class="flex items-center gap-3 sm:ml-auto">
+            <p class="text-sm text-faint">{{ t('assets.count_of', { filtered: filtered.length, total: assetsList.length }) }}</p>
+            <RouterLink to="/assets/import" class="btn-ghost btn-sm">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
+              {{ t('assets.import') }}
+            </RouterLink>
+          </div>
+        </div>
         <div class="overflow-x-auto">
           <table class="data-table">
             <thead>
