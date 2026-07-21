@@ -51,6 +51,7 @@
     "transfer_requests": "Transfer Requests",
     "verification": "Verification",
     "asset_management": "Asset Management",
+    "receive_assets": "Receive Assets",
     "stock_movements": "Stock Movements",
     "assignments": "Assignments",
     "transfers": "Transfers",
@@ -127,7 +128,9 @@
     "disposed": "DISPOSED",
     "returned": "RETURNED",
     "locked": "LOCKED",
-    "inactive": "INACTIVE"
+    "inactive": "INACTIVE",
+    "stock_in": "RECEIVED",
+    "transfer": "TRANSFER"
   },
   "assets": {
     "title": "Asset Register",
@@ -383,6 +386,21 @@
     "received_at": "Received",
     "save": "Receive",
     "entity": "Receipt"
+  },
+  "asset_movements": {
+    "title": "Stock Movements",
+    "subtitle": "Full movement ledger — every receipt and approved transfer, in one place",
+    "type": "Type",
+    "from": "From",
+    "to": "To",
+    "reference": "Reference #",
+    "date": "Date",
+    "created_by": "Recorded By",
+    "empty": "No stock movements recorded yet.",
+    "delete_confirm_title": "Delete this movement record?",
+    "delete_confirm_message": "This only removes the audit record — it does not undo the receipt or transfer itself.",
+    "deleted": "Movement record deleted.",
+    "delete_failed": "Could not delete this record."
   },
   "asset_assignments": {
     "title": "Asset Assignments",

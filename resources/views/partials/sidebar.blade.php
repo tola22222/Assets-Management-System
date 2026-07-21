@@ -62,7 +62,7 @@
                     <a href="{{ route('assets.index') }}"
                         class="{{ $subClass }} {{ request()->routeIs('assets.*') ? $subActive : $subInactive }}">{{ __('messages.asset_register') }}</a>
                     <a href="{{ route('asset-stocks.index') }}"
-                        class="{{ $subClass }} {{ request()->routeIs('asset-stocks.*') ? $subActive : $subInactive }}">{{ __('messages.stock_movements') }}</a>
+                        class="{{ $subClass }} {{ request()->routeIs('asset-stocks.*') ? $subActive : $subInactive }}">{{ __('messages.receive_assets') }}</a>
                     <a href="{{ route('asset-assignments.index') }}"
                         class="{{ $subClass }} {{ request()->routeIs('asset-assignments.*') ? $subActive : $subInactive }}">{{ __('messages.assignments') }}</a>
                     <a href="{{ route('asset-transfers.index') }}"

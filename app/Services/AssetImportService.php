@@ -115,6 +115,8 @@ class AssetImportService
             ];
 
             if ($preserveCodes) {
+                $this->bumpSequenceFromCode($code);
+
                 $existing = Asset::where('asset_code', $code)->first();
                 if ($existing) {
                     $existing->update($payload);
@@ -251,6 +253,19 @@ class AssetImportService
         $hasSequence = (bool) array_filter($segments, fn ($s) => preg_match('/^\d+$/', $s));
 
         return $hasCategory && $hasSequence;
+    }
+
+    /** Keep asset_code_sequences ahead of every preserved code so the next Register/Receive Asset call can't collide with it. */
+    private function bumpSequenceFromCode(string $code): void
+    {
+        if (! preg_match('/^PEY-[A-Z]{2,4}-([A-Z]{2,4})-(\d+)$/', $code, $m)) {
+            return;
+        }
+        $categoryCode = $m[1] === 'FVF' ? 'FAF' : $m[1];
+        if (! in_array($categoryCode, AssetCodeService::CATEGORY_CODES, true)) {
+            return;
+        }
+        AssetCodeService::bumpSequenceIfHigher($categoryCode, (int) $m[2]);
     }
 
     private function categoryFromCode(string $code): AssetCategory

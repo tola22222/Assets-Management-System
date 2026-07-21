@@ -7,6 +7,7 @@ use App\Models\ActivityLog;
 use App\Models\AssetDisposal;
 use App\Models\Notification;
 use App\Models\User;
+use App\Services\AssetNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -54,6 +55,20 @@ class AssetDisposalController extends Controller
             'user_id' => Auth::id(),
             'action' => 'Create',
             'description' => 'Requested ' . $validated['recommended_action'] . ' for asset ' . ($disposal->asset->name ?? ''),
+        ]);
+
+        AssetNotificationService::send(AssetNotificationService::DISPOSAL_REQUEST, [
+            'assetId' => $disposal->asset->asset_code ?? null,
+            'description' => $disposal->asset->name ?? null,
+            'category' => $disposal->asset->category->name ?? null,
+            'note' => $disposal->reason,
+            'recipients' => ['executive_director'],
+            'ccRecipients' => ['finance_manager'],
+            'extraData' => [
+                'recommendedAction' => $disposal->recommended_action,
+                'requestedBy' => Auth::user()->name,
+                'link' => route('asset.public.show', $disposal->asset->asset_code ?? ''),
+            ],
         ]);
 
         return response()->json($disposal->fresh(['asset', 'requester']), 201);

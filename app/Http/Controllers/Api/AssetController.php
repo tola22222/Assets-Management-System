@@ -8,6 +8,7 @@ use App\Models\Asset;
 use App\Models\Notification;
 use App\Models\User;
 use App\Services\AssetCodeService;
+use App\Services\AssetNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
@@ -24,7 +25,6 @@ class AssetController extends Controller
         return response()->json($asset->load([
             'category',
             'location',
-            'stocks.location',
             'assignments' => fn ($q) => $q->latest(),
             'verifications' => fn ($q) => $q->latest(),
         ]));
@@ -130,6 +130,20 @@ class AssetController extends Controller
                 'url' => null,
             ]);
         }
+
+        AssetNotificationService::send(AssetNotificationService::DAMAGE_FLAGGED, [
+            'assetId' => $asset->asset_code,
+            'description' => $asset->name,
+            'location' => $asset->location->name ?? null,
+            'flaggedBy' => Auth::user()->name,
+            'note' => $validated['note'],
+            'recipients' => ['operations_hr_manager'],
+            'extraData' => [
+                'status' => $validated['condition'] ?? 'reported',
+                'flaggedAt' => now()->format('d M Y, H:i'),
+                'link' => route('asset.public.show', $asset->asset_code),
+            ],
+        ]);
 
         return response()->json($asset->fresh(['category', 'location']));
     }

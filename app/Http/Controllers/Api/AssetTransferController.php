@@ -115,6 +115,11 @@ class AssetTransferController extends Controller
                 'reference_no' => 'TRF-' . $transfer->id,
                 'created_by' => Auth::id(),
             ]);
+
+            // The AssetMovement row above is only an audit trail — without this,
+            // the asset's actual location_id never changes, so the register
+            // silently disagrees with the approved transfer forever.
+            $transfer->asset()->update(['location_id' => $transfer->to_location_id]);
         });
     }
 }

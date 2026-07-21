@@ -16,7 +16,7 @@ class QrScanController extends Controller
     {
         $request->validate(['asset_code' => 'required|string']);
 
-        $asset = Asset::with(['category', 'stocks.location'])
+        $asset = Asset::with(['category', 'location'])
             ->where('asset_code', $request->asset_code)
             ->first();
 
@@ -37,7 +37,7 @@ class QrScanController extends Controller
     public function result($assetCode)
     {
         $asset = Asset::with([
-            'category', 'stocks.location',
+            'category', 'location',
             'assignments' => fn ($q) => $q->where('status', 'active'),
             'verifications' => fn ($q) => $q->latest(),
         ])->where('asset_code', $assetCode)->firstOrFail();
