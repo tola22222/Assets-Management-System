@@ -7,7 +7,11 @@ import PageHeader from '../../components/ui/PageHeader.vue'
 import Modal from '../../components/ui/Modal.vue'
 import ConfirmDialog from '../../components/ui/ConfirmDialog.vue'
 import SearchInput from '../../components/ui/SearchInput.vue'
+import TableSortIcon from '../../components/ui/TableSortIcon.vue'
 import { useApiCrud } from '../../composables/useApiCrud'
+import { useTableSearch } from '../../composables/useTableSearch'
+import { useTableFilter } from '../../composables/useTableFilter'
+import { useTableSort } from '../../composables/useTableSort'
 import { useToastStore } from '../../stores/toast'
 
 const { t } = useI18n()
@@ -16,7 +20,6 @@ const toast = useToastStore()
 
 const categories = ref([])
 const locations = ref([])
-const search = ref('')
 const showModal = ref(false)
 const editingId = ref(null)
 const deletingId = ref(null)
@@ -34,13 +37,17 @@ const emptyForm = () => ({
 })
 const form = reactive(emptyForm())
 
-const filtered = computed(() => {
-  const q = search.value.trim().toLowerCase()
-  if (!q) return assetsList.value
-  return assetsList.value.filter((a) =>
-    [a.name, a.asset_code, a.brand, a.model, a.category?.name, a.purchase_price, a.serial_number]
-      .filter(Boolean).join(' ').toLowerCase().includes(q)
-  )
+const { search, filtered: searched } = useTableSearch(assetsList, [
+  'name', 'asset_code', 'brand', 'model', (a) => a.category?.name, 'purchase_price', 'serial_number',
+])
+const { filters, filtered: matched, hasActiveFilters, clearFilters } = useTableFilter(searched, {
+  category_id: (row, v) => String(row.category_id) === String(v),
+  status: (row, v) => row.status === v,
+  condition: (row, v) => row.condition === v,
+})
+const { sortKey, sortDir, toggleSort, sorted: filtered } = useTableSort(matched, {
+  defaultKey: 'name',
+  paths: { category: 'category.name', price: 'purchase_price', code: 'asset_code' },
 })
 
 function money(v) {
@@ -177,10 +184,27 @@ onMounted(() => {
     <div class="p-6 sm:p-8 max-w-6xl mx-auto space-y-6">
       <PageHeader :title="t('assets.title')" :subtitle="t('assets.subtitle')" :buttonText="t('assets.register')" @action="openCreate" />
 
-      <div class="flex flex-col sm:flex-row sm:items-center gap-3">
+      <div class="flex flex-col sm:flex-row sm:items-center gap-3 flex-wrap">
         <div class="w-full sm:max-w-xs">
           <SearchInput v-model="search" :placeholder="t('assets.search_placeholder')" />
         </div>
+        <select v-model="filters.category_id" class="filter-select">
+          <option value="">{{ t('assets.category') }}: {{ t('common.all') }}</option>
+          <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option>
+        </select>
+        <select v-model="filters.status" class="filter-select">
+          <option value="">{{ t('common.status') }}: {{ t('common.all') }}</option>
+          <option value="active">{{ t('status.active') }}</option>
+          <option value="disposed">{{ t('status.disposed') }}</option>
+        </select>
+        <select v-model="filters.condition" class="filter-select">
+          <option value="">{{ t('assets.condition') }}: {{ t('common.all') }}</option>
+          <option value="good">{{ t('assets.condition_good') }}</option>
+          <option value="fair">{{ t('assets.condition_fair') }}</option>
+          <option value="broken">{{ t('assets.condition_broken') }}</option>
+          <option value="lost">{{ t('assets.condition_lost') }}</option>
+        </select>
+        <button v-if="hasActiveFilters" @click="clearFilters" class="btn-subtle btn-sm">{{ t('common.clear_filters') }}</button>
         <div class="flex items-center gap-3 sm:ml-auto">
           <p class="text-sm text-faint">{{ t('assets.count_of', { filtered: filtered.length, total: assetsList.length }) }}</p>
           <RouterLink to="/assets/import" class="btn-ghost btn-sm">
@@ -195,12 +219,12 @@ onMounted(() => {
           <table class="data-table">
             <thead>
               <tr>
-                <th>{{ t('assets.asset_col') }}</th>
-                <th>{{ t('assets.code') }}</th>
-                <th>{{ t('assets.category') }}</th>
-                <th>{{ t('assets.condition') }}</th>
-                <th>{{ t('common.status') }}</th>
-                <th>{{ t('common.price') }}</th>
+                <th class="th-sort" @click="toggleSort('name')">{{ t('assets.asset_col') }}<TableSortIcon :active="sortKey === 'name'" :direction="sortDir" /></th>
+                <th class="th-sort" @click="toggleSort('code')">{{ t('assets.code') }}<TableSortIcon :active="sortKey === 'code'" :direction="sortDir" /></th>
+                <th class="th-sort" @click="toggleSort('category')">{{ t('assets.category') }}<TableSortIcon :active="sortKey === 'category'" :direction="sortDir" /></th>
+                <th class="th-sort" @click="toggleSort('condition')">{{ t('assets.condition') }}<TableSortIcon :active="sortKey === 'condition'" :direction="sortDir" /></th>
+                <th class="th-sort" @click="toggleSort('status')">{{ t('common.status') }}<TableSortIcon :active="sortKey === 'status'" :direction="sortDir" /></th>
+                <th class="th-sort" @click="toggleSort('price')">{{ t('common.price') }}<TableSortIcon :active="sortKey === 'price'" :direction="sortDir" /></th>
                 <th class="text-right">{{ t('common.actions') }}</th>
               </tr>
             </thead>

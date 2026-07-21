@@ -72,6 +72,9 @@
     "hide_sidebar": "Hide sidebar"
   },
   "common": {
+    "all": "All",
+    "clear_filters": "Clear filters",
+    "search": "Search…",
     "edit": "Edit",
     "delete": "Delete",
     "save": "Save",
@@ -130,7 +133,8 @@
     "locked": "LOCKED",
     "inactive": "INACTIVE",
     "stock_in": "RECEIVED",
-    "transfer": "TRANSFER"
+    "transfer": "TRANSFER",
+    "overdue": "OVERDUE"
   },
   "assets": {
     "title": "Asset Register",

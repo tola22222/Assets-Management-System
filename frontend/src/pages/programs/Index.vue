@@ -6,13 +6,16 @@ import PageHeader from '../../components/ui/PageHeader.vue'
 import Modal from '../../components/ui/Modal.vue'
 import ConfirmDialog from '../../components/ui/ConfirmDialog.vue'
 import SearchInput from '../../components/ui/SearchInput.vue'
+import TableSortIcon from '../../components/ui/TableSortIcon.vue'
 import { useApiCrud } from '../../composables/useApiCrud'
 import { useTableSearch } from '../../composables/useTableSearch'
+import { useTableSort } from '../../composables/useTableSort'
 import { useToastStore } from '../../stores/toast'
 
 const { t } = useI18n()
 const { items: programs, loading, fetchAll, create, update, destroy } = useApiCrud('/programs', { entityName: t('programs.entity') })
-const { search, filtered } = useTableSearch(programs, ['name', 'description'])
+const { search, filtered: searched } = useTableSearch(programs, ['name', 'description'])
+const { sortKey, sortDir, toggleSort, sorted: filtered } = useTableSort(searched, { defaultKey: 'name' })
 const toast = useToastStore()
 
 const showModal = ref(false)
@@ -69,7 +72,7 @@ onMounted(fetchAll)
           <table class="data-table">
             <thead>
               <tr>
-                <th>{{ t('common.name') }}</th>
+                <th class="th-sort" @click="toggleSort('name')">{{ t('common.name') }}<TableSortIcon :active="sortKey === 'name'" :direction="sortDir" /></th>
                 <th>{{ t('common.description') }}</th>
                 <th class="text-right">{{ t('common.actions') }}</th>
               </tr>

@@ -6,10 +6,19 @@ import AppLayout from '../../layouts/AppLayout.vue'
 import PageHeader from '../../components/ui/PageHeader.vue'
 import Modal from '../../components/ui/Modal.vue'
 import ConfirmDialog from '../../components/ui/ConfirmDialog.vue'
+import SearchInput from '../../components/ui/SearchInput.vue'
+import TableSortIcon from '../../components/ui/TableSortIcon.vue'
 import { useApiCrud } from '../../composables/useApiCrud'
+import { useTableSearch } from '../../composables/useTableSearch'
+import { useTableSort } from '../../composables/useTableSort'
 
 const { t } = useI18n()
 const { items: receipts, loading, fetchAll, create, destroy } = useApiCrud('/asset-stocks', { entityName: t('asset_stocks.entity') })
+const { search, filtered: searched } = useTableSearch(receipts, [(r) => r.asset?.name, (r) => r.asset?.asset_code, (r) => r.to_location?.name, 'reference_no'])
+const { sortKey, sortDir, toggleSort, sorted: sortedReceipts } = useTableSort(searched, {
+  defaultKey: 'created_at', defaultDir: 'desc',
+  paths: { code: 'asset.asset_code', asset: 'asset.name', location: 'to_location.name' },
+})
 
 const categories = ref([])
 const locations = ref([])
@@ -64,20 +73,24 @@ onMounted(() => {
     <div class="p-8 max-w-6xl mx-auto space-y-6">
       <PageHeader :title="t('asset_stocks.title')" :subtitle="t('asset_stocks.subtitle')" :buttonText="t('asset_stocks.new')" @action="openCreate" />
 
+      <div class="w-full sm:max-w-xs">
+        <SearchInput v-model="search" :placeholder="t('common.search')" />
+      </div>
+
       <div class="bg-surface rounded-2xl border border-line overflow-hidden">
         <table class="w-full text-left text-sm">
           <thead>
             <tr class="text-faint font-semibold bg-surface-2/70 border-b border-line">
-              <th class="p-4 pl-5">{{ t('assets.code') }}</th>
-              <th class="p-4">{{ t('common.asset') }}</th>
-              <th class="p-4">{{ t('common.location') }}</th>
+              <th class="p-4 pl-5 th-sort" @click="toggleSort('code')">{{ t('assets.code') }}<TableSortIcon :active="sortKey === 'code'" :direction="sortDir" /></th>
+              <th class="p-4 th-sort" @click="toggleSort('asset')">{{ t('common.asset') }}<TableSortIcon :active="sortKey === 'asset'" :direction="sortDir" /></th>
+              <th class="p-4 th-sort" @click="toggleSort('location')">{{ t('common.location') }}<TableSortIcon :active="sortKey === 'location'" :direction="sortDir" /></th>
               <th class="p-4">{{ t('asset_stocks.reference') }}</th>
-              <th class="p-4">{{ t('asset_stocks.received_at') }}</th>
+              <th class="p-4 th-sort" @click="toggleSort('created_at')">{{ t('asset_stocks.received_at') }}<TableSortIcon :active="sortKey === 'created_at'" :direction="sortDir" /></th>
               <th class="p-4 pr-5 text-right">{{ t('common.actions') }}</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-line">
-            <tr v-for="r in receipts" :key="r.id" class="hover:bg-surface-2/50">
+            <tr v-for="r in sortedReceipts" :key="r.id" class="hover:bg-surface-2/50">
               <td class="p-4 pl-5 font-mono text-xs text-fg">{{ r.asset?.asset_code || t('common.n_a') }}</td>
               <td class="p-4 font-medium text-fg">{{ r.asset?.name || t('common.n_a') }}</td>
               <td class="p-4 text-muted">{{ r.to_location?.name || t('common.n_a') }}</td>
@@ -89,7 +102,7 @@ onMounted(() => {
                 </button>
               </td>
             </tr>
-            <tr v-if="!loading && !receipts.length">
+            <tr v-if="!loading && !sortedReceipts.length">
               <td colspan="6" class="p-8 text-center text-faint">{{ t('asset_stocks.empty') }}</td>
             </tr>
           </tbody>

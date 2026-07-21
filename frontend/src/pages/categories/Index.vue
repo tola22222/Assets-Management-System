@@ -6,12 +6,15 @@ import PageHeader from '../../components/ui/PageHeader.vue'
 import Modal from '../../components/ui/Modal.vue'
 import ConfirmDialog from '../../components/ui/ConfirmDialog.vue'
 import SearchInput from '../../components/ui/SearchInput.vue'
+import TableSortIcon from '../../components/ui/TableSortIcon.vue'
 import { useApiCrud } from '../../composables/useApiCrud'
 import { useTableSearch } from '../../composables/useTableSearch'
+import { useTableSort } from '../../composables/useTableSort'
 
 const { t } = useI18n()
 const { items: categories, loading, fetchAll, create, update, destroy } = useApiCrud('/categories', { entityName: t('categories.entity') })
-const { search, filtered } = useTableSearch(categories, ['name', 'short_name', 'description'])
+const { search, filtered: searched } = useTableSearch(categories, ['name', 'short_name', 'description'])
+const { sortKey, sortDir, toggleSort, sorted: filtered } = useTableSort(searched, { defaultKey: 'name', paths: { count: 'assets_count' } })
 
 const CATEGORY_CODES = ['MOV', 'FAF', 'COM', 'EQU']
 
@@ -67,9 +70,9 @@ onMounted(fetchAll)
           <table class="data-table">
             <thead>
               <tr>
-                <th>{{ t('common.name') }}</th>
-                <th>{{ t('categories.short_name') }}</th>
-                <th>{{ t('categories.assets_count') }}</th>
+                <th class="th-sort" @click="toggleSort('name')">{{ t('common.name') }}<TableSortIcon :active="sortKey === 'name'" :direction="sortDir" /></th>
+                <th class="th-sort" @click="toggleSort('short_name')">{{ t('categories.short_name') }}<TableSortIcon :active="sortKey === 'short_name'" :direction="sortDir" /></th>
+                <th class="th-sort" @click="toggleSort('count')">{{ t('categories.assets_count') }}<TableSortIcon :active="sortKey === 'count'" :direction="sortDir" /></th>
                 <th class="text-right">{{ t('common.actions') }}</th>
               </tr>
             </thead>

@@ -6,12 +6,15 @@ import PageHeader from '../../components/ui/PageHeader.vue'
 import Modal from '../../components/ui/Modal.vue'
 import ConfirmDialog from '../../components/ui/ConfirmDialog.vue'
 import SearchInput from '../../components/ui/SearchInput.vue'
+import TableSortIcon from '../../components/ui/TableSortIcon.vue'
 import { useApiCrud } from '../../composables/useApiCrud'
 import { useTableSearch } from '../../composables/useTableSearch'
+import { useTableSort } from '../../composables/useTableSort'
 
 const { t } = useI18n()
 const { items: suppliers, loading, fetchAll, create, update, destroy } = useApiCrud('/suppliers', { entityName: t('suppliers.entity') })
-const { search, filtered } = useTableSearch(suppliers, ['name', 'phone', 'address'])
+const { search, filtered: searched } = useTableSearch(suppliers, ['name', 'phone', 'address'])
+const { sortKey, sortDir, toggleSort, sorted: filtered } = useTableSort(searched, { defaultKey: 'name' })
 
 const showModal = ref(false)
 const editingId = ref(null)
@@ -58,7 +61,7 @@ onMounted(fetchAll)
           <table class="data-table">
             <thead>
               <tr>
-                <th>{{ t('common.name') }}</th>
+                <th class="th-sort" @click="toggleSort('name')">{{ t('common.name') }}<TableSortIcon :active="sortKey === 'name'" :direction="sortDir" /></th>
                 <th>{{ t('common.phone') }}</th>
                 <th>{{ t('common.address') }}</th>
                 <th class="text-right">{{ t('common.actions') }}</th>

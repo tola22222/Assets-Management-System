@@ -7,13 +7,21 @@ import PageHeader from '../../components/ui/PageHeader.vue'
 import Modal from '../../components/ui/Modal.vue'
 import ConfirmDialog from '../../components/ui/ConfirmDialog.vue'
 import SearchInput from '../../components/ui/SearchInput.vue'
+import TableSortIcon from '../../components/ui/TableSortIcon.vue'
 import { useApiCrud } from '../../composables/useApiCrud'
 import { useTableSearch } from '../../composables/useTableSearch'
+import { useTableFilter } from '../../composables/useTableFilter'
+import { useTableSort } from '../../composables/useTableSort'
 import { useToastStore } from '../../stores/toast'
 
 const { t } = useI18n()
 const { items: users, loading, fetchAll, create, update, destroy } = useApiCrud('/users', { entityName: t('users.entity') })
-const { search, filtered } = useTableSearch(users, ['name', 'email', 'role'])
+const { search, filtered: searched } = useTableSearch(users, ['name', 'email', 'role'])
+const { filters, filtered: matched, hasActiveFilters, clearFilters } = useTableFilter(searched, {
+  role: (row, v) => row.role === v,
+  is_locked: (row, v) => String(!!row.is_locked) === v,
+})
+const { sortKey, sortDir, toggleSort, sorted: filtered } = useTableSort(matched, { defaultKey: 'name' })
 const toast = useToastStore()
 
 const staffList = ref([])
@@ -109,8 +117,23 @@ onMounted(() => {
     <div class="p-8 max-w-5xl mx-auto space-y-6">
       <PageHeader :title="t('users.title')" :subtitle="t('users.subtitle')" :buttonText="t('users.new')" @action="openCreate" />
 
-      <div class="w-full sm:max-w-xs">
-        <SearchInput v-model="search" :placeholder="t('users.search_placeholder')" />
+      <div class="flex flex-col sm:flex-row sm:items-center gap-3 flex-wrap">
+        <div class="w-full sm:max-w-xs">
+          <SearchInput v-model="search" :placeholder="t('users.search_placeholder')" />
+        </div>
+        <select v-model="filters.role" class="filter-select">
+          <option value="">{{ t('users.role') }}: {{ t('common.all') }}</option>
+          <option value="operations_hr_manager">{{ t('users.role_admin') }}</option>
+          <option value="executive_director">{{ t('users.role_executive_director') }}</option>
+          <option value="finance_manager">{{ t('users.role_finance_manager') }}</option>
+          <option value="staff">{{ t('users.role_staff') }}</option>
+        </select>
+        <select v-model="filters.is_locked" class="filter-select">
+          <option value="">{{ t('common.status') }}: {{ t('common.all') }}</option>
+          <option value="false">{{ t('status.active') }}</option>
+          <option value="true">{{ t('status.locked') }}</option>
+        </select>
+        <button v-if="hasActiveFilters" @click="clearFilters" class="btn-subtle btn-sm">{{ t('common.clear_filters') }}</button>
       </div>
 
       <div class="table-wrap">
@@ -118,9 +141,9 @@ onMounted(() => {
           <table class="data-table">
             <thead>
               <tr>
-                <th>{{ t('common.name') }}</th>
-                <th>{{ t('common.email') }}</th>
-                <th>{{ t('users.role') }}</th>
+                <th class="th-sort" @click="toggleSort('name')">{{ t('common.name') }}<TableSortIcon :active="sortKey === 'name'" :direction="sortDir" /></th>
+                <th class="th-sort" @click="toggleSort('email')">{{ t('common.email') }}<TableSortIcon :active="sortKey === 'email'" :direction="sortDir" /></th>
+                <th class="th-sort" @click="toggleSort('role')">{{ t('users.role') }}<TableSortIcon :active="sortKey === 'role'" :direction="sortDir" /></th>
                 <th>{{ t('common.status') }}</th>
                 <th class="text-right">{{ t('common.actions') }}</th>
               </tr>

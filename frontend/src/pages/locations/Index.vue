@@ -6,13 +6,20 @@ import PageHeader from '../../components/ui/PageHeader.vue'
 import Modal from '../../components/ui/Modal.vue'
 import ConfirmDialog from '../../components/ui/ConfirmDialog.vue'
 import SearchInput from '../../components/ui/SearchInput.vue'
+import TableSortIcon from '../../components/ui/TableSortIcon.vue'
 import { useApiCrud } from '../../composables/useApiCrud'
 import { useTableSearch } from '../../composables/useTableSearch'
+import { useTableFilter } from '../../composables/useTableFilter'
+import { useTableSort } from '../../composables/useTableSort'
 import { useToastStore } from '../../stores/toast'
 
 const { t } = useI18n()
 const { items: locations, loading, fetchAll, create, update, destroy } = useApiCrud('/locations', { entityName: t('locations.entity') })
-const { search, filtered } = useTableSearch(locations, ['name', 'type', 'description'])
+const { search, filtered: searched } = useTableSearch(locations, ['name', 'type', 'description'])
+const { filters, filtered: matched, hasActiveFilters, clearFilters } = useTableFilter(searched, {
+  type: (row, v) => row.type === v,
+})
+const { sortKey, sortDir, toggleSort, sorted: filtered } = useTableSort(matched, { defaultKey: 'name', paths: { count: 'assets_count' } })
 const toast = useToastStore()
 
 const showModal = ref(false)
@@ -59,8 +66,17 @@ onMounted(fetchAll)
     <div class="p-8 max-w-5xl mx-auto space-y-6">
       <PageHeader :title="t('locations.title')" :subtitle="t('locations.subtitle')" :buttonText="t('locations.new')" @action="openCreate" />
 
-      <div class="w-full sm:max-w-xs">
-        <SearchInput v-model="search" :placeholder="t('locations.search_placeholder')" />
+      <div class="flex flex-col sm:flex-row sm:items-center gap-3 flex-wrap">
+        <div class="w-full sm:max-w-xs">
+          <SearchInput v-model="search" :placeholder="t('locations.search_placeholder')" />
+        </div>
+        <select v-model="filters.type" class="filter-select">
+          <option value="">{{ t('locations.type') }}: {{ t('common.all') }}</option>
+          <option value="office">{{ t('locations.type_office') }}</option>
+          <option value="lab">{{ t('locations.type_lab') }}</option>
+          <option value="program">{{ t('locations.type_program') }}</option>
+        </select>
+        <button v-if="hasActiveFilters" @click="clearFilters" class="btn-subtle btn-sm">{{ t('common.clear_filters') }}</button>
       </div>
 
       <div class="table-wrap">
@@ -68,9 +84,9 @@ onMounted(fetchAll)
           <table class="data-table">
             <thead>
               <tr>
-                <th>{{ t('common.name') }}</th>
-                <th>{{ t('locations.type') }}</th>
-                <th>{{ t('locations.stock_records') }}</th>
+                <th class="th-sort" @click="toggleSort('name')">{{ t('common.name') }}<TableSortIcon :active="sortKey === 'name'" :direction="sortDir" /></th>
+                <th class="th-sort" @click="toggleSort('type')">{{ t('locations.type') }}<TableSortIcon :active="sortKey === 'type'" :direction="sortDir" /></th>
+                <th class="th-sort" @click="toggleSort('count')">{{ t('locations.stock_records') }}<TableSortIcon :active="sortKey === 'count'" :direction="sortDir" /></th>
                 <th class="text-right">{{ t('common.actions') }}</th>
               </tr>
             </thead>

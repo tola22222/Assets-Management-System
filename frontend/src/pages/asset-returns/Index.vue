@@ -6,7 +6,12 @@ import AppLayout from '../../layouts/AppLayout.vue'
 import PageHeader from '../../components/ui/PageHeader.vue'
 import Modal from '../../components/ui/Modal.vue'
 import StatusBadge from '../../components/ui/StatusBadge.vue'
+import SearchInput from '../../components/ui/SearchInput.vue'
+import TableSortIcon from '../../components/ui/TableSortIcon.vue'
 import { useApiCrud } from '../../composables/useApiCrud'
+import { useTableSearch } from '../../composables/useTableSearch'
+import { useTableFilter } from '../../composables/useTableFilter'
+import { useTableSort } from '../../composables/useTableSort'
 import { useToastStore } from '../../stores/toast'
 import { useAuthStore } from '../../stores/auth'
 
@@ -14,6 +19,16 @@ const { t } = useI18n()
 const { items: returnsList, loading, fetchAll } = useApiCrud('/asset-returns', { entityName: t('asset_returns.entity') })
 const toast = useToastStore()
 const auth = useAuthStore()
+
+const { search, filtered: searched } = useTableSearch(returnsList, [(r) => r.asset?.name, (r) => r.asset?.asset_code, (r) => r.returned_by?.name])
+const { filters, filtered: matched, hasActiveFilters, clearFilters } = useTableFilter(searched, {
+  status: (row, v) => row.status === v,
+  condition: (row, v) => row.condition === v,
+})
+const { sortKey, sortDir, toggleSort, sorted: sortedReturns } = useTableSort(matched, {
+  defaultKey: 'return_date', defaultDir: 'desc',
+  paths: { asset: 'asset.name', returned_by: 'returned_by.name' },
+})
 
 const assignments = ref([])
 const showModal = ref(false)
@@ -68,19 +83,39 @@ onMounted(() => {
     <div class="p-8 max-w-6xl mx-auto space-y-6">
       <PageHeader :title="t('asset_returns.title')" :subtitle="t('asset_returns.subtitle')" :buttonText="t('asset_returns.new')" @action="openCreate" />
 
+      <div class="flex flex-col sm:flex-row sm:items-center gap-3 flex-wrap">
+        <div class="w-full sm:max-w-xs">
+          <SearchInput v-model="search" :placeholder="t('common.search')" />
+        </div>
+        <select v-model="filters.status" class="filter-select">
+          <option value="">{{ t('common.status') }}: {{ t('common.all') }}</option>
+          <option value="pending">{{ t('status.pending') }}</option>
+          <option value="approved">{{ t('status.approved') }}</option>
+          <option value="rejected">{{ t('status.rejected') }}</option>
+        </select>
+        <select v-model="filters.condition" class="filter-select">
+          <option value="">{{ t('asset_returns.condition') }}: {{ t('common.all') }}</option>
+          <option value="good">{{ t('asset_returns.condition_good') }}</option>
+          <option value="fair">{{ t('asset_returns.condition_fair') }}</option>
+          <option value="broken">{{ t('asset_returns.condition_broken') }}</option>
+          <option value="lost">{{ t('asset_returns.condition_lost') }}</option>
+        </select>
+        <button v-if="hasActiveFilters" @click="clearFilters" class="btn-subtle btn-sm">{{ t('common.clear_filters') }}</button>
+      </div>
+
       <div class="bg-surface rounded-2xl border border-line overflow-hidden">
         <table class="w-full text-left text-sm">
           <thead>
             <tr class="text-faint font-semibold bg-surface-2/70 border-b border-line">
-              <th class="p-4 pl-5">{{ t('common.asset') }}</th>
-              <th class="p-4">{{ t('asset_returns.condition') }}</th>
-              <th class="p-4">{{ t('asset_returns.returned_by') }}</th>
-              <th class="p-4">{{ t('common.status') }}</th>
+              <th class="p-4 pl-5 th-sort" @click="toggleSort('asset')">{{ t('common.asset') }}<TableSortIcon :active="sortKey === 'asset'" :direction="sortDir" /></th>
+              <th class="p-4 th-sort" @click="toggleSort('condition')">{{ t('asset_returns.condition') }}<TableSortIcon :active="sortKey === 'condition'" :direction="sortDir" /></th>
+              <th class="p-4 th-sort" @click="toggleSort('returned_by')">{{ t('asset_returns.returned_by') }}<TableSortIcon :active="sortKey === 'returned_by'" :direction="sortDir" /></th>
+              <th class="p-4 th-sort" @click="toggleSort('status')">{{ t('common.status') }}<TableSortIcon :active="sortKey === 'status'" :direction="sortDir" /></th>
               <th class="p-4 pr-5 text-right">{{ t('common.actions') }}</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-line">
-            <tr v-for="r in returnsList" :key="r.id" class="hover:bg-surface-2/50">
+            <tr v-for="r in sortedReturns" :key="r.id" class="hover:bg-surface-2/50">
               <td class="p-4 pl-5 font-medium text-fg">{{ r.asset?.name || t('common.n_a') }}</td>
               <td class="p-4 text-muted capitalize">{{ r.condition }}</td>
               <td class="p-4 text-muted">{{ r.returned_by?.name || t('common.n_a') }}</td>
@@ -98,7 +133,7 @@ onMounted(() => {
                 </template>
               </td>
             </tr>
-            <tr v-if="!loading && !returnsList.length">
+            <tr v-if="!loading && !sortedReturns.length">
               <td colspan="5" class="p-8 text-center text-faint">{{ t('asset_returns.empty') }}</td>
             </tr>
           </tbody>

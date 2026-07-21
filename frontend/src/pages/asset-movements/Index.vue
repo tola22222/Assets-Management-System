@@ -1,16 +1,29 @@
 <script setup>
-import { onMounted } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '../../layouts/AppLayout.vue'
 import PageHeader from '../../components/ui/PageHeader.vue'
 import StatusBadge from '../../components/ui/StatusBadge.vue'
 import ConfirmDialog from '../../components/ui/ConfirmDialog.vue'
+import SearchInput from '../../components/ui/SearchInput.vue'
+import TableSortIcon from '../../components/ui/TableSortIcon.vue'
 import { useApiCrud } from '../../composables/useApiCrud'
-import { ref } from 'vue'
+import { useTableSearch } from '../../composables/useTableSearch'
+import { useTableFilter } from '../../composables/useTableFilter'
+import { useTableSort } from '../../composables/useTableSort'
 
 const { t } = useI18n()
 const { items: movements, loading, fetchAll, destroy } = useApiCrud('/asset-movements', { entityName: t('asset_movements.title') })
 const deletingId = ref(null)
+
+const { search, filtered: searched } = useTableSearch(movements, [(m) => m.asset?.name, (m) => m.asset?.asset_code, 'reference_no'])
+const { filters, filtered: matched, hasActiveFilters, clearFilters } = useTableFilter(searched, {
+  movement_type: (row, v) => row.movement_type === v,
+})
+const { sortKey, sortDir, toggleSort, sorted: sortedMovements } = useTableSort(matched, {
+  defaultKey: 'created_at', defaultDir: 'desc',
+  paths: { asset: 'asset.name', from: 'from_location.name', to: 'to_location.name' },
+})
 
 function formatDate(v) {
   return v ? new Date(v).toLocaleString() : t('common.n_a')
@@ -29,21 +42,33 @@ onMounted(fetchAll)
     <div class="p-8 max-w-6xl mx-auto space-y-6">
       <PageHeader :title="t('asset_movements.title')" :subtitle="t('asset_movements.subtitle')" />
 
+      <div class="flex flex-col sm:flex-row sm:items-center gap-3 flex-wrap">
+        <div class="w-full sm:max-w-xs">
+          <SearchInput v-model="search" :placeholder="t('common.search')" />
+        </div>
+        <select v-model="filters.movement_type" class="filter-select">
+          <option value="">{{ t('asset_movements.type') }}: {{ t('common.all') }}</option>
+          <option value="stock_in">{{ t('status.stock_in') }}</option>
+          <option value="transfer">{{ t('status.transfer') }}</option>
+        </select>
+        <button v-if="hasActiveFilters" @click="clearFilters" class="btn-subtle btn-sm">{{ t('common.clear_filters') }}</button>
+      </div>
+
       <div class="bg-surface rounded-2xl border border-line overflow-hidden">
         <table class="w-full text-left text-sm">
           <thead>
             <tr class="text-faint font-semibold bg-surface-2/70 border-b border-line">
-              <th class="p-4 pl-5">{{ t('common.asset') }}</th>
-              <th class="p-4">{{ t('asset_movements.type') }}</th>
-              <th class="p-4">{{ t('asset_movements.from') }}</th>
-              <th class="p-4">{{ t('asset_movements.to') }}</th>
+              <th class="p-4 pl-5 th-sort" @click="toggleSort('asset')">{{ t('common.asset') }}<TableSortIcon :active="sortKey === 'asset'" :direction="sortDir" /></th>
+              <th class="p-4 th-sort" @click="toggleSort('movement_type')">{{ t('asset_movements.type') }}<TableSortIcon :active="sortKey === 'movement_type'" :direction="sortDir" /></th>
+              <th class="p-4 th-sort" @click="toggleSort('from')">{{ t('asset_movements.from') }}<TableSortIcon :active="sortKey === 'from'" :direction="sortDir" /></th>
+              <th class="p-4 th-sort" @click="toggleSort('to')">{{ t('asset_movements.to') }}<TableSortIcon :active="sortKey === 'to'" :direction="sortDir" /></th>
               <th class="p-4">{{ t('asset_movements.reference') }}</th>
-              <th class="p-4">{{ t('asset_movements.date') }}</th>
+              <th class="p-4 th-sort" @click="toggleSort('created_at')">{{ t('asset_movements.date') }}<TableSortIcon :active="sortKey === 'created_at'" :direction="sortDir" /></th>
               <th class="p-4 pr-5 text-right">{{ t('common.actions') }}</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-line">
-            <tr v-for="m in movements" :key="m.id" class="hover:bg-surface-2/50">
+            <tr v-for="m in sortedMovements" :key="m.id" class="hover:bg-surface-2/50">
               <td class="p-4 pl-5">
                 <p class="font-medium text-fg">{{ m.asset?.name || t('common.n_a') }}</p>
                 <p class="font-mono text-xs text-faint">{{ m.asset?.asset_code }}</p>
@@ -59,7 +84,7 @@ onMounted(fetchAll)
                 </button>
               </td>
             </tr>
-            <tr v-if="!loading && !movements.length">
+            <tr v-if="!loading && !sortedMovements.length">
               <td colspan="7" class="p-8 text-center text-faint">{{ t('asset_movements.empty') }}</td>
             </tr>
           </tbody>

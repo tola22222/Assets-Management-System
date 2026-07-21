@@ -6,7 +6,12 @@ import AppLayout from '../../layouts/AppLayout.vue'
 import PageHeader from '../../components/ui/PageHeader.vue'
 import Modal from '../../components/ui/Modal.vue'
 import StatusBadge from '../../components/ui/StatusBadge.vue'
+import SearchInput from '../../components/ui/SearchInput.vue'
+import TableSortIcon from '../../components/ui/TableSortIcon.vue'
 import { useApiCrud } from '../../composables/useApiCrud'
+import { useTableSearch } from '../../composables/useTableSearch'
+import { useTableFilter } from '../../composables/useTableFilter'
+import { useTableSort } from '../../composables/useTableSort'
 import { useToastStore } from '../../stores/toast'
 import { useAuthStore } from '../../stores/auth'
 
@@ -14,6 +19,15 @@ const { t } = useI18n()
 const { items: assignments, loading, fetchAll } = useApiCrud('/asset-assignments', { entityName: t('asset_assignments.entity') })
 const toast = useToastStore()
 const auth = useAuthStore()
+
+const { search, filtered: searched } = useTableSearch(assignments, [(a) => a.asset?.name, (a) => a.asset?.asset_code, 'recipient_name'])
+const { filters, filtered: matched, hasActiveFilters, clearFilters } = useTableFilter(searched, {
+  status: (row, v) => row.status === v,
+})
+const { sortKey, sortDir, toggleSort, sorted: sortedAssignments } = useTableSort(matched, {
+  defaultKey: 'assigned_date', defaultDir: 'desc',
+  paths: { asset: 'asset.name', location: 'location.name' },
+})
 
 const assets = ref([])
 const locations = ref([])
@@ -79,20 +93,34 @@ onMounted(() => {
     <div class="p-8 max-w-6xl mx-auto space-y-6">
       <PageHeader :title="t('asset_assignments.title')" :subtitle="t('asset_assignments.subtitle')" :buttonText="t('asset_assignments.new')" @action="openCreate" />
 
+      <div class="flex flex-col sm:flex-row sm:items-center gap-3 flex-wrap">
+        <div class="w-full sm:max-w-xs">
+          <SearchInput v-model="search" :placeholder="t('common.search')" />
+        </div>
+        <select v-model="filters.status" class="filter-select">
+          <option value="">{{ t('common.status') }}: {{ t('common.all') }}</option>
+          <option value="assigned">{{ t('status.assigned') }}</option>
+          <option value="active">{{ t('status.active') }}</option>
+          <option value="returned">{{ t('status.returned') }}</option>
+          <option value="overdue">{{ t('status.overdue') }}</option>
+        </select>
+        <button v-if="hasActiveFilters" @click="clearFilters" class="btn-subtle btn-sm">{{ t('common.clear_filters') }}</button>
+      </div>
+
       <div class="bg-surface rounded-2xl border border-line overflow-hidden">
         <table class="w-full text-left text-sm">
           <thead>
             <tr class="text-faint font-semibold bg-surface-2/70 border-b border-line">
-              <th class="p-4 pl-5">{{ t('common.asset') }}</th>
-              <th class="p-4">{{ t('asset_assignments.recipient') }}</th>
-              <th class="p-4">{{ t('common.location') }}</th>
-              <th class="p-4">{{ t('asset_assignments.qty') }}</th>
-              <th class="p-4">{{ t('common.status') }}</th>
+              <th class="p-4 pl-5 th-sort" @click="toggleSort('asset')">{{ t('common.asset') }}<TableSortIcon :active="sortKey === 'asset'" :direction="sortDir" /></th>
+              <th class="p-4 th-sort" @click="toggleSort('recipient_name')">{{ t('asset_assignments.recipient') }}<TableSortIcon :active="sortKey === 'recipient_name'" :direction="sortDir" /></th>
+              <th class="p-4 th-sort" @click="toggleSort('location')">{{ t('common.location') }}<TableSortIcon :active="sortKey === 'location'" :direction="sortDir" /></th>
+              <th class="p-4 th-sort" @click="toggleSort('quantity')">{{ t('asset_assignments.qty') }}<TableSortIcon :active="sortKey === 'quantity'" :direction="sortDir" /></th>
+              <th class="p-4 th-sort" @click="toggleSort('status')">{{ t('common.status') }}<TableSortIcon :active="sortKey === 'status'" :direction="sortDir" /></th>
               <th class="p-4 pr-5 text-right">{{ t('common.actions') }}</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-line">
-            <tr v-for="a in assignments" :key="a.id" class="hover:bg-surface-2/50">
+            <tr v-for="a in sortedAssignments" :key="a.id" class="hover:bg-surface-2/50">
               <td class="p-4 pl-5 font-medium text-fg">{{ a.asset?.name || t('common.n_a') }}</td>
               <td class="p-4 text-muted">{{ a.recipient_name }}</td>
               <td class="p-4 text-muted">{{ a.location?.name || t('common.n_a') }}</td>
@@ -111,7 +139,7 @@ onMounted(() => {
                 </template>
               </td>
             </tr>
-            <tr v-if="!loading && !assignments.length">
+            <tr v-if="!loading && !sortedAssignments.length">
               <td colspan="6" class="p-8 text-center text-faint">{{ t('asset_assignments.empty') }}</td>
             </tr>
           </tbody>

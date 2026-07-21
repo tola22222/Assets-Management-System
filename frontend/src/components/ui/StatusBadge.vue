@@ -15,6 +15,7 @@ const classes = {
   returned: 'badge-neutral',
   stock_in: 'badge-success',
   transfer: 'badge-info',
+  overdue: 'badge-danger',
 }
 </script>
 

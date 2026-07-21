@@ -2,6 +2,8 @@
 import { ref, onMounted } from 'vue'
 import http from '../../api/http'
 import AppLayout from '../../layouts/AppLayout.vue'
+import TableSortIcon from '../../components/ui/TableSortIcon.vue'
+import { useTableSort } from '../../composables/useTableSort'
 import { useToastStore } from '../../stores/toast'
 
 const toast = useToastStore()
@@ -9,6 +11,13 @@ const logs = ref([])
 const currentPage = ref(1)
 const lastPage = ref(1)
 const loading = ref(true)
+
+// Server-paginated (unlike every other list in the app) — this sort only
+// reorders the currently loaded page, not the full history.
+const { sortKey, sortDir, toggleSort, sorted: sortedLogs } = useTableSort(logs, {
+  defaultKey: 'created_at', defaultDir: 'desc',
+  paths: { user: 'user.name' },
+})
 
 async function loadPage(page = 1) {
   loading.value = true
@@ -40,15 +49,15 @@ onMounted(() => loadPage(1))
         <table class="w-full text-left text-sm">
           <thead>
             <tr class="text-faint font-semibold bg-surface-2/70 border-b border-line">
-              <th class="p-4 pl-5">User</th>
-              <th class="p-4">Action</th>
+              <th class="p-4 pl-5 th-sort" @click="toggleSort('user')">User<TableSortIcon :active="sortKey === 'user'" :direction="sortDir" /></th>
+              <th class="p-4 th-sort" @click="toggleSort('action')">Action<TableSortIcon :active="sortKey === 'action'" :direction="sortDir" /></th>
               <th class="p-4">Description</th>
-              <th class="p-4">Date</th>
+              <th class="p-4 th-sort" @click="toggleSort('created_at')">Date<TableSortIcon :active="sortKey === 'created_at'" :direction="sortDir" /></th>
               <th class="p-4 pr-5 text-right">Actions</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-line">
-            <tr v-for="log in logs" :key="log.id" class="hover:bg-surface-2/50">
+            <tr v-for="log in sortedLogs" :key="log.id" class="hover:bg-surface-2/50">
               <td class="p-4 pl-5 font-medium text-fg">{{ log.user?.name || 'System' }}</td>
               <td class="p-4 text-muted">{{ log.action }}</td>
               <td class="p-4 text-muted">{{ log.description }}</td>
