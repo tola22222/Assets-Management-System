@@ -8,7 +8,6 @@ use App\Models\AssetAssignment;
 use App\Models\AssetCategory;
 use App\Models\AssetDisposal;
 use App\Models\AssetReturn;
-use App\Models\AssetStock;
 use App\Models\AssetTransfer;
 use App\Models\AssetVerification;
 use App\Models\Location;
@@ -45,7 +44,8 @@ class DashboardController extends Controller
             ->sortByDesc('count')
             ->values();
 
-        $byLocation = AssetStock::select('location_id', DB::raw('sum(quantity) as total'))
+        $byLocation = Asset::select('location_id', DB::raw('count(*) as total'))
+            ->whereNotNull('location_id')
             ->with('location:id,name')
             ->groupBy('location_id')
             ->get()

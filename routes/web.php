@@ -167,6 +167,7 @@ Route::middleware('auth')->group(function () {
     // Reports
     Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
     Route::get('/reports/inventory', [ReportController::class, 'inventory'])->name('reports.inventory');
+    Route::get('/reports/by-model', [ReportController::class, 'byModel'])->name('reports.by-model');
     Route::get('/reports/assignments', [ReportController::class, 'assignments'])->name('reports.assignments');
     Route::get('/reports/transfers', [ReportController::class, 'transfers'])->name('reports.transfers');
     Route::get('/reports/verifications', [ReportController::class, 'verifications'])->name('reports.verifications');

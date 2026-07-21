@@ -34,7 +34,7 @@
                         <td class="p-4 hidden md:table-cell">
                             <span class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300">{{ ucfirst($location->type) }}</span>
                         </td>
-                        <td class="p-4 hidden md:table-cell font-medium text-gray-700 dark:text-gray-300">{{ $location->assetStocks_count ?? 0 }}</td>
+                        <td class="p-4 hidden md:table-cell font-medium text-gray-700 dark:text-gray-300">{{ $location->assets_count ?? 0 }}</td>
                         <td class="p-4 pr-5">
                             <div class="flex items-center justify-center gap-1.5">
                                 <button onclick="openModal('edit', {{ json_encode($location) }})"

@@ -37,10 +37,8 @@ class DashboardController extends Controller
             'total_staff' => Staff::count(),
             'assets_in_use' => AssetAssignment::where('status', 'active')->count(),
             'assets_available' => Asset::where('status', 'active')
-                ->whereDoesntHave('stocks', function ($q) {
-                    $q->where('quantity', '>', 0);
-                })->orWhereHas('stocks', function ($q) {
-                    $q->where('quantity', '>', 0);
+                ->whereDoesntHave('assignments', function ($q) {
+                    $q->whereIn('status', ['assigned', 'active']);
                 })->count(),
             'assets_lost' => Asset::where('condition', 'lost')->count(),
             'recent_assets' => Asset::with('category')->latest()->take(5)->get(),

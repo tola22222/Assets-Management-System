@@ -5,8 +5,10 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\AssetCategory;
+use App\Services\AssetCodeService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 
 class AssetCategoryController extends Controller
 {
@@ -19,7 +21,7 @@ class AssetCategoryController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255|unique:asset_categories,name',
-            'short_name' => 'nullable|string|max:10',
+            'short_name' => ['nullable', 'string', Rule::in(AssetCodeService::CATEGORY_CODES)],
             'description' => 'nullable|string',
         ]);
 
@@ -38,7 +40,7 @@ class AssetCategoryController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255|unique:asset_categories,name,' . $category->id,
-            'short_name' => 'nullable|string|max:10',
+            'short_name' => ['nullable', 'string', Rule::in(AssetCodeService::CATEGORY_CODES)],
             'description' => 'nullable|string',
         ]);
 

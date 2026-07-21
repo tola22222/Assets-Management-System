@@ -120,73 +120,86 @@ onMounted(() => {
     </div>
 
     <Modal v-if="showModal" :title="t('asset_assignments.modal_title')" @close="showModal = false">
-      <form @submit.prevent="handleSubmit" class="p-6 space-y-4">
-        <div class="space-y-1.5">
-          <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_assignments.asset_required') }}</label>
-          <select v-model="form.asset_id" required class="input">
-            <option value="">{{ t('common.select_asset') }}</option>
-            <option v-for="a in assets" :key="a.id" :value="a.id">{{ a.name }} ({{ a.asset_code }})</option>
-          </select>
-        </div>
-        <div class="grid grid-cols-2 gap-4">
+      <form @submit.prevent="handleSubmit">
+        <div class="p-6 space-y-4">
           <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_assignments.assign_to') }}</label>
-            <select v-model="form.assigned_to_type" class="input">
-              <option value="staff">{{ t('asset_assignments.staff') }}</option>
-              <option value="program">{{ t('asset_assignments.program') }}</option>
+            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_assignments.asset_required') }}</label>
+            <select v-model="form.asset_id" required class="input">
+              <option value="">{{ t('common.select_asset') }}</option>
+              <option v-for="a in assets" :key="a.id" :value="a.id">{{ a.name }} ({{ a.asset_code }})</option>
             </select>
           </div>
-          <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_assignments.recipient_required') }}</label>
-            <select v-model="form.assigned_to_id" required class="input">
-              <option value="">{{ t('asset_assignments.select_recipient') }}</option>
-              <option v-for="r in (form.assigned_to_type === 'staff' ? staffList : programs)" :key="r.id" :value="r.id">{{ r.full_name || r.name }}</option>
-            </select>
+          <div class="grid grid-cols-2 gap-4">
+            <div class="space-y-1.5">
+              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_assignments.assign_to') }}</label>
+              <select v-model="form.assigned_to_type" class="input">
+                <option value="staff">{{ t('asset_assignments.staff') }}</option>
+                <option value="program">{{ t('asset_assignments.program') }}</option>
+              </select>
+            </div>
+            <div class="space-y-1.5">
+              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_assignments.recipient_required') }}</label>
+              <select v-model="form.assigned_to_id" required class="input">
+                <option value="">{{ t('asset_assignments.select_recipient') }}</option>
+                <option v-for="r in (form.assigned_to_type === 'staff' ? staffList : programs)" :key="r.id" :value="r.id">{{ r.full_name || r.name }}</option>
+              </select>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div class="space-y-1.5">
+              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_assignments.location_required') }}</label>
+              <select v-model="form.location_id" required class="input">
+                <option value="">{{ t('common.select_location') }}</option>
+                <option v-for="l in locations" :key="l.id" :value="l.id">{{ l.name }}</option>
+              </select>
+            </div>
+            <div class="space-y-1.5">
+              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_assignments.quantity_required') }}</label>
+              <input v-model.number="form.quantity" type="number" min="1" required class="input" />
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div class="space-y-1.5">
+              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_assignments.assigned_date') }}</label>
+              <input v-model="form.assigned_date" type="date" required class="input" />
+            </div>
+            <div class="space-y-1.5">
+              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_assignments.due_date') }}</label>
+              <input v-model="form.due_date" type="date" class="input" />
+            </div>
           </div>
         </div>
-        <div class="grid grid-cols-2 gap-4">
-          <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_assignments.location_required') }}</label>
-            <select v-model="form.location_id" required class="input">
-              <option value="">{{ t('common.select_location') }}</option>
-              <option v-for="l in locations" :key="l.id" :value="l.id">{{ l.name }}</option>
-            </select>
-          </div>
-          <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_assignments.quantity_required') }}</label>
-            <input v-model.number="form.quantity" type="number" min="1" required class="input" />
-          </div>
+        <div class="flex items-center gap-3 border-t border-line px-6 py-4">
+          <button type="submit" class="btn-primary">
+            <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+            {{ t('asset_assignments.assign_button') }}
+          </button>
+          <button type="button" class="btn-ghost" @click="showModal = false">{{ t('common.cancel') }}</button>
         </div>
-        <div class="grid grid-cols-2 gap-4">
-          <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_assignments.assigned_date') }}</label>
-            <input v-model="form.assigned_date" type="date" required class="input" />
-          </div>
-          <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_assignments.due_date') }}</label>
-            <input v-model="form.due_date" type="date" class="input" />
-          </div>
-        </div>
-        <button type="submit" class="btn-primary w-full">{{ t('asset_assignments.assign_button') }}</button>
       </form>
     </Modal>
 
     <Modal v-if="returningId" :title="t('asset_assignments.return_title')" @close="returningId = null">
-      <form @submit.prevent="submitReturn" class="p-6 space-y-4">
-        <div class="space-y-1.5">
-          <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_assignments.condition_required') }}</label>
-          <select v-model="returnCondition" class="input">
-            <option value="good">{{ t('asset_assignments.condition_good') }}</option>
-            <option value="fair">{{ t('asset_assignments.condition_fair') }}</option>
-            <option value="broken">{{ t('asset_assignments.condition_broken') }}</option>
-            <option value="lost">{{ t('asset_assignments.condition_lost') }}</option>
-          </select>
+      <form @submit.prevent="submitReturn">
+        <div class="p-6 space-y-4">
+          <div class="space-y-1.5">
+            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_assignments.condition_required') }}</label>
+            <select v-model="returnCondition" class="input">
+              <option value="good">{{ t('asset_assignments.condition_good') }}</option>
+              <option value="fair">{{ t('asset_assignments.condition_fair') }}</option>
+              <option value="broken">{{ t('asset_assignments.condition_broken') }}</option>
+              <option value="lost">{{ t('asset_assignments.condition_lost') }}</option>
+            </select>
+          </div>
+          <div class="space-y-1.5">
+            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_assignments.remark') }}</label>
+            <textarea v-model="returnRemark" rows="2" class="input"></textarea>
+          </div>
         </div>
-        <div class="space-y-1.5">
-          <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_assignments.remark') }}</label>
-          <textarea v-model="returnRemark" rows="2" class="input"></textarea>
+        <div class="flex items-center gap-3 border-t border-line px-6 py-4">
+          <button type="submit" class="btn-primary">{{ t('asset_assignments.confirm_return') }}</button>
+          <button type="button" class="btn-ghost" @click="returningId = null">{{ t('common.cancel') }}</button>
         </div>
-        <button type="submit" class="btn-primary w-full">{{ t('asset_assignments.confirm_return') }}</button>
       </form>
     </Modal>
   </AppLayout>

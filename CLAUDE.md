@@ -19,7 +19,7 @@ Most domain features exist in both. When changing behavior, check whether the co
 - `composer test` or `php artisan test` — runs the PHPUnit suite (clears config first). Tests use **sqlite `:memory:`** (see `phpunit.xml`), not the MySQL dev DB.
 - Run one test: `php artisan test --filter=SomeTest` or `php artisan test tests/Feature/SomeTest.php`.
 - `./vendor/bin/pint` — code style (Laravel Pint). CI style config is `.styleci.yml`.
-- `php artisan migrate` / `php artisan db:seed` — schema and seed data. Dev DB is MySQL (`DB_DATABASE` in `.env`).
+- `php artisan migrate` / `php artisan db:seed` — schema and seed data. Local dev DB defaults to **sqlite** (`database/database.sqlite`, per `.env.example`'s `DB_CONNECTION=sqlite`) — not MySQL as you might expect from the deployment setup; production (`docker-compose.yml`, written inline by the deploy workflow) runs MySQL 8. Check `.env`'s actual `DB_CONNECTION` before assuming either.
 
 ### Vue SPA (run from `frontend/`)
 - `npm run dev` — Vite dev server on `:5173` with HMR, proxies `/api` → `http://127.0.0.1:8000` (see `frontend/vite.config.js`). Run `php artisan serve` alongside it. Use this while actively developing the SPA.
@@ -49,6 +49,9 @@ Note: there are **two `package.json` / Vite setups**. The root one builds Blade 
 
 ### Domain workflow modules
 The core entities are `Asset`, `AssetCategory`, `Location`, `AssetStock`, plus workflow entities that carry approve/reject/complete state transitions: `AssetAssignment`, `AssetTransfer`, `AssetReturn`, `AssetVerification`, `AssetDisposal`, `AssetMovement`. Supporting: `Program`, `Staff`, `Supplier`, `Notification`, `ActivityLog`, `Setting`, `Report`. Workflow actions are custom POST routes on top of the resource routes (e.g. `asset-transfers/{id}/approve`), present in both `web.php` and `api.php`.
+
+### Orphaned legacy code — not wired into any route
+`StockTransferController` (+ its `StockTransfer`/`StockTransferItem` models), `InventoryController`, and `AssetReportController` exist under `app/Http/Controllers/` but have **no entries in `routes/web.php` or `routes/api.php`** — they predate the current `AssetTransfer`/`AssetMovement` workflow and were superseded but never deleted. Likewise the `Role` model (roles are a `users.role` string, see below) and `AssetAudit` model have no live callers. Don't assume a match on these names means the feature is reachable — grep the route files to confirm before building on top of them.
 
 ### SPA structure (`frontend/src/`)
 - `api/http.js` — the single axios instance (baseURL `/api`, injects bearer token, redirects to login on 401).

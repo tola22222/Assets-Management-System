@@ -20,18 +20,20 @@
                 <tr>
                     <th class="px-6 py-3 text-xs font-bold text-slate-500 uppercase">Asset Code</th>
                     <th class="px-6 py-3 text-xs font-bold text-slate-500 uppercase">Name</th>
-                    <th class="px-6 py-3 text-xs font-bold text-slate-500 uppercase">Quantity</th>
+                    <th class="px-6 py-3 text-xs font-bold text-slate-500 uppercase">Category</th>
+                    <th class="px-6 py-3 text-xs font-bold text-slate-500 uppercase">Status</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-slate-50">
-                @forelse($assets as $stock)
+                @forelse($assets as $asset)
                 <tr>
-                    <td class="px-6 py-3 font-mono text-sm text-slate-500">{{ $stock->asset->asset_code ?? 'N/A' }}</td>
-                    <td class="px-6 py-3 font-bold text-slate-700">{{ $stock->asset->name ?? 'N/A' }}</td>
-                    <td class="px-6 py-3 text-sm font-bold text-slate-700">{{ $stock->quantity }}</td>
+                    <td class="px-6 py-3 font-mono text-sm text-slate-500">{{ $asset->asset_code }}</td>
+                    <td class="px-6 py-3 font-bold text-slate-700">{{ $asset->name }}</td>
+                    <td class="px-6 py-3 text-sm text-slate-600">{{ $asset->category->name ?? 'N/A' }}</td>
+                    <td class="px-6 py-3 text-sm font-bold text-slate-700">{{ ucfirst($asset->status) }}</td>
                 </tr>
                 @empty
-                <tr><td colspan="3" class="px-6 py-10 text-center text-slate-400">No assets at this location.</td></tr>
+                <tr><td colspan="4" class="px-6 py-10 text-center text-slate-400">No assets at this location.</td></tr>
                 @endforelse
             </tbody>
         </table>

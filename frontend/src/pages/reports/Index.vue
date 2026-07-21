@@ -5,6 +5,7 @@ import AppLayout from '../../layouts/AppLayout.vue'
 
 const reportTypes = [
   { key: 'inventory', label: 'Inventory' },
+  { key: 'by-model', label: 'Assets by Model' },
   { key: 'assignments', label: 'Assignments' },
   { key: 'transfers', label: 'Transfers' },
   { key: 'verifications', label: 'Verifications' },
@@ -28,9 +29,16 @@ const columns = {
   returns: [['asset', 'Asset', (r) => r.asset?.name], ['condition', 'Condition'], ['status', 'Status']],
   disposed: [['asset_code', 'Code'], ['name', 'Name'], ['condition', 'Condition']],
   lost: [['asset_code', 'Code'], ['name', 'Name'], ['updated_at', 'Last Updated']],
-  locations: [['name', 'Name'], ['type', 'Type'], ['asset_stocks_count', 'Stock Records']],
+  locations: [['name', 'Name'], ['type', 'Type'], ['assets_count', 'Assets']],
   'qr-scans': [['message', 'Scan'], ['created_at', 'Date']],
   'data-completeness': [['asset_code', 'Code'], ['name', 'Name'], ['category', 'Category', (r) => r.category?.name], ['missing_fields', 'Missing Fields']],
+  'by-model': [['name', 'Model'], ['category', 'Category', (r) => r.category?.name], ['total', 'Total Units'], ['stock_level', 'Stock Level']],
+}
+
+const STOCK_LEVEL_STYLES = {
+  high: 'bg-emerald-50 text-emerald-700',
+  medium: 'bg-amber-50 text-amber-700',
+  low: 'bg-red-50 text-red-700',
 }
 
 async function load() {
@@ -93,7 +101,12 @@ onMounted(load)
           </thead>
           <tbody class="divide-y divide-line">
             <tr v-for="(row, i) in rows" :key="i" class="hover:bg-surface-2/50">
-              <td v-for="col in columns[selected]" :key="col[0]" class="p-4 pl-5 first:pl-5 text-muted">{{ cell(row, col) }}</td>
+              <td v-for="col in columns[selected]" :key="col[0]" class="p-4 pl-5 first:pl-5 text-muted">
+                <span v-if="col[0] === 'stock_level'" class="px-2.5 py-1 rounded-full text-xs font-bold capitalize" :class="STOCK_LEVEL_STYLES[cell(row, col)] ?? ''">
+                  {{ cell(row, col) }}
+                </span>
+                <template v-else>{{ cell(row, col) }}</template>
+              </td>
             </tr>
             <tr v-if="!loading && !rows.length">
               <td :colspan="columns[selected].length" class="p-8 text-center text-faint">No data for this report.</td>

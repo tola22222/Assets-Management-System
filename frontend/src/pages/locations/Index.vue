@@ -78,7 +78,7 @@ onMounted(fetchAll)
               <tr v-for="loc in filtered" :key="loc.id">
                 <td class="font-medium text-fg">{{ loc.name }}</td>
                 <td class="capitalize">{{ loc.type }}</td>
-                <td>{{ loc.asset_stocks_count ?? 0 }}</td>
+                <td>{{ loc.assets_count ?? 0 }}</td>
                 <td class="text-right">
                   <div class="flex items-center justify-end gap-1.5">
                     <button @click="openEdit(loc)" title="Edit" class="w-7 h-7 rounded-lg bg-brand text-white flex items-center justify-center hover:bg-brand-dark transition">
@@ -100,26 +100,32 @@ onMounted(fetchAll)
     </div>
 
     <Modal v-if="showModal" :title="editingId ? t('locations.edit_title') : t('locations.create_title')" @close="showModal = false">
-      <form @submit.prevent="handleSubmit" class="p-6 space-y-4">
-        <div class="space-y-1.5">
-          <label class="text-xs font-semibold text-muted tracking-wide">{{ t('locations.name_required') }}</label>
-          <input v-model="form.name" required class="input" />
+      <form @submit.prevent="handleSubmit">
+        <div class="p-6 space-y-4">
+          <div class="space-y-1.5">
+            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('locations.name_required') }}</label>
+            <input v-model="form.name" required class="input" />
+          </div>
+          <div class="space-y-1.5">
+            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('locations.type_required') }}</label>
+            <select v-model="form.type" class="input">
+              <option value="office">{{ t('locations.type_office') }}</option>
+              <option value="lab">{{ t('locations.type_lab') }}</option>
+              <option value="program">{{ t('locations.type_program') }}</option>
+            </select>
+          </div>
+          <div class="space-y-1.5">
+            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('common.description') }}</label>
+            <textarea v-model="form.description" rows="2" class="input"></textarea>
+          </div>
         </div>
-        <div class="space-y-1.5">
-          <label class="text-xs font-semibold text-muted tracking-wide">{{ t('locations.type_required') }}</label>
-          <select v-model="form.type" class="input">
-            <option value="office">{{ t('locations.type_office') }}</option>
-            <option value="lab">{{ t('locations.type_lab') }}</option>
-            <option value="program">{{ t('locations.type_program') }}</option>
-          </select>
+        <div class="flex items-center gap-3 border-t border-line px-6 py-4">
+          <button type="submit" class="btn-primary">
+            <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+            {{ editingId ? t('locations.save_changes') : t('locations.create_button') }}
+          </button>
+          <button type="button" class="btn-ghost" @click="showModal = false">{{ t('common.cancel') }}</button>
         </div>
-        <div class="space-y-1.5">
-          <label class="text-xs font-semibold text-muted tracking-wide">{{ t('common.description') }}</label>
-          <textarea v-model="form.description" rows="2" class="input"></textarea>
-        </div>
-        <button type="submit" class="btn-primary w-full">
-          {{ editingId ? t('locations.save_changes') : t('locations.create_button') }}
-        </button>
       </form>
     </Modal>
 

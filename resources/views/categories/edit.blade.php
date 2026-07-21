@@ -13,7 +13,13 @@
             </div>
             <div>
                 <label class="block text-sm font-bold text-slate-700 mb-1">Short Name</label>
-                <input type="text" name="short_name" value="{{ $category->short_name }}" class="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-brand focus:border-brand outline-none">
+                <select name="short_name" class="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-brand focus:border-brand outline-none">
+                    <option value="">-- Select a code --</option>
+                    @foreach ($categoryCodes as $code)
+                        <option value="{{ $code }}" @selected(old('short_name', $category->short_name) === $code)>{{ $code }}</option>
+                    @endforeach
+                </select>
+                <p class="text-xs text-slate-500 mt-1">This is the code used in asset tags (e.g. PEY-SR-MOV-0001), per the Asset Checking &amp; Counting Manual.</p>
             </div>
             <div>
                 <label class="block text-sm font-bold text-slate-700 mb-1">Description</label>

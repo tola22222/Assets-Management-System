@@ -78,8 +78,14 @@
                 </div>
                 <div class="space-y-1.5">
                     <label class="text-xs font-semibold text-gray-700 dark:text-gray-300 tracking-wide">Short Name <span class="text-red-500">*</span></label>
-                    <input type="text" name="short_name" id="cat_short_name" placeholder="e.g. LAPTOP, FURNITURE" required
-                        class="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-brand transition placeholder-gray-300 dark:placeholder-gray-500 dark:text-gray-200">
+                    <select name="short_name" id="cat_short_name" required
+                        class="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-brand transition dark:text-gray-200">
+                        <option value="">-- Select a code --</option>
+                        @foreach ($categoryCodes as $code)
+                            <option value="{{ $code }}">{{ $code }}</option>
+                        @endforeach
+                    </select>
+                    <p class="text-xs text-gray-400 dark:text-gray-500">The code used in asset tags (e.g. PEY-SR-MOV-0001), per the Asset Checking &amp; Counting Manual.</p>
                 </div>
                 <div class="space-y-1.5">
                     <label class="text-xs font-semibold text-gray-700 dark:text-gray-300 tracking-wide">Description</label>

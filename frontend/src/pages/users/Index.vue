@@ -163,54 +163,65 @@ onMounted(() => {
     </div>
 
     <Modal v-if="showModal" :title="editingId ? t('users.edit_title') : t('users.create_title')" @close="showModal = false">
-      <form @submit.prevent="handleSubmit" class="p-6 space-y-4">
-        <div class="space-y-1.5">
-          <label class="text-xs font-semibold text-muted tracking-wide">{{ t('users.name_required') }}</label>
-          <input v-model="form.name" required class="input" />
-        </div>
-        <div class="space-y-1.5">
-          <label class="text-xs font-semibold text-muted tracking-wide">{{ t('users.email_required') }}</label>
-          <input v-model="form.email" type="email" required class="input" />
-        </div>
-        <div v-if="!editingId" class="space-y-1.5">
-          <label class="text-xs font-semibold text-muted tracking-wide">{{ t('users.password') }}</label>
-          <input v-model="form.password" type="password" minlength="8" required class="input" />
-        </div>
-        <div class="grid grid-cols-2 gap-4">
+      <form @submit.prevent="handleSubmit">
+        <div class="p-6 space-y-4">
           <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('users.role_required') }}</label>
-            <select v-model="form.role" class="input">
-              <option value="staff">{{ t('users.role_staff') }}</option>
-              <option value="operations_hr_manager">{{ t('users.role_admin') }}</option>
-              <option value="executive_director">{{ t('users.role_executive_director') }}</option>
-              <option value="finance_manager">{{ t('users.role_finance_manager') }}</option>
-            </select>
+            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('users.name_required') }}</label>
+            <input v-model="form.name" required class="input" />
           </div>
           <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('users.link_to_staff') }}</label>
-            <select v-model="form.staff_id" class="input">
-              <option value="">{{ t('users.none') }}</option>
-              <option v-for="s in staffList" :key="s.id" :value="s.id">{{ s.full_name }}</option>
-            </select>
+            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('users.email_required') }}</label>
+            <input v-model="form.email" type="email" required class="input" />
+          </div>
+          <div v-if="!editingId" class="space-y-1.5">
+            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('users.password') }}</label>
+            <input v-model="form.password" type="password" minlength="8" required class="input" />
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div class="space-y-1.5">
+              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('users.role_required') }}</label>
+              <select v-model="form.role" class="input">
+                <option value="staff">{{ t('users.role_staff') }}</option>
+                <option value="operations_hr_manager">{{ t('users.role_admin') }}</option>
+                <option value="executive_director">{{ t('users.role_executive_director') }}</option>
+                <option value="finance_manager">{{ t('users.role_finance_manager') }}</option>
+              </select>
+            </div>
+            <div class="space-y-1.5">
+              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('users.link_to_staff') }}</label>
+              <select v-model="form.staff_id" class="input">
+                <option value="">{{ t('users.none') }}</option>
+                <option v-for="s in staffList" :key="s.id" :value="s.id">{{ s.full_name }}</option>
+              </select>
+            </div>
           </div>
         </div>
-        <button type="submit" class="btn-primary w-full">
-          {{ editingId ? t('users.save_changes') : t('users.create_button') }}
-        </button>
+        <div class="flex items-center gap-3 border-t border-line px-6 py-4">
+          <button type="submit" class="btn-primary">
+            <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+            {{ editingId ? t('users.save_changes') : t('users.create_button') }}
+          </button>
+          <button type="button" class="btn-ghost" @click="showModal = false">{{ t('common.cancel') }}</button>
+        </div>
       </form>
     </Modal>
 
     <Modal v-if="resettingId" :title="t('users.reset_password_title')" @close="resettingId = null">
-      <form @submit.prevent="submitPasswordReset" class="p-6 space-y-4">
-        <div class="space-y-1.5">
-          <label class="text-xs font-semibold text-muted tracking-wide">{{ t('users.new_password') }}</label>
-          <input v-model="newPassword" type="password" minlength="8" required class="input" />
+      <form @submit.prevent="submitPasswordReset">
+        <div class="p-6 space-y-4">
+          <div class="space-y-1.5">
+            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('users.new_password') }}</label>
+            <input v-model="newPassword" type="password" minlength="8" required class="input" />
+          </div>
+          <div class="space-y-1.5">
+            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('users.confirm_password') }}</label>
+            <input v-model="newPasswordConfirm" type="password" minlength="8" required class="input" />
+          </div>
         </div>
-        <div class="space-y-1.5">
-          <label class="text-xs font-semibold text-muted tracking-wide">{{ t('users.confirm_password') }}</label>
-          <input v-model="newPasswordConfirm" type="password" minlength="8" required class="input" />
+        <div class="flex items-center gap-3 border-t border-line px-6 py-4">
+          <button type="submit" class="btn-primary">{{ t('users.reset_password_title') }}</button>
+          <button type="button" class="btn-ghost" @click="resettingId = null">{{ t('common.cancel') }}</button>
         </div>
-        <button type="submit" class="btn-primary w-full">{{ t('users.reset_password_title') }}</button>
       </form>
     </Modal>
 

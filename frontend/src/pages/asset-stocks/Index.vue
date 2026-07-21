@@ -98,58 +98,66 @@ onMounted(() => {
     </div>
 
     <Modal v-if="showModal" :title="t('asset_stocks.new')" wide @close="showModal = false">
-      <form @submit.prevent="handleSubmit" class="p-6 space-y-4">
-        <p class="text-xs text-muted">{{ t('asset_stocks.hint') }}</p>
-        <div class="space-y-1.5">
-          <label class="text-xs font-semibold text-muted tracking-wide">{{ t('assets.name_required') }} <span class="text-red-500">*</span></label>
-          <input v-model="form.name" required class="input" />
+      <form @submit.prevent="handleSubmit">
+        <div class="p-6 space-y-4">
+          <p class="text-xs text-muted">{{ t('asset_stocks.hint') }}</p>
+          <div class="space-y-1.5">
+            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('assets.name_required') }} <span class="text-red-500">*</span></label>
+            <input v-model="form.name" required class="input" />
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div class="space-y-1.5">
+              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('assets.category_required') }} <span class="text-red-500">*</span></label>
+              <select v-model="form.category_id" required class="input">
+                <option value="">{{ t('assets.select_category') }}</option>
+                <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option>
+              </select>
+            </div>
+            <div class="space-y-1.5">
+              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_stocks.location_required') }}</label>
+              <select v-model="form.location_id" required class="input">
+                <option value="">{{ t('common.select_location') }}</option>
+                <option v-for="l in locations" :key="l.id" :value="l.id">{{ l.name }}</option>
+              </select>
+            </div>
+            <div class="space-y-1.5">
+              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_stocks.quantity_required') }}</label>
+              <input v-model.number="form.quantity" type="number" min="1" max="200" required class="input" />
+            </div>
+            <div class="space-y-1.5">
+              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('assets.brand') }}</label>
+              <input v-model="form.brand" class="input" />
+            </div>
+            <div class="space-y-1.5">
+              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('assets.model') }}</label>
+              <input v-model="form.model" class="input" />
+            </div>
+            <div class="space-y-1.5">
+              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('assets.purchase_date') }}</label>
+              <input v-model="form.purchase_date" type="date" class="input" />
+            </div>
+            <div class="space-y-1.5">
+              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('assets.purchase_price') }}</label>
+              <input v-model="form.purchase_price" type="number" step="0.01" class="input" />
+            </div>
+            <div class="space-y-1.5">
+              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('assets.condition') }}</label>
+              <select v-model="form.condition" class="input">
+                <option value="good">{{ t('assets.condition_good') }}</option>
+                <option value="fair">{{ t('assets.condition_fair') }}</option>
+                <option value="broken">{{ t('assets.condition_broken') }}</option>
+                <option value="lost">{{ t('assets.condition_lost') }}</option>
+              </select>
+            </div>
+          </div>
         </div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('assets.category_required') }} <span class="text-red-500">*</span></label>
-            <select v-model="form.category_id" required class="input">
-              <option value="">{{ t('assets.select_category') }}</option>
-              <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option>
-            </select>
-          </div>
-          <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_stocks.location_required') }}</label>
-            <select v-model="form.location_id" required class="input">
-              <option value="">{{ t('common.select_location') }}</option>
-              <option v-for="l in locations" :key="l.id" :value="l.id">{{ l.name }}</option>
-            </select>
-          </div>
-          <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_stocks.quantity_required') }}</label>
-            <input v-model.number="form.quantity" type="number" min="1" max="200" required class="input" />
-          </div>
-          <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('assets.brand') }}</label>
-            <input v-model="form.brand" class="input" />
-          </div>
-          <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('assets.model') }}</label>
-            <input v-model="form.model" class="input" />
-          </div>
-          <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('assets.purchase_date') }}</label>
-            <input v-model="form.purchase_date" type="date" class="input" />
-          </div>
-          <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('assets.purchase_price') }}</label>
-            <input v-model="form.purchase_price" type="number" step="0.01" class="input" />
-          </div>
-          <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('assets.condition') }}</label>
-            <select v-model="form.condition" class="input">
-              <option value="good">{{ t('assets.condition_good') }}</option>
-              <option value="fair">{{ t('assets.condition_fair') }}</option>
-              <option value="broken">{{ t('assets.condition_broken') }}</option>
-              <option value="lost">{{ t('assets.condition_lost') }}</option>
-            </select>
-          </div>
+        <div class="flex items-center gap-3 border-t border-line px-6 py-4">
+          <button type="submit" :disabled="submitting" class="btn-primary">
+            <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+            {{ t('asset_stocks.save') }}
+          </button>
+          <button type="button" class="btn-ghost" @click="showModal = false">{{ t('common.cancel') }}</button>
         </div>
-        <button type="submit" :disabled="submitting" class="btn-primary w-full">{{ t('asset_stocks.save') }}</button>
       </form>
     </Modal>
 

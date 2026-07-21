@@ -129,45 +129,51 @@ onMounted(fetchAll)
     </div>
 
     <Modal v-if="showModal" :title="editingId ? t('staff.edit_title') : t('staff.create_title')" @close="showModal = false">
-      <form @submit.prevent="handleSubmit" class="p-6 space-y-4">
-        <div class="space-y-1.5">
-          <label class="text-xs font-semibold text-muted tracking-wide">{{ t('staff.full_name') }}</label>
-          <input v-model="form.full_name" required class="input" />
-        </div>
-        <div class="grid grid-cols-2 gap-4">
+      <form @submit.prevent="handleSubmit">
+        <div class="p-6 space-y-4">
           <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('common.email') }}</label>
-            <input v-model="form.email" type="email" class="input" />
+            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('staff.full_name') }}</label>
+            <input v-model="form.full_name" required class="input" />
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div class="space-y-1.5">
+              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('common.email') }}</label>
+              <input v-model="form.email" type="email" class="input" />
+            </div>
+            <div class="space-y-1.5">
+              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('common.phone') }}</label>
+              <input v-model="form.phone" class="input" />
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div class="space-y-1.5">
+              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('staff.position') }}</label>
+              <input v-model="form.position" class="input" />
+            </div>
+            <div class="space-y-1.5">
+              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('staff.hire_date') }}</label>
+              <input v-model="form.hire_date" type="date" class="input" />
+            </div>
+          </div>
+          <div v-if="editingId" class="space-y-1.5">
+            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('staff.status_required') }}</label>
+            <select v-model="form.status" class="input">
+              <option value="active">{{ t('staff.status_active') }}</option>
+              <option value="inactive">{{ t('staff.status_inactive') }}</option>
+            </select>
           </div>
           <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('common.phone') }}</label>
-            <input v-model="form.phone" class="input" />
+            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('staff.photo') }}</label>
+            <input type="file" accept="image/jpeg,image/png" @change="handleFileChange" class="w-full text-sm" />
           </div>
         </div>
-        <div class="grid grid-cols-2 gap-4">
-          <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('staff.position') }}</label>
-            <input v-model="form.position" class="input" />
-          </div>
-          <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('staff.hire_date') }}</label>
-            <input v-model="form.hire_date" type="date" class="input" />
-          </div>
+        <div class="flex items-center gap-3 border-t border-line px-6 py-4">
+          <button type="submit" class="btn-primary">
+            <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+            {{ editingId ? t('staff.save_changes') : t('staff.add_button') }}
+          </button>
+          <button type="button" class="btn-ghost" @click="showModal = false">{{ t('common.cancel') }}</button>
         </div>
-        <div v-if="editingId" class="space-y-1.5">
-          <label class="text-xs font-semibold text-muted tracking-wide">{{ t('staff.status_required') }}</label>
-          <select v-model="form.status" class="input">
-            <option value="active">{{ t('staff.status_active') }}</option>
-            <option value="inactive">{{ t('staff.status_inactive') }}</option>
-          </select>
-        </div>
-        <div class="space-y-1.5">
-          <label class="text-xs font-semibold text-muted tracking-wide">{{ t('staff.photo') }}</label>
-          <input type="file" accept="image/jpeg,image/png" @change="handleFileChange" class="w-full text-sm" />
-        </div>
-        <button type="submit" class="btn-primary w-full">
-          {{ editingId ? t('staff.save_changes') : t('staff.add_button') }}
-        </button>
       </form>
     </Modal>
 

@@ -145,31 +145,43 @@
     @apply bg-surface border border-line rounded-xl;
   }
 
-  /* Buttons */
+  /* Buttons
+     .btn-primary/.btn-accent stay solid fills (main call-to-action — Login,
+     +New, Save/Create). .btn-ghost/.btn-danger/.btn-success/.btn-warning are
+     outline pills that fill solid on hover — for secondary/semantic actions
+     (Cancel, Approve, Reject, Flag). */
   .btn,
   .btn-primary,
   .btn-accent,
   .btn-ghost,
   .btn-subtle,
-  .btn-danger {
+  .btn-danger,
+  .btn-success,
+  .btn-warning {
     @apply inline-flex items-center justify-center gap-2 font-semibold text-sm px-4 py-2.5
            rounded-xl transition-colors duration-150 disabled:opacity-60 disabled:cursor-not-allowed
-           focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40;
+           focus:outline-none focus-visible:ring-4;
   }
   .btn-primary {
-    @apply bg-brand text-white hover:bg-brand-dark shadow-[var(--shadow-card)];
+    @apply bg-brand text-white hover:bg-brand-dark shadow-[var(--shadow-card)] focus-visible:ring-brand/20;
   }
   .btn-accent {
-    @apply bg-accent text-brand-800 hover:bg-accent-dark hover:text-white;
+    @apply bg-accent text-brand-800 hover:bg-accent-dark hover:text-white focus-visible:ring-accent/20;
   }
   .btn-ghost {
-    @apply border border-line text-muted bg-surface hover:bg-surface-2 hover:text-fg;
+    @apply border border-line text-muted bg-surface hover:bg-surface-2 hover:text-fg focus-visible:ring-line-strong/30;
   }
   .btn-subtle {
     @apply text-muted hover:bg-surface-2 hover:text-fg;
   }
   .btn-danger {
-    @apply bg-red-500 text-white hover:bg-red-600;
+    @apply border border-red-600 text-red-600 bg-surface hover:bg-red-600 hover:text-white focus-visible:ring-red-500/20;
+  }
+  .btn-success {
+    @apply border border-emerald-600 text-emerald-600 bg-surface hover:bg-emerald-600 hover:text-white focus-visible:ring-emerald-500/20;
+  }
+  .btn-warning {
+    @apply border border-amber-600 text-amber-600 bg-surface hover:bg-amber-600 hover:text-white focus-visible:ring-amber-500/20;
   }
   .btn-sm {
     @apply px-3 py-1.5 text-xs rounded-lg;

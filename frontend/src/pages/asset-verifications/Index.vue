@@ -94,41 +94,49 @@ onMounted(() => {
     </div>
 
     <Modal v-if="showModal" :title="t('asset_verifications.modal_title')" @close="showModal = false">
-      <form @submit.prevent="handleSubmit" class="p-6 space-y-4">
-        <div class="space-y-1.5">
-          <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_verifications.asset_required') }}</label>
-          <select v-model="form.asset_id" required class="input">
-            <option value="">{{ t('common.select_asset') }}</option>
-            <option v-for="a in assets" :key="a.id" :value="a.id">{{ a.name }} ({{ a.asset_code }})</option>
-          </select>
-        </div>
-        <div class="grid grid-cols-2 gap-4">
+      <form @submit.prevent="handleSubmit">
+        <div class="p-6 space-y-4">
           <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_verifications.location_required') }}</label>
-            <select v-model="form.location_id" required class="input">
-              <option value="">{{ t('common.select_location') }}</option>
-              <option v-for="l in locations" :key="l.id" :value="l.id">{{ l.name }}</option>
+            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_verifications.asset_required') }}</label>
+            <select v-model="form.asset_id" required class="input">
+              <option value="">{{ t('common.select_asset') }}</option>
+              <option v-for="a in assets" :key="a.id" :value="a.id">{{ a.name }} ({{ a.asset_code }})</option>
+            </select>
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div class="space-y-1.5">
+              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_verifications.location_required') }}</label>
+              <select v-model="form.location_id" required class="input">
+                <option value="">{{ t('common.select_location') }}</option>
+                <option v-for="l in locations" :key="l.id" :value="l.id">{{ l.name }}</option>
+              </select>
+            </div>
+            <div class="space-y-1.5">
+              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_verifications.quantity_verified_required') }}</label>
+              <input v-model.number="form.quantity_verified" type="number" min="1" required class="input" />
+            </div>
+          </div>
+          <div class="space-y-1.5">
+            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_verifications.condition_required') }}</label>
+            <select v-model="form.condition" class="input">
+              <option value="good">{{ t('asset_verifications.condition_good') }}</option>
+              <option value="fair">{{ t('asset_verifications.condition_fair') }}</option>
+              <option value="broken">{{ t('asset_verifications.condition_broken') }}</option>
+              <option value="lost">{{ t('asset_verifications.condition_lost') }}</option>
             </select>
           </div>
           <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_verifications.quantity_verified_required') }}</label>
-            <input v-model.number="form.quantity_verified" type="number" min="1" required class="input" />
+            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_verifications.remark') }}</label>
+            <textarea v-model="form.remark" rows="2" class="input"></textarea>
           </div>
         </div>
-        <div class="space-y-1.5">
-          <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_verifications.condition_required') }}</label>
-          <select v-model="form.condition" class="input">
-            <option value="good">{{ t('asset_verifications.condition_good') }}</option>
-            <option value="fair">{{ t('asset_verifications.condition_fair') }}</option>
-            <option value="broken">{{ t('asset_verifications.condition_broken') }}</option>
-            <option value="lost">{{ t('asset_verifications.condition_lost') }}</option>
-          </select>
+        <div class="flex items-center gap-3 border-t border-line px-6 py-4">
+          <button type="submit" class="btn-primary">
+            <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+            {{ t('asset_verifications.submit_button') }}
+          </button>
+          <button type="button" class="btn-ghost" @click="showModal = false">{{ t('common.cancel') }}</button>
         </div>
-        <div class="space-y-1.5">
-          <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_verifications.remark') }}</label>
-          <textarea v-model="form.remark" rows="2" class="input"></textarea>
-        </div>
-        <button type="submit" class="btn-primary w-full">{{ t('asset_verifications.submit_button') }}</button>
       </form>
     </Modal>
   </AppLayout>

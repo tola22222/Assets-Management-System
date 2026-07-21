@@ -77,6 +77,7 @@ Route::name('api.')->group(function () {
         Route::apiResource('suppliers', SupplierController::class)->except(['create', 'show', 'edit']);
 
         Route::get('/reports/inventory', [ReportController::class, 'inventory']);
+        Route::get('/reports/by-model', [ReportController::class, 'byModel']);
         Route::get('/reports/assignments', [ReportController::class, 'assignments']);
         Route::get('/reports/transfers', [ReportController::class, 'transfers']);
         Route::get('/reports/verifications', [ReportController::class, 'verifications']);

@@ -254,75 +254,81 @@ onMounted(() => {
 
     <!-- Create / Edit -->
     <Modal v-if="showModal" :title="editingId ? t('assets.edit_title') : t('assets.create_title')" wide @close="showModal = false">
-      <form @submit.prevent="handleSubmit" class="p-6 space-y-4">
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label class="label">{{ t('assets.name_required') }} <span class="text-red-500">*</span></label>
-            <input v-model="form.name" required class="input" />
+      <form @submit.prevent="handleSubmit">
+        <div class="p-6 space-y-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label class="label">{{ t('assets.name_required') }} <span class="text-red-500">*</span></label>
+              <input v-model="form.name" required class="input" />
+            </div>
+            <div>
+              <label class="label">{{ t('assets.category_required') }} <span class="text-red-500">*</span></label>
+              <select v-model="form.category_id" required class="select">
+                <option value="">{{ t('assets.select_category') }}</option>
+                <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option>
+              </select>
+            </div>
+            <div>
+              <label class="label">{{ t('assets.location_required') }} <span class="text-red-500">*</span></label>
+              <select v-model="form.location_id" required class="select">
+                <option value="">{{ t('assets.select_location') }}</option>
+                <option v-for="l in locations" :key="l.id" :value="l.id">{{ l.name }}</option>
+              </select>
+            </div>
+            <div>
+              <label class="label">{{ t('assets.brand') }}</label>
+              <input v-model="form.brand" class="input" />
+            </div>
+            <div>
+              <label class="label">{{ t('assets.model') }}</label>
+              <input v-model="form.model" class="input" />
+            </div>
+            <div>
+              <label class="label">{{ t('assets.serial_number') }}</label>
+              <input v-model="form.serial_number" class="input" />
+            </div>
+            <div>
+              <label class="label">{{ t('assets.purchase_date') }}</label>
+              <input v-model="form.purchase_date" type="date" class="input" />
+            </div>
+            <div>
+              <label class="label">{{ t('assets.purchase_price') }}</label>
+              <input v-model="form.purchase_price" type="number" step="0.01" class="input" />
+            </div>
+            <div>
+              <label class="label">{{ t('assets.condition') }}</label>
+              <select v-model="form.condition" class="select">
+                <option value="good">{{ t('assets.condition_good') }}</option>
+                <option value="fair">{{ t('assets.condition_fair') }}</option>
+                <option value="broken">{{ t('assets.condition_broken') }}</option>
+                <option value="lost">{{ t('assets.condition_lost') }}</option>
+              </select>
+            </div>
+            <div>
+              <label class="label">{{ t('common.status') }}</label>
+              <select v-model="form.status" class="select">
+                <option value="active">{{ t('status.active') }}</option>
+                <option value="disposed">{{ t('status.disposed') }}</option>
+              </select>
+            </div>
+            <div>
+              <label class="label">{{ t('assets.photo') }}</label>
+              <input type="file" accept="image/jpeg,image/png" @change="handleFileChange"
+                class="w-full text-sm text-muted file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100 cursor-pointer" />
+            </div>
           </div>
           <div>
-            <label class="label">{{ t('assets.category_required') }} <span class="text-red-500">*</span></label>
-            <select v-model="form.category_id" required class="select">
-              <option value="">{{ t('assets.select_category') }}</option>
-              <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option>
-            </select>
-          </div>
-          <div>
-            <label class="label">{{ t('assets.location_required') }} <span class="text-red-500">*</span></label>
-            <select v-model="form.location_id" required class="select">
-              <option value="">{{ t('assets.select_location') }}</option>
-              <option v-for="l in locations" :key="l.id" :value="l.id">{{ l.name }}</option>
-            </select>
-          </div>
-          <div>
-            <label class="label">{{ t('assets.brand') }}</label>
-            <input v-model="form.brand" class="input" />
-          </div>
-          <div>
-            <label class="label">{{ t('assets.model') }}</label>
-            <input v-model="form.model" class="input" />
-          </div>
-          <div>
-            <label class="label">{{ t('assets.serial_number') }}</label>
-            <input v-model="form.serial_number" class="input" />
-          </div>
-          <div>
-            <label class="label">{{ t('assets.purchase_date') }}</label>
-            <input v-model="form.purchase_date" type="date" class="input" />
-          </div>
-          <div>
-            <label class="label">{{ t('assets.purchase_price') }}</label>
-            <input v-model="form.purchase_price" type="number" step="0.01" class="input" />
-          </div>
-          <div>
-            <label class="label">{{ t('assets.condition') }}</label>
-            <select v-model="form.condition" class="select">
-              <option value="good">{{ t('assets.condition_good') }}</option>
-              <option value="fair">{{ t('assets.condition_fair') }}</option>
-              <option value="broken">{{ t('assets.condition_broken') }}</option>
-              <option value="lost">{{ t('assets.condition_lost') }}</option>
-            </select>
-          </div>
-          <div>
-            <label class="label">{{ t('common.status') }}</label>
-            <select v-model="form.status" class="select">
-              <option value="active">{{ t('status.active') }}</option>
-              <option value="disposed">{{ t('status.disposed') }}</option>
-            </select>
-          </div>
-          <div>
-            <label class="label">{{ t('assets.photo') }}</label>
-            <input type="file" accept="image/jpeg,image/png" @change="handleFileChange"
-              class="w-full text-sm text-muted file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100 cursor-pointer" />
+            <label class="label">{{ t('common.description') }}</label>
+            <textarea v-model="form.description" rows="2" class="textarea"></textarea>
           </div>
         </div>
-        <div>
-          <label class="label">{{ t('common.description') }}</label>
-          <textarea v-model="form.description" rows="2" class="textarea"></textarea>
+        <div class="flex items-center gap-3 border-t border-line px-6 py-4">
+          <button type="submit" :disabled="submitting" class="btn-primary">
+            <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+            {{ submitting ? t('assets.saving') : (editingId ? t('assets.save_changes') : t('assets.register')) }}
+          </button>
+          <button type="button" class="btn-ghost" @click="showModal = false">{{ t('common.cancel') }}</button>
         </div>
-        <button type="submit" :disabled="submitting" class="btn-primary w-full">
-          {{ submitting ? t('assets.saving') : (editingId ? t('assets.save_changes') : t('assets.register')) }}
-        </button>
       </form>
     </Modal>
 
@@ -369,23 +375,28 @@ onMounted(() => {
 
     <!-- Flag Issue -->
     <Modal v-if="flagging" :title="t('assets.flag_issue')" @close="flagging = null">
-      <form @submit.prevent="submitFlag" class="p-6 space-y-4">
-        <p class="text-sm text-muted">{{ flagging.name }} <span class="font-mono text-xs text-faint">({{ flagging.asset_code }})</span></p>
-        <div>
-          <label class="label">{{ t('assets.flag_note_label') }} <span class="text-red-500">*</span></label>
-          <textarea v-model="flagNote" rows="3" required class="textarea"></textarea>
+      <form @submit.prevent="submitFlag">
+        <div class="p-6 space-y-4">
+          <p class="text-sm text-muted">{{ flagging.name }} <span class="font-mono text-xs text-faint">({{ flagging.asset_code }})</span></p>
+          <div>
+            <label class="label">{{ t('assets.flag_note_label') }} <span class="text-red-500">*</span></label>
+            <textarea v-model="flagNote" rows="3" required class="textarea"></textarea>
+          </div>
+          <div>
+            <label class="label">{{ t('assets.flag_condition_label') }}</label>
+            <select v-model="flagCondition" class="select">
+              <option value="">{{ t('assets.flag_condition_none') }}</option>
+              <option value="broken">{{ t('assets.condition_broken') }}</option>
+              <option value="lost">{{ t('assets.condition_lost') }}</option>
+            </select>
+          </div>
         </div>
-        <div>
-          <label class="label">{{ t('assets.flag_condition_label') }}</label>
-          <select v-model="flagCondition" class="select">
-            <option value="">{{ t('assets.flag_condition_none') }}</option>
-            <option value="broken">{{ t('assets.condition_broken') }}</option>
-            <option value="lost">{{ t('assets.condition_lost') }}</option>
-          </select>
+        <div class="flex items-center gap-3 border-t border-line px-6 py-4">
+          <button type="submit" :disabled="flagSubmitting" class="btn-primary">
+            {{ flagSubmitting ? t('assets.saving') : t('assets.flag_submit') }}
+          </button>
+          <button type="button" class="btn-ghost" @click="flagging = null">{{ t('common.cancel') }}</button>
         </div>
-        <button type="submit" :disabled="flagSubmitting" class="btn-primary w-full">
-          {{ flagSubmitting ? t('assets.saving') : t('assets.flag_submit') }}
-        </button>
       </form>
     </Modal>
 
