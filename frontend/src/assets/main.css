@@ -90,7 +90,7 @@
     background-color: var(--color-canvas);
     color: var(--color-fg);
     font-family: var(--font-sans);
-    font-weight: 600;
+    font-weight: 300;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
     position: relative;
