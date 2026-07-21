@@ -42,7 +42,18 @@ class AssetImportService
     {
         @set_time_limit(0);
 
-        $rows = $this->readRows($file);
+        try {
+            $rows = $this->readRows($file);
+        } catch (\Throwable $e) {
+            // PhpSpreadsheet's own exceptions are low-level (zip/XML parser
+            // errors) and leak the server's temp file path — never show them
+            // to the user directly. This is what a renamed/corrupted file, or
+            // a non-Excel file given an .xlsx/.xls extension, looks like.
+            throw new \RuntimeException(
+                'Could not read this file as a spreadsheet. Make sure it\'s a valid, unmodified .xlsx, .xls, or .csv export — not a renamed or corrupted file — then try again.'
+            );
+        }
+
         if (empty($rows)) {
             throw new \RuntimeException('The file appears to be empty.');
         }
