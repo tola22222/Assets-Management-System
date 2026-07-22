@@ -39,16 +39,24 @@ Route::name('api.')->group(function () {
 
         Route::get('/dashboard', [DashboardController::class, 'index']);
 
-        // Bulk import — defined before the resource so "import" is not treated as an {asset}.
-        Route::get('/assets/import/template', [AssetImportController::class, 'template']);
-        Route::post('/assets/import', [AssetImportController::class, 'store']);
         Route::post('/assets/{asset}/regenerate-qr', [AssetController::class, 'regenerateQr']);
         Route::post('/assets/{asset}/flag', [AssetController::class, 'flagIssue']);
-        Route::apiResource('assets', AssetController::class);
+        Route::apiResource('assets', AssetController::class)->only(['index', 'show']);
+
+        Route::apiResource('locations', LocationController::class)->only(['index', 'show']);
+
+        Route::middleware('role:operations_hr_manager')->group(function () {
+            // Bulk import — defined before the resource so "import" is not treated as an {asset}.
+            Route::get('/assets/import/template', [AssetImportController::class, 'template']);
+            Route::post('/assets/import', [AssetImportController::class, 'store']);
+            Route::apiResource('assets', AssetController::class)->only(['store', 'update', 'destroy']);
+            Route::apiResource('locations', LocationController::class)->only(['store', 'update', 'destroy']);
+            Route::apiResource('asset-stocks', AssetStockController::class)->only(['destroy']);
+            Route::apiResource('asset-movements', AssetMovementController::class)->only(['destroy']);
+        });
 
         Route::apiResource('categories', AssetCategoryController::class)->except(['show']);
-        Route::apiResource('locations', LocationController::class);
-        Route::apiResource('asset-stocks', AssetStockController::class)->except(['show', 'update']);
+        Route::apiResource('asset-stocks', AssetStockController::class)->only(['index', 'store']);
 
         Route::post('/asset-assignments/{asset_assignment}/cancel', [AssetAssignmentController::class, 'cancel']);
         Route::post('/asset-assignments/{asset_assignment}/return', [AssetAssignmentController::class, 'returnAsset']);
@@ -63,14 +71,14 @@ Route::name('api.')->group(function () {
         Route::post('/asset-returns/{asset_return}/reject', [AssetReturnController::class, 'reject']);
         Route::apiResource('asset-returns', AssetReturnController::class)->only(['index', 'store']);
 
-        Route::post('/asset-verifications/{asset_verification}/complete', [AssetVerificationController::class, 'complete']);
+        Route::post('/asset-verifications/{asset_verification}/complete', [AssetVerificationController::class, 'complete'])->middleware('role:operations_hr_manager,finance_manager');
         Route::apiResource('asset-verifications', AssetVerificationController::class)->only(['index', 'store', 'destroy']);
 
         Route::post('/asset-disposals/{asset_disposal}/approve', [AssetDisposalController::class, 'approve'])->middleware('role:operations_hr_manager,executive_director');
         Route::post('/asset-disposals/{asset_disposal}/reject', [AssetDisposalController::class, 'reject'])->middleware('role:operations_hr_manager,executive_director');
         Route::apiResource('asset-disposals', AssetDisposalController::class)->only(['index', 'store', 'destroy']);
 
-        Route::apiResource('asset-movements', AssetMovementController::class)->only(['index', 'destroy']);
+        Route::apiResource('asset-movements', AssetMovementController::class)->only(['index']);
 
         Route::apiResource('programs', ProgramController::class)->except(['create', 'show', 'edit']);
         Route::apiResource('staff', StaffController::class)->except(['create', 'show', 'edit']);

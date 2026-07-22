@@ -92,13 +92,16 @@ Route::middleware('auth')->group(function () {
     Route::get('/blade', [DashboardController::class, 'index']);
 
     // Assets
-    Route::get('/assets-registeration/import', [AssetImportController::class, 'index'])->name('assets.import');
-    Route::get('/assets-registeration/import/template', [AssetImportController::class, 'template'])->name('assets.import.template');
-    Route::post('/assets-registeration/import', [AssetImportController::class, 'store'])->name('assets.import.store');
     Route::get('/assets-registeration/{asset}/download-qr', [AssetController::class, 'downloadQr'])->name('assets.download-qr');
     Route::post('/assets-registeration/{asset}/regenerate-qr', [AssetController::class, 'regenerateQr'])->name('assets.regenerate-qr');
     Route::get('/assets-registeration/{asset}/print-qr', [AssetController::class, 'printQr'])->name('assets.print-qr');
-    Route::resource('assets-registeration', AssetController::class)->names('assets');
+    Route::resource('assets-registeration', AssetController::class)->only(['index', 'show'])->names('assets');
+    Route::middleware('role:operations_hr_manager')->group(function () {
+        Route::get('/assets-registeration/import', [AssetImportController::class, 'index'])->name('assets.import');
+        Route::get('/assets-registeration/import/template', [AssetImportController::class, 'template'])->name('assets.import.template');
+        Route::post('/assets-registeration/import', [AssetImportController::class, 'store'])->name('assets.import.store');
+        Route::resource('assets-registeration', AssetController::class)->only(['create', 'store', 'edit', 'update', 'destroy'])->names('assets');
+    });
 
     // QR Scan
     Route::get('/qr-scan', [QrScanController::class, 'index'])->name('qr-scan.index');
@@ -110,10 +113,16 @@ Route::middleware('auth')->group(function () {
     Route::resource('asset-categories', AssetCategoryController::class)->names('categories');
 
     // Locations
-    Route::resource('locations', LocationController::class)->except(['create'])->names('assets-locations');
+    Route::resource('locations', LocationController::class)->only(['index', 'show'])->names('assets-locations');
+    Route::middleware('role:operations_hr_manager')->group(function () {
+        Route::resource('locations', LocationController::class)->only(['store', 'update', 'destroy'])->names('assets-locations');
+    });
 
     // Asset Stocks
-    Route::resource('asset-stocks', AssetStockController::class)->except(['create', 'show', 'edit', 'update']);
+    Route::resource('asset-stocks', AssetStockController::class)->only(['index', 'store']);
+    Route::middleware('role:operations_hr_manager')->group(function () {
+        Route::resource('asset-stocks', AssetStockController::class)->only(['destroy']);
+    });
 
     // Asset Assignments
     Route::resource('asset-assignments', AssetAssignmentController::class)->except(['create']);
@@ -136,7 +145,9 @@ Route::middleware('auth')->group(function () {
 
     // Asset Verifications
     Route::resource('asset-verifications', AssetVerificationController::class)->except(['create', 'edit', 'update']);
-    Route::post('/asset-verifications/{assetVerification}/complete', [AssetVerificationController::class, 'complete'])->name('asset-verifications.complete');
+    Route::post('/asset-verifications/{assetVerification}/complete', [AssetVerificationController::class, 'complete'])
+        ->middleware('role:operations_hr_manager,finance_manager')
+        ->name('asset-verifications.complete');
 
     // Asset Disposals (OP&HR requests, Executive Director approves)
     Route::get('/asset-disposals', [AssetDisposalController::class, 'index'])->name('asset-disposals.index');

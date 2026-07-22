@@ -7,6 +7,7 @@ use App\Models\ActivityLog;
 use App\Models\AssetDisposal;
 use App\Models\Notification;
 use App\Models\User;
+use App\Services\AssetNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -45,7 +46,7 @@ class AssetDisposalController extends Controller
             Notification::create([
                 'user_id' => $approver->id,
                 'type' => 'disposal_request',
-                'message' => 'Disposal request submitted for ' . ($disposal->asset->name ?? 'an asset'),
+                'message' => 'Disposal request submitted for '.($disposal->asset->name ?? 'an asset'),
                 'url' => null,
             ]);
         });
@@ -53,7 +54,15 @@ class AssetDisposalController extends Controller
         ActivityLog::create([
             'user_id' => Auth::id(),
             'action' => 'Create',
-            'description' => 'Requested ' . $validated['recommended_action'] . ' for asset ' . ($disposal->asset->name ?? ''),
+            'description' => 'Requested '.$validated['recommended_action'].' for asset '.($disposal->asset->name ?? ''),
+        ]);
+
+        (new AssetNotificationService)->send('DISPOSAL_REQUEST', [
+            'assetId' => $disposal->asset->asset_code ?? null,
+            'assetDbId' => $disposal->asset_id,
+            'description' => $disposal->asset->name ?? null,
+            'location' => $disposal->asset->location->name ?? null,
+            'note' => $validated['reason'],
         ]);
 
         return response()->json($disposal->fresh(['asset', 'requester']), 201);
@@ -76,14 +85,14 @@ class AssetDisposalController extends Controller
         Notification::create([
             'user_id' => $asset_disposal->requested_by,
             'type' => 'disposal_approved',
-            'message' => 'Your disposal request for ' . ($asset_disposal->asset->name ?? 'an asset') . ' has been approved.',
+            'message' => 'Your disposal request for '.($asset_disposal->asset->name ?? 'an asset').' has been approved.',
             'url' => null,
         ]);
 
         ActivityLog::create([
             'user_id' => Auth::id(),
             'action' => 'Approve',
-            'description' => 'Approved ' . $asset_disposal->recommended_action . ' for asset ' . ($asset_disposal->asset->name ?? ''),
+            'description' => 'Approved '.$asset_disposal->recommended_action.' for asset '.($asset_disposal->asset->name ?? ''),
         ]);
 
         return response()->json($asset_disposal->fresh(['asset', 'reviewer']));
@@ -107,14 +116,14 @@ class AssetDisposalController extends Controller
         Notification::create([
             'user_id' => $asset_disposal->requested_by,
             'type' => 'disposal_rejected',
-            'message' => 'Your disposal request for ' . ($asset_disposal->asset->name ?? 'an asset') . ' has been rejected.',
+            'message' => 'Your disposal request for '.($asset_disposal->asset->name ?? 'an asset').' has been rejected.',
             'url' => null,
         ]);
 
         ActivityLog::create([
             'user_id' => Auth::id(),
             'action' => 'Reject',
-            'description' => 'Rejected ' . $asset_disposal->recommended_action . ' for asset ' . ($asset_disposal->asset->name ?? ''),
+            'description' => 'Rejected '.$asset_disposal->recommended_action.' for asset '.($asset_disposal->asset->name ?? ''),
         ]);
 
         return response()->json($asset_disposal->fresh());
@@ -126,6 +135,7 @@ class AssetDisposalController extends Controller
             return response()->json(['message' => 'Cannot delete a reviewed disposal request.'], 422);
         }
         $asset_disposal->delete();
+
         return response()->json(['message' => 'Disposal request deleted.']);
     }
 }

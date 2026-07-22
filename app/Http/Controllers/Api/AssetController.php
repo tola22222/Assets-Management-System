@@ -8,6 +8,7 @@ use App\Models\Asset;
 use App\Models\Notification;
 use App\Models\User;
 use App\Services\AssetCodeService;
+use App\Services\AssetNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
@@ -130,6 +131,17 @@ class AssetController extends Controller
                 'url' => null,
             ]);
         }
+
+        (new AssetNotificationService)->send('DAMAGE_FLAGGED', [
+            'assetId' => $asset->asset_code,
+            'assetDbId' => $asset->id,
+            'description' => $asset->name,
+            'location' => $asset->location->name ?? null,
+            'category' => $asset->category->name ?? null,
+            'flaggedBy' => Auth::user(),
+            'note' => $validated['note'],
+            'extraData' => ['status' => $validated['condition'] ?? 'flagged'],
+        ]);
 
         return response()->json($asset->fresh(['category', 'location']));
     }
