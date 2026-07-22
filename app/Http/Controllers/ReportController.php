@@ -12,9 +12,38 @@ use App\Models\Location;
 use App\Models\Notification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class ReportController extends Controller
 {
+    /**
+     * Grouped "count by model" view: each Asset row stays an individually
+     * tracked unit with its own tag, but this rolls same-name units up into
+     * one line per model/category with a Low/Medium/High stock-level badge —
+     * a read-only summary, not a change to how the data is stored.
+     */
+    public function byModel(Request $request)
+    {
+        $rows = Asset::select('name', 'category_id', DB::raw('count(*) as total'))
+            ->where('status', '!=', 'disposed')
+            ->groupBy('name', 'category_id')
+            ->with('category:id,name,short_name')
+            ->get()
+            ->map(function ($row) {
+                $row->stock_level = Asset::stockLevelFor($row->total);
+
+                return $row;
+            })
+            ->sortByDesc('total')
+            ->values();
+
+        if ($request->export === 'csv') {
+            return $this->exportCsv($rows, 'by-model');
+        }
+
+        return view('reports.by-model', ['rows' => $rows]);
+    }
+
     public function index()
     {
         $user = Auth::user();
@@ -145,7 +174,7 @@ class ReportController extends Controller
 
     public function locations(Request $request)
     {
-        $locations = Location::withCount('assetStocks')->get();
+        $locations = Location::withCount('assets')->get();
 
         if ($request->export === 'csv') {
             return $this->exportCsv($locations, 'locations');
@@ -228,6 +257,12 @@ class ReportController extends Controller
                     fputcsv($file, ['Asset Code', 'Name', 'Category', 'Missing Fields']);
                     foreach ($data as $asset) {
                         fputcsv($file, [$asset->asset_code, $asset->name, $asset->category->name ?? '', $asset->missing_fields]);
+                    }
+                    break;
+                case 'by-model':
+                    fputcsv($file, ['Model', 'Category', 'Total Units', 'Stock Level']);
+                    foreach ($data as $row) {
+                        fputcsv($file, [$row->name, $row->category->name ?? '', $row->total, ucfirst($row->stock_level)]);
                     }
                     break;
                 default:

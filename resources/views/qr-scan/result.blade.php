@@ -67,12 +67,10 @@
                     </div>
                 </div>
 
-                @if($asset->stocks->count() > 0)
+                @if($asset->location)
                 <div class="pt-4 border-t border-slate-100 dark:border-gray-700">
                     <p class="text-xs text-slate-400 dark:text-gray-500 uppercase font-bold mb-2">Current Location</p>
-                    @foreach($asset->stocks as $stock)
-                        <p class="font-bold text-slate-700 dark:text-gray-300">{{ $stock->location->name ?? 'N/A' }}</p>
-                    @endforeach
+                    <p class="font-bold text-slate-700 dark:text-gray-300">{{ $asset->location->name }}</p>
                 </div>
                 @endif
             </div>

@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Models\Asset;
 use App\Models\AssetAssignment;
-use App\Models\AssetStock;
 use App\Models\Location;
 use App\Models\Staff;
 use App\Models\Program;
@@ -55,18 +54,13 @@ class AssetAssignmentController extends Controller
             $assignee = Program::findOrFail($validated['assigned_to_id']);
         }
 
+        if (AssetAssignment::where('asset_id', $validated['asset_id'])->whereIn('status', ['assigned', 'active'])->exists()) {
+            return redirect()->back()->with('error', 'This asset is already assigned. It must be returned or the assignment cancelled before it can be assigned again.');
+        }
+
         $validated['status'] = 'assigned';
 
         $assignment = AssetAssignment::create($validated);
-
-        // Decrement stock
-        $stock = AssetStock::where('asset_id', $validated['asset_id'])
-            ->where('location_id', $validated['location_id'])
-            ->first();
-
-        if ($stock && $stock->quantity >= $validated['quantity']) {
-            $stock->decrement('quantity', $validated['quantity']);
-        }
 
         $recipientName = $assignment->recipient_name;
 
@@ -120,13 +114,6 @@ class AssetAssignmentController extends Controller
     {
         $assetAssignment->update(['status' => 'returned']);
 
-        // Restore stock
-        $stock = AssetStock::firstOrCreate(
-            ['asset_id' => $assetAssignment->asset_id, 'location_id' => $assetAssignment->location_id],
-            ['quantity' => 0]
-        );
-        $stock->increment('quantity', $assetAssignment->quantity);
-
         ActivityLog::create([
             'user_id' => Auth::id(),
             'action' => 'Cancel',
@@ -153,13 +140,6 @@ class AssetAssignmentController extends Controller
         }
 
         $assetAssignment->update($data);
-
-        // Restore stock
-        $stock = AssetStock::firstOrCreate(
-            ['asset_id' => $assetAssignment->asset_id, 'location_id' => $assetAssignment->location_id],
-            ['quantity' => 0]
-        );
-        $stock->increment('quantity', $assetAssignment->quantity);
 
         ActivityLog::create([
             'user_id' => Auth::id(),

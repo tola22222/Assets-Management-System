@@ -7,13 +7,21 @@ import PageHeader from '../../components/ui/PageHeader.vue'
 import Modal from '../../components/ui/Modal.vue'
 import ConfirmDialog from '../../components/ui/ConfirmDialog.vue'
 import SearchInput from '../../components/ui/SearchInput.vue'
+import TableSortIcon from '../../components/ui/TableSortIcon.vue'
 import { useApiCrud } from '../../composables/useApiCrud'
 import { useTableSearch } from '../../composables/useTableSearch'
+import { useTableFilter } from '../../composables/useTableFilter'
+import { useTableSort } from '../../composables/useTableSort'
 import { useToastStore } from '../../stores/toast'
 
 const { t } = useI18n()
 const { items: users, loading, fetchAll, create, update, destroy } = useApiCrud('/users', { entityName: t('users.entity') })
-const { search, filtered } = useTableSearch(users, ['name', 'email', 'role'])
+const { search, filtered: searched } = useTableSearch(users, ['name', 'email', 'role'])
+const { filters, filtered: matched, hasActiveFilters, clearFilters } = useTableFilter(searched, {
+  role: (row, v) => row.role === v,
+  is_locked: (row, v) => String(!!row.is_locked) === v,
+})
+const { sortKey, sortDir, toggleSort, sorted: filtered } = useTableSort(matched, { defaultKey: 'name' })
 const toast = useToastStore()
 
 const staffList = ref([])
@@ -109,18 +117,32 @@ onMounted(() => {
     <div class="p-8 max-w-5xl mx-auto space-y-6">
       <PageHeader :title="t('users.title')" :subtitle="t('users.subtitle')" :buttonText="t('users.new')" @action="openCreate" />
 
-      <div class="w-full sm:max-w-xs">
-        <SearchInput v-model="search" :placeholder="t('users.search_placeholder')" />
-      </div>
-
       <div class="table-wrap">
+        <div class="table-toolbar">
+          <div class="w-full sm:max-w-xs">
+            <SearchInput v-model="search" :placeholder="t('users.search_placeholder')" />
+          </div>
+          <select v-model="filters.role" class="filter-select">
+            <option value="">{{ t('users.role') }}: {{ t('common.all') }}</option>
+            <option value="operations_hr_manager">{{ t('users.role_admin') }}</option>
+            <option value="executive_director">{{ t('users.role_executive_director') }}</option>
+            <option value="finance_manager">{{ t('users.role_finance_manager') }}</option>
+            <option value="staff">{{ t('users.role_staff') }}</option>
+          </select>
+          <select v-model="filters.is_locked" class="filter-select">
+            <option value="">{{ t('common.status') }}: {{ t('common.all') }}</option>
+            <option value="false">{{ t('status.active') }}</option>
+            <option value="true">{{ t('status.locked') }}</option>
+          </select>
+          <button v-if="hasActiveFilters" @click="clearFilters" class="btn-subtle btn-sm">{{ t('common.clear_filters') }}</button>
+        </div>
         <div class="overflow-x-auto">
           <table class="data-table">
             <thead>
               <tr>
-                <th>{{ t('common.name') }}</th>
-                <th>{{ t('common.email') }}</th>
-                <th>{{ t('users.role') }}</th>
+                <th class="th-sort" @click="toggleSort('name')">{{ t('common.name') }}<TableSortIcon :active="sortKey === 'name'" :direction="sortDir" /></th>
+                <th class="th-sort" @click="toggleSort('email')">{{ t('common.email') }}<TableSortIcon :active="sortKey === 'email'" :direction="sortDir" /></th>
+                <th class="th-sort" @click="toggleSort('role')">{{ t('users.role') }}<TableSortIcon :active="sortKey === 'role'" :direction="sortDir" /></th>
                 <th>{{ t('common.status') }}</th>
                 <th class="text-right">{{ t('common.actions') }}</th>
               </tr>
@@ -163,54 +185,65 @@ onMounted(() => {
     </div>
 
     <Modal v-if="showModal" :title="editingId ? t('users.edit_title') : t('users.create_title')" @close="showModal = false">
-      <form @submit.prevent="handleSubmit" class="p-6 space-y-4">
-        <div class="space-y-1.5">
-          <label class="text-xs font-semibold text-muted tracking-wide">{{ t('users.name_required') }}</label>
-          <input v-model="form.name" required class="input" />
-        </div>
-        <div class="space-y-1.5">
-          <label class="text-xs font-semibold text-muted tracking-wide">{{ t('users.email_required') }}</label>
-          <input v-model="form.email" type="email" required class="input" />
-        </div>
-        <div v-if="!editingId" class="space-y-1.5">
-          <label class="text-xs font-semibold text-muted tracking-wide">{{ t('users.password') }}</label>
-          <input v-model="form.password" type="password" minlength="8" required class="input" />
-        </div>
-        <div class="grid grid-cols-2 gap-4">
+      <form @submit.prevent="handleSubmit">
+        <div class="p-6 space-y-4">
           <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('users.role_required') }}</label>
-            <select v-model="form.role" class="input">
-              <option value="staff">{{ t('users.role_staff') }}</option>
-              <option value="operations_hr_manager">{{ t('users.role_admin') }}</option>
-              <option value="executive_director">{{ t('users.role_executive_director') }}</option>
-              <option value="finance_manager">{{ t('users.role_finance_manager') }}</option>
-            </select>
+            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('users.name_required') }}</label>
+            <input v-model="form.name" required class="input" />
           </div>
           <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('users.link_to_staff') }}</label>
-            <select v-model="form.staff_id" class="input">
-              <option value="">{{ t('users.none') }}</option>
-              <option v-for="s in staffList" :key="s.id" :value="s.id">{{ s.full_name }}</option>
-            </select>
+            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('users.email_required') }}</label>
+            <input v-model="form.email" type="email" required class="input" />
+          </div>
+          <div v-if="!editingId" class="space-y-1.5">
+            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('users.password') }}</label>
+            <input v-model="form.password" type="password" minlength="8" required class="input" />
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div class="space-y-1.5">
+              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('users.role_required') }}</label>
+              <select v-model="form.role" class="input">
+                <option value="staff">{{ t('users.role_staff') }}</option>
+                <option value="operations_hr_manager">{{ t('users.role_admin') }}</option>
+                <option value="executive_director">{{ t('users.role_executive_director') }}</option>
+                <option value="finance_manager">{{ t('users.role_finance_manager') }}</option>
+              </select>
+            </div>
+            <div class="space-y-1.5">
+              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('users.link_to_staff') }}</label>
+              <select v-model="form.staff_id" class="input">
+                <option value="">{{ t('users.none') }}</option>
+                <option v-for="s in staffList" :key="s.id" :value="s.id">{{ s.full_name }}</option>
+              </select>
+            </div>
           </div>
         </div>
-        <button type="submit" class="btn-primary w-full">
-          {{ editingId ? t('users.save_changes') : t('users.create_button') }}
-        </button>
+        <div class="flex items-center gap-3 border-t border-line px-6 py-4">
+          <button type="submit" class="btn-primary">
+            <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+            {{ editingId ? t('users.save_changes') : t('users.create_button') }}
+          </button>
+          <button type="button" class="btn-ghost" @click="showModal = false">{{ t('common.cancel') }}</button>
+        </div>
       </form>
     </Modal>
 
     <Modal v-if="resettingId" :title="t('users.reset_password_title')" @close="resettingId = null">
-      <form @submit.prevent="submitPasswordReset" class="p-6 space-y-4">
-        <div class="space-y-1.5">
-          <label class="text-xs font-semibold text-muted tracking-wide">{{ t('users.new_password') }}</label>
-          <input v-model="newPassword" type="password" minlength="8" required class="input" />
+      <form @submit.prevent="submitPasswordReset">
+        <div class="p-6 space-y-4">
+          <div class="space-y-1.5">
+            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('users.new_password') }}</label>
+            <input v-model="newPassword" type="password" minlength="8" required class="input" />
+          </div>
+          <div class="space-y-1.5">
+            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('users.confirm_password') }}</label>
+            <input v-model="newPasswordConfirm" type="password" minlength="8" required class="input" />
+          </div>
         </div>
-        <div class="space-y-1.5">
-          <label class="text-xs font-semibold text-muted tracking-wide">{{ t('users.confirm_password') }}</label>
-          <input v-model="newPasswordConfirm" type="password" minlength="8" required class="input" />
+        <div class="flex items-center gap-3 border-t border-line px-6 py-4">
+          <button type="submit" class="btn-primary">{{ t('users.reset_password_title') }}</button>
+          <button type="button" class="btn-ghost" @click="resettingId = null">{{ t('common.cancel') }}</button>
         </div>
-        <button type="submit" class="btn-primary w-full">{{ t('users.reset_password_title') }}</button>
       </form>
     </Modal>
 

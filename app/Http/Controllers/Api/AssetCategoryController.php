@@ -5,22 +5,28 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\AssetCategory;
+use App\Services\AssetCodeService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 
 class AssetCategoryController extends Controller
 {
     public function index()
     {
-        return response()->json(AssetCategory::withCount('assets')->latest()->get());
+        return response()->json(AssetCategory::withCount('assets')->orderBy('name')->get());
     }
 
     public function store(Request $request)
     {
+        $request->merge(['short_name' => $this->normalizeCode($request->short_name)]);
+
         $validated = $request->validate([
             'name' => 'required|string|max:255|unique:asset_categories,name',
-            'short_name' => 'nullable|string|max:10',
+            'short_name' => ['nullable', 'regex:'.AssetCodeService::CODE_FORMAT, Rule::unique('asset_categories', 'short_name')],
             'description' => 'nullable|string',
+        ], [
+            'short_name.regex' => 'Short code must be 2-6 letters or numbers (e.g. MOV, ELEC).',
         ]);
 
         $category = AssetCategory::create($validated);
@@ -36,10 +42,14 @@ class AssetCategoryController extends Controller
 
     public function update(Request $request, AssetCategory $category)
     {
+        $request->merge(['short_name' => $this->normalizeCode($request->short_name)]);
+
         $validated = $request->validate([
             'name' => 'required|string|max:255|unique:asset_categories,name,' . $category->id,
-            'short_name' => 'nullable|string|max:10',
+            'short_name' => ['nullable', 'regex:'.AssetCodeService::CODE_FORMAT, Rule::unique('asset_categories', 'short_name')->ignore($category->id)],
             'description' => 'nullable|string',
+        ], [
+            'short_name.regex' => 'Short code must be 2-6 letters or numbers (e.g. MOV, ELEC).',
         ]);
 
         $category->update($validated);
@@ -64,5 +74,12 @@ class AssetCategoryController extends Controller
         ]);
 
         return response()->json(['message' => 'Category deleted.']);
+    }
+
+    private function normalizeCode(?string $code): ?string
+    {
+        $code = strtoupper(trim((string) $code));
+
+        return $code === '' ? null : $code;
     }
 }

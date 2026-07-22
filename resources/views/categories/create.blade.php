@@ -13,7 +13,15 @@
             </div>
             <div>
                 <label class="block text-sm font-bold text-slate-700 mb-1">Short Name</label>
-                <input type="text" name="short_name" class="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-brand focus:border-brand outline-none" placeholder="e.g., LAP">
+                <input type="text" name="short_name" list="category-codes" maxlength="6" value="{{ old('short_name') }}"
+                    style="text-transform:uppercase" placeholder="e.g. MOV, or your own like ELEC"
+                    class="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-brand focus:border-brand outline-none">
+                <datalist id="category-codes">
+                    @foreach ($categoryCodes as $code)
+                        <option value="{{ $code }}"></option>
+                    @endforeach
+                </datalist>
+                <p class="text-xs text-slate-500 mt-1">2-6 letters/numbers, used in asset tags (e.g. PEY-SR-MOV-0001). MOV/FAF/COM/EQU are the Manual's defaults — you can also type your own.</p>
             </div>
             <div>
                 <label class="block text-sm font-bold text-slate-700 mb-1">Description</label>

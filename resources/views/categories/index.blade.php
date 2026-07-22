@@ -78,8 +78,15 @@
                 </div>
                 <div class="space-y-1.5">
                     <label class="text-xs font-semibold text-gray-700 dark:text-gray-300 tracking-wide">Short Name <span class="text-red-500">*</span></label>
-                    <input type="text" name="short_name" id="cat_short_name" placeholder="e.g. LAPTOP, FURNITURE" required
-                        class="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-brand transition placeholder-gray-300 dark:placeholder-gray-500 dark:text-gray-200">
+                    <input type="text" name="short_name" id="cat_short_name" list="category-codes" maxlength="6" required
+                        style="text-transform:uppercase" placeholder="e.g. MOV, or your own like ELEC"
+                        class="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-brand transition dark:text-gray-200">
+                    <datalist id="category-codes">
+                        @foreach ($categoryCodes as $code)
+                            <option value="{{ $code }}"></option>
+                        @endforeach
+                    </datalist>
+                    <p class="text-xs text-gray-400 dark:text-gray-500">2-6 letters/numbers, used in asset tags (e.g. PEY-SR-MOV-0001). MOV/FAF/COM/EQU are the Manual's defaults — you can also type your own.</p>
                 </div>
                 <div class="space-y-1.5">
                     <label class="text-xs font-semibold text-gray-700 dark:text-gray-300 tracking-wide">Description</label>

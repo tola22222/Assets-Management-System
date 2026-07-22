@@ -8,12 +8,12 @@ use App\Models\AssetAssignment;
 use App\Models\AssetCategory;
 use App\Models\AssetDisposal;
 use App\Models\AssetReturn;
-use App\Models\AssetStock;
 use App\Models\AssetTransfer;
 use App\Models\AssetVerification;
 use App\Models\Location;
 use App\Models\Notification;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
@@ -27,6 +27,46 @@ class DashboardController extends Controller
         }
 
         return response()->json($this->adminDashboard());
+    }
+
+    /**
+     * Assets registered per day/month/year — grouped in PHP (via Carbon)
+     * rather than a raw SQL date-format function, since the dev DB is
+     * sqlite and production is MySQL and their date functions differ.
+     * Empty buckets in range are pre-filled with 0 so the chart has no gaps.
+     */
+    public function byPeriod(Request $request)
+    {
+        abort_if($request->user()->isStaff(), 403);
+
+        $period = in_array($request->query('period'), ['day', 'month', 'year'], true)
+            ? $request->query('period')
+            : 'month';
+
+        [$format, $since, $step] = match ($period) {
+            'day' => ['Y-m-d', now()->subDays(29)->startOfDay(), fn (Carbon $d) => $d->addDay()],
+            'year' => ['Y', now()->subYears(4)->startOfYear(), fn (Carbon $d) => $d->addYear()],
+            default => ['Y-m', now()->subMonths(11)->startOfMonth(), fn (Carbon $d) => $d->addMonth()],
+        };
+
+        $buckets = [];
+        for ($cursor = $since->copy(); $cursor->lte(now()); $cursor = $step($cursor)) {
+            $buckets[$cursor->format($format)] = 0;
+        }
+
+        Asset::where('created_at', '>=', $since)
+            ->get(['created_at'])
+            ->each(function ($asset) use (&$buckets, $format) {
+                $key = $asset->created_at->format($format);
+                if (array_key_exists($key, $buckets)) {
+                    $buckets[$key]++;
+                }
+            });
+
+        return response()->json([
+            'period' => $period,
+            'data' => collect($buckets)->map(fn ($count, $label) => ['label' => $label, 'count' => $count])->values(),
+        ]);
     }
 
     private function adminDashboard(): array
@@ -45,7 +85,8 @@ class DashboardController extends Controller
             ->sortByDesc('count')
             ->values();
 
-        $byLocation = AssetStock::select('location_id', DB::raw('sum(quantity) as total'))
+        $byLocation = Asset::select('location_id', DB::raw('count(*) as total'))
+            ->whereNotNull('location_id')
             ->with('location:id,name')
             ->groupBy('location_id')
             ->get()

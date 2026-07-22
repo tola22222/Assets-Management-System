@@ -5,6 +5,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import NotificationBell from '../components/ui/NotificationBell.vue'
 import ThemeToggle from '../components/ui/ThemeToggle.vue'
+import Breadcrumbs from '../components/ui/Breadcrumbs.vue'
 import logoUrl from '../assets/logo/Official PEPY Logo_Green.png'
 
 const { t } = useI18n()
@@ -70,7 +71,8 @@ const inventoryGroup = computed(() => ({
   key: 'inventory', title: t('nav.asset_management'), icon: I.assets,
   items: [
     { to: '/assets', label: t('nav.asset_register') },
-    { to: '/asset-stocks', label: t('nav.stock_movements') },
+    { to: '/asset-stocks', label: t('nav.receive_assets') },
+    { to: '/asset-movements', label: t('nav.stock_movements') },
     { to: '/asset-assignments', label: t('nav.assignments') },
     { to: '/asset-transfers', label: t('nav.transfers') },
     { to: '/asset-returns', label: t('nav.returns') },
@@ -124,6 +126,33 @@ watch(activeGroupKey, (k) => { if (k) openGroup.value = k }, { immediate: true }
 function toggleGroup(key) {
   openGroup.value = openGroup.value === key ? '' : key
 }
+
+// Breadcrumb trail, built from the same group/item definitions that drive
+// the sidebar so the two can never drift apart.
+const breadcrumbMap = computed(() => {
+  const map = {}
+  const add = (to, page, section = null) => { map[to] = { section, page } }
+
+  topLinks.value.forEach((item) => add(item.to, item.label))
+  add('/reports', t('nav.reports'))
+  add('/search', t('nav.search'))
+  add('/profile', 'My Profile')
+  add('/notifications', 'Notifications')
+  add('/assets/import', t('import.title'), t('nav.asset_management'))
+
+  myAssets.value.forEach((item) => add(item.to, item.label, t('nav.my_assets')))
+  ;[inventoryGroup.value, peopleGroup.value, systemSetupGroup.value, settingGroup.value].forEach((group) => {
+    group.items.forEach((item) => add(item.to, item.label, group.title))
+  })
+
+  return map
+})
+
+const breadcrumb = computed(() => {
+  if (breadcrumbMap.value[route.path]) return breadcrumbMap.value[route.path]
+  const match = Object.entries(breadcrumbMap.value).find(([to]) => to !== '/' && route.path.startsWith(to + '/'))
+  return match ? match[1] : null
+})
 
 function initials(name) {
   if (!name) return 'U'
@@ -271,6 +300,7 @@ function initials(name) {
             <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M4 6h16M4 12h16M4 18h16" /></svg>
           </button>
 
+          <Breadcrumbs :section="breadcrumb?.section" :page="breadcrumb?.page" />
           <div class="flex-1"></div>
 
           <ThemeToggle />

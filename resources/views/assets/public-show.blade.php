@@ -97,19 +97,14 @@
         </div>
         @endif
 
-        {{-- Stock + Assignment --}}
-        @if(($asset->stocks && $asset->stocks->count() > 0) || ($asset->assignments && $asset->assignments->count() > 0))
+        {{-- Location + Assignment --}}
+        @if($asset->location || ($asset->assignments && $asset->assignments->count() > 0))
         <div class="bg-white rounded-2xl card-shadow overflow-hidden mb-4 divide-y divide-gray-50">
-            @if($asset->stocks && $asset->stocks->count() > 0)
+            @if($asset->location)
             <div class="px-5 py-4">
-                <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2.5">Stock Locations</p>
-                <div class="space-y-2">
-                    @foreach($asset->stocks as $stock)
-                    <div class="flex items-center justify-between bg-gray-50 rounded-xl px-3.5 py-2.5">
-                        <span class="text-sm font-medium text-gray-700">{{ $stock->location->name ?? 'N/A' }}</span>
-                        <span class="text-sm font-semibold text-gray-700">x{{ $stock->quantity }}</span>
-                    </div>
-                    @endforeach
+                <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2.5">Current Location</p>
+                <div class="bg-gray-50 rounded-xl px-3.5 py-2.5">
+                    <span class="text-sm font-medium text-gray-700">{{ $asset->location->name }}</span>
                 </div>
             </div>
             @endif
@@ -188,7 +183,7 @@
                         class="flex-1 py-2.5 bg-gray-900 text-white text-sm font-semibold rounded-xl hover:bg-gray-800 transition text-center">
                         Print
                     </button>
-                    <a href="{{ route('assets.download-qr', $asset->id) }}"
+                    <a href="{{ $asset->qr_code_url }}" download="{{ $asset->asset_code }}-qr.png"
                         class="flex-1 py-2.5 bg-gray-100 text-gray-700 text-sm font-semibold rounded-xl hover:bg-gray-200 transition text-center">
                         Download PNG
                     </a>

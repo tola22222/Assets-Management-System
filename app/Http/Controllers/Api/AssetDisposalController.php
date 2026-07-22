@@ -61,8 +61,14 @@ class AssetDisposalController extends Controller
             'assetId' => $disposal->asset->asset_code ?? null,
             'assetDbId' => $disposal->asset_id,
             'description' => $disposal->asset->name ?? null,
+            'category' => $disposal->asset->category->name ?? null,
             'location' => $disposal->asset->location->name ?? null,
             'note' => $validated['reason'],
+            'url' => route('asset.public.show', $disposal->asset->asset_code ?? ''),
+            'extraData' => [
+                'recommendedAction' => $disposal->recommended_action,
+                'requestedBy' => Auth::user()->name,
+            ],
         ]);
 
         return response()->json($disposal->fresh(['asset', 'requester']), 201);

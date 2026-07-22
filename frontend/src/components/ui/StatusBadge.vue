@@ -13,6 +13,9 @@ const classes = {
   rejected: 'badge-danger',
   disposed: 'badge-danger',
   returned: 'badge-neutral',
+  stock_in: 'badge-success',
+  transfer: 'badge-info',
+  overdue: 'badge-danger',
 }
 </script>
 

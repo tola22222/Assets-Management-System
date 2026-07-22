@@ -12,12 +12,12 @@ class LocationController extends Controller
 {
     public function index()
     {
-        return response()->json(Location::withCount('assetStocks')->latest()->get());
+        return response()->json(Location::withCount('assets')->orderBy('name')->get());
     }
 
     public function show(Location $location)
     {
-        $location->load('assetStocks.asset');
+        $location->load(['assets.category']);
         return response()->json($location);
     }
 
@@ -61,7 +61,7 @@ class LocationController extends Controller
 
     public function destroy(Location $location)
     {
-        if ($location->assetStocks()->count() > 0) {
+        if ($location->assets()->count() > 0) {
             return response()->json(['message' => 'Cannot delete location with assets.'], 422);
         }
 

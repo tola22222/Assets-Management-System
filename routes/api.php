@@ -38,6 +38,7 @@ Route::name('api.')->group(function () {
         Route::post('/profile/password', [AuthController::class, 'changePassword']);
 
         Route::get('/dashboard', [DashboardController::class, 'index']);
+        Route::get('/dashboard/by-period', [DashboardController::class, 'byPeriod']);
 
         Route::post('/assets/{asset}/regenerate-qr', [AssetController::class, 'regenerateQr']);
         Route::post('/assets/{asset}/flag', [AssetController::class, 'flagIssue']);
@@ -85,6 +86,7 @@ Route::name('api.')->group(function () {
         Route::apiResource('suppliers', SupplierController::class)->except(['create', 'show', 'edit']);
 
         Route::get('/reports/inventory', [ReportController::class, 'inventory']);
+        Route::get('/reports/by-model', [ReportController::class, 'byModel']);
         Route::get('/reports/assignments', [ReportController::class, 'assignments']);
         Route::get('/reports/transfers', [ReportController::class, 'transfers']);
         Route::get('/reports/verifications', [ReportController::class, 'verifications']);

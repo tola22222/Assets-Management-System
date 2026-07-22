@@ -28,6 +28,12 @@
     "by_category_subtitle": "Breakdown of what PEPY owns",
     "by_location": "Assets by location",
     "by_location_subtitle": "Office & Learning Center holds the largest share; each school carries its own working set",
+    "registered_over_time": "Assets registered over time",
+    "registered_over_time_subtitle": "New assets added to the register, by period",
+    "period_day": "Day",
+    "period_month": "Month",
+    "period_year": "Year",
+    "no_trend_data": "No assets registered in this period yet.",
     "needs_attention": "Needs attention",
     "needs_attention_subtitle": "Records missing required fields",
     "no_assets": "No assets registered yet.",
@@ -51,6 +57,7 @@
     "transfer_requests": "Transfer Requests",
     "verification": "Verification",
     "asset_management": "Asset Management",
+    "receive_assets": "Receive Assets",
     "stock_movements": "Stock Movements",
     "assignments": "Assignments",
     "transfers": "Transfers",
@@ -71,6 +78,9 @@
     "hide_sidebar": "Hide sidebar"
   },
   "common": {
+    "all": "All",
+    "clear_filters": "Clear filters",
+    "search": "Search…",
     "edit": "Edit",
     "delete": "Delete",
     "save": "Save",
@@ -127,7 +137,10 @@
     "disposed": "DISPOSED",
     "returned": "RETURNED",
     "locked": "LOCKED",
-    "inactive": "INACTIVE"
+    "inactive": "INACTIVE",
+    "stock_in": "RECEIVED",
+    "transfer": "TRANSFER",
+    "overdue": "OVERDUE"
   },
   "assets": {
     "title": "Asset Register",
@@ -189,6 +202,7 @@
     "how_it_works": "How it works",
     "step1": "Upload your register as .xlsx, .xls or .csv. The first sheet is read.",
     "step2": "Existing Asset IDs (e.g. PEY-SR-FAF-0928) are kept — the category is detected from the code (MOV / FAF / COM / EQU).",
+    "step_location": "For new assets (no existing Asset ID), Location is required and must match an existing site name exactly (e.g. \"PEPY Office\", \"Kralanh HS\") — download the template to see the exact column.",
     "step3": "Section headings and subtotal rows are skipped automatically. Prices and dates are cleaned up.",
     "step4": "Re-importing is safe — rows are matched by Asset ID, so existing assets are updated, not duplicated.",
     "download_template": "Download CSV template",
@@ -233,7 +247,7 @@
     "new": "New Location",
     "search_placeholder": "Search locations…",
     "type": "Type",
-    "stock_records": "Stock Records",
+    "stock_records": "Assets",
     "empty_search": "No locations match your search.",
     "empty": "No locations yet.",
     "edit_title": "Edit Location",
@@ -383,6 +397,21 @@
     "received_at": "Received",
     "save": "Receive",
     "entity": "Receipt"
+  },
+  "asset_movements": {
+    "title": "Stock Movements",
+    "subtitle": "Full movement ledger — every receipt and approved transfer, in one place",
+    "type": "Type",
+    "from": "From",
+    "to": "To",
+    "reference": "Reference #",
+    "date": "Date",
+    "created_by": "Recorded By",
+    "empty": "No stock movements recorded yet.",
+    "delete_confirm_title": "Delete this movement record?",
+    "delete_confirm_message": "This only removes the audit record — it does not undo the receipt or transfer itself.",
+    "deleted": "Movement record deleted.",
+    "delete_failed": "Could not delete this record."
   },
   "asset_assignments": {
     "title": "Asset Assignments",

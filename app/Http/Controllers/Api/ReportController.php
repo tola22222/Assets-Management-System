@@ -11,9 +11,34 @@ use App\Models\AssetVerification;
 use App\Models\Location;
 use App\Models\Notification;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class ReportController extends Controller
 {
+    /**
+     * Grouped "count by model" view: each Asset row stays an individually
+     * tracked unit with its own tag, but this rolls same-name units up into
+     * one line per model/category with a Low/Medium/High stock-level badge —
+     * a read-only summary, not a change to how the data is stored.
+     */
+    public function byModel()
+    {
+        $rows = Asset::select('name', 'category_id', DB::raw('count(*) as total'))
+            ->where('status', '!=', 'disposed')
+            ->groupBy('name', 'category_id')
+            ->with('category:id,name,short_name')
+            ->get()
+            ->map(function ($row) {
+                $row->stock_level = Asset::stockLevelFor($row->total);
+
+                return $row;
+            })
+            ->sortByDesc('total')
+            ->values();
+
+        return response()->json($rows);
+    }
+
     public function inventory(Request $request)
     {
         $query = Asset::with(['category', 'stocks.location']);
@@ -74,7 +99,7 @@ class ReportController extends Controller
 
     public function locations()
     {
-        return response()->json(Location::withCount('assetStocks')->get());
+        return response()->json(Location::withCount('assets')->get());
     }
 
     public function qrScans()

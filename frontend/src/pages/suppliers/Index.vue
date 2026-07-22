@@ -6,12 +6,15 @@ import PageHeader from '../../components/ui/PageHeader.vue'
 import Modal from '../../components/ui/Modal.vue'
 import ConfirmDialog from '../../components/ui/ConfirmDialog.vue'
 import SearchInput from '../../components/ui/SearchInput.vue'
+import TableSortIcon from '../../components/ui/TableSortIcon.vue'
 import { useApiCrud } from '../../composables/useApiCrud'
 import { useTableSearch } from '../../composables/useTableSearch'
+import { useTableSort } from '../../composables/useTableSort'
 
 const { t } = useI18n()
 const { items: suppliers, loading, fetchAll, create, update, destroy } = useApiCrud('/suppliers', { entityName: t('suppliers.entity') })
-const { search, filtered } = useTableSearch(suppliers, ['name', 'phone', 'address'])
+const { search, filtered: searched } = useTableSearch(suppliers, ['name', 'phone', 'address'])
+const { sortKey, sortDir, toggleSort, sorted: filtered } = useTableSort(searched, { defaultKey: 'name' })
 
 const showModal = ref(false)
 const editingId = ref(null)
@@ -49,16 +52,17 @@ onMounted(fetchAll)
     <div class="p-8 max-w-4xl mx-auto space-y-6">
       <PageHeader :title="t('suppliers.title')" :subtitle="t('suppliers.subtitle')" :buttonText="t('suppliers.new')" @action="openCreate" />
 
-      <div class="w-full sm:max-w-xs">
-        <SearchInput v-model="search" :placeholder="t('suppliers.search_placeholder')" />
-      </div>
-
       <div class="table-wrap">
+        <div class="table-toolbar">
+          <div class="w-full sm:max-w-xs">
+            <SearchInput v-model="search" :placeholder="t('suppliers.search_placeholder')" />
+          </div>
+        </div>
         <div class="overflow-x-auto">
           <table class="data-table">
             <thead>
               <tr>
-                <th>{{ t('common.name') }}</th>
+                <th class="th-sort" @click="toggleSort('name')">{{ t('common.name') }}<TableSortIcon :active="sortKey === 'name'" :direction="sortDir" /></th>
                 <th>{{ t('common.phone') }}</th>
                 <th>{{ t('common.address') }}</th>
                 <th class="text-right">{{ t('common.actions') }}</th>
@@ -90,22 +94,28 @@ onMounted(fetchAll)
     </div>
 
     <Modal v-if="showModal" :title="editingId ? t('suppliers.edit_title') : t('suppliers.create_title')" @close="showModal = false">
-      <form @submit.prevent="handleSubmit" class="p-6 space-y-4">
-        <div class="space-y-1.5">
-          <label class="text-xs font-semibold text-muted tracking-wide">{{ t('suppliers.name_required') }}</label>
-          <input v-model="form.name" required class="input" />
+      <form @submit.prevent="handleSubmit">
+        <div class="p-6 space-y-4">
+          <div class="space-y-1.5">
+            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('suppliers.name_required') }}</label>
+            <input v-model="form.name" required class="input" />
+          </div>
+          <div class="space-y-1.5">
+            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('common.phone') }}</label>
+            <input v-model="form.phone" class="input" />
+          </div>
+          <div class="space-y-1.5">
+            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('common.address') }}</label>
+            <textarea v-model="form.address" rows="2" class="input"></textarea>
+          </div>
         </div>
-        <div class="space-y-1.5">
-          <label class="text-xs font-semibold text-muted tracking-wide">{{ t('common.phone') }}</label>
-          <input v-model="form.phone" class="input" />
+        <div class="flex items-center gap-3 border-t border-line px-6 py-4">
+          <button type="submit" class="btn-primary">
+            <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+            {{ editingId ? t('suppliers.save_changes') : t('suppliers.create_button') }}
+          </button>
+          <button type="button" class="btn-ghost" @click="showModal = false">{{ t('common.cancel') }}</button>
         </div>
-        <div class="space-y-1.5">
-          <label class="text-xs font-semibold text-muted tracking-wide">{{ t('common.address') }}</label>
-          <textarea v-model="form.address" rows="2" class="input"></textarea>
-        </div>
-        <button type="submit" class="btn-primary w-full">
-          {{ editingId ? t('suppliers.save_changes') : t('suppliers.create_button') }}
-        </button>
       </form>
     </Modal>
 

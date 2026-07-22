@@ -6,12 +6,21 @@ import PageHeader from '../../components/ui/PageHeader.vue'
 import Modal from '../../components/ui/Modal.vue'
 import ConfirmDialog from '../../components/ui/ConfirmDialog.vue'
 import SearchInput from '../../components/ui/SearchInput.vue'
+import TableSortIcon from '../../components/ui/TableSortIcon.vue'
 import { useApiCrud } from '../../composables/useApiCrud'
 import { useTableSearch } from '../../composables/useTableSearch'
+import { useTableSort } from '../../composables/useTableSort'
 
 const { t } = useI18n()
 const { items: categories, loading, fetchAll, create, update, destroy } = useApiCrud('/categories', { entityName: t('categories.entity') })
-const { search, filtered } = useTableSearch(categories, ['name', 'short_name', 'description'])
+const { search, filtered: searched } = useTableSearch(categories, ['name', 'short_name', 'description'])
+const { sortKey, sortDir, toggleSort, sorted: filtered } = useTableSort(searched, { defaultKey: 'name', paths: { count: 'assets_count' } })
+
+const CATEGORY_CODES = ['MOV', 'FAF', 'COM', 'EQU']
+
+function uppercaseShortName(e) {
+  form.short_name = e.target.value.toUpperCase()
+}
 
 const showModal = ref(false)
 const editingId = ref(null)
@@ -52,18 +61,19 @@ onMounted(fetchAll)
     <div class="p-8 max-w-5xl mx-auto space-y-6">
       <PageHeader :title="t('categories.title')" :subtitle="t('categories.subtitle')" :buttonText="t('categories.new')" @action="openCreate" />
 
-      <div class="w-full sm:max-w-xs">
-        <SearchInput v-model="search" :placeholder="t('categories.search_placeholder')" />
-      </div>
-
       <div class="table-wrap">
+        <div class="table-toolbar">
+          <div class="w-full sm:max-w-xs">
+            <SearchInput v-model="search" :placeholder="t('categories.search_placeholder')" />
+          </div>
+        </div>
         <div class="overflow-x-auto">
           <table class="data-table">
             <thead>
               <tr>
-                <th>{{ t('common.name') }}</th>
-                <th>{{ t('categories.short_name') }}</th>
-                <th>{{ t('categories.assets_count') }}</th>
+                <th class="th-sort" @click="toggleSort('name')">{{ t('common.name') }}<TableSortIcon :active="sortKey === 'name'" :direction="sortDir" /></th>
+                <th class="th-sort" @click="toggleSort('short_name')">{{ t('categories.short_name') }}<TableSortIcon :active="sortKey === 'short_name'" :direction="sortDir" /></th>
+                <th class="th-sort" @click="toggleSort('count')">{{ t('categories.assets_count') }}<TableSortIcon :active="sortKey === 'count'" :direction="sortDir" /></th>
                 <th class="text-right">{{ t('common.actions') }}</th>
               </tr>
             </thead>
@@ -93,22 +103,33 @@ onMounted(fetchAll)
     </div>
 
     <Modal v-if="showModal" :title="editingId ? t('categories.edit_title') : t('categories.create_title')" @close="showModal = false">
-      <form @submit.prevent="handleSubmit" class="p-6 space-y-4">
-        <div class="space-y-1.5">
-          <label class="text-xs font-semibold text-muted tracking-wide">{{ t('categories.name_required') }}</label>
-          <input v-model="form.name" required class="input" />
+      <form @submit.prevent="handleSubmit">
+        <div class="p-6 space-y-4">
+          <div class="space-y-1.5">
+            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('categories.name_required') }}</label>
+            <input v-model="form.name" required class="input" />
+          </div>
+          <div class="space-y-1.5">
+            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('categories.short_name') }}</label>
+            <input :value="form.short_name" @input="uppercaseShortName" list="category-codes" maxlength="6"
+              placeholder="e.g. MOV, or your own like ELEC" class="input" />
+            <datalist id="category-codes">
+              <option v-for="code in CATEGORY_CODES" :key="code" :value="code" />
+            </datalist>
+            <p class="text-xs text-faint">2-6 letters/numbers. MOV/FAF/COM/EQU are the Manual's defaults — you can also type your own.</p>
+          </div>
+          <div class="space-y-1.5">
+            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('common.description') }}</label>
+            <textarea v-model="form.description" rows="2" class="input"></textarea>
+          </div>
         </div>
-        <div class="space-y-1.5">
-          <label class="text-xs font-semibold text-muted tracking-wide">{{ t('categories.short_name') }}</label>
-          <input v-model="form.short_name" maxlength="10" class="input" />
+        <div class="flex items-center gap-3 border-t border-line px-6 py-4">
+          <button type="submit" class="btn-primary">
+            <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+            {{ editingId ? t('categories.save_changes') : t('categories.create_button') }}
+          </button>
+          <button type="button" class="btn-ghost" @click="showModal = false">{{ t('common.cancel') }}</button>
         </div>
-        <div class="space-y-1.5">
-          <label class="text-xs font-semibold text-muted tracking-wide">{{ t('common.description') }}</label>
-          <textarea v-model="form.description" rows="2" class="input"></textarea>
-        </div>
-        <button type="submit" class="btn-primary w-full">
-          {{ editingId ? t('categories.save_changes') : t('categories.create_button') }}
-        </button>
       </form>
     </Modal>
 

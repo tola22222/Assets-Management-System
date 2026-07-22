@@ -65,6 +65,13 @@
             <h3 class="font-bold text-gray-900 dark:text-white mt-4">Location Report</h3>
             <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Location information</p>
         </a>
+        <a href="{{ route('reports.by-model') }}" class="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition group">
+            <span class="p-3 bg-cyan-50 rounded-xl inline-block group-hover:scale-110 transition flex items-center justify-center">
+                <svg class="w-6 h-6 text-cyan-600" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z"/></svg>
+            </span>
+            <h3 class="font-bold text-gray-900 dark:text-white mt-4">Assets by Model</h3>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Units per model with Low/Medium/High stock level</p>
+        </a>
         <a href="{{ route('reports.qr-scans') }}" class="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition group">
             <span class="p-3 bg-gray-50 rounded-xl inline-block group-hover:scale-110 transition flex items-center justify-center">
                 <img src="{{ asset('images/qr-code.svg') }}" class="w-6 h-6" alt="">

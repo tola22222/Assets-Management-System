@@ -10,6 +10,7 @@ return [
     // Sidebar - Asset Management
     'asset_management' => 'ការគ្រប់គ្រងទ្រព្យសកម្ម',
     'asset_register' => 'បញ្ជីទ្រព្យសកម្ម',
+    'receive_assets' => 'ទទួលទ្រព្យសម្បត្តិ',
     'stock_movements' => 'ចលនាស្តុក',
     'assignments' => 'ការចាត់តាំង',
     'transfers' => 'ការផ្ទេរ',

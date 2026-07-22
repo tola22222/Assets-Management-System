@@ -6,13 +6,20 @@ import PageHeader from '../../components/ui/PageHeader.vue'
 import Modal from '../../components/ui/Modal.vue'
 import ConfirmDialog from '../../components/ui/ConfirmDialog.vue'
 import SearchInput from '../../components/ui/SearchInput.vue'
+import TableSortIcon from '../../components/ui/TableSortIcon.vue'
 import { useApiCrud } from '../../composables/useApiCrud'
 import { useTableSearch } from '../../composables/useTableSearch'
+import { useTableFilter } from '../../composables/useTableFilter'
+import { useTableSort } from '../../composables/useTableSort'
 import { useToastStore } from '../../stores/toast'
 
 const { t } = useI18n()
 const { items: locations, loading, fetchAll, create, update, destroy } = useApiCrud('/locations', { entityName: t('locations.entity') })
-const { search, filtered } = useTableSearch(locations, ['name', 'type', 'description'])
+const { search, filtered: searched } = useTableSearch(locations, ['name', 'type', 'description'])
+const { filters, filtered: matched, hasActiveFilters, clearFilters } = useTableFilter(searched, {
+  type: (row, v) => row.type === v,
+})
+const { sortKey, sortDir, toggleSort, sorted: filtered } = useTableSort(matched, { defaultKey: 'name', paths: { count: 'assets_count' } })
 const toast = useToastStore()
 
 const showModal = ref(false)
@@ -59,18 +66,26 @@ onMounted(fetchAll)
     <div class="p-8 max-w-5xl mx-auto space-y-6">
       <PageHeader :title="t('locations.title')" :subtitle="t('locations.subtitle')" :buttonText="t('locations.new')" @action="openCreate" />
 
-      <div class="w-full sm:max-w-xs">
-        <SearchInput v-model="search" :placeholder="t('locations.search_placeholder')" />
-      </div>
-
       <div class="table-wrap">
+        <div class="table-toolbar">
+          <div class="w-full sm:max-w-xs">
+            <SearchInput v-model="search" :placeholder="t('locations.search_placeholder')" />
+          </div>
+          <select v-model="filters.type" class="filter-select">
+            <option value="">{{ t('locations.type') }}: {{ t('common.all') }}</option>
+            <option value="office">{{ t('locations.type_office') }}</option>
+            <option value="lab">{{ t('locations.type_lab') }}</option>
+            <option value="program">{{ t('locations.type_program') }}</option>
+          </select>
+          <button v-if="hasActiveFilters" @click="clearFilters" class="btn-subtle btn-sm">{{ t('common.clear_filters') }}</button>
+        </div>
         <div class="overflow-x-auto">
           <table class="data-table">
             <thead>
               <tr>
-                <th>{{ t('common.name') }}</th>
-                <th>{{ t('locations.type') }}</th>
-                <th>{{ t('locations.stock_records') }}</th>
+                <th class="th-sort" @click="toggleSort('name')">{{ t('common.name') }}<TableSortIcon :active="sortKey === 'name'" :direction="sortDir" /></th>
+                <th class="th-sort" @click="toggleSort('type')">{{ t('locations.type') }}<TableSortIcon :active="sortKey === 'type'" :direction="sortDir" /></th>
+                <th class="th-sort" @click="toggleSort('count')">{{ t('locations.stock_records') }}<TableSortIcon :active="sortKey === 'count'" :direction="sortDir" /></th>
                 <th class="text-right">{{ t('common.actions') }}</th>
               </tr>
             </thead>
@@ -78,7 +93,7 @@ onMounted(fetchAll)
               <tr v-for="loc in filtered" :key="loc.id">
                 <td class="font-medium text-fg">{{ loc.name }}</td>
                 <td class="capitalize">{{ loc.type }}</td>
-                <td>{{ loc.asset_stocks_count ?? 0 }}</td>
+                <td>{{ loc.assets_count ?? 0 }}</td>
                 <td class="text-right">
                   <div class="flex items-center justify-end gap-1.5">
                     <button @click="openEdit(loc)" title="Edit" class="w-7 h-7 rounded-lg bg-brand text-white flex items-center justify-center hover:bg-brand-dark transition">
@@ -100,26 +115,32 @@ onMounted(fetchAll)
     </div>
 
     <Modal v-if="showModal" :title="editingId ? t('locations.edit_title') : t('locations.create_title')" @close="showModal = false">
-      <form @submit.prevent="handleSubmit" class="p-6 space-y-4">
-        <div class="space-y-1.5">
-          <label class="text-xs font-semibold text-muted tracking-wide">{{ t('locations.name_required') }}</label>
-          <input v-model="form.name" required class="input" />
+      <form @submit.prevent="handleSubmit">
+        <div class="p-6 space-y-4">
+          <div class="space-y-1.5">
+            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('locations.name_required') }}</label>
+            <input v-model="form.name" required class="input" />
+          </div>
+          <div class="space-y-1.5">
+            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('locations.type_required') }}</label>
+            <select v-model="form.type" class="input">
+              <option value="office">{{ t('locations.type_office') }}</option>
+              <option value="lab">{{ t('locations.type_lab') }}</option>
+              <option value="program">{{ t('locations.type_program') }}</option>
+            </select>
+          </div>
+          <div class="space-y-1.5">
+            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('common.description') }}</label>
+            <textarea v-model="form.description" rows="2" class="input"></textarea>
+          </div>
         </div>
-        <div class="space-y-1.5">
-          <label class="text-xs font-semibold text-muted tracking-wide">{{ t('locations.type_required') }}</label>
-          <select v-model="form.type" class="input">
-            <option value="office">{{ t('locations.type_office') }}</option>
-            <option value="lab">{{ t('locations.type_lab') }}</option>
-            <option value="program">{{ t('locations.type_program') }}</option>
-          </select>
+        <div class="flex items-center gap-3 border-t border-line px-6 py-4">
+          <button type="submit" class="btn-primary">
+            <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+            {{ editingId ? t('locations.save_changes') : t('locations.create_button') }}
+          </button>
+          <button type="button" class="btn-ghost" @click="showModal = false">{{ t('common.cancel') }}</button>
         </div>
-        <div class="space-y-1.5">
-          <label class="text-xs font-semibold text-muted tracking-wide">{{ t('common.description') }}</label>
-          <textarea v-model="form.description" rows="2" class="input"></textarea>
-        </div>
-        <button type="submit" class="btn-primary w-full">
-          {{ editingId ? t('locations.save_changes') : t('locations.create_button') }}
-        </button>
       </form>
     </Modal>
 

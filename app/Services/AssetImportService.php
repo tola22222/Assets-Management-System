@@ -42,7 +42,18 @@ class AssetImportService
     {
         @set_time_limit(0);
 
-        $rows = $this->readRows($file);
+        try {
+            $rows = $this->readRows($file);
+        } catch (\Throwable $e) {
+            // PhpSpreadsheet's own exceptions are low-level (zip/XML parser
+            // errors) and leak the server's temp file path — never show them
+            // to the user directly. This is what a renamed/corrupted file, or
+            // a non-Excel file given an .xlsx/.xls extension, looks like.
+            throw new \RuntimeException(
+                'Could not read this file as a spreadsheet. Make sure it\'s a valid, unmodified .xlsx, .xls, or .csv export — not a renamed or corrupted file — then try again.'
+            );
+        }
+
         if (empty($rows)) {
             throw new \RuntimeException('The file appears to be empty.');
         }
@@ -96,7 +107,23 @@ class AssetImportService
                 continue;
             }
 
-            $location = $this->resolveLocation($get('location'));
+            // The historical PEPY layout's location text is known to be messy
+            // (typos, blanks) across 900+ rows, so it deliberately falls back
+            // to PEPY Office rather than abort those rows — see resolveLocation().
+            // The template layout has no such excuse: location is a required
+            // field on the Register Asset form and in the database, so a
+            // missing/unrecognized one is a row error here, same as category.
+            if ($preserveCodes) {
+                $location = $this->resolveLocation($get('location'));
+            } else {
+                try {
+                    $location = $this->requireLocation($get('location'));
+                } catch (\RuntimeException $e) {
+                    $errors[] = "Row {$lineNo}: ".$e->getMessage();
+
+                    continue;
+                }
+            }
 
             $payload = [
                 'name' => $name,
@@ -115,6 +142,8 @@ class AssetImportService
             ];
 
             if ($preserveCodes) {
+                $this->bumpSequenceFromCode($code);
+
                 $existing = Asset::where('asset_code', $code)->first();
                 if ($existing) {
                     $existing->update($payload);
@@ -173,7 +202,13 @@ class AssetImportService
         foreach ($rows as $index => $row) {
             $map = [];
             foreach ($row as $col => $cell) {
-                $h = strtolower(trim((string) $cell));
+                // Normalize underscores to spaces so the template's own
+                // snake_case headers (purchase_date, purchase_price) match
+                // the same rules as the free-text "Purchase Price" headers
+                // used in the real PEPY register — without this, a file
+                // built from the downloadable template silently imported
+                // with no price or date at all.
+                $h = str_replace('_', ' ', strtolower(trim((string) $cell)));
                 if ($h === '') {
                     continue;
                 }
@@ -253,6 +288,19 @@ class AssetImportService
         return $hasCategory && $hasSequence;
     }
 
+    /** Keep asset_code_sequences ahead of every preserved code so the next Register/Receive Asset call can't collide with it. */
+    private function bumpSequenceFromCode(string $code): void
+    {
+        if (! preg_match('/^PEY-[A-Z]{2,4}-([A-Z]{2,4})-(\d+)$/', $code, $m)) {
+            return;
+        }
+        $categoryCode = $m[1] === 'FVF' ? 'FAF' : $m[1];
+        if (! in_array($categoryCode, AssetCodeService::CATEGORY_CODES, true)) {
+            return;
+        }
+        AssetCodeService::bumpSequenceIfHigher($categoryCode, (int) $m[2]);
+    }
+
     private function categoryFromCode(string $code): AssetCategory
     {
         $segments = explode('-', $code);
@@ -282,6 +330,24 @@ class AssetImportService
         }
 
         return $existing;
+    }
+
+    /** Strict counterpart to resolveLocation() for the template layout — see the call site for why. */
+    private function requireLocation(string $name): Location
+    {
+        if ($name === '') {
+            throw new \RuntimeException('location is required.');
+        }
+        $key = strtolower($name);
+        if (isset($this->locationCache[$key])) {
+            return $this->locationCache[$key];
+        }
+        $existing = Location::whereRaw('LOWER(name) = ?', [$key])->first();
+        if (! $existing) {
+            throw new \RuntimeException("location \"{$name}\" not found.");
+        }
+
+        return $this->locationCache[$key] = $existing;
     }
 
     /** Find a category by short_name, creating it if missing. Cached per run. */

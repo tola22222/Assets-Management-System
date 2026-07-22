@@ -9,4 +9,5 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::command('app:send-scheduled-asset-report')->daily();
-Schedule::command('app:notify-missing-fields')->daily();
+Schedule::command('notifications:missing-fields')->weeklyOn(1, '08:00');
+Schedule::command('notifications:count-reminder')->daily();

@@ -7,13 +7,20 @@ import PageHeader from '../../components/ui/PageHeader.vue'
 import Modal from '../../components/ui/Modal.vue'
 import ConfirmDialog from '../../components/ui/ConfirmDialog.vue'
 import SearchInput from '../../components/ui/SearchInput.vue'
+import TableSortIcon from '../../components/ui/TableSortIcon.vue'
 import { useApiCrud } from '../../composables/useApiCrud'
 import { useTableSearch } from '../../composables/useTableSearch'
+import { useTableFilter } from '../../composables/useTableFilter'
+import { useTableSort } from '../../composables/useTableSort'
 import { useToastStore } from '../../stores/toast'
 
 const { t } = useI18n()
 const { items: staffList, loading, fetchAll, destroy } = useApiCrud('/staff', { entityName: t('staff.entity') })
-const { search, filtered } = useTableSearch(staffList, ['full_name', 'position', 'phone', 'email'])
+const { search, filtered: searched } = useTableSearch(staffList, ['full_name', 'position', 'phone', 'email'])
+const { filters, filtered: matched, hasActiveFilters, clearFilters } = useTableFilter(searched, {
+  status: (row, v) => row.status === v,
+})
+const { sortKey, sortDir, toggleSort, sorted: filtered } = useTableSort(matched, { defaultKey: 'full_name' })
 const toast = useToastStore()
 
 const showModal = ref(false)
@@ -78,19 +85,26 @@ onMounted(fetchAll)
     <div class="p-8 max-w-5xl mx-auto space-y-6">
       <PageHeader :title="t('staff.title')" :subtitle="t('staff.subtitle')" :buttonText="t('staff.new')" @action="openCreate" />
 
-      <div class="w-full sm:max-w-xs">
-        <SearchInput v-model="search" :placeholder="t('staff.search_placeholder')" />
-      </div>
-
       <div class="table-wrap">
+        <div class="table-toolbar">
+          <div class="w-full sm:max-w-xs">
+            <SearchInput v-model="search" :placeholder="t('staff.search_placeholder')" />
+          </div>
+          <select v-model="filters.status" class="filter-select">
+            <option value="">{{ t('common.status') }}: {{ t('common.all') }}</option>
+            <option value="active">{{ t('staff.status_active') }}</option>
+            <option value="inactive">{{ t('staff.status_inactive') }}</option>
+          </select>
+          <button v-if="hasActiveFilters" @click="clearFilters" class="btn-subtle btn-sm">{{ t('common.clear_filters') }}</button>
+        </div>
         <div class="overflow-x-auto">
           <table class="data-table">
             <thead>
               <tr>
-                <th>{{ t('common.name') }}</th>
-                <th>{{ t('staff.position') }}</th>
+                <th class="th-sort" @click="toggleSort('full_name')">{{ t('common.name') }}<TableSortIcon :active="sortKey === 'full_name'" :direction="sortDir" /></th>
+                <th class="th-sort" @click="toggleSort('position')">{{ t('staff.position') }}<TableSortIcon :active="sortKey === 'position'" :direction="sortDir" /></th>
                 <th>{{ t('common.phone') }}</th>
-                <th>{{ t('common.status') }}</th>
+                <th class="th-sort" @click="toggleSort('status')">{{ t('common.status') }}<TableSortIcon :active="sortKey === 'status'" :direction="sortDir" /></th>
                 <th class="text-right">{{ t('common.actions') }}</th>
               </tr>
             </thead>
@@ -129,45 +143,51 @@ onMounted(fetchAll)
     </div>
 
     <Modal v-if="showModal" :title="editingId ? t('staff.edit_title') : t('staff.create_title')" @close="showModal = false">
-      <form @submit.prevent="handleSubmit" class="p-6 space-y-4">
-        <div class="space-y-1.5">
-          <label class="text-xs font-semibold text-muted tracking-wide">{{ t('staff.full_name') }}</label>
-          <input v-model="form.full_name" required class="input" />
-        </div>
-        <div class="grid grid-cols-2 gap-4">
+      <form @submit.prevent="handleSubmit">
+        <div class="p-6 space-y-4">
           <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('common.email') }}</label>
-            <input v-model="form.email" type="email" class="input" />
+            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('staff.full_name') }}</label>
+            <input v-model="form.full_name" required class="input" />
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div class="space-y-1.5">
+              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('common.email') }}</label>
+              <input v-model="form.email" type="email" class="input" />
+            </div>
+            <div class="space-y-1.5">
+              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('common.phone') }}</label>
+              <input v-model="form.phone" class="input" />
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div class="space-y-1.5">
+              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('staff.position') }}</label>
+              <input v-model="form.position" class="input" />
+            </div>
+            <div class="space-y-1.5">
+              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('staff.hire_date') }}</label>
+              <input v-model="form.hire_date" type="date" class="input" />
+            </div>
+          </div>
+          <div v-if="editingId" class="space-y-1.5">
+            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('staff.status_required') }}</label>
+            <select v-model="form.status" class="input">
+              <option value="active">{{ t('staff.status_active') }}</option>
+              <option value="inactive">{{ t('staff.status_inactive') }}</option>
+            </select>
           </div>
           <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('common.phone') }}</label>
-            <input v-model="form.phone" class="input" />
+            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('staff.photo') }}</label>
+            <input type="file" accept="image/jpeg,image/png" @change="handleFileChange" class="w-full text-sm" />
           </div>
         </div>
-        <div class="grid grid-cols-2 gap-4">
-          <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('staff.position') }}</label>
-            <input v-model="form.position" class="input" />
-          </div>
-          <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('staff.hire_date') }}</label>
-            <input v-model="form.hire_date" type="date" class="input" />
-          </div>
+        <div class="flex items-center gap-3 border-t border-line px-6 py-4">
+          <button type="submit" class="btn-primary">
+            <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+            {{ editingId ? t('staff.save_changes') : t('staff.add_button') }}
+          </button>
+          <button type="button" class="btn-ghost" @click="showModal = false">{{ t('common.cancel') }}</button>
         </div>
-        <div v-if="editingId" class="space-y-1.5">
-          <label class="text-xs font-semibold text-muted tracking-wide">{{ t('staff.status_required') }}</label>
-          <select v-model="form.status" class="input">
-            <option value="active">{{ t('staff.status_active') }}</option>
-            <option value="inactive">{{ t('staff.status_inactive') }}</option>
-          </select>
-        </div>
-        <div class="space-y-1.5">
-          <label class="text-xs font-semibold text-muted tracking-wide">{{ t('staff.photo') }}</label>
-          <input type="file" accept="image/jpeg,image/png" @change="handleFileChange" class="w-full text-sm" />
-        </div>
-        <button type="submit" class="btn-primary w-full">
-          {{ editingId ? t('staff.save_changes') : t('staff.add_button') }}
-        </button>
       </form>
     </Modal>
 

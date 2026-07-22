@@ -164,7 +164,7 @@ class AssetController extends Controller
 
     public function publicShow($assetCode)
     {
-        $asset = Asset::with(['category', 'stocks.location', 'assignments' => function ($q) {
+        $asset = Asset::with(['category', 'location', 'assignments' => function ($q) {
             $q->with('assignee')->latest();
         }])->where('asset_code', $assetCode)->firstOrFail();
         $locations = \App\Models\Location::all();

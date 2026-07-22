@@ -7,7 +7,11 @@ import PageHeader from '../../components/ui/PageHeader.vue'
 import Modal from '../../components/ui/Modal.vue'
 import ConfirmDialog from '../../components/ui/ConfirmDialog.vue'
 import SearchInput from '../../components/ui/SearchInput.vue'
+import TableSortIcon from '../../components/ui/TableSortIcon.vue'
 import { useApiCrud } from '../../composables/useApiCrud'
+import { useTableSearch } from '../../composables/useTableSearch'
+import { useTableFilter } from '../../composables/useTableFilter'
+import { useTableSort } from '../../composables/useTableSort'
 import { useToastStore } from '../../stores/toast'
 
 const { t } = useI18n()
@@ -16,7 +20,6 @@ const toast = useToastStore()
 
 const categories = ref([])
 const locations = ref([])
-const search = ref('')
 const showModal = ref(false)
 const editingId = ref(null)
 const deletingId = ref(null)
@@ -34,13 +37,17 @@ const emptyForm = () => ({
 })
 const form = reactive(emptyForm())
 
-const filtered = computed(() => {
-  const q = search.value.trim().toLowerCase()
-  if (!q) return assetsList.value
-  return assetsList.value.filter((a) =>
-    [a.name, a.asset_code, a.brand, a.model, a.category?.name, a.purchase_price, a.serial_number]
-      .filter(Boolean).join(' ').toLowerCase().includes(q)
-  )
+const { search, filtered: searched } = useTableSearch(assetsList, [
+  'name', 'asset_code', 'brand', 'model', (a) => a.category?.name, 'purchase_price', 'serial_number',
+])
+const { filters, filtered: matched, hasActiveFilters, clearFilters } = useTableFilter(searched, {
+  category_id: (row, v) => String(row.category_id) === String(v),
+  status: (row, v) => row.status === v,
+  condition: (row, v) => row.condition === v,
+})
+const { sortKey, sortDir, toggleSort, sorted: filtered } = useTableSort(matched, {
+  defaultKey: 'name',
+  paths: { category: 'category.name', price: 'purchase_price', code: 'asset_code' },
 })
 
 function money(v) {
@@ -177,30 +184,46 @@ onMounted(() => {
     <div class="p-6 sm:p-8 max-w-6xl mx-auto space-y-6">
       <PageHeader :title="t('assets.title')" :subtitle="t('assets.subtitle')" :buttonText="t('assets.register')" @action="openCreate" />
 
-      <div class="flex flex-col sm:flex-row sm:items-center gap-3">
-        <div class="w-full sm:max-w-xs">
-          <SearchInput v-model="search" :placeholder="t('assets.search_placeholder')" />
-        </div>
-        <div class="flex items-center gap-3 sm:ml-auto">
-          <p class="text-sm text-faint">{{ t('assets.count_of', { filtered: filtered.length, total: assetsList.length }) }}</p>
-          <RouterLink to="/assets/import" class="btn-ghost btn-sm">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
-            {{ t('assets.import') }}
-          </RouterLink>
-        </div>
-      </div>
-
       <div class="table-wrap">
+        <div class="table-toolbar">
+          <div class="w-full sm:max-w-xs">
+            <SearchInput v-model="search" :placeholder="t('assets.search_placeholder')" />
+          </div>
+          <select v-model="filters.category_id" class="filter-select">
+            <option value="">{{ t('assets.category') }}: {{ t('common.all') }}</option>
+            <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option>
+          </select>
+          <select v-model="filters.status" class="filter-select">
+            <option value="">{{ t('common.status') }}: {{ t('common.all') }}</option>
+            <option value="active">{{ t('status.active') }}</option>
+            <option value="disposed">{{ t('status.disposed') }}</option>
+          </select>
+          <select v-model="filters.condition" class="filter-select">
+            <option value="">{{ t('assets.condition') }}: {{ t('common.all') }}</option>
+            <option value="good">{{ t('assets.condition_good') }}</option>
+            <option value="fair">{{ t('assets.condition_fair') }}</option>
+            <option value="broken">{{ t('assets.condition_broken') }}</option>
+            <option value="lost">{{ t('assets.condition_lost') }}</option>
+          </select>
+          <button v-if="hasActiveFilters" @click="clearFilters" class="btn-subtle btn-sm">{{ t('common.clear_filters') }}</button>
+          <div class="flex items-center gap-3 sm:ml-auto">
+            <p class="text-sm text-faint">{{ t('assets.count_of', { filtered: filtered.length, total: assetsList.length }) }}</p>
+            <RouterLink to="/assets/import" class="btn-ghost btn-sm">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
+              {{ t('assets.import') }}
+            </RouterLink>
+          </div>
+        </div>
         <div class="overflow-x-auto">
           <table class="data-table">
             <thead>
               <tr>
-                <th>{{ t('assets.asset_col') }}</th>
-                <th>{{ t('assets.code') }}</th>
-                <th>{{ t('assets.category') }}</th>
-                <th>{{ t('assets.condition') }}</th>
-                <th>{{ t('common.status') }}</th>
-                <th>{{ t('common.price') }}</th>
+                <th class="th-sort" @click="toggleSort('name')">{{ t('assets.asset_col') }}<TableSortIcon :active="sortKey === 'name'" :direction="sortDir" /></th>
+                <th class="th-sort" @click="toggleSort('code')">{{ t('assets.code') }}<TableSortIcon :active="sortKey === 'code'" :direction="sortDir" /></th>
+                <th class="th-sort" @click="toggleSort('category')">{{ t('assets.category') }}<TableSortIcon :active="sortKey === 'category'" :direction="sortDir" /></th>
+                <th class="th-sort" @click="toggleSort('condition')">{{ t('assets.condition') }}<TableSortIcon :active="sortKey === 'condition'" :direction="sortDir" /></th>
+                <th class="th-sort" @click="toggleSort('status')">{{ t('common.status') }}<TableSortIcon :active="sortKey === 'status'" :direction="sortDir" /></th>
+                <th class="th-sort" @click="toggleSort('price')">{{ t('common.price') }}<TableSortIcon :active="sortKey === 'price'" :direction="sortDir" /></th>
                 <th class="text-right">{{ t('common.actions') }}</th>
               </tr>
             </thead>
@@ -254,75 +277,81 @@ onMounted(() => {
 
     <!-- Create / Edit -->
     <Modal v-if="showModal" :title="editingId ? t('assets.edit_title') : t('assets.create_title')" wide @close="showModal = false">
-      <form @submit.prevent="handleSubmit" class="p-6 space-y-4">
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label class="label">{{ t('assets.name_required') }} <span class="text-red-500">*</span></label>
-            <input v-model="form.name" required class="input" />
+      <form @submit.prevent="handleSubmit">
+        <div class="p-6 space-y-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label class="label">{{ t('assets.name_required') }} <span class="text-red-500">*</span></label>
+              <input v-model="form.name" required class="input" />
+            </div>
+            <div>
+              <label class="label">{{ t('assets.category_required') }} <span class="text-red-500">*</span></label>
+              <select v-model="form.category_id" required class="select">
+                <option value="">{{ t('assets.select_category') }}</option>
+                <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option>
+              </select>
+            </div>
+            <div>
+              <label class="label">{{ t('assets.location_required') }} <span class="text-red-500">*</span></label>
+              <select v-model="form.location_id" required class="select">
+                <option value="">{{ t('assets.select_location') }}</option>
+                <option v-for="l in locations" :key="l.id" :value="l.id">{{ l.name }}</option>
+              </select>
+            </div>
+            <div>
+              <label class="label">{{ t('assets.brand') }}</label>
+              <input v-model="form.brand" class="input" />
+            </div>
+            <div>
+              <label class="label">{{ t('assets.model') }}</label>
+              <input v-model="form.model" class="input" />
+            </div>
+            <div>
+              <label class="label">{{ t('assets.serial_number') }}</label>
+              <input v-model="form.serial_number" class="input" />
+            </div>
+            <div>
+              <label class="label">{{ t('assets.purchase_date') }}</label>
+              <input v-model="form.purchase_date" type="date" class="input" />
+            </div>
+            <div>
+              <label class="label">{{ t('assets.purchase_price') }}</label>
+              <input v-model="form.purchase_price" type="number" step="0.01" class="input" />
+            </div>
+            <div>
+              <label class="label">{{ t('assets.condition') }}</label>
+              <select v-model="form.condition" class="select">
+                <option value="good">{{ t('assets.condition_good') }}</option>
+                <option value="fair">{{ t('assets.condition_fair') }}</option>
+                <option value="broken">{{ t('assets.condition_broken') }}</option>
+                <option value="lost">{{ t('assets.condition_lost') }}</option>
+              </select>
+            </div>
+            <div>
+              <label class="label">{{ t('common.status') }}</label>
+              <select v-model="form.status" class="select">
+                <option value="active">{{ t('status.active') }}</option>
+                <option value="disposed">{{ t('status.disposed') }}</option>
+              </select>
+            </div>
+            <div>
+              <label class="label">{{ t('assets.photo') }}</label>
+              <input type="file" accept="image/jpeg,image/png" @change="handleFileChange"
+                class="w-full text-sm text-muted file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100 cursor-pointer" />
+            </div>
           </div>
           <div>
-            <label class="label">{{ t('assets.category_required') }} <span class="text-red-500">*</span></label>
-            <select v-model="form.category_id" required class="select">
-              <option value="">{{ t('assets.select_category') }}</option>
-              <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option>
-            </select>
-          </div>
-          <div>
-            <label class="label">{{ t('assets.location_required') }} <span class="text-red-500">*</span></label>
-            <select v-model="form.location_id" required class="select">
-              <option value="">{{ t('assets.select_location') }}</option>
-              <option v-for="l in locations" :key="l.id" :value="l.id">{{ l.name }}</option>
-            </select>
-          </div>
-          <div>
-            <label class="label">{{ t('assets.brand') }}</label>
-            <input v-model="form.brand" class="input" />
-          </div>
-          <div>
-            <label class="label">{{ t('assets.model') }}</label>
-            <input v-model="form.model" class="input" />
-          </div>
-          <div>
-            <label class="label">{{ t('assets.serial_number') }}</label>
-            <input v-model="form.serial_number" class="input" />
-          </div>
-          <div>
-            <label class="label">{{ t('assets.purchase_date') }}</label>
-            <input v-model="form.purchase_date" type="date" class="input" />
-          </div>
-          <div>
-            <label class="label">{{ t('assets.purchase_price') }}</label>
-            <input v-model="form.purchase_price" type="number" step="0.01" class="input" />
-          </div>
-          <div>
-            <label class="label">{{ t('assets.condition') }}</label>
-            <select v-model="form.condition" class="select">
-              <option value="good">{{ t('assets.condition_good') }}</option>
-              <option value="fair">{{ t('assets.condition_fair') }}</option>
-              <option value="broken">{{ t('assets.condition_broken') }}</option>
-              <option value="lost">{{ t('assets.condition_lost') }}</option>
-            </select>
-          </div>
-          <div>
-            <label class="label">{{ t('common.status') }}</label>
-            <select v-model="form.status" class="select">
-              <option value="active">{{ t('status.active') }}</option>
-              <option value="disposed">{{ t('status.disposed') }}</option>
-            </select>
-          </div>
-          <div>
-            <label class="label">{{ t('assets.photo') }}</label>
-            <input type="file" accept="image/jpeg,image/png" @change="handleFileChange"
-              class="w-full text-sm text-muted file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100 cursor-pointer" />
+            <label class="label">{{ t('common.description') }}</label>
+            <textarea v-model="form.description" rows="2" class="textarea"></textarea>
           </div>
         </div>
-        <div>
-          <label class="label">{{ t('common.description') }}</label>
-          <textarea v-model="form.description" rows="2" class="textarea"></textarea>
+        <div class="flex items-center gap-3 border-t border-line px-6 py-4">
+          <button type="submit" :disabled="submitting" class="btn-primary">
+            <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+            {{ submitting ? t('assets.saving') : (editingId ? t('assets.save_changes') : t('assets.register')) }}
+          </button>
+          <button type="button" class="btn-ghost" @click="showModal = false">{{ t('common.cancel') }}</button>
         </div>
-        <button type="submit" :disabled="submitting" class="btn-primary w-full">
-          {{ submitting ? t('assets.saving') : (editingId ? t('assets.save_changes') : t('assets.register')) }}
-        </button>
       </form>
     </Modal>
 
@@ -369,23 +398,28 @@ onMounted(() => {
 
     <!-- Flag Issue -->
     <Modal v-if="flagging" :title="t('assets.flag_issue')" @close="flagging = null">
-      <form @submit.prevent="submitFlag" class="p-6 space-y-4">
-        <p class="text-sm text-muted">{{ flagging.name }} <span class="font-mono text-xs text-faint">({{ flagging.asset_code }})</span></p>
-        <div>
-          <label class="label">{{ t('assets.flag_note_label') }} <span class="text-red-500">*</span></label>
-          <textarea v-model="flagNote" rows="3" required class="textarea"></textarea>
+      <form @submit.prevent="submitFlag">
+        <div class="p-6 space-y-4">
+          <p class="text-sm text-muted">{{ flagging.name }} <span class="font-mono text-xs text-faint">({{ flagging.asset_code }})</span></p>
+          <div>
+            <label class="label">{{ t('assets.flag_note_label') }} <span class="text-red-500">*</span></label>
+            <textarea v-model="flagNote" rows="3" required class="textarea"></textarea>
+          </div>
+          <div>
+            <label class="label">{{ t('assets.flag_condition_label') }}</label>
+            <select v-model="flagCondition" class="select">
+              <option value="">{{ t('assets.flag_condition_none') }}</option>
+              <option value="broken">{{ t('assets.condition_broken') }}</option>
+              <option value="lost">{{ t('assets.condition_lost') }}</option>
+            </select>
+          </div>
         </div>
-        <div>
-          <label class="label">{{ t('assets.flag_condition_label') }}</label>
-          <select v-model="flagCondition" class="select">
-            <option value="">{{ t('assets.flag_condition_none') }}</option>
-            <option value="broken">{{ t('assets.condition_broken') }}</option>
-            <option value="lost">{{ t('assets.condition_lost') }}</option>
-          </select>
+        <div class="flex items-center gap-3 border-t border-line px-6 py-4">
+          <button type="submit" :disabled="flagSubmitting" class="btn-primary">
+            {{ flagSubmitting ? t('assets.saving') : t('assets.flag_submit') }}
+          </button>
+          <button type="button" class="btn-ghost" @click="flagging = null">{{ t('common.cancel') }}</button>
         </div>
-        <button type="submit" :disabled="flagSubmitting" class="btn-primary w-full">
-          {{ flagSubmitting ? t('assets.saving') : t('assets.flag_submit') }}
-        </button>
       </form>
     </Modal>
 

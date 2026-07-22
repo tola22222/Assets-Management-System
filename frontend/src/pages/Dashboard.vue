@@ -1,11 +1,12 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import http from '../api/http'
 import { useAuthStore } from '../stores/auth'
 import AppLayout from '../layouts/AppLayout.vue'
 import StatCard from '../components/ui/StatCard.vue'
 import DonutChart from '../components/ui/DonutChart.vue'
+import TrendChart from '../components/ui/TrendChart.vue'
 import NeedsAttentionList from '../components/ui/NeedsAttentionList.vue'
 import LocationPillCards from '../components/ui/LocationPillCards.vue'
 
@@ -14,6 +15,20 @@ const auth = useAuthStore()
 const stats = ref(null)
 const loading = ref(true)
 const error = ref('')
+
+const trendPeriod = ref('month')
+const trendData = ref([])
+const trendLoading = ref(false)
+
+async function loadTrend() {
+  trendLoading.value = true
+  try {
+    const { data } = await http.get('/dashboard/by-period', { params: { period: trendPeriod.value } })
+    trendData.value = data.data
+  } finally {
+    trendLoading.value = false
+  }
+}
 
 const greeting = computed(() => {
   const h = new Date().getHours()
@@ -27,6 +42,8 @@ function formatCurrency(value) {
   return `$${Math.round(value || 0)}`
 }
 
+watch(trendPeriod, loadTrend)
+
 onMounted(async () => {
   try {
     const { data } = await http.get('/dashboard')
@@ -35,6 +52,11 @@ onMounted(async () => {
     error.value = t('dashboard.load_error')
   } finally {
     loading.value = false
+  }
+
+  // Trend data is an admin-only concept (mirrors the admin vs. staff dashboard split).
+  if (stats.value?.assets_by_category !== undefined) {
+    loadTrend()
   }
 })
 </script>
@@ -93,6 +115,28 @@ onMounted(async () => {
           <h2 class="font-display text-lg font-bold text-fg">{{ t('dashboard.by_location') }}</h2>
           <p class="text-sm text-faint mb-6">{{ t('dashboard.by_location_subtitle') }}</p>
           <LocationPillCards :locations="stats.assets_by_location" />
+        </div>
+
+        <div v-if="stats.assets_by_category !== undefined" class="card p-6">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-2">
+            <div>
+              <h2 class="font-display text-lg font-bold text-fg">{{ t('dashboard.registered_over_time') }}</h2>
+              <p class="text-sm text-faint">{{ t('dashboard.registered_over_time_subtitle') }}</p>
+            </div>
+            <div class="flex items-center gap-1 bg-surface-2 rounded-xl p-1 flex-shrink-0">
+              <button
+                v-for="p in ['day', 'month', 'year']" :key="p"
+                @click="trendPeriod = p"
+                class="px-3 py-1.5 rounded-lg text-xs font-semibold transition"
+                :class="trendPeriod === p ? 'bg-brand text-white' : 'text-muted hover:text-fg'"
+              >
+                {{ t(`dashboard.period_${p}`) }}
+              </button>
+            </div>
+          </div>
+          <div v-if="trendLoading" class="h-56 flex items-center justify-center text-sm text-faint">{{ t('common.loading') }}</div>
+          <TrendChart v-else-if="trendData.some((d) => d.count > 0)" :data="trendData" :period="trendPeriod" class="mt-4" />
+          <p v-else class="text-sm text-faint py-10 text-center">{{ t('dashboard.no_trend_data') }}</p>
         </div>
       </template>
     </div>

@@ -25,7 +25,6 @@ class AssetController extends Controller
         return response()->json($asset->load([
             'category',
             'location',
-            'stocks.location',
             'assignments' => fn ($q) => $q->latest(),
             'verifications' => fn ($q) => $q->latest(),
         ]));
@@ -140,7 +139,11 @@ class AssetController extends Controller
             'category' => $asset->category->name ?? null,
             'flaggedBy' => Auth::user(),
             'note' => $validated['note'],
-            'extraData' => ['status' => $validated['condition'] ?? 'flagged'],
+            'url' => route('asset.public.show', $asset->asset_code),
+            'extraData' => [
+                'status' => $validated['condition'] ?? 'flagged',
+                'flaggedAt' => now()->format('d M Y, H:i'),
+            ],
         ]);
 
         return response()->json($asset->fresh(['category', 'location']));

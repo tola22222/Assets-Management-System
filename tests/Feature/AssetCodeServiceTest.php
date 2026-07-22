@@ -62,10 +62,29 @@ class AssetCodeServiceTest extends TestCase
         $this->assertSame('PEY-ZZ-FAF-0001', $fafCode);
     }
 
-    public function test_it_rejects_a_category_code_outside_the_approved_list(): void
+    public function test_it_accepts_a_custom_category_code_beyond_the_manuals_original_four(): void
     {
         $location = $this->makeLocation('ZZ');
-        $category = $this->makeCategory('XYZ');
+        $category = $this->makeCategory('ELEC');
+
+        $code = AssetCodeService::nextCode($location->id, $category->id);
+
+        $this->assertSame('PEY-ZZ-ELEC-0001', $code);
+    }
+
+    public function test_it_rejects_a_category_with_no_short_name_set(): void
+    {
+        $location = $this->makeLocation('ZZ');
+        $category = $this->makeCategory('');
+
+        $this->expectException(InvalidArgumentException::class);
+        AssetCodeService::nextCode($location->id, $category->id);
+    }
+
+    public function test_it_rejects_a_malformed_short_name(): void
+    {
+        $location = $this->makeLocation('ZZ');
+        $category = $this->makeCategory('A!B');
 
         $this->expectException(InvalidArgumentException::class);
         AssetCodeService::nextCode($location->id, $category->id);

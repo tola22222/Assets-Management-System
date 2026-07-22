@@ -22,21 +22,31 @@ use InvalidArgumentException;
  */
 class AssetCodeService
 {
-    /** The only category codes the manual recognizes. */
+    /**
+     * The four categories the manual originally shipped with. Categories are
+     * no longer locked to this list — any category with a well-formed
+     * short_name (see CODE_FORMAT) can generate codes — but these remain the
+     * suggested/default options in the category form, and AssetImportService
+     * still uses this specific list to parse the historical PEPY register's
+     * legacy asset-code segments.
+     */
     public const CATEGORY_CODES = ['MOV', 'FAF', 'COM', 'EQU'];
 
+    /** A category short_name must look like this to be usable in an asset tag. */
+    public const CODE_FORMAT = '/^[A-Z0-9]{2,6}$/';
+
     /**
-     * @throws InvalidArgumentException if the category or location isn't a
-     *                                  recognized category code / approved site.
+     * @throws InvalidArgumentException if the category has no well-formed
+     *                                  short_name, or the location isn't an approved site.
      */
     public static function nextCode(?int $locationId, int $categoryId): string
     {
         $category = AssetCategory::findOrFail($categoryId);
         $categoryCode = strtoupper((string) $category->short_name);
 
-        if (! in_array($categoryCode, self::CATEGORY_CODES, true)) {
+        if (! preg_match(self::CODE_FORMAT, $categoryCode)) {
             throw new InvalidArgumentException(
-                "Invalid category code \"{$categoryCode}\". Must be one of: ".implode(', ', self::CATEGORY_CODES).'.'
+                "Category \"{$category->name}\" has no valid short code assigned. Set a 2-6 letter/number code for it on the Categories screen before registering assets in it."
             );
         }
 
@@ -67,6 +77,38 @@ class AssetCodeService
                 ->update(['last_sequence' => $next, 'updated_at' => now()]);
 
             return "PEY-{$siteCode}-{$categoryCode}-".str_pad((string) $next, 4, '0', STR_PAD_LEFT);
+        });
+    }
+
+    /**
+     * Bulk import preserves existing printed-tag codes instead of generating
+     * new ones (see AssetImportService), so it never goes through nextCode()'s
+     * increment. Without this, the sequence counter stays wherever it was left
+     * after the initial migration backfill, and the next Register/Receive
+     * Asset call can hand out a number that collides with an already-imported
+     * code (unique constraint violation on assets.asset_code). Call this for
+     * every preserved code so the counter never falls behind what's on disk.
+     */
+    public static function bumpSequenceIfHigher(string $categoryCode, int $sequence): void
+    {
+        DB::transaction(function () use ($categoryCode, $sequence) {
+            DB::table('asset_code_sequences')->insertOrIgnore([
+                'category_code' => $categoryCode,
+                'last_sequence' => 0,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            $row = DB::table('asset_code_sequences')
+                ->where('category_code', $categoryCode)
+                ->lockForUpdate()
+                ->first();
+
+            if ($sequence > $row->last_sequence) {
+                DB::table('asset_code_sequences')
+                    ->where('category_code', $categoryCode)
+                    ->update(['last_sequence' => $sequence, 'updated_at' => now()]);
+            }
         });
     }
 

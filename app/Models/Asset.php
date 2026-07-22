@@ -18,6 +18,20 @@ class Asset extends Model
 
     protected $appends = ['image_url', 'qr_code_url'];
 
+    /** Thresholds for the "Assets by Model" grouped report's stock-level badge. */
+    public const STOCK_LEVEL_MEDIUM_MIN = 5;
+
+    public const STOCK_LEVEL_HIGH_MIN = 20;
+
+    public static function stockLevelFor(int $total): string
+    {
+        return match (true) {
+            $total >= self::STOCK_LEVEL_HIGH_MIN => 'high',
+            $total >= self::STOCK_LEVEL_MEDIUM_MIN => 'medium',
+            default => 'low',
+        };
+    }
+
     public function getImageUrlAttribute()
     {
         return $this->image_path ? asset('storage/'.$this->image_path) : null;

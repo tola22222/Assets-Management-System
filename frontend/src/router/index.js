@@ -6,6 +6,7 @@ import AssetsImport from '../pages/assets/Import.vue'
 import CategoriesIndex from '../pages/categories/Index.vue'
 import LocationsIndex from '../pages/locations/Index.vue'
 import AssetStocksIndex from '../pages/asset-stocks/Index.vue'
+import AssetMovementsIndex from '../pages/asset-movements/Index.vue'
 import AssetAssignmentsIndex from '../pages/asset-assignments/Index.vue'
 import AssetTransfersIndex from '../pages/asset-transfers/Index.vue'
 import AssetReturnsIndex from '../pages/asset-returns/Index.vue'
@@ -31,6 +32,7 @@ const routes = [
   { path: '/categories', name: 'categories', component: CategoriesIndex, meta: { requiresAuth: true } },
   { path: '/locations', name: 'locations', component: LocationsIndex, meta: { requiresAuth: true } },
   { path: '/asset-stocks', name: 'asset-stocks', component: AssetStocksIndex, meta: { requiresAuth: true } },
+  { path: '/asset-movements', name: 'asset-movements', component: AssetMovementsIndex, meta: { requiresAuth: true } },
   { path: '/asset-assignments', name: 'asset-assignments', component: AssetAssignmentsIndex, meta: { requiresAuth: true } },
   { path: '/asset-transfers', name: 'asset-transfers', component: AssetTransfersIndex, meta: { requiresAuth: true } },
   { path: '/asset-returns', name: 'asset-returns', component: AssetReturnsIndex, meta: { requiresAuth: true } },

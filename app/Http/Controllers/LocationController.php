@@ -11,7 +11,7 @@ class LocationController extends Controller
 {
     public function index()
     {
-        $locations = Location::withCount('assetStocks')->latest()->get();
+        $locations = Location::withCount('assets')->orderBy('name')->get();
         return view('locations.index', compact('locations'));
     }
 
@@ -36,8 +36,7 @@ class LocationController extends Controller
 
     public function show(Location $location)
     {
-        $location->load('assetStocks.asset');
-        $assets = $location->assetStocks()->with('asset')->get();
+        $assets = $location->assets()->with('category')->latest()->get();
         return view('locations.show', compact('location', 'assets'));
     }
 
@@ -67,7 +66,7 @@ class LocationController extends Controller
 
     public function destroy(Location $location)
     {
-        if ($location->assetStocks()->count() > 0) {
+        if ($location->assets()->count() > 0) {
             return redirect()->route('assets-locations.index')->with('error', 'Cannot delete location with assets.');
         }
         $location->delete();

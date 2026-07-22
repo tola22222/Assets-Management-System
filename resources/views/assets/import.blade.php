@@ -29,7 +29,7 @@
                 <ol class="list-decimal list-inside mt-1 space-y-1">
                     <li>Download the template below and fill it in Excel (or any spreadsheet app).</li>
                     <li>Save/export it as CSV.</li>
-                    <li><strong>name</strong> and <strong>category</strong> are required — category must match an existing category name exactly.</li>
+                    <li><strong>name</strong>, <strong>category</strong>, and <strong>location</strong> are all required — category and location must each match an existing name exactly.</li>
                     <li>Upload the file. Asset codes and QR codes are generated automatically for each row.</li>
                 </ol>
             </div>
