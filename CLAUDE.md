@@ -71,6 +71,9 @@ Imports the fixed-asset register from `.xlsx`/`.xls`/CSV (via `AssetImportContro
 - `Api\AuthController::updateProfile`/`changePassword` (routes `/profile`, `/profile/password`) let any authenticated user edit their own name/phone/photo and password — separate from the admin-only `/users` CRUD.
 - `Api\SettingController` backup/restore endpoints (`/settings/backup`, `/settings/backups`, download/restore/delete) mirror the legacy Blade `SettingController`'s behavior: they copy `database/database.sqlite` to `storage/app/backups/`. This is only meaningful for local sqlite dev/testing — the deployed DB is MySQL, so these endpoints don't back up production data as-is.
 
+### Spec compliance audit (`docs/spec-audit.md`)
+A role × action matrix auditing the implementation against the full PEPY Asset & Stock Management spec (who may create/edit/delete/approve what, per role), with file:line references. It was written to drive commit `74d440f` ("Audit against PEPY spec: lock down asset/location/stock permissions...") — treat its ✅/⚠️/❌ statuses as **pre-fix findings**, not necessarily current state; re-check the referenced code before relying on a status. Useful starting point when touching role gating (`RoleMiddleware`, `canApproveDisposal()`, etc.) or the stock/`AssetMovement` model, since it documents spec intent the code alone doesn't state (e.g. "delete is denied for all roles — retirement is the only removal path", the append-only requirement on stock transactions).
+
 ## Deployment
 Pushing to `main` triggers `.github/workflows/deploy.yml`: builds the multi-stage `Dockerfile` (Vue build → PHP-FPM Alpine image with the SPA baked into `public/app/`), pushes to Docker Hub, then SSHes into an EC2 host and `docker compose up`s app + nginx + MySQL. The deploy script writes `docker-compose.yml` and `nginx/default.conf` inline on the server, waits for MySQL, then runs `migrate --force` and re-caches config/route/view.
 
