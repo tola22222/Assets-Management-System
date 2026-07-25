@@ -3,10 +3,11 @@ import { onMounted, ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppPageHeader from '../../components/common/AppPageHeader.vue'
 import StatusBadge from '../../components/ui/StatusBadge.vue'
-import ConfirmDialog from '../../components/ui/ConfirmDialog.vue'
 import AppDataTable from '../../components/common/AppDataTable.vue'
 import { useApiCrud } from '../../composables/useApiCrud'
 import { useServerTable } from '../../composables/useServerTable'
+import { useConfirm } from '../../composables/useConfirm'
+import { useToastStore } from '../../stores/toast'
 
 const { t } = useI18n()
 const {
@@ -15,15 +16,27 @@ const {
   filters, hasActiveFilters, applyFilters, clearFilters,
 } = useServerTable('/asset-movements', { filterKeys: ['movement_type'] })
 const { destroy } = useApiCrud('/asset-movements', { entityName: t('asset_movements.title'), refetch: fetchPage })
-const deletingId = ref(null)
+const { confirm } = useConfirm()
+const toast = useToastStore()
 
 function formatDate(v) {
   return v ? new Date(v).toLocaleString() : t('common.n_a')
 }
 
-async function confirmDelete() {
-  await destroy(deletingId.value)
-  deletingId.value = null
+async function handleDelete(row) {
+  const ok = await confirm({
+    title: t('asset_movements.delete_confirm_title'),
+    message: t('asset_movements.delete_confirm_message'),
+    color: 'error',
+    confirmText: t('common.delete'),
+    cancelText: t('common.cancel'),
+  })
+  if (!ok) return
+  try {
+    await destroy(row.id)
+  } catch (e) {
+    toast.error(e.response?.data?.message || t('asset_movements.delete_failed'))
+  }
 }
 
 const headers = computed(() => [
@@ -40,7 +53,7 @@ onMounted(fetchPage)
 </script>
 
 <template>
-    <div class="p-8 max-w-6xl mx-auto space-y-6">
+  <v-container fluid class="pa-0">
       <AppPageHeader :title="t('asset_movements.title')" :subtitle="t('asset_movements.subtitle')" />
 
       <AppDataTable
@@ -58,7 +71,7 @@ onMounted(fetchPage)
         :show-edit="false"
         @update:search="setSearch"
         @update:options="handleOptions"
-        @delete="(row) => (deletingId = row.id)"
+        @delete="handleDelete"
       >
         <template #filters>
           <v-select
@@ -79,16 +92,14 @@ onMounted(fetchPage)
         </template>
 
         <template #item.asset="{ item }">
-          <p class="font-medium text-fg">{{ item.asset?.name || t('common.n_a') }}</p>
-          <p class="font-mono text-xs text-faint">{{ item.asset?.asset_code }}</p>
+          <p class="font-medium">{{ item.asset?.name || t('common.n_a') }}</p>
+          <p class="font-mono text-caption text-medium-emphasis">{{ item.asset?.asset_code }}</p>
         </template>
         <template #item.movement_type="{ item }"><StatusBadge :status="item.movement_type" /></template>
         <template #item.from="{ item }">{{ item.from_location?.name || '—' }}</template>
         <template #item.to="{ item }">{{ item.to_location?.name || t('common.n_a') }}</template>
-        <template #item.reference_no="{ item }"><span class="font-mono text-xs">{{ item.reference_no || '—' }}</span></template>
+        <template #item.reference_no="{ item }"><span class="font-mono text-caption">{{ item.reference_no || '—' }}</span></template>
         <template #item.created_at="{ item }">{{ formatDate(item.created_at) }}</template>
       </AppDataTable>
-    </div>
-
-    <ConfirmDialog v-if="deletingId" :title="t('asset_movements.delete_confirm_title')" :message="t('asset_movements.delete_confirm_message')" @confirm="confirmDelete" @cancel="deletingId = null" />
+  </v-container>
 </template>

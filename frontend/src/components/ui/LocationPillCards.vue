@@ -8,11 +8,13 @@ defineProps({
 </script>
 
 <template>
-  <div v-if="locations.length" class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
-    <div v-for="loc in locations" :key="loc.location" class="bg-surface-2 border border-line rounded-xl px-3 py-3">
-      <p class="text-[11px] font-semibold text-faint uppercase tracking-wide truncate" :title="loc.location">{{ loc.location }}</p>
-      <p class="font-display text-2xl font-bold text-fg mt-0.5">{{ loc.total }}</p>
-    </div>
-  </div>
-  <div v-else class="text-sm text-faint">{{ t('dashboard.no_stock') }}</div>
+  <v-row v-if="locations.length" dense>
+    <v-col v-for="loc in locations" :key="loc.location" cols="6" sm="3" lg="2" class="d-flex">
+      <v-sheet rounded="lg" border class="px-3 py-3 flex-grow-1">
+        <p class="text-caption font-weight-semibold text-medium-emphasis text-uppercase text-truncate" :title="loc.location">{{ loc.location }}</p>
+        <p class="text-h5 font-weight-bold mt-1">{{ loc.total }}</p>
+      </v-sheet>
+    </v-col>
+  </v-row>
+  <div v-else class="text-body-2 text-medium-emphasis">{{ t('dashboard.no_stock') }}</div>
 </template>

@@ -413,7 +413,8 @@
     "reference": "លេខបង្កាន់ដៃ",
     "received_at": "ថ្ងៃទទួល",
     "save": "ទទួល",
-    "entity": "បង្កាន់ដៃ"
+    "entity": "បង្កាន់ដៃ",
+    "delete_failed": "មិនអាចលុបបង្កាន់ដៃនេះបានទេ។"
   },
   "asset_movements": {
     "title": "ចលនាស្តុក",

@@ -68,7 +68,7 @@ const chartOptions = computed(() => ({
 </script>
 
 <template>
-  <div class="h-56">
+  <div style="height: 224px">
     <Bar :data="chartData" :options="chartOptions" />
   </div>
 </template>

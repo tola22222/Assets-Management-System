@@ -75,7 +75,7 @@ onMounted(() => {
 </script>
 
 <template>
-    <div class="p-8 max-w-6xl mx-auto space-y-6">
+  <v-container fluid class="pa-0">
       <AppPageHeader
         :title="t('asset_transfers.title')"
         :subtitle="t('asset_transfers.subtitle')"
@@ -122,60 +122,48 @@ onMounted(() => {
         <template #item.status="{ item }"><StatusBadge :status="item.status" /></template>
 
         <template #item.actions="{ item }">
-          <div v-if="item.status === 'pending' && auth.isOperationsHrManager" class="flex items-center justify-end gap-1.5">
-            <button @click="approve(item.id)" :title="t('common.approve')" class="w-7 h-7 rounded-lg bg-brand text-white flex items-center justify-center hover:bg-brand-dark transition">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-            </button>
-            <button @click="reject(item.id)" :title="t('common.reject')" class="w-7 h-7 rounded-lg bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-            </button>
+          <div v-if="item.status === 'pending' && auth.isOperationsHrManager" class="d-flex align-center justify-end ga-1">
+            <v-btn icon="mdi-check" size="small" variant="text" color="success" :title="t('common.approve')" @click="approve(item.id)" />
+            <v-btn icon="mdi-close" size="small" variant="text" color="error" :title="t('common.reject')" @click="reject(item.id)" />
           </div>
         </template>
       </AppDataTable>
-    </div>
+  </v-container>
 
-    <Modal v-if="showModal" :title="t('asset_transfers.modal_title')" @close="showModal = false">
-      <form @submit.prevent="handleSubmit">
-        <div class="p-6 space-y-4">
-          <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_transfers.asset_required') }}</label>
-            <select v-model="form.asset_id" required class="input">
-              <option value="">{{ t('common.select_asset') }}</option>
-              <option v-for="a in assets" :key="a.id" :value="a.id">{{ a.name }} ({{ a.asset_code }})</option>
-            </select>
-          </div>
-          <div class="grid grid-cols-2 gap-4">
-            <div class="space-y-1.5">
-              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_transfers.from_location_required') }}</label>
-              <select v-model="form.from_location_id" required class="input">
-                <option value="">{{ t('common.select_location') }}</option>
-                <option v-for="l in locations" :key="l.id" :value="l.id">{{ l.name }}</option>
-              </select>
-            </div>
-            <div class="space-y-1.5">
-              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_transfers.to_location_required') }}</label>
-              <select v-model="form.to_location_id" required class="input">
-                <option value="">{{ t('common.select_location') }}</option>
-                <option v-for="l in locations" :key="l.id" :value="l.id">{{ l.name }}</option>
-              </select>
-            </div>
-          </div>
-          <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_transfers.transfer_date_required') }}</label>
-            <input v-model="form.transfer_date" type="date" required class="input" />
-          </div>
-          <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_transfers.reason') }}</label>
-            <textarea v-model="form.reason" rows="2" class="input"></textarea>
-          </div>
-        </div>
-        <div class="flex items-center gap-3 border-t border-line px-6 py-4">
-          <button type="submit" class="btn-primary">
-            <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
-            {{ t('asset_transfers.submit_button') }}
-          </button>
-          <button type="button" class="btn-ghost" @click="showModal = false">{{ t('common.cancel') }}</button>
-        </div>
-      </form>
-    </Modal>
+  <Modal v-if="showModal" :title="t('asset_transfers.modal_title')" @close="showModal = false">
+    <v-form @submit.prevent="handleSubmit">
+      <v-card-text class="d-flex flex-column ga-1">
+        <v-select
+          v-model="form.asset_id"
+          :label="t('asset_transfers.asset_required')"
+          :items="assets.map((a) => ({ title: `${a.name} (${a.asset_code})`, value: a.id }))"
+          required
+        />
+        <v-row dense>
+          <v-col cols="12" sm="6">
+            <v-select
+              v-model="form.from_location_id"
+              :label="t('asset_transfers.from_location_required')"
+              :items="locations.map((l) => ({ title: l.name, value: l.id }))"
+              required
+            />
+          </v-col>
+          <v-col cols="12" sm="6">
+            <v-select
+              v-model="form.to_location_id"
+              :label="t('asset_transfers.to_location_required')"
+              :items="locations.map((l) => ({ title: l.name, value: l.id }))"
+              required
+            />
+          </v-col>
+        </v-row>
+        <v-text-field v-model="form.transfer_date" type="date" :label="t('asset_transfers.transfer_date_required')" required />
+        <v-textarea v-model="form.reason" :label="t('asset_transfers.reason')" rows="2" />
+      </v-card-text>
+      <v-card-actions class="px-4 pb-4">
+        <v-btn type="submit" color="primary" variant="flat" prepend-icon="mdi-plus">{{ t('asset_transfers.submit_button') }}</v-btn>
+        <v-btn variant="text" @click="showModal = false">{{ t('common.cancel') }}</v-btn>
+      </v-card-actions>
+    </v-form>
+  </Modal>
 </template>

@@ -413,7 +413,8 @@
     "reference": "Receipt #",
     "received_at": "Received",
     "save": "Receive",
-    "entity": "Receipt"
+    "entity": "Receipt",
+    "delete_failed": "Could not delete this receipt."
   },
   "asset_movements": {
     "title": "Stock Movements",

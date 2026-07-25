@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import http from '../../api/http'
+import AppPageHeader from '../../components/common/AppPageHeader.vue'
 import { useToastStore } from '../../stores/toast'
 
 const toast = useToastStore()
@@ -29,26 +30,25 @@ onMounted(load)
 </script>
 
 <template>
-    <div class="p-8 max-w-3xl mx-auto space-y-6">
-      <div class="flex items-center justify-between">
-        <div>
-          <h1 class="text-xl font-bold text-fg tracking-tight">Notifications</h1>
-          <p class="text-muted text-sm mt-0.5">Recent activity relevant to you</p>
-        </div>
-        <button @click="markAllRead" class="text-sm font-semibold text-brand-600 dark:text-brand-300 hover:underline">Mark all as read</button>
-      </div>
+  <v-container fluid class="pa-0" style="max-width: 720px">
+      <AppPageHeader
+        title="Notifications"
+        subtitle="Recent activity relevant to you"
+        :actions="[{ label: 'Mark all as read', variant: 'text', onClick: markAllRead }]"
+      />
 
-      <div class="bg-surface rounded-2xl border border-line divide-y divide-line">
-        <div v-for="n in notifications" :key="n.id" class="p-4 flex items-start justify-between gap-4" :class="!n.is_read && 'bg-brand-50/40'">
-          <div>
-            <p class="text-sm text-fg" :class="!n.is_read && 'font-semibold'">{{ n.message }}</p>
-            <p class="text-xs text-faint mt-0.5">{{ new Date(n.created_at).toLocaleString() }}</p>
-          </div>
-          <button v-if="!n.is_read" @click="markRead(n)" title="Mark read" class="w-7 h-7 rounded-lg bg-brand text-white flex items-center justify-center hover:bg-brand-dark transition flex-shrink-0">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
-          </button>
-        </div>
-        <p v-if="!loading && !notifications.length" class="p-8 text-center text-faint text-sm">No notifications yet.</p>
-      </div>
-    </div>
+      <v-card rounded="lg" variant="flat" border>
+        <template v-for="(n, i) in notifications" :key="n.id">
+          <v-divider v-if="i > 0" />
+          <v-sheet :color="!n.is_read ? 'primary' : undefined" :variant="!n.is_read ? 'tonal' : 'flat'" class="pa-4 d-flex align-start justify-space-between ga-4">
+            <div>
+              <p class="text-body-2" :class="{ 'font-weight-semibold': !n.is_read }">{{ n.message }}</p>
+              <p class="text-caption text-medium-emphasis mt-1">{{ new Date(n.created_at).toLocaleString() }}</p>
+            </div>
+            <v-btn v-if="!n.is_read" icon="mdi-check" size="small" variant="text" color="primary" title="Mark read" class="flex-shrink-0" @click="markRead(n)" />
+          </v-sheet>
+        </template>
+        <p v-if="!loading && !notifications.length" class="pa-8 text-center text-body-2 text-medium-emphasis mb-0">No notifications yet.</p>
+      </v-card>
+  </v-container>
 </template>

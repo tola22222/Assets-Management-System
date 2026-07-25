@@ -88,7 +88,7 @@ onMounted(() => {
 </script>
 
 <template>
-    <div class="p-8 max-w-6xl mx-auto space-y-6">
+  <v-container fluid class="pa-0">
       <AppPageHeader
         :title="t('asset_assignments.title')"
         :subtitle="t('asset_assignments.subtitle')"
@@ -134,103 +134,94 @@ onMounted(() => {
         <template #item.status="{ item }"><StatusBadge :status="item.status" /></template>
 
         <template #item.actions="{ item }">
-          <div v-if="item.status !== 'returned'" class="flex items-center justify-end gap-1.5">
-            <button
-              @click="returningId = item.id; returnCondition = 'good'; returnRemark = ''"
+          <div v-if="item.status !== 'returned'" class="d-flex align-center justify-end ga-1">
+            <v-btn
+              icon="mdi-keyboard-return"
+              size="small"
+              variant="text"
+              color="primary"
               :title="t('common.return')"
-              class="w-7 h-7 rounded-lg bg-brand text-white flex items-center justify-center hover:bg-brand-dark transition"
-            >
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" /></svg>
-            </button>
-            <button @click="cancelAssignment(item.id)" :title="t('common.cancel')" class="w-7 h-7 rounded-lg bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-            </button>
+              @click="returningId = item.id; returnCondition = 'good'; returnRemark = ''"
+            />
+            <v-btn icon="mdi-close" size="small" variant="text" color="error" :title="t('common.cancel')" @click="cancelAssignment(item.id)" />
           </div>
         </template>
       </AppDataTable>
-    </div>
+  </v-container>
 
-    <Modal v-if="showModal" :title="t('asset_assignments.modal_title')" @close="showModal = false">
-      <form @submit.prevent="handleSubmit">
-        <div class="p-6 space-y-4">
-          <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_assignments.asset_required') }}</label>
-            <select v-model="form.asset_id" required class="input">
-              <option value="">{{ t('common.select_asset') }}</option>
-              <option v-for="a in assets" :key="a.id" :value="a.id">{{ a.name }} ({{ a.asset_code }})</option>
-            </select>
-          </div>
-          <div class="grid grid-cols-2 gap-4">
-            <div class="space-y-1.5">
-              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_assignments.assign_to') }}</label>
-              <select v-model="form.assigned_to_type" class="input">
-                <option value="staff">{{ t('asset_assignments.staff') }}</option>
-                <option value="program">{{ t('asset_assignments.program') }}</option>
-              </select>
-            </div>
-            <div class="space-y-1.5">
-              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_assignments.recipient_required') }}</label>
-              <select v-model="form.assigned_to_id" required class="input">
-                <option value="">{{ t('asset_assignments.select_recipient') }}</option>
-                <option v-for="r in (form.assigned_to_type === 'staff' ? staffList : programs)" :key="r.id" :value="r.id">{{ r.full_name || r.name }}</option>
-              </select>
-            </div>
-          </div>
-          <div class="grid grid-cols-2 gap-4">
-            <div class="space-y-1.5">
-              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_assignments.location_required') }}</label>
-              <select v-model="form.location_id" required class="input">
-                <option value="">{{ t('common.select_location') }}</option>
-                <option v-for="l in locations" :key="l.id" :value="l.id">{{ l.name }}</option>
-              </select>
-            </div>
-            <div class="space-y-1.5">
-              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_assignments.quantity_required') }}</label>
-              <input v-model.number="form.quantity" type="number" min="1" required class="input" />
-            </div>
-          </div>
-          <div class="grid grid-cols-2 gap-4">
-            <div class="space-y-1.5">
-              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_assignments.assigned_date') }}</label>
-              <input v-model="form.assigned_date" type="date" required class="input" />
-            </div>
-            <div class="space-y-1.5">
-              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_assignments.due_date') }}</label>
-              <input v-model="form.due_date" type="date" class="input" />
-            </div>
-          </div>
-        </div>
-        <div class="flex items-center gap-3 border-t border-line px-6 py-4">
-          <button type="submit" class="btn-primary">
-            <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
-            {{ t('asset_assignments.assign_button') }}
-          </button>
-          <button type="button" class="btn-ghost" @click="showModal = false">{{ t('common.cancel') }}</button>
-        </div>
-      </form>
-    </Modal>
+  <Modal v-if="showModal" :title="t('asset_assignments.modal_title')" @close="showModal = false">
+    <v-form @submit.prevent="handleSubmit">
+      <v-card-text class="d-flex flex-column ga-1">
+        <v-select
+          v-model="form.asset_id"
+          :label="t('asset_assignments.asset_required')"
+          :items="assets.map((a) => ({ title: `${a.name} (${a.asset_code})`, value: a.id }))"
+          required
+        />
+        <v-row dense>
+          <v-col cols="12" sm="6">
+            <v-select
+              v-model="form.assigned_to_type"
+              :label="t('asset_assignments.assign_to')"
+              :items="[
+                { title: t('asset_assignments.staff'), value: 'staff' },
+                { title: t('asset_assignments.program'), value: 'program' },
+              ]"
+            />
+          </v-col>
+          <v-col cols="12" sm="6">
+            <v-select
+              v-model="form.assigned_to_id"
+              :label="t('asset_assignments.recipient_required')"
+              :items="(form.assigned_to_type === 'staff' ? staffList : programs).map((r) => ({ title: r.full_name || r.name, value: r.id }))"
+              required
+            />
+          </v-col>
+          <v-col cols="12" sm="6">
+            <v-select
+              v-model="form.location_id"
+              :label="t('asset_assignments.location_required')"
+              :items="locations.map((l) => ({ title: l.name, value: l.id }))"
+              required
+            />
+          </v-col>
+          <v-col cols="12" sm="6">
+            <v-text-field v-model.number="form.quantity" type="number" min="1" :label="t('asset_assignments.quantity_required')" required />
+          </v-col>
+          <v-col cols="12" sm="6">
+            <v-text-field v-model="form.assigned_date" type="date" :label="t('asset_assignments.assigned_date')" required />
+          </v-col>
+          <v-col cols="12" sm="6">
+            <v-text-field v-model="form.due_date" type="date" :label="t('asset_assignments.due_date')" />
+          </v-col>
+        </v-row>
+      </v-card-text>
+      <v-card-actions class="px-4 pb-4">
+        <v-btn type="submit" color="primary" variant="flat" prepend-icon="mdi-plus">{{ t('asset_assignments.assign_button') }}</v-btn>
+        <v-btn variant="text" @click="showModal = false">{{ t('common.cancel') }}</v-btn>
+      </v-card-actions>
+    </v-form>
+  </Modal>
 
-    <Modal v-if="returningId" :title="t('asset_assignments.return_title')" @close="returningId = null">
-      <form @submit.prevent="submitReturn">
-        <div class="p-6 space-y-4">
-          <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_assignments.condition_required') }}</label>
-            <select v-model="returnCondition" class="input">
-              <option value="good">{{ t('asset_assignments.condition_good') }}</option>
-              <option value="fair">{{ t('asset_assignments.condition_fair') }}</option>
-              <option value="broken">{{ t('asset_assignments.condition_broken') }}</option>
-              <option value="lost">{{ t('asset_assignments.condition_lost') }}</option>
-            </select>
-          </div>
-          <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_assignments.remark') }}</label>
-            <textarea v-model="returnRemark" rows="2" class="input"></textarea>
-          </div>
-        </div>
-        <div class="flex items-center gap-3 border-t border-line px-6 py-4">
-          <button type="submit" class="btn-primary">{{ t('asset_assignments.confirm_return') }}</button>
-          <button type="button" class="btn-ghost" @click="returningId = null">{{ t('common.cancel') }}</button>
-        </div>
-      </form>
-    </Modal>
+  <Modal v-if="returningId" :title="t('asset_assignments.return_title')" @close="returningId = null">
+    <v-form @submit.prevent="submitReturn">
+      <v-card-text class="d-flex flex-column ga-1">
+        <v-select
+          v-model="returnCondition"
+          :label="t('asset_assignments.condition_required')"
+          :items="[
+            { title: t('asset_assignments.condition_good'), value: 'good' },
+            { title: t('asset_assignments.condition_fair'), value: 'fair' },
+            { title: t('asset_assignments.condition_broken'), value: 'broken' },
+            { title: t('asset_assignments.condition_lost'), value: 'lost' },
+          ]"
+        />
+        <v-textarea v-model="returnRemark" :label="t('asset_assignments.remark')" rows="2" />
+      </v-card-text>
+      <v-card-actions class="px-4 pb-4">
+        <v-btn type="submit" color="primary" variant="flat">{{ t('asset_assignments.confirm_return') }}</v-btn>
+        <v-btn variant="text" @click="returningId = null">{{ t('common.cancel') }}</v-btn>
+      </v-card-actions>
+    </v-form>
+  </Modal>
 </template>

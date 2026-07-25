@@ -1,5 +1,5 @@
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, watch } from 'vue'
 import http from '../../api/http'
 import { useAuthStore } from '../../stores/auth'
 import { useToastStore } from '../../stores/toast'
@@ -15,12 +15,9 @@ const photoFile = ref(null)
 const photoPreview = ref(auth.user?.photo_url || null)
 const savingProfile = ref(false)
 
-function pickPhoto(e) {
-  const file = e.target.files[0]
-  if (!file) return
-  photoFile.value = file
-  photoPreview.value = URL.createObjectURL(file)
-}
+watch(photoFile, (file) => {
+  if (file) photoPreview.value = URL.createObjectURL(file)
+})
 
 async function saveProfile() {
   savingProfile.value = true
@@ -61,67 +58,60 @@ async function changePassword() {
 </script>
 
 <template>
-    <div class="p-6 sm:p-8 max-w-2xl mx-auto space-y-6">
+  <v-container fluid class="pa-0 d-flex flex-column ga-6" style="max-width: 640px">
       <div>
-        <h1 class="font-display text-2xl font-bold text-fg">My Profile</h1>
-        <p class="text-muted text-sm mt-1">Update your personal information and password.</p>
+        <h1 class="text-h5 font-weight-bold">My Profile</h1>
+        <p class="text-body-2 text-medium-emphasis mt-1">Update your personal information and password.</p>
       </div>
 
-      <form @submit.prevent="saveProfile" class="card p-6 space-y-5">
-        <h2 class="font-bold text-fg">Profile Information</h2>
+      <v-card rounded="lg" variant="flat" border class="pa-6">
+        <v-form @submit.prevent="saveProfile">
+          <div class="d-flex flex-column ga-5">
+            <h2 class="text-subtitle-1 font-weight-bold">Profile Information</h2>
 
-        <div class="flex items-center gap-4">
-          <div class="w-16 h-16 rounded-full overflow-hidden bg-brand text-white flex items-center justify-center text-lg font-bold flex-shrink-0">
-            <img v-if="photoPreview" :src="photoPreview" class="w-full h-full object-cover" alt="" />
-            <span v-else>{{ auth.user?.name?.[0]?.toUpperCase() }}</span>
+            <div class="d-flex align-center ga-4">
+              <v-avatar :image="photoPreview" color="primary" size="64">
+                <span v-if="!photoPreview" class="text-h6 font-weight-bold">{{ auth.user?.name?.[0]?.toUpperCase() }}</span>
+              </v-avatar>
+              <v-file-input
+                v-model="photoFile"
+                accept="image/*"
+                variant="outlined"
+                density="compact"
+                hide-details
+                prepend-icon=""
+                prepend-inner-icon="mdi-camera-outline"
+                label="Change photo"
+                style="max-width: 260px"
+              />
+            </div>
+
+            <v-text-field v-model="form.name" label="Name" required />
+            <v-text-field :model-value="auth.user?.email" label="Email" disabled />
+            <v-text-field v-model="form.phone" label="Phone" />
+            <v-text-field :model-value="auth.user?.role?.replace('_', ' ')" label="Role" disabled class="text-capitalize" />
+
+            <v-btn type="submit" color="primary" variant="flat" :loading="savingProfile" class="align-self-start">Save Changes</v-btn>
           </div>
-          <label class="btn-ghost btn-sm cursor-pointer">
-            Change photo
-            <input type="file" accept="image/*" class="hidden" @change="pickPhoto" />
-          </label>
-        </div>
+        </v-form>
+      </v-card>
 
-        <div class="space-y-1.5">
-          <label class="label">Name</label>
-          <input v-model="form.name" class="input" required />
-        </div>
-        <div class="space-y-1.5">
-          <label class="label">Email</label>
-          <input :value="auth.user?.email" class="input" disabled />
-        </div>
-        <div class="space-y-1.5">
-          <label class="label">Phone</label>
-          <input v-model="form.phone" class="input" />
-        </div>
-        <div class="space-y-1.5">
-          <label class="label">Role</label>
-          <input :value="auth.user?.role?.replace('_', ' ')" class="input capitalize" disabled />
-        </div>
-
-        <button type="submit" :disabled="savingProfile" class="btn-primary">
-          {{ savingProfile ? 'Saving…' : 'Save Changes' }}
-        </button>
-      </form>
-
-      <form @submit.prevent="changePassword" class="card p-6 space-y-5">
-        <h2 class="font-bold text-fg">Change Password</h2>
-        <div class="space-y-1.5">
-          <label class="label">Current Password</label>
-          <input v-model="passwordForm.current_password" type="password" class="input" required />
-        </div>
-        <div class="grid grid-cols-2 gap-4">
-          <div class="space-y-1.5">
-            <label class="label">New Password</label>
-            <input v-model="passwordForm.password" type="password" class="input" required minlength="8" />
+      <v-card rounded="lg" variant="flat" border class="pa-6">
+        <v-form @submit.prevent="changePassword">
+          <div class="d-flex flex-column ga-5">
+            <h2 class="text-subtitle-1 font-weight-bold">Change Password</h2>
+            <v-text-field v-model="passwordForm.current_password" type="password" label="Current Password" required />
+            <v-row dense>
+              <v-col cols="12" sm="6">
+                <v-text-field v-model="passwordForm.password" type="password" label="New Password" required minlength="8" />
+              </v-col>
+              <v-col cols="12" sm="6">
+                <v-text-field v-model="passwordForm.password_confirmation" type="password" label="Confirm Password" required minlength="8" />
+              </v-col>
+            </v-row>
+            <v-btn type="submit" color="primary" variant="flat" :loading="savingPassword" class="align-self-start">Update Password</v-btn>
           </div>
-          <div class="space-y-1.5">
-            <label class="label">Confirm Password</label>
-            <input v-model="passwordForm.password_confirmation" type="password" class="input" required minlength="8" />
-          </div>
-        </div>
-        <button type="submit" :disabled="savingPassword" class="btn-primary">
-          {{ savingPassword ? 'Updating…' : 'Update Password' }}
-        </button>
-      </form>
-    </div>
+        </v-form>
+      </v-card>
+  </v-container>
 </template>

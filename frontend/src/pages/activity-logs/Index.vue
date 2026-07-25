@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onMounted } from 'vue'
 import http from '../../api/http'
+import AppPageHeader from '../../components/common/AppPageHeader.vue'
 import AppDataTable from '../../components/common/AppDataTable.vue'
 import { useServerTable } from '../../composables/useServerTable'
 import { useToastStore } from '../../stores/toast'
@@ -29,11 +30,8 @@ onMounted(fetchPage)
 </script>
 
 <template>
-    <div class="p-8 max-w-5xl mx-auto space-y-6">
-      <div>
-        <h1 class="text-xl font-bold text-fg tracking-tight">Activity Logs</h1>
-        <p class="text-muted text-sm mt-0.5">Full audit trail of actions taken in the system</p>
-      </div>
+  <v-container fluid class="pa-0">
+      <AppPageHeader title="Activity Logs" subtitle="Full audit trail of actions taken in the system" />
 
       <AppDataTable
         :headers="headers"
@@ -52,8 +50,8 @@ onMounted(fetchPage)
         @update:options="handleOptions"
         @delete="(row) => removeLog(row.id)"
       >
-        <template #item.user="{ item }"><span class="font-medium text-fg">{{ item.user?.name || 'System' }}</span></template>
+        <template #item.user="{ item }"><span class="font-medium">{{ item.user?.name || 'System' }}</span></template>
         <template #item.created_at="{ item }">{{ new Date(item.created_at).toLocaleString() }}</template>
       </AppDataTable>
-    </div>
+  </v-container>
 </template>

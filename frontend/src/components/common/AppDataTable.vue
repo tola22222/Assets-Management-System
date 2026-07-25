@@ -95,12 +95,15 @@ function onSearch(value) {
       <slot name="filters" />
     </div>
 
-    <div
+    <v-sheet
       v-if="showSelect && selected.length"
-      class="d-flex flex-wrap align-center ga-3 px-4 py-2 bg-brand-50 dark:bg-brand-900/30 border-b border-line"
+      color="primary"
+      variant="tonal"
+      rounded="0"
+      class="d-flex flex-wrap align-center ga-3 px-4 py-2 border-b"
     >
       <slot name="bulk-actions" :selected="selected" :clear="() => emit('update:selected', [])" />
-    </div>
+    </v-sheet>
 
     <v-data-table-server
       :headers="headers"

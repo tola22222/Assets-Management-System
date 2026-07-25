@@ -4,10 +4,11 @@ import { useI18n } from 'vue-i18n'
 import http from '../../api/http'
 import AppPageHeader from '../../components/common/AppPageHeader.vue'
 import Modal from '../../components/ui/Modal.vue'
-import ConfirmDialog from '../../components/ui/ConfirmDialog.vue'
 import AppDataTable from '../../components/common/AppDataTable.vue'
 import { useApiCrud } from '../../composables/useApiCrud'
 import { useServerTable } from '../../composables/useServerTable'
+import { useConfirm } from '../../composables/useConfirm'
+import { useToastStore } from '../../stores/toast'
 
 const { t } = useI18n()
 const {
@@ -15,11 +16,12 @@ const {
   search, setSearch, handleOptions, fetchPage,
 } = useServerTable('/asset-stocks')
 const { create, destroy } = useApiCrud('/asset-stocks', { entityName: t('asset_stocks.entity'), refetch: fetchPage })
+const { confirm } = useConfirm()
+const toast = useToastStore()
 
 const categories = ref([])
 const locations = ref([])
 const showModal = ref(false)
-const deletingId = ref(null)
 const submitting = ref(false)
 
 const emptyForm = () => ({
@@ -52,9 +54,20 @@ async function handleSubmit() {
   }
 }
 
-async function confirmDelete() {
-  await destroy(deletingId.value)
-  deletingId.value = null
+async function handleDelete(row) {
+  const ok = await confirm({
+    title: t('confirm.delete_title'),
+    message: t('confirm.delete_message'),
+    color: 'error',
+    confirmText: t('common.delete'),
+    cancelText: t('common.cancel'),
+  })
+  if (!ok) return
+  try {
+    await destroy(row.id)
+  } catch (e) {
+    toast.error(e.response?.data?.message || t('asset_stocks.delete_failed'))
+  }
 }
 
 function formatDate(v) {
@@ -77,7 +90,7 @@ onMounted(() => {
 </script>
 
 <template>
-    <div class="p-8 max-w-6xl mx-auto space-y-6">
+  <v-container fluid class="pa-0">
       <AppPageHeader
         :title="t('asset_stocks.title')"
         :subtitle="t('asset_stocks.subtitle')"
@@ -99,79 +112,73 @@ onMounted(() => {
         :show-edit="false"
         @update:search="setSearch"
         @update:options="handleOptions"
-        @delete="(row) => (deletingId = row.id)"
+        @delete="handleDelete"
       >
-        <template #item.code="{ item }"><span class="font-mono text-xs text-fg">{{ item.asset?.asset_code || t('common.n_a') }}</span></template>
-        <template #item.asset="{ item }"><span class="font-medium text-fg">{{ item.asset?.name || t('common.n_a') }}</span></template>
+        <template #item.code="{ item }"><span class="font-mono text-caption">{{ item.asset?.asset_code || t('common.n_a') }}</span></template>
+        <template #item.asset="{ item }"><span class="font-medium">{{ item.asset?.name || t('common.n_a') }}</span></template>
         <template #item.location="{ item }">{{ item.to_location?.name || t('common.n_a') }}</template>
-        <template #item.reference_no="{ item }"><span class="font-mono text-xs">{{ item.reference_no }}</span></template>
+        <template #item.reference_no="{ item }"><span class="font-mono text-caption">{{ item.reference_no }}</span></template>
         <template #item.created_at="{ item }">{{ formatDate(item.created_at) }}</template>
       </AppDataTable>
-    </div>
+  </v-container>
 
-    <Modal v-if="showModal" :title="t('asset_stocks.new')" wide @close="showModal = false">
-      <form @submit.prevent="handleSubmit">
-        <div class="p-6 space-y-4">
-          <p class="text-xs text-muted">{{ t('asset_stocks.hint') }}</p>
-          <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('assets.name_required') }} <span class="text-red-500">*</span></label>
-            <input v-model="form.name" required class="input" />
-          </div>
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div class="space-y-1.5">
-              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('assets.category_required') }} <span class="text-red-500">*</span></label>
-              <select v-model="form.category_id" required class="input">
-                <option value="">{{ t('assets.select_category') }}</option>
-                <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option>
-              </select>
-            </div>
-            <div class="space-y-1.5">
-              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_stocks.location_required') }}</label>
-              <select v-model="form.location_id" required class="input">
-                <option value="">{{ t('common.select_location') }}</option>
-                <option v-for="l in locations" :key="l.id" :value="l.id">{{ l.name }}</option>
-              </select>
-            </div>
-            <div class="space-y-1.5">
-              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_stocks.quantity_required') }}</label>
-              <input v-model.number="form.quantity" type="number" min="1" max="200" required class="input" />
-            </div>
-            <div class="space-y-1.5">
-              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('assets.brand') }}</label>
-              <input v-model="form.brand" class="input" />
-            </div>
-            <div class="space-y-1.5">
-              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('assets.model') }}</label>
-              <input v-model="form.model" class="input" />
-            </div>
-            <div class="space-y-1.5">
-              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('assets.purchase_date') }}</label>
-              <input v-model="form.purchase_date" type="date" class="input" />
-            </div>
-            <div class="space-y-1.5">
-              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('assets.purchase_price') }}</label>
-              <input v-model="form.purchase_price" type="number" step="0.01" class="input" />
-            </div>
-            <div class="space-y-1.5">
-              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('assets.condition') }}</label>
-              <select v-model="form.condition" class="input">
-                <option value="good">{{ t('assets.condition_good') }}</option>
-                <option value="fair">{{ t('assets.condition_fair') }}</option>
-                <option value="broken">{{ t('assets.condition_broken') }}</option>
-                <option value="lost">{{ t('assets.condition_lost') }}</option>
-              </select>
-            </div>
-          </div>
-        </div>
-        <div class="flex items-center gap-3 border-t border-line px-6 py-4">
-          <button type="submit" :disabled="submitting" class="btn-primary">
-            <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
-            {{ t('asset_stocks.save') }}
-          </button>
-          <button type="button" class="btn-ghost" @click="showModal = false">{{ t('common.cancel') }}</button>
-        </div>
-      </form>
-    </Modal>
-
-    <ConfirmDialog v-if="deletingId" @confirm="confirmDelete" @cancel="deletingId = null" />
+  <Modal v-if="showModal" :title="t('asset_stocks.new')" wide @close="showModal = false">
+    <v-form @submit.prevent="handleSubmit">
+      <v-card-text class="d-flex flex-column ga-1">
+        <p class="text-caption text-medium-emphasis mb-2">{{ t('asset_stocks.hint') }}</p>
+        <v-text-field v-model="form.name" :label="t('assets.name_required')" required />
+        <v-row dense>
+          <v-col cols="12" sm="6">
+            <v-select
+              v-model="form.category_id"
+              :label="t('assets.category_required')"
+              :items="categories.map((c) => ({ title: c.name, value: c.id }))"
+              required
+            />
+          </v-col>
+          <v-col cols="12" sm="6">
+            <v-select
+              v-model="form.location_id"
+              :label="t('asset_stocks.location_required')"
+              :items="locations.map((l) => ({ title: l.name, value: l.id }))"
+              required
+            />
+          </v-col>
+          <v-col cols="12" sm="6">
+            <v-text-field v-model.number="form.quantity" type="number" min="1" max="200" :label="t('asset_stocks.quantity_required')" required />
+          </v-col>
+          <v-col cols="12" sm="6">
+            <v-text-field v-model="form.brand" :label="t('assets.brand')" />
+          </v-col>
+          <v-col cols="12" sm="6">
+            <v-text-field v-model="form.model" :label="t('assets.model')" />
+          </v-col>
+          <v-col cols="12" sm="6">
+            <v-text-field v-model="form.purchase_date" type="date" :label="t('assets.purchase_date')" />
+          </v-col>
+          <v-col cols="12" sm="6">
+            <v-text-field v-model="form.purchase_price" type="number" step="0.01" :label="t('assets.purchase_price')" />
+          </v-col>
+          <v-col cols="12" sm="6">
+            <v-select
+              v-model="form.condition"
+              :label="t('assets.condition')"
+              :items="[
+                { title: t('assets.condition_good'), value: 'good' },
+                { title: t('assets.condition_fair'), value: 'fair' },
+                { title: t('assets.condition_broken'), value: 'broken' },
+                { title: t('assets.condition_lost'), value: 'lost' },
+              ]"
+            />
+          </v-col>
+        </v-row>
+      </v-card-text>
+      <v-card-actions class="px-4 pb-4">
+        <v-btn type="submit" color="primary" variant="flat" prepend-icon="mdi-plus" :loading="submitting">
+          {{ t('asset_stocks.save') }}
+        </v-btn>
+        <v-btn variant="text" @click="showModal = false">{{ t('common.cancel') }}</v-btn>
+      </v-card-actions>
+    </v-form>
+  </Modal>
 </template>

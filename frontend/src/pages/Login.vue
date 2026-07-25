@@ -31,30 +31,21 @@ async function handleSubmit() {
 <template>
   <AuthLayout>
     <div class="mb-6">
-      <h1 class="font-display text-2xl font-bold text-fg">{{ t('login.welcome') }}</h1>
-      <p class="text-muted text-sm mt-1">{{ t('login.subtitle') }}</p>
+      <h1 class="text-h5 font-weight-bold">{{ t('login.welcome') }}</h1>
+      <p class="text-body-2 text-medium-emphasis mt-1">{{ t('login.subtitle') }}</p>
     </div>
 
-    <form @submit.prevent="handleSubmit" class="card p-6 space-y-4">
-      <div v-if="error" class="flex items-start gap-2 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 text-red-700 dark:text-red-300 text-sm px-3 py-2.5 rounded-xl">
-        <svg class="w-4 h-4 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" /></svg>
-        <span>{{ error }}</span>
-      </div>
+    <v-card rounded="lg" variant="flat" border class="pa-6">
+      <v-form @submit.prevent="handleSubmit">
+        <div class="d-flex flex-column ga-4">
+          <v-alert v-if="error" type="error" variant="tonal" density="compact">{{ error }}</v-alert>
 
-      <div>
-        <label class="label">{{ t('login.email') }}</label>
-        <input v-model="email" type="email" required autofocus placeholder="you@ams.com" class="input" />
-      </div>
+          <v-text-field v-model="email" type="email" :label="t('login.email')" required autofocus placeholder="you@ams.com" />
+          <v-text-field v-model="password" type="password" :label="t('login.password')" required placeholder="••••••••" />
 
-      <div>
-        <label class="label">{{ t('login.password') }}</label>
-        <input v-model="password" type="password" required placeholder="••••••••" class="input" />
-      </div>
-
-      <button type="submit" :disabled="loading" class="btn-primary w-full">
-        <svg v-if="loading" class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" /><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" /></svg>
-        {{ loading ? t('login.signing_in') : t('login.submit') }}
-      </button>
-    </form>
+          <v-btn type="submit" color="primary" variant="flat" block :loading="loading">{{ t('login.submit') }}</v-btn>
+        </div>
+      </v-form>
+    </v-card>
   </AuthLayout>
 </template>

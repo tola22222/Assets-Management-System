@@ -34,22 +34,25 @@ async function search() {
 </script>
 
 <template>
-    <div class="p-8 max-w-3xl mx-auto space-y-6">
-      <form @submit.prevent="search" class="flex gap-3">
-        <input v-model="q" placeholder="Search…" class="flex-1 border border-line rounded-xl px-3.5 py-2.5 text-sm bg-surface focus:outline-none focus:border-brand" />
-        <button type="submit" :disabled="loading" class="btn-primary">Search</button>
-      </form>
+  <v-container fluid class="pa-0 d-flex flex-column ga-6" style="max-width: 640px">
+      <v-form @submit.prevent="search" class="d-flex ga-3">
+        <v-text-field v-model="q" placeholder="Search…" hide-details />
+        <v-btn type="submit" color="primary" variant="flat" :loading="loading">Search</v-btn>
+      </v-form>
 
-      <div v-if="results" class="space-y-4">
+      <div v-if="results" class="d-flex flex-column ga-4">
         <div v-for="(items, type) in results" :key="type">
           <template v-if="items.length">
-            <p class="text-xs font-semibold text-faint uppercase tracking-wide mb-2">{{ labels[type] || type }}</p>
-            <div class="bg-surface rounded-2xl border border-line divide-y divide-line">
-              <div v-for="item in items" :key="item.id" class="p-4 text-sm text-fg">{{ displayName(type, item) }}</div>
-            </div>
+            <p class="text-caption font-weight-semibold text-medium-emphasis text-uppercase mb-2">{{ labels[type] || type }}</p>
+            <v-card rounded="lg" variant="flat" border>
+              <template v-for="(item, i) in items" :key="item.id">
+                <v-divider v-if="i > 0" />
+                <div class="pa-4 text-body-2">{{ displayName(type, item) }}</div>
+              </template>
+            </v-card>
           </template>
         </div>
-        <p v-if="Object.values(results).every((v) => !v.length)" class="text-faint text-sm text-center py-8">No results found.</p>
+        <p v-if="Object.values(results).every((v) => !v.length)" class="text-body-2 text-medium-emphasis text-center py-8">No results found.</p>
       </div>
-    </div>
+  </v-container>
 </template>

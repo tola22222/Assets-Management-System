@@ -33,23 +33,23 @@ const chartOptions = {
 </script>
 
 <template>
-  <div class="flex items-center gap-8">
-    <div class="relative w-32 h-32 flex-shrink-0">
+  <div class="d-flex align-center ga-8">
+    <div class="position-relative flex-shrink-0" style="width: 128px; height: 128px">
       <Doughnut :data="chartData" :options="chartOptions" />
-      <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-        <span class="font-display text-xl font-bold text-fg leading-none">{{ total }}</span>
-        <span class="text-[11px] text-faint mt-1">{{ totalLabel }}</span>
+      <div class="position-absolute d-flex flex-column align-center justify-center" style="inset: 0; pointer-events: none">
+        <span class="text-h6 font-weight-bold" style="line-height: 1">{{ total }}</span>
+        <span class="text-caption text-medium-emphasis mt-1">{{ totalLabel }}</span>
       </div>
     </div>
-    <div class="flex-1 space-y-3 min-w-0">
-      <div v-for="(segment, i) in segments" :key="segment.category" class="flex items-center justify-between gap-3 text-sm">
-        <div class="flex items-center gap-2 min-w-0">
-          <span class="w-2 h-2 rounded-full flex-shrink-0" :style="{ backgroundColor: palette[i % palette.length] }"></span>
-          <span class="font-semibold text-fg truncate">{{ segment.category }}</span>
+    <div class="flex-grow-1 d-flex flex-column ga-3" style="min-width: 0">
+      <div v-for="(segment, i) in segments" :key="segment.category" class="d-flex align-center justify-space-between ga-3 text-body-2">
+        <div class="d-flex align-center ga-2" style="min-width: 0">
+          <span class="rounded-circle flex-shrink-0" :style="{ backgroundColor: palette[i % palette.length], width: '8px', height: '8px' }"></span>
+          <span class="font-weight-semibold text-truncate">{{ segment.category }}</span>
         </div>
-        <div class="flex items-center gap-3 flex-shrink-0">
-          <span class="font-semibold text-fg">{{ segment.count }}</span>
-          <span class="w-9 text-right text-faint">{{ segment.percentage }}%</span>
+        <div class="d-flex align-center ga-3 flex-shrink-0">
+          <span class="font-weight-semibold">{{ segment.count }}</span>
+          <span class="text-right text-medium-emphasis" style="width: 36px">{{ segment.percentage }}%</span>
         </div>
       </div>
     </div>

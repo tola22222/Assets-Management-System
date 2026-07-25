@@ -7,22 +7,27 @@ defineProps({
 })
 
 const dot = {
-  danger: 'bg-red-500',
-  warning: 'bg-amber-500',
-  info: 'bg-brand',
+  danger: 'error',
+  warning: 'warning',
+  info: 'primary',
 }
 </script>
 
 <template>
-  <ul class="divide-y divide-dashed divide-line">
-    <li v-for="(item, i) in items" :key="i" class="flex items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0">
-      <div class="flex items-center gap-2.5 min-w-0">
-        <span class="w-1.5 h-1.5 rounded-full flex-shrink-0" :class="dot[item.severity] || 'bg-faint'"></span>
-        <span class="font-semibold text-fg text-sm truncate">{{ item.name }}</span>
-        <span v-if="item.code" class="font-mono text-[11px] text-faint truncate flex-shrink-0">{{ item.code }}</span>
+  <ul class="d-flex flex-column pl-0" style="list-style: none">
+    <li
+      v-for="(item, i) in items"
+      :key="i"
+      class="d-flex align-center justify-space-between ga-3 py-2"
+      :class="{ 'border-b border-dashed': i < items.length - 1 }"
+    >
+      <div class="d-flex align-center ga-2 flex-grow-1" style="min-width: 0">
+        <span class="rounded-circle flex-shrink-0" :class="`bg-${dot[item.severity] || 'surface-variant'}`" style="width: 6px; height: 6px"></span>
+        <span class="font-weight-semibold text-body-2 text-truncate">{{ item.name }}</span>
+        <span v-if="item.code" class="font-mono text-caption text-medium-emphasis text-truncate flex-shrink-0">{{ item.code }}</span>
       </div>
-      <span class="text-xs text-muted flex-shrink-0 whitespace-nowrap">{{ item.reason }}</span>
+      <span class="text-caption text-medium-emphasis flex-shrink-0 text-no-wrap">{{ item.reason }}</span>
     </li>
-    <li v-if="!items.length" class="py-6 text-center text-sm text-faint">{{ t('dashboard.no_attention') }}</li>
+    <li v-if="!items.length" class="py-6 text-center text-body-2 text-medium-emphasis">{{ t('dashboard.no_attention') }}</li>
   </ul>
 </template>
