@@ -2,13 +2,12 @@
 import { ref, onMounted, reactive, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import http from '../../api/http'
-import AppLayout from '../../layouts/AppLayout.vue'
-import PageHeader from '../../components/ui/PageHeader.vue'
+import AppPageHeader from '../../components/common/AppPageHeader.vue'
 import Modal from '../../components/ui/Modal.vue'
-import ConfirmDialog from '../../components/ui/ConfirmDialog.vue'
 import AppDataTable from '../../components/common/AppDataTable.vue'
 import { useApiCrud } from '../../composables/useApiCrud'
 import { useServerTable } from '../../composables/useServerTable'
+import { useConfirm } from '../../composables/useConfirm'
 import { useToastStore } from '../../stores/toast'
 
 const { t } = useI18n()
@@ -18,12 +17,12 @@ const {
   filters, hasActiveFilters, applyFilters, clearFilters,
 } = useServerTable('/users', { filterKeys: ['role', 'is_locked'] })
 const { create, update, destroy } = useApiCrud('/users', { entityName: t('users.entity'), refetch: fetchPage })
+const { confirm } = useConfirm()
 const toast = useToastStore()
 
 const staffList = ref([])
 const showModal = ref(null)
 const editingId = ref(null)
-const deletingId = ref(null)
 const resettingId = ref(null)
 const newPassword = ref('')
 const newPasswordConfirm = ref('')
@@ -33,10 +32,10 @@ const roleLabels = computed(() => ({
   executive_director: t('users.role_executive_director'), finance_manager: t('users.role_finance_manager'),
 }))
 const roleColors = {
-  operations_hr_manager: 'bg-purple-100 text-purple-700',
-  executive_director: 'bg-amber-100 text-amber-700',
-  finance_manager: 'bg-teal-100 text-teal-700',
-  staff: 'bg-blue-100 text-blue-700',
+  operations_hr_manager: 'purple',
+  executive_director: 'amber',
+  finance_manager: 'teal',
+  staff: 'blue',
 }
 
 const emptyForm = () => ({ name: '', email: '', password: '', role: 'staff', staff_id: '' })
@@ -47,7 +46,7 @@ const headers = computed(() => [
   { title: t('common.email'), key: 'email', sortable: true },
   { title: t('users.role'), key: 'role', sortable: true },
   { title: t('common.status'), key: 'is_locked', sortable: false },
-  { title: t('common.actions'), key: 'actions', sortable: false, align: 'end', width: 150 },
+  { title: t('common.actions'), key: 'actions', sortable: false, align: 'end', width: 160 },
 ])
 
 async function loadStaff() {
@@ -100,13 +99,19 @@ async function submitPasswordReset() {
   }
 }
 
-async function confirmDelete() {
+async function handleDelete(row) {
+  const ok = await confirm({
+    title: t('confirm.delete_title'),
+    message: t('confirm.delete_message'),
+    color: 'error',
+    confirmText: t('common.delete'),
+    cancelText: t('common.cancel'),
+  })
+  if (!ok) return
   try {
-    await destroy(deletingId.value)
+    await destroy(row.id)
   } catch (e) {
     toast.error(e.response?.data?.message || t('users.delete_failed'))
-  } finally {
-    deletingId.value = null
   }
 }
 
@@ -117,149 +122,140 @@ onMounted(() => {
 </script>
 
 <template>
-  <AppLayout>
-    <div class="p-8 max-w-5xl mx-auto space-y-6">
-      <PageHeader :title="t('users.title')" :subtitle="t('users.subtitle')" :buttonText="t('users.new')" @action="openCreate" />
+  <v-container class="d-flex flex-column ga-6">
+    <AppPageHeader
+      :title="t('users.title')"
+      :subtitle="t('users.subtitle')"
+      :actions="[{ label: t('users.new'), icon: 'mdi-plus', onClick: openCreate }]"
+    />
 
-      <AppDataTable
-        :headers="headers"
-        :items="users"
-        :items-length="total"
-        :loading="loading"
-        :page="page"
-        :items-per-page="perPage"
-        :items-per-page-options="[10, 25, 50, 100]"
-        :sort-by="sortByVuetify"
-        :search="search"
-        :search-label="t('users.search_placeholder')"
-        :empty-text="search ? t('users.empty_search') : t('users.empty')"
-        @update:search="setSearch"
-        @update:options="handleOptions"
-      >
-        <template #filters>
+    <AppDataTable
+      :headers="headers"
+      :items="users"
+      :items-length="total"
+      :loading="loading"
+      :page="page"
+      :items-per-page="perPage"
+      :items-per-page-options="[10, 25, 50, 100]"
+      :sort-by="sortByVuetify"
+      :search="search"
+      :search-label="t('users.search_placeholder')"
+      :empty-text="search ? t('users.empty_search') : t('users.empty')"
+      @update:search="setSearch"
+      @update:options="handleOptions"
+    >
+      <template #filters>
+        <v-select
+          v-model="filters.role"
+          :label="t('users.role')"
+          :items="[
+            { title: t('common.all'), value: '' },
+            { title: t('users.role_admin'), value: 'operations_hr_manager' },
+            { title: t('users.role_executive_director'), value: 'executive_director' },
+            { title: t('users.role_finance_manager'), value: 'finance_manager' },
+            { title: t('users.role_staff'), value: 'staff' },
+          ]"
+          density="compact"
+          variant="outlined"
+          hide-details
+          style="max-width: 220px"
+          @update:model-value="applyFilters"
+        />
+        <v-select
+          v-model="filters.is_locked"
+          :label="t('common.status')"
+          :items="[
+            { title: t('common.all'), value: '' },
+            { title: t('status.active'), value: 'false' },
+            { title: t('status.locked'), value: 'true' },
+          ]"
+          density="compact"
+          variant="outlined"
+          hide-details
+          style="max-width: 220px"
+          @update:model-value="applyFilters"
+        />
+        <v-btn v-if="hasActiveFilters" variant="text" size="small" @click="clearFilters">{{ t('common.clear_filters') }}</v-btn>
+      </template>
+
+      <template #item.role="{ item }">
+        <v-chip size="small" :color="roleColors[item.role]" variant="tonal">{{ roleLabels[item.role] || item.role }}</v-chip>
+      </template>
+      <template #item.is_locked="{ item }">
+        <v-chip size="small" :color="item.is_locked ? 'error' : 'success'" variant="tonal">
+          {{ item.is_locked ? t('status.locked') : t('status.active') }}
+        </v-chip>
+      </template>
+
+      <template #item.actions="{ item }">
+        <div class="d-flex justify-end ga-1">
+          <v-btn icon="mdi-pencil-outline" size="small" variant="text" color="primary" title="Edit" @click="openEdit(item)" />
+          <v-btn
+            :icon="item.is_locked ? 'mdi-lock-open-variant-outline' : 'mdi-lock-outline'"
+            size="small"
+            variant="text"
+            :title="item.is_locked ? t('common.unlock') : t('common.lock')"
+            @click="toggleLock(item)"
+          />
+          <v-btn
+            icon="mdi-key-outline"
+            size="small"
+            variant="text"
+            color="indigo"
+            :title="t('common.reset_password')"
+            @click="resettingId = item.id; newPassword = ''; newPasswordConfirm = ''"
+          />
+          <v-btn icon="mdi-delete-outline" size="small" variant="text" color="error" title="Delete" @click="handleDelete(item)" />
+        </div>
+      </template>
+    </AppDataTable>
+  </v-container>
+
+  <Modal v-if="showModal" :title="editingId ? t('users.edit_title') : t('users.create_title')" @close="showModal = false">
+    <v-form @submit.prevent="handleSubmit">
+      <v-card-text class="d-flex flex-column ga-1">
+        <v-text-field v-model="form.name" :label="t('users.name_required')" required />
+        <v-text-field v-model="form.email" :label="t('users.email_required')" type="email" required />
+        <v-text-field v-if="!editingId" v-model="form.password" :label="t('users.password')" type="password" minlength="8" required />
+        <div class="d-flex ga-4">
           <v-select
-            v-model="filters.role"
-            :label="t('users.role')"
+            v-model="form.role"
+            :label="t('users.role_required')"
+            class="flex-grow-1"
             :items="[
-              { title: t('common.all'), value: '' },
+              { title: t('users.role_staff'), value: 'staff' },
               { title: t('users.role_admin'), value: 'operations_hr_manager' },
               { title: t('users.role_executive_director'), value: 'executive_director' },
               { title: t('users.role_finance_manager'), value: 'finance_manager' },
-              { title: t('users.role_staff'), value: 'staff' },
             ]"
-            density="compact"
-            variant="outlined"
-            hide-details
-            style="max-width: 220px"
-            @update:model-value="applyFilters"
           />
           <v-select
-            v-model="filters.is_locked"
-            :label="t('common.status')"
-            :items="[
-              { title: t('common.all'), value: '' },
-              { title: t('status.active'), value: 'false' },
-              { title: t('status.locked'), value: 'true' },
-            ]"
-            density="compact"
-            variant="outlined"
-            hide-details
-            style="max-width: 220px"
-            @update:model-value="applyFilters"
+            v-model="form.staff_id"
+            :label="t('users.link_to_staff')"
+            class="flex-grow-1"
+            :items="[{ title: t('users.none'), value: '' }, ...staffList.map((s) => ({ title: s.full_name, value: s.id }))]"
           />
-          <v-btn v-if="hasActiveFilters" variant="text" size="small" @click="clearFilters">{{ t('common.clear_filters') }}</v-btn>
-        </template>
-
-        <template #item.role="{ item }">
-          <span class="px-2.5 py-1 rounded-lg text-xs font-semibold" :class="roleColors[item.role]">{{ roleLabels[item.role] || item.role }}</span>
-        </template>
-        <template #item.is_locked="{ item }">
-          <span class="badge" :class="item.is_locked ? 'badge-danger' : 'badge-success'">{{ item.is_locked ? t('status.locked') : t('status.active') }}</span>
-        </template>
-
-        <template #item.actions="{ item }">
-          <div class="flex items-center justify-end gap-1.5">
-            <button @click="openEdit(item)" title="Edit" class="w-7 h-7 rounded-lg bg-brand text-white flex items-center justify-center hover:bg-brand-dark transition">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487z" /></svg>
-            </button>
-            <button @click="toggleLock(item)" :title="item.is_locked ? t('common.unlock') : t('common.lock')" class="w-7 h-7 rounded-lg bg-slate-500 text-white flex items-center justify-center hover:bg-slate-600 transition">
-              <svg v-if="item.is_locked" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 10.5V6.75a4.5 4.5 0 119 0v3.75M3.75 21.75h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H3.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" /></svg>
-              <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" /></svg>
-            </button>
-            <button @click="resettingId = item.id; newPassword = ''; newPasswordConfirm = ''" :title="t('common.reset_password')" class="w-7 h-7 rounded-lg bg-indigo-500 text-white flex items-center justify-center hover:bg-indigo-600 transition">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z" /></svg>
-            </button>
-            <button @click="deletingId = item.id" title="Delete" class="w-7 h-7 rounded-lg bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9 9m9.968-3.21c.342.052.682.107 1.022.166M18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
-            </button>
-          </div>
-        </template>
-      </AppDataTable>
-    </div>
-
-    <Modal v-if="showModal" :title="editingId ? t('users.edit_title') : t('users.create_title')" @close="showModal = false">
-      <form @submit.prevent="handleSubmit">
-        <div class="p-6 space-y-4">
-          <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('users.name_required') }}</label>
-            <input v-model="form.name" required class="input" />
-          </div>
-          <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('users.email_required') }}</label>
-            <input v-model="form.email" type="email" required class="input" />
-          </div>
-          <div v-if="!editingId" class="space-y-1.5">
-            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('users.password') }}</label>
-            <input v-model="form.password" type="password" minlength="8" required class="input" />
-          </div>
-          <div class="grid grid-cols-2 gap-4">
-            <div class="space-y-1.5">
-              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('users.role_required') }}</label>
-              <select v-model="form.role" class="input">
-                <option value="staff">{{ t('users.role_staff') }}</option>
-                <option value="operations_hr_manager">{{ t('users.role_admin') }}</option>
-                <option value="executive_director">{{ t('users.role_executive_director') }}</option>
-                <option value="finance_manager">{{ t('users.role_finance_manager') }}</option>
-              </select>
-            </div>
-            <div class="space-y-1.5">
-              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('users.link_to_staff') }}</label>
-              <select v-model="form.staff_id" class="input">
-                <option value="">{{ t('users.none') }}</option>
-                <option v-for="s in staffList" :key="s.id" :value="s.id">{{ s.full_name }}</option>
-              </select>
-            </div>
-          </div>
         </div>
-        <div class="flex items-center gap-3 border-t border-line px-6 py-4">
-          <button type="submit" class="btn-primary">
-            <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
-            {{ editingId ? t('users.save_changes') : t('users.create_button') }}
-          </button>
-          <button type="button" class="btn-ghost" @click="showModal = false">{{ t('common.cancel') }}</button>
-        </div>
-      </form>
-    </Modal>
+      </v-card-text>
+      <v-card-actions class="px-4 pb-4">
+        <v-btn type="submit" color="primary" variant="flat" prepend-icon="mdi-plus">
+          {{ editingId ? t('users.save_changes') : t('users.create_button') }}
+        </v-btn>
+        <v-btn variant="text" @click="showModal = false">{{ t('common.cancel') }}</v-btn>
+      </v-card-actions>
+    </v-form>
+  </Modal>
 
-    <Modal v-if="resettingId" :title="t('users.reset_password_title')" @close="resettingId = null">
-      <form @submit.prevent="submitPasswordReset">
-        <div class="p-6 space-y-4">
-          <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('users.new_password') }}</label>
-            <input v-model="newPassword" type="password" minlength="8" required class="input" />
-          </div>
-          <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('users.confirm_password') }}</label>
-            <input v-model="newPasswordConfirm" type="password" minlength="8" required class="input" />
-          </div>
-        </div>
-        <div class="flex items-center gap-3 border-t border-line px-6 py-4">
-          <button type="submit" class="btn-primary">{{ t('users.reset_password_title') }}</button>
-          <button type="button" class="btn-ghost" @click="resettingId = null">{{ t('common.cancel') }}</button>
-        </div>
-      </form>
-    </Modal>
-
-    <ConfirmDialog v-if="deletingId" @confirm="confirmDelete" @cancel="deletingId = null" />
-  </AppLayout>
+  <Modal v-if="resettingId" :title="t('users.reset_password_title')" @close="resettingId = null">
+    <v-form @submit.prevent="submitPasswordReset">
+      <v-card-text class="d-flex flex-column ga-1">
+        <v-text-field v-model="newPassword" :label="t('users.new_password')" type="password" minlength="8" required />
+        <v-text-field v-model="newPasswordConfirm" :label="t('users.confirm_password')" type="password" minlength="8" required />
+      </v-card-text>
+      <v-card-actions class="px-4 pb-4">
+        <v-btn type="submit" color="primary" variant="flat">{{ t('users.reset_password_title') }}</v-btn>
+        <v-btn variant="text" @click="resettingId = null">{{ t('common.cancel') }}</v-btn>
+      </v-card-actions>
+    </v-form>
+  </Modal>
 </template>

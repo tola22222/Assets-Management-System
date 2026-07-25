@@ -2,7 +2,6 @@
 import { ref, onMounted, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
 import http from '../../api/http'
-import AppLayout from '../../layouts/AppLayout.vue'
 import ConfirmDialog from '../../components/ui/ConfirmDialog.vue'
 import { useToastStore } from '../../stores/toast'
 import { useLocale } from '../../composables/useLocale'
@@ -117,7 +116,6 @@ onMounted(() => {
 </script>
 
 <template>
-  <AppLayout>
     <div class="p-8 max-w-3xl mx-auto space-y-6">
       <div>
         <h1 class="text-xl font-bold text-fg tracking-tight">{{ t('settings.title') }}</h1>
@@ -221,5 +219,4 @@ onMounted(() => {
       @confirm="confirmDelete"
       @cancel="pendingDelete = null"
     />
-  </AppLayout>
 </template>

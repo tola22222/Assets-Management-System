@@ -1,7 +1,6 @@
 <script setup>
 import { ref } from 'vue'
 import http from '../../api/http'
-import AppLayout from '../../layouts/AppLayout.vue'
 import { useToastStore } from '../../stores/toast'
 
 const toast = useToastStore()
@@ -35,7 +34,6 @@ async function search() {
 </script>
 
 <template>
-  <AppLayout>
     <div class="p-8 max-w-3xl mx-auto space-y-6">
       <form @submit.prevent="search" class="flex gap-3">
         <input v-model="q" placeholder="Search…" class="flex-1 border border-line rounded-xl px-3.5 py-2.5 text-sm bg-surface focus:outline-none focus:border-brand" />
@@ -54,5 +52,4 @@ async function search() {
         <p v-if="Object.values(results).every((v) => !v.length)" class="text-faint text-sm text-center py-8">No results found.</p>
       </div>
     </div>
-  </AppLayout>
 </template>

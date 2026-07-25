@@ -1,7 +1,6 @@
 <script setup>
 import { computed, onMounted } from 'vue'
 import http from '../../api/http'
-import AppLayout from '../../layouts/AppLayout.vue'
 import AppDataTable from '../../components/common/AppDataTable.vue'
 import { useServerTable } from '../../composables/useServerTable'
 import { useToastStore } from '../../stores/toast'
@@ -30,7 +29,6 @@ onMounted(fetchPage)
 </script>
 
 <template>
-  <AppLayout>
     <div class="p-8 max-w-5xl mx-auto space-y-6">
       <div>
         <h1 class="text-xl font-bold text-fg tracking-tight">Activity Logs</h1>
@@ -58,5 +56,4 @@ onMounted(fetchPage)
         <template #item.created_at="{ item }">{{ new Date(item.created_at).toLocaleString() }}</template>
       </AppDataTable>
     </div>
-  </AppLayout>
 </template>

@@ -2,7 +2,6 @@
 import { ref, reactive } from 'vue'
 import http from '../../api/http'
 import { useAuthStore } from '../../stores/auth'
-import AppLayout from '../../layouts/AppLayout.vue'
 import { useToastStore } from '../../stores/toast'
 
 const auth = useAuthStore()
@@ -62,7 +61,6 @@ async function changePassword() {
 </script>
 
 <template>
-  <AppLayout>
     <div class="p-6 sm:p-8 max-w-2xl mx-auto space-y-6">
       <div>
         <h1 class="font-display text-2xl font-bold text-fg">My Profile</h1>
@@ -126,5 +124,4 @@ async function changePassword() {
         </button>
       </form>
     </div>
-  </AppLayout>
 </template>

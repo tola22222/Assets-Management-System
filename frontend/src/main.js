@@ -6,7 +6,7 @@ import i18n from './i18n'
 import vuetify from './plugins/vuetify'
 import { confirm, notify, loading } from './composables'
 import './composables/useThemeColor' // applies the persisted brand color before mount
-import './assets/main.css'
+import './main.css'
 
 const app = createApp(App)
 

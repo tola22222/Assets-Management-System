@@ -1,7 +1,6 @@
 <script setup>
 import { ref } from 'vue'
 import http from '../../api/http'
-import AppLayout from '../../layouts/AppLayout.vue'
 import { useToastStore } from '../../stores/toast'
 
 const toast = useToastStore()
@@ -46,7 +45,6 @@ function reset() {
 </script>
 
 <template>
-  <AppLayout>
     <div class="p-8 max-w-2xl mx-auto space-y-6">
       <div>
         <h1 class="text-xl font-bold text-fg tracking-tight">QR Scanner</h1>
@@ -104,5 +102,4 @@ function reset() {
         </div>
       </div>
     </div>
-  </AppLayout>
 </template>

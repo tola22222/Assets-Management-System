@@ -2,7 +2,6 @@
 import { ref, computed, onMounted, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
 import http from '../../api/http'
-import AppLayout from '../../layouts/AppLayout.vue'
 import PageHeader from '../../components/ui/PageHeader.vue'
 import Modal from '../../components/ui/Modal.vue'
 import AppDataTable from '../../components/common/AppDataTable.vue'
@@ -69,7 +68,6 @@ onMounted(() => {
 </script>
 
 <template>
-  <AppLayout>
     <div class="p-8 max-w-6xl mx-auto space-y-6">
       <PageHeader :title="t('asset_verifications.title')" :subtitle="t('asset_verifications.subtitle')" :buttonText="t('asset_verifications.new')" @action="openCreate" />
 
@@ -187,5 +185,4 @@ onMounted(() => {
         </div>
       </form>
     </Modal>
-  </AppLayout>
 </template>

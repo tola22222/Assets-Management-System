@@ -2,7 +2,6 @@
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import http from '../../api/http'
-import AppLayout from '../../layouts/AppLayout.vue'
 import PageHeader from '../../components/ui/PageHeader.vue'
 import { useToastStore } from '../../stores/toast'
 
@@ -60,7 +59,6 @@ function reset() {
 </script>
 
 <template>
-  <AppLayout>
     <div class="p-6 sm:p-8 max-w-3xl mx-auto space-y-6">
       <PageHeader :title="t('import.title')" :subtitle="t('import.subtitle')" />
 
@@ -148,5 +146,4 @@ function reset() {
         </div>
       </div>
     </div>
-  </AppLayout>
 </template>

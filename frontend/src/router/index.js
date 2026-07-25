@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import Login from '../pages/Login.vue'
+import AppLayout from '../layouts/AppLayout.vue'
 import Dashboard from '../pages/Dashboard.vue'
 import AssetsIndex from '../pages/assets/Index.vue'
 import AssetsImport from '../pages/assets/Import.vue'
@@ -26,29 +27,36 @@ import ProfileIndex from '../pages/profile/Index.vue'
 
 const routes = [
   { path: '/login', name: 'login', component: Login, meta: { guest: true } },
-  { path: '/', name: 'dashboard', component: Dashboard, meta: { requiresAuth: true } },
-  { path: '/assets', name: 'assets', component: AssetsIndex, meta: { requiresAuth: true } },
-  { path: '/assets/import', name: 'assets-import', component: AssetsImport, meta: { requiresAuth: true } },
-  { path: '/categories', name: 'categories', component: CategoriesIndex, meta: { requiresAuth: true } },
-  { path: '/locations', name: 'locations', component: LocationsIndex, meta: { requiresAuth: true } },
-  { path: '/asset-stocks', name: 'asset-stocks', component: AssetStocksIndex, meta: { requiresAuth: true } },
-  { path: '/asset-movements', name: 'asset-movements', component: AssetMovementsIndex, meta: { requiresAuth: true } },
-  { path: '/asset-assignments', name: 'asset-assignments', component: AssetAssignmentsIndex, meta: { requiresAuth: true } },
-  { path: '/asset-transfers', name: 'asset-transfers', component: AssetTransfersIndex, meta: { requiresAuth: true } },
-  { path: '/asset-returns', name: 'asset-returns', component: AssetReturnsIndex, meta: { requiresAuth: true } },
-  { path: '/asset-verifications', name: 'asset-verifications', component: AssetVerificationsIndex, meta: { requiresAuth: true } },
-  { path: '/asset-disposals', name: 'asset-disposals', component: AssetDisposalsIndex, meta: { requiresAuth: true } },
-  { path: '/programs', name: 'programs', component: ProgramsIndex, meta: { requiresAuth: true } },
-  { path: '/staff', name: 'staff', component: StaffIndex, meta: { requiresAuth: true } },
-  { path: '/suppliers', name: 'suppliers', component: SuppliersIndex, meta: { requiresAuth: true } },
-  { path: '/users', name: 'users', component: UsersIndex, meta: { requiresAuth: true, adminOnly: true } },
-  { path: '/settings', name: 'settings', component: SettingsIndex, meta: { requiresAuth: true, adminOnly: true } },
-  { path: '/activity-logs', name: 'activity-logs', component: ActivityLogsIndex, meta: { requiresAuth: true, adminOnly: true } },
-  { path: '/reports', name: 'reports', component: ReportsIndex, meta: { requiresAuth: true } },
-  { path: '/qr-scan', name: 'qr-scan', component: QrScanIndex, meta: { requiresAuth: true } },
-  { path: '/search', name: 'search', component: SearchIndex, meta: { requiresAuth: true } },
-  { path: '/notifications', name: 'notifications', component: NotificationsIndex, meta: { requiresAuth: true } },
-  { path: '/profile', name: 'profile', component: ProfileIndex, meta: { requiresAuth: true } },
+  {
+    path: '/',
+    component: AppLayout,
+    meta: { requiresAuth: true },
+    children: [
+      { path: '', name: 'dashboard', component: Dashboard },
+      { path: 'assets', name: 'assets', component: AssetsIndex },
+      { path: 'assets/import', name: 'assets-import', component: AssetsImport },
+      { path: 'categories', name: 'categories', component: CategoriesIndex },
+      { path: 'locations', name: 'locations', component: LocationsIndex },
+      { path: 'asset-stocks', name: 'asset-stocks', component: AssetStocksIndex },
+      { path: 'asset-movements', name: 'asset-movements', component: AssetMovementsIndex },
+      { path: 'asset-assignments', name: 'asset-assignments', component: AssetAssignmentsIndex },
+      { path: 'asset-transfers', name: 'asset-transfers', component: AssetTransfersIndex },
+      { path: 'asset-returns', name: 'asset-returns', component: AssetReturnsIndex },
+      { path: 'asset-verifications', name: 'asset-verifications', component: AssetVerificationsIndex },
+      { path: 'asset-disposals', name: 'asset-disposals', component: AssetDisposalsIndex },
+      { path: 'programs', name: 'programs', component: ProgramsIndex },
+      { path: 'staff', name: 'staff', component: StaffIndex },
+      { path: 'suppliers', name: 'suppliers', component: SuppliersIndex },
+      { path: 'users', name: 'users', component: UsersIndex, meta: { adminOnly: true } },
+      { path: 'settings', name: 'settings', component: SettingsIndex, meta: { adminOnly: true } },
+      { path: 'activity-logs', name: 'activity-logs', component: ActivityLogsIndex, meta: { adminOnly: true } },
+      { path: 'reports', name: 'reports', component: ReportsIndex },
+      { path: 'qr-scan', name: 'qr-scan', component: QrScanIndex },
+      { path: 'search', name: 'search', component: SearchIndex },
+      { path: 'notifications', name: 'notifications', component: NotificationsIndex },
+      { path: 'profile', name: 'profile', component: ProfileIndex },
+    ],
+  },
 ]
 
 const router = createRouter({

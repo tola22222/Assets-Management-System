@@ -2,13 +2,12 @@
 import { ref, computed, onMounted, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
 import http from '../../api/http'
-import AppLayout from '../../layouts/AppLayout.vue'
-import PageHeader from '../../components/ui/PageHeader.vue'
+import AppPageHeader from '../../components/common/AppPageHeader.vue'
 import Modal from '../../components/ui/Modal.vue'
-import ConfirmDialog from '../../components/ui/ConfirmDialog.vue'
 import AppDataTable from '../../components/common/AppDataTable.vue'
 import { useApiCrud } from '../../composables/useApiCrud'
 import { useServerTable } from '../../composables/useServerTable'
+import { useConfirm } from '../../composables/useConfirm'
 import { useToastStore } from '../../stores/toast'
 
 const { t } = useI18n()
@@ -18,11 +17,11 @@ const {
   filters, hasActiveFilters, applyFilters, clearFilters,
 } = useServerTable('/staff', { filterKeys: ['status'] })
 const { destroy } = useApiCrud('/staff', { entityName: t('staff.entity'), refetch: fetchPage })
+const { confirm } = useConfirm()
 const toast = useToastStore()
 
 const showModal = ref(false)
 const editingId = ref(null)
-const deletingId = ref(null)
 const photoFile = ref(null)
 const emptyForm = () => ({ full_name: '', email: '', phone: '', position: '', hire_date: '', status: 'active' })
 const form = reactive(emptyForm())
@@ -52,10 +51,6 @@ function openEdit(staff) {
   showModal.value = true
 }
 
-function handleFileChange(e) {
-  photoFile.value = e.target.files[0] || null
-}
-
 async function handleSubmit() {
   const fd = new FormData()
   Object.entries(form).forEach(([k, v]) => { if (v !== '') fd.append(k, v) })
@@ -77,118 +72,111 @@ async function handleSubmit() {
   }
 }
 
-async function confirmDelete() {
-  await destroy(deletingId.value)
-  deletingId.value = null
+async function handleDelete(row) {
+  const ok = await confirm({
+    title: t('confirm.delete_title'),
+    message: t('confirm.delete_message'),
+    color: 'error',
+    confirmText: t('common.delete'),
+    cancelText: t('common.cancel'),
+  })
+  if (ok) await destroy(row.id)
 }
 
 onMounted(fetchPage)
 </script>
 
 <template>
-  <AppLayout>
-    <div class="p-8 max-w-5xl mx-auto space-y-6">
-      <PageHeader :title="t('staff.title')" :subtitle="t('staff.subtitle')" :buttonText="t('staff.new')" @action="openCreate" />
+  <v-container class="d-flex flex-column ga-6">
+    <AppPageHeader
+      :title="t('staff.title')"
+      :subtitle="t('staff.subtitle')"
+      :actions="[{ label: t('staff.new'), icon: 'mdi-plus', onClick: openCreate }]"
+    />
 
-      <AppDataTable
-        :headers="headers"
-        :items="staffList"
-        :items-length="total"
-        :loading="loading"
-        :page="page"
-        :items-per-page="perPage"
-        :items-per-page-options="[10, 25, 50, 100]"
-        :sort-by="sortByVuetify"
-        :search="search"
-        :search-label="t('staff.search_placeholder')"
-        :empty-text="search ? t('staff.empty_search') : t('staff.empty')"
-        @update:search="setSearch"
-        @update:options="handleOptions"
-        @edit="openEdit"
-        @delete="(row) => (deletingId = row.id)"
-      >
-        <template #filters>
-          <v-select
-            v-model="filters.status"
-            :label="t('common.status')"
-            :items="[
-              { title: t('common.all'), value: '' },
-              { title: t('staff.status_active'), value: 'active' },
-              { title: t('staff.status_inactive'), value: 'inactive' },
-            ]"
-            density="compact"
-            variant="outlined"
-            hide-details
-            style="max-width: 220px"
-            @update:model-value="applyFilters"
-          />
-          <v-btn v-if="hasActiveFilters" variant="text" size="small" @click="clearFilters">{{ t('common.clear_filters') }}</v-btn>
-        </template>
+    <AppDataTable
+      :headers="headers"
+      :items="staffList"
+      :items-length="total"
+      :loading="loading"
+      :page="page"
+      :items-per-page="perPage"
+      :items-per-page-options="[10, 25, 50, 100]"
+      :sort-by="sortByVuetify"
+      :search="search"
+      :search-label="t('staff.search_placeholder')"
+      :empty-text="search ? t('staff.empty_search') : t('staff.empty')"
+      @update:search="setSearch"
+      @update:options="handleOptions"
+      @edit="openEdit"
+      @delete="handleDelete"
+    >
+      <template #filters>
+        <v-select
+          v-model="filters.status"
+          :label="t('common.status')"
+          :items="[
+            { title: t('common.all'), value: '' },
+            { title: t('staff.status_active'), value: 'active' },
+            { title: t('staff.status_inactive'), value: 'inactive' },
+          ]"
+          density="compact"
+          variant="outlined"
+          hide-details
+          style="max-width: 220px"
+          @update:model-value="applyFilters"
+        />
+        <v-btn v-if="hasActiveFilters" variant="text" size="small" @click="clearFilters">{{ t('common.clear_filters') }}</v-btn>
+      </template>
 
-        <template #item.full_name="{ item }">
-          <div class="d-flex align-center ga-3">
-            <img v-if="item.photo_path_url" :src="item.photo_path_url" class="w-8 h-8 rounded-full object-cover flex-shrink-0" alt="" />
-            <span v-else class="w-8 h-8 rounded-full bg-surface-3 border border-line flex-shrink-0" />
-            <span class="font-medium text-fg">{{ item.full_name }}</span>
-          </div>
-        </template>
-        <template #item.position="{ item }">{{ item.position || '—' }}</template>
-        <template #item.phone="{ item }">{{ item.phone || '—' }}</template>
-        <template #item.status="{ item }">
-          <span class="badge" :class="item.status === 'active' ? 'badge-success' : 'badge-neutral'">{{ t(`status.${item.status}`) }}</span>
-        </template>
-      </AppDataTable>
-    </div>
-
-    <Modal v-if="showModal" :title="editingId ? t('staff.edit_title') : t('staff.create_title')" @close="showModal = false">
-      <form @submit.prevent="handleSubmit">
-        <div class="p-6 space-y-4">
-          <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('staff.full_name') }}</label>
-            <input v-model="form.full_name" required class="input" />
-          </div>
-          <div class="grid grid-cols-2 gap-4">
-            <div class="space-y-1.5">
-              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('common.email') }}</label>
-              <input v-model="form.email" type="email" class="input" />
-            </div>
-            <div class="space-y-1.5">
-              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('common.phone') }}</label>
-              <input v-model="form.phone" class="input" />
-            </div>
-          </div>
-          <div class="grid grid-cols-2 gap-4">
-            <div class="space-y-1.5">
-              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('staff.position') }}</label>
-              <input v-model="form.position" class="input" />
-            </div>
-            <div class="space-y-1.5">
-              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('staff.hire_date') }}</label>
-              <input v-model="form.hire_date" type="date" class="input" />
-            </div>
-          </div>
-          <div v-if="editingId" class="space-y-1.5">
-            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('staff.status_required') }}</label>
-            <select v-model="form.status" class="input">
-              <option value="active">{{ t('staff.status_active') }}</option>
-              <option value="inactive">{{ t('staff.status_inactive') }}</option>
-            </select>
-          </div>
-          <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('staff.photo') }}</label>
-            <input type="file" accept="image/jpeg,image/png" @change="handleFileChange" class="w-full text-sm" />
-          </div>
+      <template #item.full_name="{ item }">
+        <div class="d-flex align-center ga-3">
+          <v-avatar size="32">
+            <v-img v-if="item.photo_path_url" :src="item.photo_path_url" alt="" />
+            <v-icon v-else icon="mdi-account" />
+          </v-avatar>
+          <span class="font-weight-medium">{{ item.full_name }}</span>
         </div>
-        <div class="flex items-center gap-3 border-t border-line px-6 py-4">
-          <button type="submit" class="btn-primary">
-            <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
-            {{ editingId ? t('staff.save_changes') : t('staff.add_button') }}
-          </button>
-          <button type="button" class="btn-ghost" @click="showModal = false">{{ t('common.cancel') }}</button>
-        </div>
-      </form>
-    </Modal>
+      </template>
+      <template #item.position="{ item }">{{ item.position || '—' }}</template>
+      <template #item.phone="{ item }">{{ item.phone || '—' }}</template>
+      <template #item.status="{ item }">
+        <v-chip size="small" :color="item.status === 'active' ? 'success' : undefined" variant="tonal">
+          {{ t(`status.${item.status}`) }}
+        </v-chip>
+      </template>
+    </AppDataTable>
+  </v-container>
 
-    <ConfirmDialog v-if="deletingId" @confirm="confirmDelete" @cancel="deletingId = null" />
-  </AppLayout>
+  <Modal v-if="showModal" :title="editingId ? t('staff.edit_title') : t('staff.create_title')" @close="showModal = false">
+    <v-form @submit.prevent="handleSubmit">
+      <v-card-text class="d-flex flex-column ga-1">
+        <v-text-field v-model="form.full_name" :label="t('staff.full_name')" required />
+        <div class="d-flex ga-4">
+          <v-text-field v-model="form.email" :label="t('common.email')" type="email" class="flex-grow-1" />
+          <v-text-field v-model="form.phone" :label="t('common.phone')" class="flex-grow-1" />
+        </div>
+        <div class="d-flex ga-4">
+          <v-text-field v-model="form.position" :label="t('staff.position')" class="flex-grow-1" />
+          <v-text-field v-model="form.hire_date" :label="t('staff.hire_date')" type="date" class="flex-grow-1" />
+        </div>
+        <v-select
+          v-if="editingId"
+          v-model="form.status"
+          :label="t('staff.status_required')"
+          :items="[
+            { title: t('staff.status_active'), value: 'active' },
+            { title: t('staff.status_inactive'), value: 'inactive' },
+          ]"
+        />
+        <v-file-input v-model="photoFile" :label="t('staff.photo')" accept="image/jpeg,image/png" prepend-icon="" prepend-inner-icon="mdi-camera" />
+      </v-card-text>
+      <v-card-actions class="px-4 pb-4">
+        <v-btn type="submit" color="primary" variant="flat" prepend-icon="mdi-plus">
+          {{ editingId ? t('staff.save_changes') : t('staff.add_button') }}
+        </v-btn>
+        <v-btn variant="text" @click="showModal = false">{{ t('common.cancel') }}</v-btn>
+      </v-card-actions>
+    </v-form>
+  </Modal>
 </template>

@@ -3,7 +3,6 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import http from '../api/http'
 import { useAuthStore } from '../stores/auth'
-import AppLayout from '../layouts/AppLayout.vue'
 import StatCard from '../components/ui/StatCard.vue'
 import DonutChart from '../components/ui/DonutChart.vue'
 import TrendChart from '../components/ui/TrendChart.vue'
@@ -62,7 +61,6 @@ onMounted(async () => {
 </script>
 
 <template>
-  <AppLayout>
     <div class="p-6 sm:p-8 max-w-7xl mx-auto space-y-6">
       <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-2">
         <div>
@@ -140,5 +138,4 @@ onMounted(async () => {
         </div>
       </template>
     </div>
-  </AppLayout>
 </template>

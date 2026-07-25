@@ -1,7 +1,6 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import http from '../../api/http'
-import AppLayout from '../../layouts/AppLayout.vue'
 import { useToastStore } from '../../stores/toast'
 
 const toast = useToastStore()
@@ -30,7 +29,6 @@ onMounted(load)
 </script>
 
 <template>
-  <AppLayout>
     <div class="p-8 max-w-3xl mx-auto space-y-6">
       <div class="flex items-center justify-between">
         <div>
@@ -53,5 +51,4 @@ onMounted(load)
         <p v-if="!loading && !notifications.length" class="p-8 text-center text-faint text-sm">No notifications yet.</p>
       </div>
     </div>
-  </AppLayout>
 </template>

@@ -1,7 +1,6 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import http from '../../api/http'
-import AppLayout from '../../layouts/AppLayout.vue'
 import TableSortIcon from '../../components/ui/TableSortIcon.vue'
 
 const reportTypes = [
@@ -147,7 +146,6 @@ onMounted(load)
 </script>
 
 <template>
-  <AppLayout>
     <div class="p-8 max-w-6xl mx-auto space-y-6">
       <div class="flex items-center justify-between gap-4">
         <div class="flex items-center gap-3">
@@ -250,5 +248,4 @@ onMounted(load)
         </div>
       </div>
     </div>
-  </AppLayout>
 </template>

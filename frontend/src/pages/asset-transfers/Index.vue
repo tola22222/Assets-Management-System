@@ -2,7 +2,6 @@
 import { ref, computed, onMounted, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
 import http from '../../api/http'
-import AppLayout from '../../layouts/AppLayout.vue'
 import PageHeader from '../../components/ui/PageHeader.vue'
 import Modal from '../../components/ui/Modal.vue'
 import StatusBadge from '../../components/ui/StatusBadge.vue'
@@ -76,7 +75,6 @@ onMounted(() => {
 </script>
 
 <template>
-  <AppLayout>
     <div class="p-8 max-w-6xl mx-auto space-y-6">
       <PageHeader :title="t('asset_transfers.title')" :subtitle="t('asset_transfers.subtitle')" :buttonText="t('asset_transfers.new')" @action="openCreate" />
 
@@ -176,5 +174,4 @@ onMounted(() => {
         </div>
       </form>
     </Modal>
-  </AppLayout>
 </template>

@@ -1,7 +1,6 @@
 <script setup>
 import { onMounted, ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import AppLayout from '../../layouts/AppLayout.vue'
 import PageHeader from '../../components/ui/PageHeader.vue'
 import StatusBadge from '../../components/ui/StatusBadge.vue'
 import ConfirmDialog from '../../components/ui/ConfirmDialog.vue'
@@ -41,7 +40,6 @@ onMounted(fetchPage)
 </script>
 
 <template>
-  <AppLayout>
     <div class="p-8 max-w-6xl mx-auto space-y-6">
       <PageHeader :title="t('asset_movements.title')" :subtitle="t('asset_movements.subtitle')" />
 
@@ -93,5 +91,4 @@ onMounted(fetchPage)
     </div>
 
     <ConfirmDialog v-if="deletingId" :title="t('asset_movements.delete_confirm_title')" :message="t('asset_movements.delete_confirm_message')" @confirm="confirmDelete" @cancel="deletingId = null" />
-  </AppLayout>
 </template>

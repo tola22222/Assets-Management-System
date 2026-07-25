@@ -1,9 +1,11 @@
 import { ref } from 'vue'
+import vuetify from '../plugins/vuetify'
 
-// Tailwind v4's @theme block compiles --color-brand-* into real CSS custom
-// properties on :root, so overriding them at runtime restyles every
-// bg-brand-*/text-brand-*/border-brand-* utility already in the DOM — no
-// rebuild needed. This is what makes the Settings "Theme Color" picker work.
+// Drives two things from one picked hex: the legacy --color-brand-* CSS custom
+// properties (read by any not-yet-migrated Tailwind utility still in the DOM)
+// and Vuetify's live theme `primary` color (read by every v-* component,
+// mutated directly on the vuetify instance — no re-render/rebuild needed).
+// This is what makes the Settings "Theme Color" picker work app-wide.
 const themeColor = ref(localStorage.getItem('themeColor') || '#1f3d2e')
 
 // Roughly matches the lightness curve of the shipped brand-50..900 scale.
@@ -57,6 +59,19 @@ function applyThemeColor(hex) {
   root.style.setProperty('--color-brand', hslToHex(h, s, 20))
   root.style.setProperty('--color-brand-dark', hslToHex(h, s, 14))
   root.style.setProperty('--color-brand-light', hslToHex(h, s, 26))
+
+  // Same hue/saturation curve, applied to Vuetify's live theme colors —
+  // lightness stops chosen to match the brand-700/800/500/600/300 shades
+  // pepyLight/pepyDark map `primary`/`primary-darken-1`/`primary-lighten-1` to.
+  const light = vuetify.theme.themes.value.pepyLight.colors
+  light.primary = hslToHex(h, s, SHADE_LIGHTNESS[700])
+  light['primary-darken-1'] = hslToHex(h, s, SHADE_LIGHTNESS[800])
+  light['primary-lighten-1'] = hslToHex(h, s, SHADE_LIGHTNESS[500])
+
+  const dark = vuetify.theme.themes.value.pepyDark.colors
+  dark.primary = hslToHex(h, s, SHADE_LIGHTNESS[500])
+  dark['primary-darken-1'] = hslToHex(h, s, SHADE_LIGHTNESS[600])
+  dark['primary-lighten-1'] = hslToHex(h, s, SHADE_LIGHTNESS[300])
 }
 
 // Apply the persisted color immediately on module load (before mount),

@@ -1,13 +1,12 @@
 <script setup>
 import { ref, computed, onMounted, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
-import AppLayout from '../../layouts/AppLayout.vue'
-import PageHeader from '../../components/ui/PageHeader.vue'
+import AppPageHeader from '../../components/common/AppPageHeader.vue'
 import Modal from '../../components/ui/Modal.vue'
-import ConfirmDialog from '../../components/ui/ConfirmDialog.vue'
 import AppDataTable from '../../components/common/AppDataTable.vue'
 import { useApiCrud } from '../../composables/useApiCrud'
 import { useServerTable } from '../../composables/useServerTable'
+import { useConfirm } from '../../composables/useConfirm'
 import { useToastStore } from '../../stores/toast'
 
 const { t } = useI18n()
@@ -17,11 +16,11 @@ const {
   filters, hasActiveFilters, applyFilters, clearFilters,
 } = useServerTable('/locations', { defaultSort: 'name', defaultDir: 'asc', filterKeys: ['type'] })
 const { create, update, destroy } = useApiCrud('/locations', { entityName: t('locations.entity'), refetch: fetchPage })
+const { confirm } = useConfirm()
 const toast = useToastStore()
 
 const showModal = ref(false)
 const editingId = ref(null)
-const deletingId = ref(null)
 const form = reactive({ name: '', type: 'office', description: '' })
 
 function openCreate() {
@@ -45,13 +44,19 @@ async function handleSubmit() {
   showModal.value = false
 }
 
-async function confirmDelete() {
+async function handleDelete(row) {
+  const ok = await confirm({
+    title: t('confirm.delete_title'),
+    message: t('confirm.delete_message'),
+    color: 'error',
+    confirmText: t('common.delete'),
+    cancelText: t('common.cancel'),
+  })
+  if (!ok) return
   try {
-    await destroy(deletingId.value)
+    await destroy(row.id)
   } catch (e) {
     toast.error(e.response?.data?.message || t('locations.delete_failed'))
-  } finally {
-    deletingId.value = null
   }
 }
 
@@ -66,81 +71,75 @@ onMounted(fetchPage)
 </script>
 
 <template>
-  <AppLayout>
-    <div class="p-8 max-w-5xl mx-auto space-y-6">
-      <PageHeader :title="t('locations.title')" :subtitle="t('locations.subtitle')" :buttonText="t('locations.new')" @action="openCreate" />
+  <v-container class="d-flex flex-column ga-6">
+    <AppPageHeader
+      :title="t('locations.title')"
+      :subtitle="t('locations.subtitle')"
+      :actions="[{ label: t('locations.new'), icon: 'mdi-plus', onClick: openCreate }]"
+    />
 
-      <AppDataTable
-        :headers="headers"
-        :items="locations"
-        :items-length="total"
-        :loading="loading"
-        :page="page"
-        :items-per-page="perPage"
-        :items-per-page-options="[10, 25, 50, 100]"
-        :sort-by="sortByVuetify"
-        :search="search"
-        :search-label="t('locations.search_placeholder')"
-        :empty-text="search ? t('locations.empty_search') : t('locations.empty')"
-        @update:search="setSearch"
-        @update:options="handleOptions"
-        @edit="openEdit"
-        @delete="(row) => (deletingId = row.id)"
-      >
-        <template #filters>
-          <v-select
-            v-model="filters.type"
-            :label="t('locations.type')"
-            :items="[
-              { title: t('common.all'), value: '' },
-              { title: t('locations.type_office'), value: 'office' },
-              { title: t('locations.type_lab'), value: 'lab' },
-              { title: t('locations.type_program'), value: 'program' },
-            ]"
-            density="compact"
-            variant="outlined"
-            hide-details
-            style="max-width: 220px"
-            @update:model-value="applyFilters"
-          />
-          <v-btn v-if="hasActiveFilters" variant="text" size="small" @click="clearFilters">{{ t('common.clear_filters') }}</v-btn>
-        </template>
+    <AppDataTable
+      :headers="headers"
+      :items="locations"
+      :items-length="total"
+      :loading="loading"
+      :page="page"
+      :items-per-page="perPage"
+      :items-per-page-options="[10, 25, 50, 100]"
+      :sort-by="sortByVuetify"
+      :search="search"
+      :search-label="t('locations.search_placeholder')"
+      :empty-text="search ? t('locations.empty_search') : t('locations.empty')"
+      @update:search="setSearch"
+      @update:options="handleOptions"
+      @edit="openEdit"
+      @delete="handleDelete"
+    >
+      <template #filters>
+        <v-select
+          v-model="filters.type"
+          :label="t('locations.type')"
+          :items="[
+            { title: t('common.all'), value: '' },
+            { title: t('locations.type_office'), value: 'office' },
+            { title: t('locations.type_lab'), value: 'lab' },
+            { title: t('locations.type_program'), value: 'program' },
+          ]"
+          density="compact"
+          variant="outlined"
+          hide-details
+          style="max-width: 220px"
+          @update:model-value="applyFilters"
+        />
+        <v-btn v-if="hasActiveFilters" variant="text" size="small" @click="clearFilters">{{ t('common.clear_filters') }}</v-btn>
+      </template>
 
-        <template #item.type="{ item }"><span class="capitalize">{{ item.type }}</span></template>
-        <template #item.assets_count="{ item }">{{ item.assets_count ?? 0 }}</template>
-      </AppDataTable>
-    </div>
+      <template #item.type="{ item }"><span class="text-capitalize">{{ item.type }}</span></template>
+      <template #item.assets_count="{ item }">{{ item.assets_count ?? 0 }}</template>
+    </AppDataTable>
+  </v-container>
 
-    <Modal v-if="showModal" :title="editingId ? t('locations.edit_title') : t('locations.create_title')" @close="showModal = false">
-      <form @submit.prevent="handleSubmit">
-        <div class="p-6 space-y-4">
-          <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('locations.name_required') }}</label>
-            <input v-model="form.name" required class="input" />
-          </div>
-          <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('locations.type_required') }}</label>
-            <select v-model="form.type" class="input">
-              <option value="office">{{ t('locations.type_office') }}</option>
-              <option value="lab">{{ t('locations.type_lab') }}</option>
-              <option value="program">{{ t('locations.type_program') }}</option>
-            </select>
-          </div>
-          <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('common.description') }}</label>
-            <textarea v-model="form.description" rows="2" class="input"></textarea>
-          </div>
-        </div>
-        <div class="flex items-center gap-3 border-t border-line px-6 py-4">
-          <button type="submit" class="btn-primary">
-            <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
-            {{ editingId ? t('locations.save_changes') : t('locations.create_button') }}
-          </button>
-          <button type="button" class="btn-ghost" @click="showModal = false">{{ t('common.cancel') }}</button>
-        </div>
-      </form>
-    </Modal>
-
-    <ConfirmDialog v-if="deletingId" @confirm="confirmDelete" @cancel="deletingId = null" />
-  </AppLayout>
+  <Modal v-if="showModal" :title="editingId ? t('locations.edit_title') : t('locations.create_title')" @close="showModal = false">
+    <v-form @submit.prevent="handleSubmit">
+      <v-card-text class="d-flex flex-column ga-1">
+        <v-text-field v-model="form.name" :label="t('locations.name_required')" required />
+        <v-select
+          v-model="form.type"
+          :label="t('locations.type_required')"
+          :items="[
+            { title: t('locations.type_office'), value: 'office' },
+            { title: t('locations.type_lab'), value: 'lab' },
+            { title: t('locations.type_program'), value: 'program' },
+          ]"
+        />
+        <v-textarea v-model="form.description" :label="t('common.description')" rows="2" />
+      </v-card-text>
+      <v-card-actions class="px-4 pb-4">
+        <v-btn type="submit" color="primary" variant="flat" prepend-icon="mdi-plus">
+          {{ editingId ? t('locations.save_changes') : t('locations.create_button') }}
+        </v-btn>
+        <v-btn variant="text" @click="showModal = false">{{ t('common.cancel') }}</v-btn>
+      </v-card-actions>
+    </v-form>
+  </Modal>
 </template>
