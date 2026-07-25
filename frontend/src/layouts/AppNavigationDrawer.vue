@@ -48,6 +48,7 @@ function closeOnMobile() {
         v-for="item in topLinks"
         :key="item.to"
         :to="item.to"
+        :exact="item.exact"
         :prepend-icon="item.icon"
         :title="item.label"
         @click="temporary && closeOnMobile()"
@@ -81,7 +82,7 @@ function closeOnMobile() {
       <v-list-item to="/reports" :prepend-icon="ICONS.chart" :title="t('nav.reports')" @click="temporary && closeOnMobile()" />
     </v-list>
 
-    <template #append>
+    
       <v-list v-if="isAdmin" v-model:opened="openGroups" density="compact" nav>
         <v-list-group :value="settingGroup.key">
           <template #activator="{ props: activatorProps }">
@@ -96,10 +97,11 @@ function closeOnMobile() {
           />
         </v-list-group>
       </v-list>
-      <v-divider />
-      <v-list density="compact" nav>
-        <v-list-item :prepend-icon="ICONS.logout" :title="t('nav.logout')" class="text-red-lighten-2" @click="handleLogout" />
-      </v-list>
-    </template>
+      <template #append>
+        <v-divider />
+        <v-list density="compact" nav>
+          <v-list-item :prepend-icon="ICONS.logout" :title="t('nav.logout')" class="text-red-lighten-2" @click="handleLogout" />
+        </v-list>
+      </template>
   </v-navigation-drawer>
 </template>

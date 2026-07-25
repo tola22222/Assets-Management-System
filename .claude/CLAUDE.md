@@ -5,7 +5,7 @@ Supplementary guidance for Claude Code in this repo. Read alongside the root [CL
 ## Stack summary
 
 - **Backend**: Laravel 12 / PHP 8.2. Two route sets share the same models: `routes/web.php` (Blade, session auth) and `routes/api.php` (JSON API, Sanctum bearer tokens, controllers under `app/Http/Controllers/Api/`).
-- **Frontend**: Vue 3 SPA in `frontend/`, built with Vite. **UI component library is [Naive UI](https://www.naiveui.com/) (`naive-ui`), not Vuetify** — there is no Vuetify dependency in `frontend/package.json`. Styling is **Tailwind CSS v4** (`@tailwindcss/vite`), using the `@theme` block in `main.css` for design tokens (`--color-brand-*`, fonts, etc.).
+- **Frontend**: Vue 3 SPA in `frontend/`, built with Vite. **UI component 
 - State: Pinia (`stores/auth.js`, `stores/toast.js`). Routing: `vue-router`. i18n: `vue-i18n` (Composition API, `en.json`/`km.json`). Charts: `chart.js` via `vue-chartjs`. HTTP: single axios instance in `api/http.js`.
 
 ## Best practices to follow in this repo

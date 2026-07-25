@@ -8,6 +8,7 @@ const ICONS = {
   home: 'mdi-view-dashboard-outline',
   qr: 'mdi-qrcode-scan',
   assets: 'mdi-package-variant-closed',
+  workflow: 'mdi-clipboard-flow-outline',
   clipboard: 'mdi-clipboard-text-outline',
   uturn: 'mdi-arrow-u-left-top',
   swap: 'mdi-swap-horizontal',
@@ -41,12 +42,20 @@ export function useAppNav() {
     { to: '/asset-verifications', label: t('nav.verification'), icon: ICONS.shield },
   ])
 
-  const inventoryGroup = computed(() => ({
-    key: 'inventory', title: t('nav.asset_management'), icon: ICONS.assets,
+  // Split from a single "Inventory" group: core asset/stock data here...
+  const assetsGroup = computed(() => ({
+    key: 'assets', title: t('nav.asset_management'), icon: ICONS.assets,
     items: [
       { to: '/assets', label: t('nav.asset_register') },
       { to: '/asset-stocks', label: t('nav.receive_assets') },
       { to: '/asset-movements', label: t('nav.stock_movements') },
+    ],
+  }))
+  // ...and the approve/reject/complete workflow entities here, so each group
+  // stays scannable instead of one 8-item "Inventory" catch-all.
+  const workflowsGroup = computed(() => ({
+    key: 'workflows', title: t('nav.workflows'), icon: ICONS.workflow,
+    items: [
       { to: '/asset-assignments', label: t('nav.assignments') },
       { to: '/asset-transfers', label: t('nav.transfers') },
       { to: '/asset-returns', label: t('nav.returns') },
@@ -80,14 +89,16 @@ export function useAppNav() {
 
   // Groups rendered in the scrollable area (order matches the old sidebar)
   const mainGroups = computed(() =>
-    isAdmin.value ? [inventoryGroup.value, peopleGroup.value, systemSetupGroup.value] : [peopleGroup.value, systemSetupGroup.value]
+    isAdmin.value
+      ? [assetsGroup.value, workflowsGroup.value, peopleGroup.value, systemSetupGroup.value]
+      : [peopleGroup.value, systemSetupGroup.value]
   )
 
   function isActive(to) {
     return route.path === to || route.path.startsWith(to + '/')
   }
 
-  const allGroups = computed(() => [inventoryGroup.value, peopleGroup.value, systemSetupGroup.value, settingGroup.value])
+  const allGroups = computed(() => [assetsGroup.value, workflowsGroup.value, peopleGroup.value, systemSetupGroup.value, settingGroup.value])
   const activeGroupKey = computed(() => {
     for (const g of allGroups.value) {
       if (g.items.some((it) => isActive(it.to))) return g.key
@@ -109,7 +120,7 @@ export function useAppNav() {
     add('/assets/import', t('import.title'), t('nav.asset_management'))
 
     myAssets.value.forEach((item) => add(item.to, item.label, t('nav.my_assets')))
-    ;[inventoryGroup.value, peopleGroup.value, systemSetupGroup.value, settingGroup.value].forEach((group) => {
+    ;[assetsGroup.value, workflowsGroup.value, peopleGroup.value, systemSetupGroup.value, settingGroup.value].forEach((group) => {
       group.items.forEach((item) => add(item.to, item.label, group.title))
     })
 

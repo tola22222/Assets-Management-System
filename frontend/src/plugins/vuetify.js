@@ -34,8 +34,32 @@ const pepyLight = {
     'surface-variant': '#f6f3ec',
     'on-surface-variant': '#6b6656',
   },
+  // Vuetify's built-in 'light'/'dark' themes ship a full variables block
+  // (border-opacity, *-emphasis-opacity, hover/focus/selected/etc. opacity) —
+  // defining custom `themes` replaces those defaults rather than merging with
+  // them, so every one of these has to be restated or things like table row
+  // gridlines (rgba(var(--v-border-color), var(--v-border-opacity))) silently
+  // resolve to an invalid color and vanish. Values below match Vuetify's
+  // built-in 'light' theme, only 'border-color' is customized.
   variables: {
     'border-color': '#e5e0d1',
+    'border-opacity': 0.12,
+    'high-emphasis-opacity': 0.87,
+    'medium-emphasis-opacity': 0.60,
+    'disabled-opacity': 0.38,
+    'idle-opacity': 0.04,
+    'hover-opacity': 0.04,
+    'focus-opacity': 0.12,
+    'selected-opacity': 0.08,
+    'activated-opacity': 0.12,
+    'pressed-opacity': 0.12,
+    'dragged-opacity': 0.08,
+    'theme-kbd': '#EEEEEE',
+    'theme-on-kbd': '#000000',
+    'theme-code': '#F5F5F5',
+    'theme-on-code': '#000000',
+    'theme-on-dark': '#FFF',
+    'theme-on-light': '#000',
   },
 }
 
@@ -56,8 +80,27 @@ const pepyDark = {
     'surface-variant': '#1c2a22',
     'on-surface-variant': '#9db0a4',
   },
+  // See pepyLight above — values here match Vuetify's built-in 'dark' theme,
+  // only 'border-color' is customized.
   variables: {
     'border-color': '#283a2f',
+    'border-opacity': 0.12,
+    'high-emphasis-opacity': 1,
+    'medium-emphasis-opacity': 0.70,
+    'disabled-opacity': 0.50,
+    'idle-opacity': 0.10,
+    'hover-opacity': 0.04,
+    'focus-opacity': 0.12,
+    'selected-opacity': 0.08,
+    'activated-opacity': 0.12,
+    'pressed-opacity': 0.16,
+    'dragged-opacity': 0.08,
+    'theme-kbd': '#424242',
+    'theme-on-kbd': '#FFFFFF',
+    'theme-code': '#343434',
+    'theme-on-code': '#CCCCCC',
+    'theme-on-dark': '#FFF',
+    'theme-on-light': '#000',
   },
 }
 
