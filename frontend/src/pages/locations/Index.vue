@@ -71,7 +71,7 @@ onMounted(fetchPage)
 </script>
 
 <template>
-  <v-container class="d-flex flex-column ga-6">
+  <v-container fluid class="pa-0">
     <AppPageHeader
       :title="t('locations.title')"
       :subtitle="t('locations.subtitle')"

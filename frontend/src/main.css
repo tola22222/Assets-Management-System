@@ -1,0 +1,7 @@
+/* Kantumruy Pro covers both Latin and Khmer glyphs in one family (needed for
+   the km.json translations) — loaded via Google Fonts CDN in index.html.
+   Vuetify 4 reads these CSS variables for its body/heading font stacks. */
+:root {
+  --v-font-body: 'Kantumruy Pro', sans-serif;
+  --v-font-heading: 'Kantumruy Pro', sans-serif;
+}
