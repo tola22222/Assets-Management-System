@@ -1,7 +1,7 @@
 <script setup>
 import { onMounted, ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import PageHeader from '../../components/ui/PageHeader.vue'
+import AppPageHeader from '../../components/common/AppPageHeader.vue'
 import StatusBadge from '../../components/ui/StatusBadge.vue'
 import ConfirmDialog from '../../components/ui/ConfirmDialog.vue'
 import AppDataTable from '../../components/common/AppDataTable.vue'
@@ -41,7 +41,7 @@ onMounted(fetchPage)
 
 <template>
     <div class="p-8 max-w-6xl mx-auto space-y-6">
-      <PageHeader :title="t('asset_movements.title')" :subtitle="t('asset_movements.subtitle')" />
+      <AppPageHeader :title="t('asset_movements.title')" :subtitle="t('asset_movements.subtitle')" />
 
       <AppDataTable
         :headers="headers"

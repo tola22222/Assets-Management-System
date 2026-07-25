@@ -2,7 +2,7 @@
 import { ref, computed, onMounted, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
 import http from '../../api/http'
-import PageHeader from '../../components/ui/PageHeader.vue'
+import AppPageHeader from '../../components/common/AppPageHeader.vue'
 import Modal from '../../components/ui/Modal.vue'
 import ConfirmDialog from '../../components/ui/ConfirmDialog.vue'
 import ColumnVisibilityMenu from '../../components/ui/ColumnVisibilityMenu.vue'
@@ -281,7 +281,11 @@ onMounted(() => {
 
 <template>
     <div class="p-6 sm:p-8 max-w-7xl mx-auto space-y-6">
-      <PageHeader :title="t('assets.title')" :subtitle="t('assets.subtitle')" :buttonText="t('assets.register')" @action="openCreate" />
+      <AppPageHeader
+        :title="t('assets.title')"
+        :subtitle="t('assets.subtitle')"
+        :actions="[{ label: t('assets.register'), icon: 'mdi-plus', onClick: openCreate }]"
+      />
 
       <AppDataTable
         :headers="headers"

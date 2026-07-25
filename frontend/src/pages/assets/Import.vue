@@ -2,7 +2,7 @@
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import http from '../../api/http'
-import PageHeader from '../../components/ui/PageHeader.vue'
+import AppPageHeader from '../../components/common/AppPageHeader.vue'
 import { useToastStore } from '../../stores/toast'
 
 const { t } = useI18n()
@@ -60,7 +60,7 @@ function reset() {
 
 <template>
     <div class="p-6 sm:p-8 max-w-3xl mx-auto space-y-6">
-      <PageHeader :title="t('import.title')" :subtitle="t('import.subtitle')" />
+      <AppPageHeader :title="t('import.title')" :subtitle="t('import.subtitle')" />
 
       <RouterLink to="/assets" class="inline-flex items-center gap-1.5 text-sm font-semibold text-muted hover:text-fg">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" /></svg>

@@ -2,7 +2,7 @@
 import { ref, computed, onMounted, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
 import http from '../../api/http'
-import PageHeader from '../../components/ui/PageHeader.vue'
+import AppPageHeader from '../../components/common/AppPageHeader.vue'
 import Modal from '../../components/ui/Modal.vue'
 import AppDataTable from '../../components/common/AppDataTable.vue'
 import { useServerTable } from '../../composables/useServerTable'
@@ -69,7 +69,11 @@ onMounted(() => {
 
 <template>
     <div class="p-8 max-w-6xl mx-auto space-y-6">
-      <PageHeader :title="t('asset_verifications.title')" :subtitle="t('asset_verifications.subtitle')" :buttonText="t('asset_verifications.new')" @action="openCreate" />
+      <AppPageHeader
+        :title="t('asset_verifications.title')"
+        :subtitle="t('asset_verifications.subtitle')"
+        :actions="[{ label: t('asset_verifications.new'), icon: 'mdi-plus', onClick: openCreate }]"
+      />
 
       <AppDataTable
         :headers="headers"

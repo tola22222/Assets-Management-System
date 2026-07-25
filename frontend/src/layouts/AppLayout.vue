@@ -30,6 +30,8 @@ function toggleSidebar() {
   <AppHeader :collapsed="collapsed" @toggle-sidebar="toggleSidebar" />
 
   <v-main>
-    <RouterView />
+    <v-container fluid class="pa-4">
+        <RouterView />
+    </v-container>
   </v-main>
 </template>

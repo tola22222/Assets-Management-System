@@ -2,7 +2,7 @@
 import { ref, computed, onMounted, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
 import http from '../../api/http'
-import PageHeader from '../../components/ui/PageHeader.vue'
+import AppPageHeader from '../../components/common/AppPageHeader.vue'
 import Modal from '../../components/ui/Modal.vue'
 import StatusBadge from '../../components/ui/StatusBadge.vue'
 import AppDataTable from '../../components/common/AppDataTable.vue'
@@ -89,7 +89,11 @@ onMounted(() => {
 
 <template>
     <div class="p-8 max-w-6xl mx-auto space-y-6">
-      <PageHeader :title="t('asset_assignments.title')" :subtitle="t('asset_assignments.subtitle')" :buttonText="t('asset_assignments.new')" @action="openCreate" />
+      <AppPageHeader
+        :title="t('asset_assignments.title')"
+        :subtitle="t('asset_assignments.subtitle')"
+        :actions="[{ label: t('asset_assignments.new'), icon: 'mdi-plus', onClick: openCreate }]"
+      />
 
       <AppDataTable
         :headers="headers"

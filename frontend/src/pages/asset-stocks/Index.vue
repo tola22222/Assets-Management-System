@@ -2,7 +2,7 @@
 import { ref, onMounted, reactive, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import http from '../../api/http'
-import PageHeader from '../../components/ui/PageHeader.vue'
+import AppPageHeader from '../../components/common/AppPageHeader.vue'
 import Modal from '../../components/ui/Modal.vue'
 import ConfirmDialog from '../../components/ui/ConfirmDialog.vue'
 import AppDataTable from '../../components/common/AppDataTable.vue'
@@ -78,7 +78,11 @@ onMounted(() => {
 
 <template>
     <div class="p-8 max-w-6xl mx-auto space-y-6">
-      <PageHeader :title="t('asset_stocks.title')" :subtitle="t('asset_stocks.subtitle')" :buttonText="t('asset_stocks.new')" @action="openCreate" />
+      <AppPageHeader
+        :title="t('asset_stocks.title')"
+        :subtitle="t('asset_stocks.subtitle')"
+        :actions="[{ label: t('asset_stocks.new'), icon: 'mdi-plus', onClick: openCreate }]"
+      />
 
       <AppDataTable
         :headers="headers"
