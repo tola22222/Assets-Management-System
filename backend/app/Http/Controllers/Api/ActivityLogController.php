@@ -2,14 +2,27 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Concerns\PaginatesAndSorts;
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
+use Illuminate\Http\Request;
 
 class ActivityLogController extends Controller
 {
-    public function index()
+    use PaginatesAndSorts;
+
+    private const SORTABLE = ['action', 'created_at'];
+
+    public function index(Request $request)
     {
-        return response()->json(ActivityLog::with('user')->latest()->paginate(20));
+        $query = ActivityLog::with('user');
+
+        $this->applySearch($query, $request, ['action', 'description'], [
+            'user' => ['name'],
+        ]);
+        $this->applyExactFilters($query, $request, ['action']);
+
+        return response()->json($this->paginateSorted($query, $request, self::SORTABLE));
     }
 
     public function show(ActivityLog $activity_log)

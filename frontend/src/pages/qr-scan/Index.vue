@@ -17,8 +17,8 @@ async function handleScan() {
   try {
     const { data } = await http.post('/qr-scan', { asset_code: assetCode.value })
     asset.value = data
-    const { data: locs } = await http.get('/locations')
-    locations.value = locs
+    const { data: locs } = await http.get('/locations', { params: { per_page: 100 } })
+    locations.value = locs.data ?? locs
     verifyForm.value = { location_id: '', condition: 'good', remark: '' }
   } catch (e) {
     toast.error(e.response?.data?.message || 'Asset not found.')

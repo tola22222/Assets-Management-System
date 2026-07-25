@@ -3,7 +3,11 @@ import { useI18n } from 'vue-i18n'
 import http from '../api/http'
 import { useToastStore } from '../stores/toast'
 
-export function useApiCrud(endpoint, { entityName = 'Item' } = {}) {
+// `refetch`, when provided (e.g. a useServerTable's `fetchPage`), replaces the
+// internal fetchAll() as what create/update/destroy call afterward — lets a
+// server-paginated caller keep its own page/sort/filter state instead of this
+// composable clobbering it with an unpaginated re-fetch.
+export function useApiCrud(endpoint, { entityName = 'Item', refetch = null } = {}) {
   const items = ref([])
   const loading = ref(false)
   const toast = useToastStore()
@@ -19,10 +23,12 @@ export function useApiCrud(endpoint, { entityName = 'Item' } = {}) {
     }
   }
 
+  const reload = refetch ?? fetchAll
+
   async function create(payload, config = {}) {
     const { data } = await http.post(endpoint, payload, config)
     toast.success(t('common.created_successfully', { entity: entityName }))
-    await fetchAll()
+    await reload()
     return data
   }
 
@@ -35,14 +41,14 @@ export function useApiCrud(endpoint, { entityName = 'Item' } = {}) {
       ;({ data } = await http.put(`${endpoint}/${id}`, payload, config))
     }
     toast.success(t('common.updated_successfully', { entity: entityName }))
-    await fetchAll()
+    await reload()
     return data
   }
 
   async function destroy(id) {
     await http.delete(`${endpoint}/${id}`)
     toast.success(t('common.deleted_successfully', { entity: entityName }))
-    await fetchAll()
+    await reload()
   }
 
   return { items, loading, fetchAll, create, update, destroy }

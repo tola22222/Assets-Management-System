@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Concerns\PaginatesAndSorts;
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\Supplier;
@@ -10,9 +11,17 @@ use Illuminate\Support\Facades\Auth;
 
 class SupplierController extends Controller
 {
-    public function index()
+    use PaginatesAndSorts;
+
+    private const SORTABLE = ['name', 'created_at'];
+
+    public function index(Request $request)
     {
-        return response()->json(Supplier::latest()->get());
+        $query = Supplier::query();
+
+        $this->applySearch($query, $request, ['name', 'phone', 'address']);
+
+        return response()->json($this->paginateSorted($query, $request, self::SORTABLE));
     }
 
     public function store(Request $request)

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Concerns\PaginatesAndSorts;
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\Asset;
@@ -13,23 +14,36 @@ use Illuminate\Support\Facades\Auth;
 
 class AssetVerificationController extends Controller
 {
+    use PaginatesAndSorts;
+
+    private const SORTABLE = ['condition', 'created_at'];
+
     public function index(Request $request)
     {
         $user = $request->user();
 
-        if ($user->isOperationsHrManager()) {
-            $verifications = AssetVerification::with(['asset', 'location', 'verifiedBy'])->latest()->get();
-        } else {
+        $query = AssetVerification::with(['asset', 'location', 'verifiedBy']);
+
+        if (! $user->isOperationsHrManager()) {
             $assignedAssetIds = AssetAssignment::where('assigned_to_type', 'staff')
                 ->where('assigned_to_id', $user->staff_id)
                 ->pluck('asset_id');
-            $verifications = AssetVerification::whereIn('asset_id', $assignedAssetIds)
-                ->with(['asset', 'location', 'verifiedBy'])
-                ->latest()
-                ->get();
+            $query->whereIn('asset_id', $assignedAssetIds);
         }
 
-        return response()->json($verifications);
+        $this->applySearch($query, $request, ['remark'], [
+            'asset' => ['name', 'asset_code'],
+            'location' => ['name'],
+        ]);
+        $this->applyExactFilters($query, $request, ['condition']);
+
+        if ($request->filled('completed')) {
+            $request->query('completed') === 'yes'
+                ? $query->whereNotNull('verified_at')
+                : $query->whereNull('verified_at');
+        }
+
+        return response()->json($this->paginateSorted($query, $request, self::SORTABLE));
     }
 
     public function store(Request $request)

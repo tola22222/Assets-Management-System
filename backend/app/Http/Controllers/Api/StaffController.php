@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Concerns\PaginatesAndSorts;
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\Staff;
@@ -11,9 +12,18 @@ use Illuminate\Support\Facades\Storage;
 
 class StaffController extends Controller
 {
-    public function index()
+    use PaginatesAndSorts;
+
+    private const SORTABLE = ['full_name', 'position', 'created_at'];
+
+    public function index(Request $request)
     {
-        return response()->json(Staff::latest()->get());
+        $query = Staff::query();
+
+        $this->applySearch($query, $request, ['full_name', 'position', 'phone', 'email']);
+        $this->applyExactFilters($query, $request, ['status']);
+
+        return response()->json($this->paginateSorted($query, $request, self::SORTABLE));
     }
 
     public function store(Request $request)

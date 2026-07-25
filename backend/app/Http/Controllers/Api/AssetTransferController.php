@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Concerns\PaginatesAndSorts;
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\AssetMovement;
@@ -14,11 +15,21 @@ use Illuminate\Support\Facades\DB;
 
 class AssetTransferController extends Controller
 {
-    public function index()
+    use PaginatesAndSorts;
+
+    private const SORTABLE = ['status', 'created_at'];
+
+    public function index(Request $request)
     {
-        return response()->json(
-            AssetTransfer::with(['asset', 'fromLocation', 'toLocation', 'requester'])->latest()->get()
-        );
+        $query = AssetTransfer::with(['asset', 'fromLocation', 'toLocation', 'requester']);
+
+        $this->applySearch($query, $request, [], [
+            'asset' => ['name', 'asset_code'],
+            'requester' => ['name'],
+        ]);
+        $this->applyExactFilters($query, $request, ['status']);
+
+        return response()->json($this->paginateSorted($query, $request, self::SORTABLE));
     }
 
     public function store(Request $request)

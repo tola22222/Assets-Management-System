@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Concerns\PaginatesAndSorts;
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\AssetDisposal;
@@ -13,11 +14,21 @@ use Illuminate\Support\Facades\Auth;
 
 class AssetDisposalController extends Controller
 {
-    public function index()
+    use PaginatesAndSorts;
+
+    private const SORTABLE = ['status', 'recommended_action', 'created_at'];
+
+    public function index(Request $request)
     {
-        return response()->json(
-            AssetDisposal::with(['asset', 'requester', 'reviewer'])->latest()->get()
-        );
+        $query = AssetDisposal::with(['asset', 'requester', 'reviewer']);
+
+        $this->applySearch($query, $request, ['reason'], [
+            'asset' => ['name', 'asset_code'],
+            'requester' => ['name'],
+        ]);
+        $this->applyExactFilters($query, $request, ['status', 'recommended_action']);
+
+        return response()->json($this->paginateSorted($query, $request, self::SORTABLE));
     }
 
     public function store(Request $request)

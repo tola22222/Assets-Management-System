@@ -2,15 +2,24 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Concerns\PaginatesAndSorts;
 use App\Http\Controllers\Controller;
 use App\Models\Program;
 use Illuminate\Http\Request;
 
 class ProgramController extends Controller
 {
-    public function index()
+    use PaginatesAndSorts;
+
+    private const SORTABLE = ['name', 'created_at'];
+
+    public function index(Request $request)
     {
-        return response()->json(Program::latest()->get());
+        $query = Program::query();
+
+        $this->applySearch($query, $request, ['name', 'description']);
+
+        return response()->json($this->paginateSorted($query, $request, self::SORTABLE));
     }
 
     public function store(Request $request)

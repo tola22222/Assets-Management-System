@@ -1,73 +1,44 @@
 <script setup>
-import { ref, h, computed, onMounted, reactive } from 'vue'
+import { ref, computed, onMounted, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { NDataTable } from 'naive-ui'
 import http from '../../api/http'
 import AppLayout from '../../layouts/AppLayout.vue'
 import PageHeader from '../../components/ui/PageHeader.vue'
 import Modal from '../../components/ui/Modal.vue'
 import StatusBadge from '../../components/ui/StatusBadge.vue'
-import SearchInput from '../../components/ui/SearchInput.vue'
-import { useApiCrud } from '../../composables/useApiCrud'
-import { useTableSearch } from '../../composables/useTableSearch'
-import { useTableFilter } from '../../composables/useTableFilter'
+import AppDataTable from '../../components/common/AppDataTable.vue'
+import { useServerTable } from '../../composables/useServerTable'
 import { useToastStore } from '../../stores/toast'
 import { useAuthStore } from '../../stores/auth'
 
 const { t } = useI18n()
-const { items: transfers, loading, fetchAll } = useApiCrud('/asset-transfers', { entityName: t('asset_transfers.entity') })
 const toast = useToastStore()
 const auth = useAuthStore()
 
-const { search, filtered: searched } = useTableSearch(transfers, [(r) => r.asset?.name, (r) => r.asset?.asset_code, (r) => r.requester?.name])
-const { filters, filtered: matched, hasActiveFilters, clearFilters } = useTableFilter(searched, {
-  status: (row, v) => row.status === v,
-})
+const {
+  items: transfers, loading, page, perPage, total, sortByVuetify,
+  search, setSearch, handleOptions, fetchPage,
+  filters, hasActiveFilters, applyFilters, clearFilters,
+} = useServerTable('/asset-transfers', { filterKeys: ['status'] })
 
 const assets = ref([])
 const locations = ref([])
 const showModal = ref(false)
 const form = reactive({ asset_id: '', from_location_id: '', to_location_id: '', reason: '', transfer_date: '' })
 
-const columns = computed(() => [
-  { title: t('common.asset'), key: 'asset', sorter: 'default', render: (row) => row.asset?.name || t('common.n_a') },
-  { title: t('asset_transfers.from'), key: 'from', sorter: 'default', render: (row) => row.from_location?.name || t('common.n_a') },
-  { title: t('asset_transfers.to'), key: 'to', sorter: 'default', render: (row) => row.to_location?.name || t('common.n_a') },
-  { title: t('asset_transfers.requester'), key: 'requester', sorter: 'default', render: (row) => row.requester?.name || t('common.n_a') },
-  { title: t('common.status'), key: 'status', sorter: 'default', render: (row) => h(StatusBadge, { status: row.status }) },
-  {
-    title: t('common.actions'),
-    key: 'actions',
-    render(row) {
-      if (!(row.status === 'pending' && auth.user?.role === 'operations_hr_manager')) return null
-      return h('div', { class: 'flex items-center justify-end gap-1.5' }, [
-        h('button', {
-          onClick: () => approve(row.id),
-          title: t('common.approve'),
-          class: 'w-7 h-7 rounded-lg bg-brand text-white flex items-center justify-center hover:bg-brand-dark transition',
-        }, [
-          h('svg', { class: 'w-4 h-4', fill: 'none', stroke: 'currentColor', 'stroke-width': '2.2', viewBox: '0 0 24 24' }, [
-            h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z' }),
-          ]),
-        ]),
-        h('button', {
-          onClick: () => reject(row.id),
-          title: t('common.reject'),
-          class: 'w-7 h-7 rounded-lg bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition',
-        }, [
-          h('svg', { class: 'w-4 h-4', fill: 'none', stroke: 'currentColor', 'stroke-width': '2.2', viewBox: '0 0 24 24' }, [
-            h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z' }),
-          ]),
-        ]),
-      ])
-    },
-  },
+const headers = computed(() => [
+  { title: t('common.asset'), key: 'asset', sortable: false },
+  { title: t('asset_transfers.from'), key: 'from', sortable: false },
+  { title: t('asset_transfers.to'), key: 'to', sortable: false },
+  { title: t('asset_transfers.requester'), key: 'requester', sortable: false },
+  { title: t('common.status'), key: 'status', sortable: true },
+  { title: t('common.actions'), key: 'actions', sortable: false, align: 'end', width: 90 },
 ])
 
 async function loadOptions() {
-  const [a, l] = await Promise.all([http.get('/assets/export'), http.get('/locations')])
+  const [a, l] = await Promise.all([http.get('/assets/export'), http.get('/locations', { params: { per_page: 100 } })])
   assets.value = a.data.data
-  locations.value = l.data
+  locations.value = l.data.data ?? l.data
 }
 
 function openCreate() {
@@ -80,7 +51,7 @@ async function handleSubmit() {
     await http.post('/asset-transfers', form)
     toast.success(t('asset_transfers.submitted'))
     showModal.value = false
-    await fetchAll()
+    await fetchPage()
   } catch (e) {
     toast.error(e.response?.data?.message || t('asset_transfers.submit_failed'))
   }
@@ -89,17 +60,17 @@ async function handleSubmit() {
 async function approve(id) {
   await http.post(`/asset-transfers/${id}/approve`)
   toast.success(t('asset_transfers.approved'))
-  await fetchAll()
+  await fetchPage()
 }
 
 async function reject(id) {
   await http.post(`/asset-transfers/${id}/reject`)
   toast.success(t('asset_transfers.rejected'))
-  await fetchAll()
+  await fetchPage()
 }
 
 onMounted(() => {
-  fetchAll()
+  fetchPage()
   loadOptions()
 })
 </script>
@@ -109,32 +80,56 @@ onMounted(() => {
     <div class="p-8 max-w-6xl mx-auto space-y-6">
       <PageHeader :title="t('asset_transfers.title')" :subtitle="t('asset_transfers.subtitle')" :buttonText="t('asset_transfers.new')" @action="openCreate" />
 
-      <div class="table-wrap">
-        <div class="table-toolbar">
-          <div class="w-full sm:max-w-xs">
-            <SearchInput v-model="search" :placeholder="t('common.search')" />
+      <AppDataTable
+        :headers="headers"
+        :items="transfers"
+        :items-length="total"
+        :loading="loading"
+        :page="page"
+        :items-per-page="perPage"
+        :items-per-page-options="[10, 25, 50, 100]"
+        :sort-by="sortByVuetify"
+        :search="search"
+        :empty-text="t('asset_transfers.empty')"
+        @update:search="setSearch"
+        @update:options="handleOptions"
+      >
+        <template #filters>
+          <v-select
+            v-model="filters.status"
+            :label="t('common.status')"
+            :items="[
+              { title: t('common.all'), value: '' },
+              { title: t('status.pending'), value: 'pending' },
+              { title: t('status.approved'), value: 'approved' },
+              { title: t('status.rejected'), value: 'rejected' },
+            ]"
+            density="compact"
+            variant="outlined"
+            hide-details
+            style="max-width: 220px"
+            @update:model-value="applyFilters"
+          />
+          <v-btn v-if="hasActiveFilters" variant="text" size="small" @click="clearFilters">{{ t('common.clear_filters') }}</v-btn>
+        </template>
+
+        <template #item.asset="{ item }">{{ item.asset?.name || t('common.n_a') }}</template>
+        <template #item.from="{ item }">{{ item.from_location?.name || t('common.n_a') }}</template>
+        <template #item.to="{ item }">{{ item.to_location?.name || t('common.n_a') }}</template>
+        <template #item.requester="{ item }">{{ item.requester?.name || t('common.n_a') }}</template>
+        <template #item.status="{ item }"><StatusBadge :status="item.status" /></template>
+
+        <template #item.actions="{ item }">
+          <div v-if="item.status === 'pending' && auth.isOperationsHrManager" class="flex items-center justify-end gap-1.5">
+            <button @click="approve(item.id)" :title="t('common.approve')" class="w-7 h-7 rounded-lg bg-brand text-white flex items-center justify-center hover:bg-brand-dark transition">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            </button>
+            <button @click="reject(item.id)" :title="t('common.reject')" class="w-7 h-7 rounded-lg bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            </button>
           </div>
-          <select v-model="filters.status" class="filter-select">
-            <option value="">{{ t('common.status') }}: {{ t('common.all') }}</option>
-            <option value="pending">{{ t('status.pending') }}</option>
-            <option value="approved">{{ t('status.approved') }}</option>
-            <option value="rejected">{{ t('status.rejected') }}</option>
-          </select>
-          <button v-if="hasActiveFilters" @click="clearFilters" class="btn-subtle btn-sm">{{ t('common.clear_filters') }}</button>
-        </div>
-        <n-data-table
-          :columns="columns"
-          :data="matched"
-          :loading="loading"
-          :row-key="(row) => row.id"
-          :pagination="{ pageSize: 10, showSizePicker: true, pageSizes: [10, 25, 50, 100] }"
-          :bordered="false"
-        >
-          <template #empty>
-            <p class="py-10 text-center text-faint text-sm">{{ t('asset_transfers.empty') }}</p>
-          </template>
-        </n-data-table>
-      </div>
+        </template>
+      </AppDataTable>
     </div>
 
     <Modal v-if="showModal" :title="t('asset_transfers.modal_title')" @close="showModal = false">

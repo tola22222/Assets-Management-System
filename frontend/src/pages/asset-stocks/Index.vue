@@ -1,19 +1,21 @@
 <script setup>
-import { ref, onMounted, reactive, h, computed } from 'vue'
+import { ref, onMounted, reactive, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { NDataTable } from 'naive-ui'
 import http from '../../api/http'
 import AppLayout from '../../layouts/AppLayout.vue'
 import PageHeader from '../../components/ui/PageHeader.vue'
 import Modal from '../../components/ui/Modal.vue'
 import ConfirmDialog from '../../components/ui/ConfirmDialog.vue'
-import SearchInput from '../../components/ui/SearchInput.vue'
+import AppDataTable from '../../components/common/AppDataTable.vue'
 import { useApiCrud } from '../../composables/useApiCrud'
-import { useTableSearch } from '../../composables/useTableSearch'
+import { useServerTable } from '../../composables/useServerTable'
 
 const { t } = useI18n()
-const { items: receipts, loading, fetchAll, create, destroy } = useApiCrud('/asset-stocks', { entityName: t('asset_stocks.entity') })
-const { search, filtered: searched } = useTableSearch(receipts, [(r) => r.asset?.name, (r) => r.asset?.asset_code, (r) => r.to_location?.name, 'reference_no'])
+const {
+  items: receipts, loading, page, perPage, total, sortByVuetify,
+  search, setSearch, handleOptions, fetchPage,
+} = useServerTable('/asset-stocks')
+const { create, destroy } = useApiCrud('/asset-stocks', { entityName: t('asset_stocks.entity'), refetch: fetchPage })
 
 const categories = ref([])
 const locations = ref([])
@@ -28,9 +30,12 @@ const emptyForm = () => ({
 const form = reactive(emptyForm())
 
 async function loadOptions() {
-  const [categoriesRes, locationsRes] = await Promise.all([http.get('/categories'), http.get('/locations')])
-  categories.value = categoriesRes.data
-  locations.value = locationsRes.data
+  const [categoriesRes, locationsRes] = await Promise.all([
+    http.get('/categories', { params: { per_page: 100 } }),
+    http.get('/locations', { params: { per_page: 100 } }),
+  ])
+  categories.value = categoriesRes.data.data ?? categoriesRes.data
+  locations.value = locationsRes.data.data ?? locationsRes.data
 }
 
 function openCreate() {
@@ -57,43 +62,17 @@ function formatDate(v) {
   return v ? new Date(v).toLocaleDateString() : '—'
 }
 
-const columns = computed(() => [
-  {
-    title: t('assets.code'), key: 'code', sorter: 'default',
-    render: (r) => h('span', { class: 'font-mono text-xs text-fg' }, r.asset?.asset_code || t('common.n_a')),
-  },
-  {
-    title: t('common.asset'), key: 'asset', sorter: 'default',
-    render: (r) => h('span', { class: 'font-medium text-fg' }, r.asset?.name || t('common.n_a')),
-  },
-  {
-    title: t('common.location'), key: 'location', sorter: 'default',
-    render: (r) => r.to_location?.name || t('common.n_a'),
-  },
-  {
-    title: t('asset_stocks.reference'), key: 'reference_no',
-    render: (r) => h('span', { class: 'font-mono text-xs' }, r.reference_no),
-  },
-  {
-    title: t('asset_stocks.received_at'), key: 'created_at', sorter: 'default',
-    render: (r) => formatDate(r.created_at),
-  },
-  {
-    title: t('common.actions'), key: 'actions', width: 70,
-    render: (r) => h('div', { class: 'flex justify-end' }, [
-      h('button', {
-        onClick: () => { deletingId.value = r.id },
-        title: t('common.delete'),
-        class: 'w-7 h-7 rounded-lg bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition',
-      }, [h('svg', { class: 'w-4 h-4', fill: 'none', stroke: 'currentColor', 'stroke-width': '2.2', viewBox: '0 0 24 24' }, [
-        h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M14.74 9l-.346 9m-4.788 0L9 9m9.968-3.21c.342.052.682.107 1.022.166M18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0' }),
-      ])]),
-    ]),
-  },
+const headers = computed(() => [
+  { title: t('assets.code'), key: 'code', sortable: false },
+  { title: t('common.asset'), key: 'asset', sortable: false },
+  { title: t('common.location'), key: 'location', sortable: false },
+  { title: t('asset_stocks.reference'), key: 'reference_no', sortable: true },
+  { title: t('asset_stocks.received_at'), key: 'created_at', sortable: true },
+  { title: t('common.actions'), key: 'actions', sortable: false, align: 'end', width: 70 },
 ])
 
 onMounted(() => {
-  fetchAll()
+  fetchPage()
   loadOptions()
 })
 </script>
@@ -103,25 +82,29 @@ onMounted(() => {
     <div class="p-8 max-w-6xl mx-auto space-y-6">
       <PageHeader :title="t('asset_stocks.title')" :subtitle="t('asset_stocks.subtitle')" :buttonText="t('asset_stocks.new')" @action="openCreate" />
 
-      <div class="table-wrap">
-        <div class="table-toolbar">
-          <div class="w-full sm:max-w-xs">
-            <SearchInput v-model="search" :placeholder="t('common.search')" />
-          </div>
-        </div>
-        <n-data-table
-          :columns="columns"
-          :data="searched"
-          :loading="loading"
-          :row-key="(row) => row.id"
-          :pagination="{ pageSize: 10, showSizePicker: true, pageSizes: [10, 25, 50, 100] }"
-          :bordered="false"
-        >
-          <template #empty>
-            <p class="py-10 text-center text-faint text-sm">{{ t('asset_stocks.empty') }}</p>
-          </template>
-        </n-data-table>
-      </div>
+      <AppDataTable
+        :headers="headers"
+        :items="receipts"
+        :items-length="total"
+        :loading="loading"
+        :page="page"
+        :items-per-page="perPage"
+        :items-per-page-options="[10, 25, 50, 100]"
+        :sort-by="sortByVuetify"
+        :search="search"
+        :empty-text="t('asset_stocks.empty')"
+        :show-view="false"
+        :show-edit="false"
+        @update:search="setSearch"
+        @update:options="handleOptions"
+        @delete="(row) => (deletingId = row.id)"
+      >
+        <template #item.code="{ item }"><span class="font-mono text-xs text-fg">{{ item.asset?.asset_code || t('common.n_a') }}</span></template>
+        <template #item.asset="{ item }"><span class="font-medium text-fg">{{ item.asset?.name || t('common.n_a') }}</span></template>
+        <template #item.location="{ item }">{{ item.to_location?.name || t('common.n_a') }}</template>
+        <template #item.reference_no="{ item }"><span class="font-mono text-xs">{{ item.reference_no }}</span></template>
+        <template #item.created_at="{ item }">{{ formatDate(item.created_at) }}</template>
+      </AppDataTable>
     </div>
 
     <Modal v-if="showModal" :title="t('asset_stocks.new')" wide @close="showModal = false">

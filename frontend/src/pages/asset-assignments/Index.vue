@@ -1,28 +1,22 @@
 <script setup>
-import { ref, h, computed, onMounted, reactive } from 'vue'
+import { ref, computed, onMounted, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { NDataTable } from 'naive-ui'
 import http from '../../api/http'
 import AppLayout from '../../layouts/AppLayout.vue'
 import PageHeader from '../../components/ui/PageHeader.vue'
 import Modal from '../../components/ui/Modal.vue'
 import StatusBadge from '../../components/ui/StatusBadge.vue'
-import SearchInput from '../../components/ui/SearchInput.vue'
-import { useApiCrud } from '../../composables/useApiCrud'
-import { useTableSearch } from '../../composables/useTableSearch'
-import { useTableFilter } from '../../composables/useTableFilter'
+import AppDataTable from '../../components/common/AppDataTable.vue'
+import { useServerTable } from '../../composables/useServerTable'
 import { useToastStore } from '../../stores/toast'
-import { useAuthStore } from '../../stores/auth'
 
 const { t } = useI18n()
-const { items: assignments, loading, fetchAll } = useApiCrud('/asset-assignments', { entityName: t('asset_assignments.entity') })
+const {
+  items: assignments, loading, page, perPage, total, sortByVuetify,
+  search, setSearch, handleOptions, fetchPage,
+  filters, hasActiveFilters, applyFilters, clearFilters,
+} = useServerTable('/asset-assignments', { filterKeys: ['status'] })
 const toast = useToastStore()
-const auth = useAuthStore()
-
-const { search, filtered: searched } = useTableSearch(assignments, [(a) => a.asset?.name, (a) => a.asset?.asset_code, 'recipient_name'])
-const { filters, filtered: matched, hasActiveFilters, clearFilters } = useTableFilter(searched, {
-  status: (row, v) => row.status === v,
-})
 
 const assets = ref([])
 const locations = ref([])
@@ -35,49 +29,25 @@ const returnRemark = ref('')
 
 const form = reactive({ asset_id: '', assigned_to_type: 'staff', assigned_to_id: '', location_id: '', quantity: 1, assigned_date: '', due_date: '' })
 
-const columns = computed(() => [
-  { title: t('common.asset'), key: 'asset', sorter: 'default', render: (a) => a.asset?.name || t('common.n_a') },
-  { title: t('asset_assignments.recipient'), key: 'recipient_name', sorter: 'default', render: (a) => a.recipient_name },
-  { title: t('common.location'), key: 'location', sorter: 'default', render: (a) => a.location?.name || t('common.n_a') },
-  { title: t('asset_assignments.qty'), key: 'quantity', sorter: 'default', render: (a) => a.quantity },
-  { title: t('common.status'), key: 'status', sorter: 'default', render: (a) => h(StatusBadge, { status: a.status }) },
-  {
-    title: t('common.actions'),
-    key: 'actions',
-    render(a) {
-      if (a.status === 'returned') return null
-      return h('div', { class: 'flex items-center justify-end gap-1.5' }, [
-        h('button', {
-          onClick: () => { returningId.value = a.id; returnCondition.value = 'good'; returnRemark.value = '' },
-          title: t('common.return'),
-          class: 'w-7 h-7 rounded-lg bg-brand text-white flex items-center justify-center hover:bg-brand-dark transition',
-        }, [
-          h('svg', { class: 'w-4 h-4', fill: 'none', stroke: 'currentColor', 'stroke-width': '2.2', viewBox: '0 0 24 24' }, [
-            h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3' }),
-          ]),
-        ]),
-        h('button', {
-          onClick: () => cancelAssignment(a.id),
-          title: t('common.cancel'),
-          class: 'w-7 h-7 rounded-lg bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition',
-        }, [
-          h('svg', { class: 'w-4 h-4', fill: 'none', stroke: 'currentColor', 'stroke-width': '2.2', viewBox: '0 0 24 24' }, [
-            h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M6 18L18 6M6 6l12 12' }),
-          ]),
-        ]),
-      ])
-    },
-  },
+const headers = computed(() => [
+  { title: t('common.asset'), key: 'asset', sortable: false },
+  { title: t('asset_assignments.recipient'), key: 'recipient_name', sortable: false },
+  { title: t('common.location'), key: 'location', sortable: false },
+  { title: t('asset_assignments.qty'), key: 'quantity', sortable: true },
+  { title: t('common.status'), key: 'status', sortable: true },
+  { title: t('common.actions'), key: 'actions', sortable: false, align: 'end', width: 90 },
 ])
 
 async function loadOptions() {
+  const perPage = { params: { per_page: 100 } }
   const [a, l, s, p] = await Promise.all([
-    http.get('/assets/export'), http.get('/locations'), http.get('/staff').catch(() => ({ data: [] })), http.get('/programs').catch(() => ({ data: [] })),
+    http.get('/assets/export'), http.get('/locations', perPage),
+    http.get('/staff', perPage).catch(() => ({ data: [] })), http.get('/programs', perPage).catch(() => ({ data: [] })),
   ])
   assets.value = a.data.data
-  locations.value = l.data
-  staffList.value = s.data
-  programs.value = p.data
+  locations.value = l.data.data ?? l.data
+  staffList.value = s.data.data ?? s.data
+  programs.value = p.data.data ?? p.data
 }
 
 function openCreate() {
@@ -90,7 +60,7 @@ async function handleSubmit() {
     await http.post('/asset-assignments', form)
     toast.success(t('asset_assignments.assigned_successfully'))
     showModal.value = false
-    await fetchAll()
+    await fetchPage()
   } catch (e) {
     toast.error(e.response?.data?.message || t('asset_assignments.assign_failed'))
   }
@@ -99,7 +69,7 @@ async function handleSubmit() {
 async function cancelAssignment(id) {
   await http.post(`/asset-assignments/${id}/cancel`)
   toast.success(t('asset_assignments.cancelled'))
-  await fetchAll()
+  await fetchPage()
 }
 
 async function submitReturn() {
@@ -109,11 +79,11 @@ async function submitReturn() {
   await http.post(`/asset-assignments/${returningId.value}/return`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })
   toast.success(t('asset_assignments.returned_successfully'))
   returningId.value = null
-  await fetchAll()
+  await fetchPage()
 }
 
 onMounted(() => {
-  fetchAll()
+  fetchPage()
   loadOptions()
 })
 </script>
@@ -123,33 +93,59 @@ onMounted(() => {
     <div class="p-8 max-w-6xl mx-auto space-y-6">
       <PageHeader :title="t('asset_assignments.title')" :subtitle="t('asset_assignments.subtitle')" :buttonText="t('asset_assignments.new')" @action="openCreate" />
 
-      <div class="table-wrap">
-        <div class="table-toolbar">
-          <div class="w-full sm:max-w-xs">
-            <SearchInput v-model="search" :placeholder="t('common.search')" />
+      <AppDataTable
+        :headers="headers"
+        :items="assignments"
+        :items-length="total"
+        :loading="loading"
+        :page="page"
+        :items-per-page="perPage"
+        :items-per-page-options="[10, 25, 50, 100]"
+        :sort-by="sortByVuetify"
+        :search="search"
+        :empty-text="t('asset_assignments.empty')"
+        @update:search="setSearch"
+        @update:options="handleOptions"
+      >
+        <template #filters>
+          <v-select
+            v-model="filters.status"
+            :label="t('common.status')"
+            :items="[
+              { title: t('common.all'), value: '' },
+              { title: t('status.assigned'), value: 'assigned' },
+              { title: t('status.active'), value: 'active' },
+              { title: t('status.returned'), value: 'returned' },
+              { title: t('status.overdue'), value: 'overdue' },
+            ]"
+            density="compact"
+            variant="outlined"
+            hide-details
+            style="max-width: 220px"
+            @update:model-value="applyFilters"
+          />
+          <v-btn v-if="hasActiveFilters" variant="text" size="small" @click="clearFilters">{{ t('common.clear_filters') }}</v-btn>
+        </template>
+
+        <template #item.asset="{ item }">{{ item.asset?.name || t('common.n_a') }}</template>
+        <template #item.location="{ item }">{{ item.location?.name || t('common.n_a') }}</template>
+        <template #item.status="{ item }"><StatusBadge :status="item.status" /></template>
+
+        <template #item.actions="{ item }">
+          <div v-if="item.status !== 'returned'" class="flex items-center justify-end gap-1.5">
+            <button
+              @click="returningId = item.id; returnCondition = 'good'; returnRemark = ''"
+              :title="t('common.return')"
+              class="w-7 h-7 rounded-lg bg-brand text-white flex items-center justify-center hover:bg-brand-dark transition"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" /></svg>
+            </button>
+            <button @click="cancelAssignment(item.id)" :title="t('common.cancel')" class="w-7 h-7 rounded-lg bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
           </div>
-          <select v-model="filters.status" class="filter-select">
-            <option value="">{{ t('common.status') }}: {{ t('common.all') }}</option>
-            <option value="assigned">{{ t('status.assigned') }}</option>
-            <option value="active">{{ t('status.active') }}</option>
-            <option value="returned">{{ t('status.returned') }}</option>
-            <option value="overdue">{{ t('status.overdue') }}</option>
-          </select>
-          <button v-if="hasActiveFilters" @click="clearFilters" class="btn-subtle btn-sm">{{ t('common.clear_filters') }}</button>
-        </div>
-        <n-data-table
-          :columns="columns"
-          :data="matched"
-          :loading="loading"
-          :row-key="(row) => row.id"
-          :pagination="{ pageSize: 10, showSizePicker: true, pageSizes: [10, 25, 50, 100] }"
-          :bordered="false"
-        >
-          <template #empty>
-            <p class="py-10 text-center text-faint text-sm">{{ t('asset_assignments.empty') }}</p>
-          </template>
-        </n-data-table>
-      </div>
+        </template>
+      </AppDataTable>
     </div>
 
     <Modal v-if="showModal" :title="t('asset_assignments.modal_title')" @close="showModal = false">

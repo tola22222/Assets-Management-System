@@ -1,24 +1,23 @@
 <script setup>
-import { ref, h, computed, onMounted, reactive } from 'vue'
+import { ref, computed, onMounted, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { NDataTable } from 'naive-ui'
 import http from '../../api/http'
 import AppLayout from '../../layouts/AppLayout.vue'
 import PageHeader from '../../components/ui/PageHeader.vue'
 import Modal from '../../components/ui/Modal.vue'
 import ConfirmDialog from '../../components/ui/ConfirmDialog.vue'
-import SearchInput from '../../components/ui/SearchInput.vue'
+import AppDataTable from '../../components/common/AppDataTable.vue'
 import { useApiCrud } from '../../composables/useApiCrud'
-import { useTableSearch } from '../../composables/useTableSearch'
-import { useTableFilter } from '../../composables/useTableFilter'
+import { useServerTable } from '../../composables/useServerTable'
 import { useToastStore } from '../../stores/toast'
 
 const { t } = useI18n()
-const { items: staffList, loading, fetchAll, destroy } = useApiCrud('/staff', { entityName: t('staff.entity') })
-const { search, filtered: searched } = useTableSearch(staffList, ['full_name', 'position', 'phone', 'email'])
-const { filters, filtered, hasActiveFilters, clearFilters } = useTableFilter(searched, {
-  status: (row, v) => row.status === v,
-})
+const {
+  items: staffList, loading, page, perPage, total, sortByVuetify,
+  search, setSearch, handleOptions, fetchPage,
+  filters, hasActiveFilters, applyFilters, clearFilters,
+} = useServerTable('/staff', { filterKeys: ['status'] })
+const { destroy } = useApiCrud('/staff', { entityName: t('staff.entity'), refetch: fetchPage })
 const toast = useToastStore()
 
 const showModal = ref(false)
@@ -28,59 +27,12 @@ const photoFile = ref(null)
 const emptyForm = () => ({ full_name: '', email: '', phone: '', position: '', hire_date: '', status: 'active' })
 const form = reactive(emptyForm())
 
-const columns = computed(() => [
-  {
-    title: t('common.name'),
-    key: 'full_name',
-    sorter: 'default',
-    render: (s) => h('div', { class: 'flex items-center gap-3' }, [
-      s.photo_path_url
-        ? h('img', { src: s.photo_path_url, class: 'w-8 h-8 rounded-full object-cover flex-shrink-0' })
-        : h('span', { class: 'w-8 h-8 rounded-full bg-surface-3 border border-line flex-shrink-0' }),
-      h('span', { class: 'font-medium text-fg' }, s.full_name),
-    ]),
-  },
-  {
-    title: t('staff.position'),
-    key: 'position',
-    sorter: 'default',
-    render: (s) => s.position || '—',
-  },
-  {
-    title: t('common.phone'),
-    key: 'phone',
-    render: (s) => s.phone || '—',
-  },
-  {
-    title: t('common.status'),
-    key: 'status',
-    sorter: 'default',
-    render: (s) => h('span', { class: ['badge', s.status === 'active' ? 'badge-success' : 'badge-neutral'] }, t(`status.${s.status}`)),
-  },
-  {
-    title: t('common.actions'),
-    key: 'actions',
-    render: (s) => h('div', { class: 'flex items-center justify-end gap-1.5' }, [
-      h('button', {
-        onClick: () => openEdit(s),
-        title: 'Edit',
-        class: 'w-7 h-7 rounded-lg bg-brand text-white flex items-center justify-center hover:bg-brand-dark transition',
-      }, [
-        h('svg', { class: 'w-4 h-4', fill: 'none', stroke: 'currentColor', 'stroke-width': '2.2', viewBox: '0 0 24 24' }, [
-          h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487z' }),
-        ]),
-      ]),
-      h('button', {
-        onClick: () => { deletingId.value = s.id },
-        title: 'Delete',
-        class: 'w-7 h-7 rounded-lg bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition',
-      }, [
-        h('svg', { class: 'w-4 h-4', fill: 'none', stroke: 'currentColor', 'stroke-width': '2.2', viewBox: '0 0 24 24' }, [
-          h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M14.74 9l-.346 9m-4.788 0L9 9m9.968-3.21c.342.052.682.107 1.022.166M18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0' }),
-        ]),
-      ]),
-    ]),
-  },
+const headers = computed(() => [
+  { title: t('common.name'), key: 'full_name', sortable: true },
+  { title: t('staff.position'), key: 'position', sortable: true },
+  { title: t('common.phone'), key: 'phone', sortable: false },
+  { title: t('common.status'), key: 'status', sortable: true },
+  { title: t('common.actions'), key: 'actions', sortable: false, align: 'end', width: 110 },
 ])
 
 function openCreate() {
@@ -119,7 +71,7 @@ async function handleSubmit() {
       toast.success(t('staff.created'))
     }
     showModal.value = false
-    await fetchAll()
+    await fetchPage()
   } catch (e) {
     toast.error(e.response?.data?.message || t('staff.save_failed'))
   }
@@ -130,7 +82,7 @@ async function confirmDelete() {
   deletingId.value = null
 }
 
-onMounted(fetchAll)
+onMounted(fetchPage)
 </script>
 
 <template>
@@ -138,31 +90,54 @@ onMounted(fetchAll)
     <div class="p-8 max-w-5xl mx-auto space-y-6">
       <PageHeader :title="t('staff.title')" :subtitle="t('staff.subtitle')" :buttonText="t('staff.new')" @action="openCreate" />
 
-      <div class="table-wrap">
-        <div class="table-toolbar">
-          <div class="w-full sm:max-w-xs">
-            <SearchInput v-model="search" :placeholder="t('staff.search_placeholder')" />
+      <AppDataTable
+        :headers="headers"
+        :items="staffList"
+        :items-length="total"
+        :loading="loading"
+        :page="page"
+        :items-per-page="perPage"
+        :items-per-page-options="[10, 25, 50, 100]"
+        :sort-by="sortByVuetify"
+        :search="search"
+        :search-label="t('staff.search_placeholder')"
+        :empty-text="search ? t('staff.empty_search') : t('staff.empty')"
+        @update:search="setSearch"
+        @update:options="handleOptions"
+        @edit="openEdit"
+        @delete="(row) => (deletingId = row.id)"
+      >
+        <template #filters>
+          <v-select
+            v-model="filters.status"
+            :label="t('common.status')"
+            :items="[
+              { title: t('common.all'), value: '' },
+              { title: t('staff.status_active'), value: 'active' },
+              { title: t('staff.status_inactive'), value: 'inactive' },
+            ]"
+            density="compact"
+            variant="outlined"
+            hide-details
+            style="max-width: 220px"
+            @update:model-value="applyFilters"
+          />
+          <v-btn v-if="hasActiveFilters" variant="text" size="small" @click="clearFilters">{{ t('common.clear_filters') }}</v-btn>
+        </template>
+
+        <template #item.full_name="{ item }">
+          <div class="d-flex align-center ga-3">
+            <img v-if="item.photo_path_url" :src="item.photo_path_url" class="w-8 h-8 rounded-full object-cover flex-shrink-0" alt="" />
+            <span v-else class="w-8 h-8 rounded-full bg-surface-3 border border-line flex-shrink-0" />
+            <span class="font-medium text-fg">{{ item.full_name }}</span>
           </div>
-          <select v-model="filters.status" class="filter-select">
-            <option value="">{{ t('common.status') }}: {{ t('common.all') }}</option>
-            <option value="active">{{ t('staff.status_active') }}</option>
-            <option value="inactive">{{ t('staff.status_inactive') }}</option>
-          </select>
-          <button v-if="hasActiveFilters" @click="clearFilters" class="btn-subtle btn-sm">{{ t('common.clear_filters') }}</button>
-        </div>
-        <n-data-table
-          :columns="columns"
-          :data="filtered"
-          :loading="loading"
-          :row-key="(row) => row.id"
-          :pagination="{ pageSize: 10, showSizePicker: true, pageSizes: [10, 25, 50, 100] }"
-          :bordered="false"
-        >
-          <template #empty>
-            <p class="py-10 text-center text-faint text-sm">{{ search ? t('staff.empty_search') : t('staff.empty') }}</p>
-          </template>
-        </n-data-table>
-      </div>
+        </template>
+        <template #item.position="{ item }">{{ item.position || '—' }}</template>
+        <template #item.phone="{ item }">{{ item.phone || '—' }}</template>
+        <template #item.status="{ item }">
+          <span class="badge" :class="item.status === 'active' ? 'badge-success' : 'badge-neutral'">{{ t(`status.${item.status}`) }}</span>
+        </template>
+      </AppDataTable>
     </div>
 
     <Modal v-if="showModal" :title="editingId ? t('staff.edit_title') : t('staff.create_title')" @close="showModal = false">

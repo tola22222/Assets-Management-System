@@ -1,71 +1,41 @@
 <script setup>
-import { ref, h, computed, onMounted, reactive } from 'vue'
+import { ref, computed, onMounted, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { NDataTable } from 'naive-ui'
 import http from '../../api/http'
 import AppLayout from '../../layouts/AppLayout.vue'
 import PageHeader from '../../components/ui/PageHeader.vue'
 import Modal from '../../components/ui/Modal.vue'
 import StatusBadge from '../../components/ui/StatusBadge.vue'
-import SearchInput from '../../components/ui/SearchInput.vue'
-import { useApiCrud } from '../../composables/useApiCrud'
-import { useTableSearch } from '../../composables/useTableSearch'
-import { useTableFilter } from '../../composables/useTableFilter'
+import AppDataTable from '../../components/common/AppDataTable.vue'
+import { useServerTable } from '../../composables/useServerTable'
 import { useToastStore } from '../../stores/toast'
 import { useAuthStore } from '../../stores/auth'
 
 const { t } = useI18n()
-const { items: returnsList, loading, fetchAll } = useApiCrud('/asset-returns', { entityName: t('asset_returns.entity') })
 const toast = useToastStore()
 const auth = useAuthStore()
 
-const { search, filtered: searched } = useTableSearch(returnsList, [(r) => r.asset?.name, (r) => r.asset?.asset_code, (r) => r.returned_by?.name])
-const { filters, filtered: matched, hasActiveFilters, clearFilters } = useTableFilter(searched, {
-  status: (row, v) => row.status === v,
-  condition: (row, v) => row.condition === v,
-})
+const {
+  items: returnsList, loading, page, perPage, total, sortByVuetify,
+  search, setSearch, handleOptions, fetchPage,
+  filters, hasActiveFilters, applyFilters, clearFilters,
+} = useServerTable('/asset-returns', { filterKeys: ['status', 'condition'] })
 
 const assignments = ref([])
 const showModal = ref(false)
 const form = reactive({ assignment_id: '', asset_id: '', condition: 'good', damage_notes: '', return_date: '' })
 
-const columns = computed(() => [
-  { title: t('common.asset'), key: 'asset', sorter: 'default', render: (row) => row.asset?.name || t('common.n_a') },
-  { title: t('asset_returns.condition'), key: 'condition', sorter: 'default', render: (row) => h('span', { class: 'capitalize' }, row.condition) },
-  { title: t('asset_returns.returned_by'), key: 'returned_by', sorter: 'default', render: (row) => row.returned_by?.name || t('common.n_a') },
-  { title: t('common.status'), key: 'status', sorter: 'default', render: (row) => h(StatusBadge, { status: row.status }) },
-  {
-    title: t('common.actions'),
-    key: 'actions',
-    render(row) {
-      if (!(row.status === 'pending' && auth.user?.role === 'operations_hr_manager')) return null
-      return h('div', { class: 'flex items-center justify-end gap-1.5' }, [
-        h('button', {
-          onClick: () => approve(row.id),
-          title: t('common.approve'),
-          class: 'w-7 h-7 rounded-lg bg-brand text-white flex items-center justify-center hover:bg-brand-dark transition',
-        }, [
-          h('svg', { class: 'w-4 h-4', fill: 'none', stroke: 'currentColor', 'stroke-width': '2.2', viewBox: '0 0 24 24' }, [
-            h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z' }),
-          ]),
-        ]),
-        h('button', {
-          onClick: () => reject(row.id),
-          title: t('common.reject'),
-          class: 'w-7 h-7 rounded-lg bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition',
-        }, [
-          h('svg', { class: 'w-4 h-4', fill: 'none', stroke: 'currentColor', 'stroke-width': '2.2', viewBox: '0 0 24 24' }, [
-            h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z' }),
-          ]),
-        ]),
-      ])
-    },
-  },
+const headers = computed(() => [
+  { title: t('common.asset'), key: 'asset', sortable: false },
+  { title: t('asset_returns.condition'), key: 'condition', sortable: true },
+  { title: t('asset_returns.returned_by'), key: 'returned_by', sortable: false },
+  { title: t('common.status'), key: 'status', sortable: true },
+  { title: t('common.actions'), key: 'actions', sortable: false, align: 'end', width: 90 },
 ])
 
 async function loadOptions() {
-  const { data } = await http.get('/asset-assignments')
-  assignments.value = data.filter((a) => a.status !== 'returned')
+  const { data } = await http.get('/asset-assignments', { params: { per_page: 100 } })
+  assignments.value = (data.data ?? data).filter((a) => a.status !== 'returned')
 }
 
 function openCreate() {
@@ -83,7 +53,7 @@ async function handleSubmit() {
     await http.post('/asset-returns', form)
     toast.success(t('asset_returns.submitted'))
     showModal.value = false
-    await fetchAll()
+    await fetchPage()
   } catch (e) {
     toast.error(e.response?.data?.message || t('asset_returns.submit_failed'))
   }
@@ -92,17 +62,17 @@ async function handleSubmit() {
 async function approve(id) {
   await http.post(`/asset-returns/${id}/approve`)
   toast.success(t('asset_returns.approved'))
-  await fetchAll()
+  await fetchPage()
 }
 
 async function reject(id) {
   await http.post(`/asset-returns/${id}/reject`)
   toast.success(t('asset_returns.rejected'))
-  await fetchAll()
+  await fetchPage()
 }
 
 onMounted(() => {
-  fetchAll()
+  fetchPage()
   loadOptions()
 })
 </script>
@@ -112,39 +82,71 @@ onMounted(() => {
     <div class="p-8 max-w-6xl mx-auto space-y-6">
       <PageHeader :title="t('asset_returns.title')" :subtitle="t('asset_returns.subtitle')" :buttonText="t('asset_returns.new')" @action="openCreate" />
 
-      <div class="table-wrap">
-        <div class="table-toolbar">
-          <div class="w-full sm:max-w-xs">
-            <SearchInput v-model="search" :placeholder="t('common.search')" />
+      <AppDataTable
+        :headers="headers"
+        :items="returnsList"
+        :items-length="total"
+        :loading="loading"
+        :page="page"
+        :items-per-page="perPage"
+        :items-per-page-options="[10, 25, 50, 100]"
+        :sort-by="sortByVuetify"
+        :search="search"
+        :empty-text="t('asset_returns.empty')"
+        @update:search="setSearch"
+        @update:options="handleOptions"
+      >
+        <template #filters>
+          <v-select
+            v-model="filters.status"
+            :label="t('common.status')"
+            :items="[
+              { title: t('common.all'), value: '' },
+              { title: t('status.pending'), value: 'pending' },
+              { title: t('status.approved'), value: 'approved' },
+              { title: t('status.rejected'), value: 'rejected' },
+            ]"
+            density="compact"
+            variant="outlined"
+            hide-details
+            style="max-width: 220px"
+            @update:model-value="applyFilters"
+          />
+          <v-select
+            v-model="filters.condition"
+            :label="t('asset_returns.condition')"
+            :items="[
+              { title: t('common.all'), value: '' },
+              { title: t('asset_returns.condition_good'), value: 'good' },
+              { title: t('asset_returns.condition_fair'), value: 'fair' },
+              { title: t('asset_returns.condition_broken'), value: 'broken' },
+              { title: t('asset_returns.condition_lost'), value: 'lost' },
+            ]"
+            density="compact"
+            variant="outlined"
+            hide-details
+            style="max-width: 220px"
+            @update:model-value="applyFilters"
+          />
+          <v-btn v-if="hasActiveFilters" variant="text" size="small" @click="clearFilters">{{ t('common.clear_filters') }}</v-btn>
+        </template>
+
+        <template #item.asset="{ item }">{{ item.asset?.name || t('common.n_a') }}</template>
+        <template #item.condition="{ item }"><span class="capitalize">{{ item.condition }}</span></template>
+        <template #item.returned_by="{ item }">{{ item.returned_by?.name || t('common.n_a') }}</template>
+        <template #item.status="{ item }"><StatusBadge :status="item.status" /></template>
+
+        <template #item.actions="{ item }">
+          <div v-if="item.status === 'pending' && auth.isOperationsHrManager" class="flex items-center justify-end gap-1.5">
+            <button @click="approve(item.id)" :title="t('common.approve')" class="w-7 h-7 rounded-lg bg-brand text-white flex items-center justify-center hover:bg-brand-dark transition">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            </button>
+            <button @click="reject(item.id)" :title="t('common.reject')" class="w-7 h-7 rounded-lg bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            </button>
           </div>
-          <select v-model="filters.status" class="filter-select">
-            <option value="">{{ t('common.status') }}: {{ t('common.all') }}</option>
-            <option value="pending">{{ t('status.pending') }}</option>
-            <option value="approved">{{ t('status.approved') }}</option>
-            <option value="rejected">{{ t('status.rejected') }}</option>
-          </select>
-          <select v-model="filters.condition" class="filter-select">
-            <option value="">{{ t('asset_returns.condition') }}: {{ t('common.all') }}</option>
-            <option value="good">{{ t('asset_returns.condition_good') }}</option>
-            <option value="fair">{{ t('asset_returns.condition_fair') }}</option>
-            <option value="broken">{{ t('asset_returns.condition_broken') }}</option>
-            <option value="lost">{{ t('asset_returns.condition_lost') }}</option>
-          </select>
-          <button v-if="hasActiveFilters" @click="clearFilters" class="btn-subtle btn-sm">{{ t('common.clear_filters') }}</button>
-        </div>
-        <n-data-table
-          :columns="columns"
-          :data="matched"
-          :loading="loading"
-          :row-key="(row) => row.id"
-          :pagination="{ pageSize: 10, showSizePicker: true, pageSizes: [10, 25, 50, 100] }"
-          :bordered="false"
-        >
-          <template #empty>
-            <p class="py-10 text-center text-faint text-sm">{{ t('asset_returns.empty') }}</p>
-          </template>
-        </n-data-table>
-      </div>
+        </template>
+      </AppDataTable>
     </div>
 
     <Modal v-if="showModal" :title="t('asset_returns.modal_title')" @close="showModal = false">

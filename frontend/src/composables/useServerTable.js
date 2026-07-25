@@ -97,11 +97,30 @@ export function useServerTable(endpoint, { defaultSort = 'created_at', defaultDi
 
   const hasActiveFilters = computed(() => filterKeys.some((k) => !!filters[k]))
 
+  // AppDataTable (v-data-table-server) wants sort-by as [{key, order}].
+  const sortByVuetify = computed(() => (sortBy.value ? [{ key: sortBy.value, order: sortDir.value }] : []))
+
+  // Single handler for AppDataTable's @update:options — sets page/perPage/sort
+  // from Vuetify's options object and fetches once, instead of the 2-3 separate
+  // fetches that calling goToPage/setPerPage/toggleSort individually would cause.
+  function handleOptions({ page: p, itemsPerPage: ipp, sortBy: sb }) {
+    page.value = p
+    perPage.value = ipp
+    if (sb && sb.length) {
+      sortBy.value = sb[0].key
+      sortDir.value = sb[0].order
+    } else {
+      sortBy.value = defaultSort
+      sortDir.value = defaultDir
+    }
+    fetchPage()
+  }
+
   return {
     items, loading, error,
     page, perPage, total, lastPage,
     search, setSearch,
-    sortBy, sortDir, toggleSort,
+    sortBy, sortDir, sortByVuetify, toggleSort, handleOptions,
     filters, hasActiveFilters, applyFilters, clearFilters,
     goToPage, setPerPage, fetchPage,
   }

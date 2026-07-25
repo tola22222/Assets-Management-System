@@ -1,18 +1,20 @@
 <script setup>
-import { ref, h, computed, onMounted, reactive } from 'vue'
+import { ref, computed, onMounted, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { NDataTable } from 'naive-ui'
 import AppLayout from '../../layouts/AppLayout.vue'
 import PageHeader from '../../components/ui/PageHeader.vue'
 import Modal from '../../components/ui/Modal.vue'
 import ConfirmDialog from '../../components/ui/ConfirmDialog.vue'
-import SearchInput from '../../components/ui/SearchInput.vue'
+import AppDataTable from '../../components/common/AppDataTable.vue'
 import { useApiCrud } from '../../composables/useApiCrud'
-import { useTableSearch } from '../../composables/useTableSearch'
+import { useServerTable } from '../../composables/useServerTable'
 
 const { t } = useI18n()
-const { items: categories, loading, fetchAll, create, update, destroy } = useApiCrud('/categories', { entityName: t('categories.entity') })
-const { search, filtered } = useTableSearch(categories, ['name', 'short_name', 'description'])
+const {
+  items: categories, loading, page, perPage, total, sortByVuetify,
+  search, setSearch, handleOptions, fetchPage,
+} = useServerTable('/categories', { defaultSort: 'name', defaultDir: 'asc' })
+const { create, update, destroy } = useApiCrud('/categories', { entityName: t('categories.entity'), refetch: fetchPage })
 
 const CATEGORY_CODES = ['MOV', 'FAF', 'COM', 'EQU']
 
@@ -51,37 +53,14 @@ async function confirmDelete() {
   deletingId.value = null
 }
 
-const columns = computed(() => [
-  { title: t('common.name'), key: 'name', sorter: 'default', render: (row) => h('span', { class: 'font-medium text-fg' }, row.name) },
-  { title: t('categories.short_name'), key: 'short_name', sorter: 'default', render: (row) => row.short_name || '—' },
-  { title: t('categories.assets_count'), key: 'assets_count', sorter: 'default', render: (row) => row.assets_count ?? 0 },
-  {
-    title: t('common.actions'),
-    key: 'actions',
-    render: (row) => h('div', { class: 'flex items-center justify-end gap-1.5' }, [
-      h('button', {
-        onClick: () => openEdit(row),
-        title: 'Edit',
-        class: 'w-7 h-7 rounded-lg bg-brand text-white flex items-center justify-center hover:bg-brand-dark transition',
-      }, [
-        h('svg', { class: 'w-4 h-4', fill: 'none', stroke: 'currentColor', 'stroke-width': '2.2', viewBox: '0 0 24 24' }, [
-          h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487z' }),
-        ]),
-      ]),
-      h('button', {
-        onClick: () => { deletingId.value = row.id },
-        title: 'Delete',
-        class: 'w-7 h-7 rounded-lg bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition',
-      }, [
-        h('svg', { class: 'w-4 h-4', fill: 'none', stroke: 'currentColor', 'stroke-width': '2.2', viewBox: '0 0 24 24' }, [
-          h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M14.74 9l-.346 9m-4.788 0L9 9m9.968-3.21c.342.052.682.107 1.022.166M18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0' }),
-        ]),
-      ]),
-    ]),
-  },
+const headers = computed(() => [
+  { title: t('common.name'), key: 'name', sortable: true },
+  { title: t('categories.short_name'), key: 'short_name', sortable: true },
+  { title: t('categories.assets_count'), key: 'assets_count', sortable: false, align: 'end' },
+  { title: t('common.actions'), key: 'actions', sortable: false, align: 'end', width: 110 },
 ])
 
-onMounted(fetchAll)
+onMounted(fetchPage)
 </script>
 
 <template>
@@ -89,25 +68,26 @@ onMounted(fetchAll)
     <div class="p-8 max-w-5xl mx-auto space-y-6">
       <PageHeader :title="t('categories.title')" :subtitle="t('categories.subtitle')" :buttonText="t('categories.new')" @action="openCreate" />
 
-      <div class="table-wrap">
-        <div class="table-toolbar">
-          <div class="w-full sm:max-w-xs">
-            <SearchInput v-model="search" :placeholder="t('categories.search_placeholder')" />
-          </div>
-        </div>
-        <n-data-table
-          :columns="columns"
-          :data="filtered"
-          :loading="loading"
-          :row-key="(row) => row.id"
-          :pagination="{ pageSize: 10, showSizePicker: true, pageSizes: [10, 25, 50, 100] }"
-          :bordered="false"
-        >
-          <template #empty>
-            <p class="py-10 text-center text-faint text-sm">{{ search ? t('categories.empty_search') : t('categories.empty') }}</p>
-          </template>
-        </n-data-table>
-      </div>
+      <AppDataTable
+        :headers="headers"
+        :items="categories"
+        :items-length="total"
+        :loading="loading"
+        :page="page"
+        :items-per-page="perPage"
+        :items-per-page-options="[10, 25, 50, 100]"
+        :sort-by="sortByVuetify"
+        :search="search"
+        :search-label="t('categories.search_placeholder')"
+        :empty-text="search ? t('categories.empty_search') : t('categories.empty')"
+        @update:search="setSearch"
+        @update:options="handleOptions"
+        @edit="openEdit"
+        @delete="(row) => (deletingId = row.id)"
+      >
+        <template #item.short_name="{ item }">{{ item.short_name || '—' }}</template>
+        <template #item.assets_count="{ item }">{{ item.assets_count ?? 0 }}</template>
+      </AppDataTable>
     </div>
 
     <Modal v-if="showModal" :title="editingId ? t('categories.edit_title') : t('categories.create_title')" @close="showModal = false">

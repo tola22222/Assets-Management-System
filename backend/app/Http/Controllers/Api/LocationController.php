@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Concerns\PaginatesAndSorts;
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\Location;
@@ -10,9 +11,18 @@ use Illuminate\Support\Facades\Auth;
 
 class LocationController extends Controller
 {
-    public function index()
+    use PaginatesAndSorts;
+
+    private const SORTABLE = ['name', 'type', 'created_at'];
+
+    public function index(Request $request)
     {
-        return response()->json(Location::withCount('assets')->orderBy('name')->get());
+        $query = Location::withCount('assets');
+
+        $this->applySearch($query, $request, ['name', 'type', 'description']);
+        $this->applyExactFilters($query, $request, ['type']);
+
+        return response()->json($this->paginateSorted($query, $request, self::SORTABLE, 'name', 'asc'));
     }
 
     public function show(Location $location)

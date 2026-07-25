@@ -28,6 +28,10 @@ const props = defineProps({
   showView: { type: Boolean, default: true },
   showEdit: { type: Boolean, default: true },
   showDelete: { type: Boolean, default: true },
+  // Row-selection checkbox column, for bulk actions (see the #bulk-actions slot).
+  showSelect: { type: Boolean, default: false },
+  itemValue: { type: String, default: 'id' },
+  selected: { type: Array, default: () => [] },
 })
 
 const emit = defineEmits([
@@ -36,6 +40,7 @@ const emit = defineEmits([
   'update:page',
   'update:itemsPerPage',
   'update:sortBy',
+  'update:selected',
   'view',
   'edit',
   'delete',
@@ -46,8 +51,13 @@ const slots = useSlots()
 // Passes through any custom column/template slot (e.g. #item.status) to
 // v-data-table-server untouched. Slots with built-in defaults are handled by
 // their own <template> below instead, so they aren't double-registered.
-const OWN_SLOTS = new Set(['title', 'item.actions', 'loading', 'no-data'])
+const OWN_SLOTS = new Set(['title', 'toolbar-end', 'filters', 'bulk-actions', 'item.actions', 'loading', 'no-data'])
 const forwardedSlotNames = computed(() => Object.keys(slots).filter((name) => !OWN_SLOTS.has(name)))
+
+const selectedProxy = computed({
+  get: () => props.selected,
+  set: (value) => emit('update:selected', value),
+})
 
 function onUpdateOptions(options) {
   emit('update:options', options)
@@ -63,7 +73,7 @@ function onSearch(value) {
 
 <template>
   <v-card rounded="lg" variant="flat" border>
-    <v-card-title v-if="$slots.title || searchable" class="d-flex flex-wrap align-center ga-3 pa-4">
+    <v-card-title v-if="$slots.title || searchable || $slots['toolbar-end']" class="d-flex flex-wrap align-center ga-3 pa-4">
       <slot name="title" />
       <v-spacer />
       <v-text-field
@@ -78,7 +88,19 @@ function onSearch(value) {
         style="max-width: 320px"
         @update:model-value="onSearch"
       />
+      <slot name="toolbar-end" />
     </v-card-title>
+
+    <div v-if="$slots.filters" class="d-flex flex-wrap align-center ga-3 px-4 pb-4">
+      <slot name="filters" />
+    </div>
+
+    <div
+      v-if="showSelect && selected.length"
+      class="d-flex flex-wrap align-center ga-3 px-4 py-2 bg-brand-50 dark:bg-brand-900/30 border-b border-line"
+    >
+      <slot name="bulk-actions" :selected="selected" :clear="() => emit('update:selected', [])" />
+    </div>
 
     <v-data-table-server
       :headers="headers"
@@ -89,6 +111,9 @@ function onSearch(value) {
       :page="page"
       :sort-by="sortBy"
       :items-per-page-options="itemsPerPageOptions"
+      :show-select="showSelect"
+      :item-value="itemValue"
+      v-model="selectedProxy"
       @update:options="onUpdateOptions"
     >
       <template v-for="slotName in forwardedSlotNames" #[slotName]="slotProps" :key="slotName">

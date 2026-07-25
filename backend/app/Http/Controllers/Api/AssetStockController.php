@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Concerns\PaginatesAndSorts;
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\Asset;
@@ -22,14 +23,19 @@ use Illuminate\Support\Str;
  */
 class AssetStockController extends Controller
 {
-    public function index()
+    use PaginatesAndSorts;
+
+    private const SORTABLE = ['reference_no', 'created_at'];
+
+    public function index(Request $request)
     {
-        return response()->json(
-            AssetMovement::with(['asset.category', 'toLocation'])
-                ->where('movement_type', 'stock_in')
-                ->latest()
-                ->get()
-        );
+        $query = AssetMovement::with(['asset.category', 'toLocation'])->where('movement_type', 'stock_in');
+
+        $this->applySearch($query, $request, ['reference_no'], [
+            'asset' => ['name', 'asset_code'],
+        ]);
+
+        return response()->json($this->paginateSorted($query, $request, self::SORTABLE));
     }
 
     public function store(Request $request)

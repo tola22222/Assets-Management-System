@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Concerns\PaginatesAndSorts;
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\AssetCategory;
@@ -12,9 +13,17 @@ use Illuminate\Validation\Rule;
 
 class AssetCategoryController extends Controller
 {
-    public function index()
+    use PaginatesAndSorts;
+
+    private const SORTABLE = ['name', 'short_name', 'created_at'];
+
+    public function index(Request $request)
     {
-        return response()->json(AssetCategory::withCount('assets')->orderBy('name')->get());
+        $query = AssetCategory::withCount('assets');
+
+        $this->applySearch($query, $request, ['name', 'short_name', 'description']);
+
+        return response()->json($this->paginateSorted($query, $request, self::SORTABLE, 'name', 'asc'));
     }
 
     public function store(Request $request)

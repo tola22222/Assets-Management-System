@@ -1,25 +1,23 @@
 <script setup>
-import { ref, h, onMounted, reactive, computed } from 'vue'
+import { ref, onMounted, reactive, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { NDataTable } from 'naive-ui'
 import http from '../../api/http'
 import AppLayout from '../../layouts/AppLayout.vue'
 import PageHeader from '../../components/ui/PageHeader.vue'
 import Modal from '../../components/ui/Modal.vue'
 import ConfirmDialog from '../../components/ui/ConfirmDialog.vue'
-import SearchInput from '../../components/ui/SearchInput.vue'
+import AppDataTable from '../../components/common/AppDataTable.vue'
 import { useApiCrud } from '../../composables/useApiCrud'
-import { useTableSearch } from '../../composables/useTableSearch'
-import { useTableFilter } from '../../composables/useTableFilter'
+import { useServerTable } from '../../composables/useServerTable'
 import { useToastStore } from '../../stores/toast'
 
 const { t } = useI18n()
-const { items: users, loading, fetchAll, create, update, destroy } = useApiCrud('/users', { entityName: t('users.entity') })
-const { search, filtered: searched } = useTableSearch(users, ['name', 'email', 'role'])
-const { filters, filtered, hasActiveFilters, clearFilters } = useTableFilter(searched, {
-  role: (row, v) => row.role === v,
-  is_locked: (row, v) => String(!!row.is_locked) === v,
-})
+const {
+  items: users, loading, page, perPage, total, sortByVuetify,
+  search, setSearch, handleOptions, fetchPage,
+  filters, hasActiveFilters, applyFilters, clearFilters,
+} = useServerTable('/users', { filterKeys: ['role', 'is_locked'] })
+const { create, update, destroy } = useApiCrud('/users', { entityName: t('users.entity'), refetch: fetchPage })
 const toast = useToastStore()
 
 const staffList = ref([])
@@ -44,81 +42,17 @@ const roleColors = {
 const emptyForm = () => ({ name: '', email: '', password: '', role: 'staff', staff_id: '' })
 const form = reactive(emptyForm())
 
-const columns = computed(() => [
-  {
-    title: t('common.name'),
-    key: 'name',
-    sorter: 'default',
-    render: (u) => h('span', { class: 'font-medium text-fg' }, u.name),
-  },
-  {
-    title: t('common.email'),
-    key: 'email',
-    sorter: 'default',
-    render: (u) => u.email,
-  },
-  {
-    title: t('users.role'),
-    key: 'role',
-    sorter: 'default',
-    render: (u) => h('span', { class: `px-2.5 py-1 rounded-lg text-xs font-semibold ${roleColors[u.role]}` }, roleLabels.value[u.role] || u.role),
-  },
-  {
-    title: t('common.status'),
-    key: 'is_locked',
-    render: (u) => h('span', { class: ['badge', u.is_locked ? 'badge-danger' : 'badge-success'] }, u.is_locked ? t('status.locked') : t('status.active')),
-  },
-  {
-    title: t('common.actions'),
-    key: 'actions',
-    render: (u) => h('div', { class: 'flex items-center justify-end gap-1.5' }, [
-      h('button', {
-        onClick: () => openEdit(u),
-        title: 'Edit',
-        class: 'w-7 h-7 rounded-lg bg-brand text-white flex items-center justify-center hover:bg-brand-dark transition',
-      }, [
-        h('svg', { class: 'w-4 h-4', fill: 'none', stroke: 'currentColor', 'stroke-width': '2.2', viewBox: '0 0 24 24' }, [
-          h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487z' }),
-        ]),
-      ]),
-      h('button', {
-        onClick: () => toggleLock(u),
-        title: u.is_locked ? t('common.unlock') : t('common.lock'),
-        class: 'w-7 h-7 rounded-lg bg-slate-500 text-white flex items-center justify-center hover:bg-slate-600 transition',
-      }, [
-        u.is_locked
-          ? h('svg', { class: 'w-4 h-4', fill: 'none', stroke: 'currentColor', 'stroke-width': '2.2', viewBox: '0 0 24 24' }, [
-            h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M13.5 10.5V6.75a4.5 4.5 0 119 0v3.75M3.75 21.75h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H3.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z' }),
-          ])
-          : h('svg', { class: 'w-4 h-4', fill: 'none', stroke: 'currentColor', 'stroke-width': '2.2', viewBox: '0 0 24 24' }, [
-            h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z' }),
-          ]),
-      ]),
-      h('button', {
-        onClick: () => { resettingId.value = u.id; newPassword.value = ''; newPasswordConfirm.value = '' },
-        title: t('common.reset_password'),
-        class: 'w-7 h-7 rounded-lg bg-indigo-500 text-white flex items-center justify-center hover:bg-indigo-600 transition',
-      }, [
-        h('svg', { class: 'w-4 h-4', fill: 'none', stroke: 'currentColor', 'stroke-width': '2.2', viewBox: '0 0 24 24' }, [
-          h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z' }),
-        ]),
-      ]),
-      h('button', {
-        onClick: () => { deletingId.value = u.id },
-        title: 'Delete',
-        class: 'w-7 h-7 rounded-lg bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition',
-      }, [
-        h('svg', { class: 'w-4 h-4', fill: 'none', stroke: 'currentColor', 'stroke-width': '2.2', viewBox: '0 0 24 24' }, [
-          h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M14.74 9l-.346 9m-4.788 0L9 9m9.968-3.21c.342.052.682.107 1.022.166M18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0' }),
-        ]),
-      ]),
-    ]),
-  },
+const headers = computed(() => [
+  { title: t('common.name'), key: 'name', sortable: true },
+  { title: t('common.email'), key: 'email', sortable: true },
+  { title: t('users.role'), key: 'role', sortable: true },
+  { title: t('common.status'), key: 'is_locked', sortable: false },
+  { title: t('common.actions'), key: 'actions', sortable: false, align: 'end', width: 150 },
 ])
 
 async function loadStaff() {
-  const { data } = await http.get('/staff')
-  staffList.value = data
+  const { data } = await http.get('/staff', { params: { per_page: 100 } })
+  staffList.value = data.data ?? data
 }
 
 function openCreate() {
@@ -150,7 +84,7 @@ async function handleSubmit() {
 async function toggleLock(user) {
   await http.post(`/users/${user.id}/lock`)
   toast.success(user.is_locked ? t('users.unlocked') : t('users.locked_msg'))
-  await fetchAll()
+  await fetchPage()
 }
 
 async function submitPasswordReset() {
@@ -177,7 +111,7 @@ async function confirmDelete() {
 }
 
 onMounted(() => {
-  fetchAll()
+  fetchPage()
   loadStaff()
 })
 </script>
@@ -187,38 +121,80 @@ onMounted(() => {
     <div class="p-8 max-w-5xl mx-auto space-y-6">
       <PageHeader :title="t('users.title')" :subtitle="t('users.subtitle')" :buttonText="t('users.new')" @action="openCreate" />
 
-      <div class="table-wrap">
-        <div class="table-toolbar">
-          <div class="w-full sm:max-w-xs">
-            <SearchInput v-model="search" :placeholder="t('users.search_placeholder')" />
+      <AppDataTable
+        :headers="headers"
+        :items="users"
+        :items-length="total"
+        :loading="loading"
+        :page="page"
+        :items-per-page="perPage"
+        :items-per-page-options="[10, 25, 50, 100]"
+        :sort-by="sortByVuetify"
+        :search="search"
+        :search-label="t('users.search_placeholder')"
+        :empty-text="search ? t('users.empty_search') : t('users.empty')"
+        @update:search="setSearch"
+        @update:options="handleOptions"
+      >
+        <template #filters>
+          <v-select
+            v-model="filters.role"
+            :label="t('users.role')"
+            :items="[
+              { title: t('common.all'), value: '' },
+              { title: t('users.role_admin'), value: 'operations_hr_manager' },
+              { title: t('users.role_executive_director'), value: 'executive_director' },
+              { title: t('users.role_finance_manager'), value: 'finance_manager' },
+              { title: t('users.role_staff'), value: 'staff' },
+            ]"
+            density="compact"
+            variant="outlined"
+            hide-details
+            style="max-width: 220px"
+            @update:model-value="applyFilters"
+          />
+          <v-select
+            v-model="filters.is_locked"
+            :label="t('common.status')"
+            :items="[
+              { title: t('common.all'), value: '' },
+              { title: t('status.active'), value: 'false' },
+              { title: t('status.locked'), value: 'true' },
+            ]"
+            density="compact"
+            variant="outlined"
+            hide-details
+            style="max-width: 220px"
+            @update:model-value="applyFilters"
+          />
+          <v-btn v-if="hasActiveFilters" variant="text" size="small" @click="clearFilters">{{ t('common.clear_filters') }}</v-btn>
+        </template>
+
+        <template #item.role="{ item }">
+          <span class="px-2.5 py-1 rounded-lg text-xs font-semibold" :class="roleColors[item.role]">{{ roleLabels[item.role] || item.role }}</span>
+        </template>
+        <template #item.is_locked="{ item }">
+          <span class="badge" :class="item.is_locked ? 'badge-danger' : 'badge-success'">{{ item.is_locked ? t('status.locked') : t('status.active') }}</span>
+        </template>
+
+        <template #item.actions="{ item }">
+          <div class="flex items-center justify-end gap-1.5">
+            <button @click="openEdit(item)" title="Edit" class="w-7 h-7 rounded-lg bg-brand text-white flex items-center justify-center hover:bg-brand-dark transition">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487z" /></svg>
+            </button>
+            <button @click="toggleLock(item)" :title="item.is_locked ? t('common.unlock') : t('common.lock')" class="w-7 h-7 rounded-lg bg-slate-500 text-white flex items-center justify-center hover:bg-slate-600 transition">
+              <svg v-if="item.is_locked" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 10.5V6.75a4.5 4.5 0 119 0v3.75M3.75 21.75h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H3.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" /></svg>
+              <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" /></svg>
+            </button>
+            <button @click="resettingId = item.id; newPassword = ''; newPasswordConfirm = ''" :title="t('common.reset_password')" class="w-7 h-7 rounded-lg bg-indigo-500 text-white flex items-center justify-center hover:bg-indigo-600 transition">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z" /></svg>
+            </button>
+            <button @click="deletingId = item.id" title="Delete" class="w-7 h-7 rounded-lg bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9 9m9.968-3.21c.342.052.682.107 1.022.166M18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
+            </button>
           </div>
-          <select v-model="filters.role" class="filter-select">
-            <option value="">{{ t('users.role') }}: {{ t('common.all') }}</option>
-            <option value="operations_hr_manager">{{ t('users.role_admin') }}</option>
-            <option value="executive_director">{{ t('users.role_executive_director') }}</option>
-            <option value="finance_manager">{{ t('users.role_finance_manager') }}</option>
-            <option value="staff">{{ t('users.role_staff') }}</option>
-          </select>
-          <select v-model="filters.is_locked" class="filter-select">
-            <option value="">{{ t('common.status') }}: {{ t('common.all') }}</option>
-            <option value="false">{{ t('status.active') }}</option>
-            <option value="true">{{ t('status.locked') }}</option>
-          </select>
-          <button v-if="hasActiveFilters" @click="clearFilters" class="btn-subtle btn-sm">{{ t('common.clear_filters') }}</button>
-        </div>
-        <n-data-table
-          :columns="columns"
-          :data="filtered"
-          :loading="loading"
-          :row-key="(row) => row.id"
-          :pagination="{ pageSize: 10, showSizePicker: true, pageSizes: [10, 25, 50, 100] }"
-          :bordered="false"
-        >
-          <template #empty>
-            <p class="py-10 text-center text-faint text-sm">{{ search ? t('users.empty_search') : t('users.empty') }}</p>
-          </template>
-        </n-data-table>
-      </div>
+        </template>
+      </AppDataTable>
     </div>
 
     <Modal v-if="showModal" :title="editingId ? t('users.edit_title') : t('users.create_title')" @close="showModal = false">
