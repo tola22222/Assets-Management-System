@@ -23,10 +23,10 @@ COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www
 
-COPY composer.json composer.lock ./
+COPY backend/composer.json backend/composer.lock ./
 RUN composer install --no-dev --optimize-autoloader --no-interaction --no-scripts
 
-COPY . .
+COPY backend/ .
 COPY --from=frontend-build /frontend/dist ./public/app
 
 RUN composer dump-autoload --optimize

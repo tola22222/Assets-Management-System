@@ -1,16 +1,15 @@
 <script setup>
-import { ref, onMounted, reactive } from 'vue'
+import { ref, h, computed, onMounted, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { NDataTable } from 'naive-ui'
 import http from '../../api/http'
 import AppLayout from '../../layouts/AppLayout.vue'
 import PageHeader from '../../components/ui/PageHeader.vue'
 import Modal from '../../components/ui/Modal.vue'
 import SearchInput from '../../components/ui/SearchInput.vue'
-import TableSortIcon from '../../components/ui/TableSortIcon.vue'
 import { useApiCrud } from '../../composables/useApiCrud'
 import { useTableSearch } from '../../composables/useTableSearch'
 import { useTableFilter } from '../../composables/useTableFilter'
-import { useTableSort } from '../../composables/useTableSort'
 import { useToastStore } from '../../stores/toast'
 
 const { t } = useI18n()
@@ -22,10 +21,6 @@ const { filters, filtered: matched, hasActiveFilters, clearFilters } = useTableF
   condition: (row, v) => row.condition === v,
   completed: (row, v) => (v === 'yes' ? !!row.verified_at : !row.verified_at),
 })
-const { sortKey, sortDir, toggleSort, sorted: sortedVerifications } = useTableSort(matched, {
-  defaultKey: 'verified_at', defaultDir: 'desc',
-  paths: { asset: 'asset.name', location: 'location.name', verified_by: 'verified_by.name' },
-})
 
 const assets = ref([])
 const locations = ref([])
@@ -33,8 +28,8 @@ const showModal = ref(false)
 const form = reactive({ asset_id: '', location_id: '', quantity_verified: 1, condition: 'good', remark: '' })
 
 async function loadOptions() {
-  const [a, l] = await Promise.all([http.get('/assets'), http.get('/locations')])
-  assets.value = a.data
+  const [a, l] = await Promise.all([http.get('/assets/export'), http.get('/locations')])
+  assets.value = a.data.data
   locations.value = l.data
 }
 
@@ -59,6 +54,46 @@ async function complete(id) {
   toast.success(t('asset_verifications.marked_complete'))
   await fetchAll()
 }
+
+const columns = computed(() => [
+  {
+    title: t('common.asset'), key: 'asset', sorter: 'default',
+    render: (v) => h('span', { class: 'font-medium text-fg' }, v.asset?.name || t('common.n_a')),
+  },
+  {
+    title: t('common.location'), key: 'location', sorter: 'default',
+    render: (v) => v.location?.name || t('common.n_a'),
+  },
+  {
+    title: t('asset_returns.condition'), key: 'condition', sorter: 'default',
+    render: (v) => h('span', { class: 'capitalize' }, v.condition),
+  },
+  {
+    title: t('asset_verifications.verified_by'), key: 'verified_by', sorter: 'default',
+    render: (v) => v.verified_by?.name || t('common.n_a'),
+  },
+  {
+    title: t('common.status'), key: 'verified_at', sorter: 'default',
+    render: (v) => h('span', {
+      class: ['px-2.5 py-1 rounded-lg text-xs font-bold', v.verified_at ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'],
+    }, v.verified_at ? t('asset_verifications.complete') : t('asset_verifications.pending')),
+  },
+  {
+    title: t('common.actions'), key: 'actions', width: 70,
+    render: (v) => {
+      if (v.verified_at) return null
+      return h('div', { class: 'flex justify-end' }, [
+        h('button', {
+          onClick: () => complete(v.id),
+          title: t('common.mark_complete'),
+          class: 'w-7 h-7 rounded-lg bg-brand text-white flex items-center justify-center hover:bg-brand-dark transition',
+        }, [h('svg', { class: 'w-4 h-4', fill: 'none', stroke: 'currentColor', 'stroke-width': '2.2', viewBox: '0 0 24 24' }, [
+          h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z' }),
+        ])]),
+      ])
+    },
+  },
+])
 
 onMounted(() => {
   fetchAll()
@@ -90,41 +125,18 @@ onMounted(() => {
           </select>
           <button v-if="hasActiveFilters" @click="clearFilters" class="btn-subtle btn-sm">{{ t('common.clear_filters') }}</button>
         </div>
-        <div class="overflow-x-auto">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th class="th-sort" @click="toggleSort('asset')">{{ t('common.asset') }}<TableSortIcon :active="sortKey === 'asset'" :direction="sortDir" /></th>
-                <th class="th-sort" @click="toggleSort('location')">{{ t('common.location') }}<TableSortIcon :active="sortKey === 'location'" :direction="sortDir" /></th>
-                <th class="th-sort" @click="toggleSort('condition')">{{ t('asset_returns.condition') }}<TableSortIcon :active="sortKey === 'condition'" :direction="sortDir" /></th>
-                <th class="th-sort" @click="toggleSort('verified_by')">{{ t('asset_verifications.verified_by') }}<TableSortIcon :active="sortKey === 'verified_by'" :direction="sortDir" /></th>
-                <th>{{ t('common.status') }}</th>
-                <th class="text-right">{{ t('common.actions') }}</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="v in sortedVerifications" :key="v.id">
-                <td class="font-medium text-fg">{{ v.asset?.name || t('common.n_a') }}</td>
-                <td>{{ v.location?.name || t('common.n_a') }}</td>
-                <td class="capitalize">{{ v.condition }}</td>
-                <td>{{ v.verified_by?.name || t('common.n_a') }}</td>
-                <td>
-                  <span class="px-2.5 py-1 rounded-lg text-xs font-bold" :class="v.verified_at ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'">
-                    {{ v.verified_at ? t('asset_verifications.complete') : t('asset_verifications.pending') }}
-                  </span>
-                </td>
-                <td class="text-right">
-                  <button v-if="!v.verified_at" @click="complete(v.id)" :title="t('common.mark_complete')" class="w-7 h-7 rounded-lg bg-brand text-white flex items-center justify-center hover:bg-brand-dark transition">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                  </button>
-                </td>
-              </tr>
-              <tr v-if="!loading && !sortedVerifications.length">
-                <td colspan="6" class="py-10 text-center text-faint">{{ t('asset_verifications.empty') }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        <n-data-table
+          :columns="columns"
+          :data="matched"
+          :loading="loading"
+          :row-key="(row) => row.id"
+          :pagination="{ pageSize: 10, showSizePicker: true, pageSizes: [10, 25, 50, 100] }"
+          :bordered="false"
+        >
+          <template #empty>
+            <p class="py-10 text-center text-faint text-sm">{{ t('asset_verifications.empty') }}</p>
+          </template>
+        </n-data-table>
       </div>
     </div>
 

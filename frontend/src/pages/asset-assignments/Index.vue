@@ -1,17 +1,16 @@
 <script setup>
-import { ref, onMounted, reactive } from 'vue'
+import { ref, h, computed, onMounted, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { NDataTable } from 'naive-ui'
 import http from '../../api/http'
 import AppLayout from '../../layouts/AppLayout.vue'
 import PageHeader from '../../components/ui/PageHeader.vue'
 import Modal from '../../components/ui/Modal.vue'
 import StatusBadge from '../../components/ui/StatusBadge.vue'
 import SearchInput from '../../components/ui/SearchInput.vue'
-import TableSortIcon from '../../components/ui/TableSortIcon.vue'
 import { useApiCrud } from '../../composables/useApiCrud'
 import { useTableSearch } from '../../composables/useTableSearch'
 import { useTableFilter } from '../../composables/useTableFilter'
-import { useTableSort } from '../../composables/useTableSort'
 import { useToastStore } from '../../stores/toast'
 import { useAuthStore } from '../../stores/auth'
 
@@ -23,10 +22,6 @@ const auth = useAuthStore()
 const { search, filtered: searched } = useTableSearch(assignments, [(a) => a.asset?.name, (a) => a.asset?.asset_code, 'recipient_name'])
 const { filters, filtered: matched, hasActiveFilters, clearFilters } = useTableFilter(searched, {
   status: (row, v) => row.status === v,
-})
-const { sortKey, sortDir, toggleSort, sorted: sortedAssignments } = useTableSort(matched, {
-  defaultKey: 'assigned_date', defaultDir: 'desc',
-  paths: { asset: 'asset.name', location: 'location.name' },
 })
 
 const assets = ref([])
@@ -40,11 +35,46 @@ const returnRemark = ref('')
 
 const form = reactive({ asset_id: '', assigned_to_type: 'staff', assigned_to_id: '', location_id: '', quantity: 1, assigned_date: '', due_date: '' })
 
+const columns = computed(() => [
+  { title: t('common.asset'), key: 'asset', sorter: 'default', render: (a) => a.asset?.name || t('common.n_a') },
+  { title: t('asset_assignments.recipient'), key: 'recipient_name', sorter: 'default', render: (a) => a.recipient_name },
+  { title: t('common.location'), key: 'location', sorter: 'default', render: (a) => a.location?.name || t('common.n_a') },
+  { title: t('asset_assignments.qty'), key: 'quantity', sorter: 'default', render: (a) => a.quantity },
+  { title: t('common.status'), key: 'status', sorter: 'default', render: (a) => h(StatusBadge, { status: a.status }) },
+  {
+    title: t('common.actions'),
+    key: 'actions',
+    render(a) {
+      if (a.status === 'returned') return null
+      return h('div', { class: 'flex items-center justify-end gap-1.5' }, [
+        h('button', {
+          onClick: () => { returningId.value = a.id; returnCondition.value = 'good'; returnRemark.value = '' },
+          title: t('common.return'),
+          class: 'w-7 h-7 rounded-lg bg-brand text-white flex items-center justify-center hover:bg-brand-dark transition',
+        }, [
+          h('svg', { class: 'w-4 h-4', fill: 'none', stroke: 'currentColor', 'stroke-width': '2.2', viewBox: '0 0 24 24' }, [
+            h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3' }),
+          ]),
+        ]),
+        h('button', {
+          onClick: () => cancelAssignment(a.id),
+          title: t('common.cancel'),
+          class: 'w-7 h-7 rounded-lg bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition',
+        }, [
+          h('svg', { class: 'w-4 h-4', fill: 'none', stroke: 'currentColor', 'stroke-width': '2.2', viewBox: '0 0 24 24' }, [
+            h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M6 18L18 6M6 6l12 12' }),
+          ]),
+        ]),
+      ])
+    },
+  },
+])
+
 async function loadOptions() {
   const [a, l, s, p] = await Promise.all([
-    http.get('/assets'), http.get('/locations'), http.get('/staff').catch(() => ({ data: [] })), http.get('/programs').catch(() => ({ data: [] })),
+    http.get('/assets/export'), http.get('/locations'), http.get('/staff').catch(() => ({ data: [] })), http.get('/programs').catch(() => ({ data: [] })),
   ])
-  assets.value = a.data
+  assets.value = a.data.data
   locations.value = l.data
   staffList.value = s.data
   programs.value = p.data
@@ -107,44 +137,18 @@ onMounted(() => {
           </select>
           <button v-if="hasActiveFilters" @click="clearFilters" class="btn-subtle btn-sm">{{ t('common.clear_filters') }}</button>
         </div>
-        <div class="overflow-x-auto">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th class="th-sort" @click="toggleSort('asset')">{{ t('common.asset') }}<TableSortIcon :active="sortKey === 'asset'" :direction="sortDir" /></th>
-                <th class="th-sort" @click="toggleSort('recipient_name')">{{ t('asset_assignments.recipient') }}<TableSortIcon :active="sortKey === 'recipient_name'" :direction="sortDir" /></th>
-                <th class="th-sort" @click="toggleSort('location')">{{ t('common.location') }}<TableSortIcon :active="sortKey === 'location'" :direction="sortDir" /></th>
-                <th class="th-sort" @click="toggleSort('quantity')">{{ t('asset_assignments.qty') }}<TableSortIcon :active="sortKey === 'quantity'" :direction="sortDir" /></th>
-                <th class="th-sort" @click="toggleSort('status')">{{ t('common.status') }}<TableSortIcon :active="sortKey === 'status'" :direction="sortDir" /></th>
-                <th class="text-right">{{ t('common.actions') }}</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="a in sortedAssignments" :key="a.id">
-                <td class="font-medium text-fg">{{ a.asset?.name || t('common.n_a') }}</td>
-                <td>{{ a.recipient_name }}</td>
-                <td>{{ a.location?.name || t('common.n_a') }}</td>
-                <td>{{ a.quantity }}</td>
-                <td><StatusBadge :status="a.status" /></td>
-                <td class="text-right whitespace-nowrap">
-                  <template v-if="a.status !== 'returned'">
-                    <div class="flex items-center justify-end gap-1.5">
-                      <button @click="returningId = a.id; returnCondition = 'good'; returnRemark = ''" :title="t('common.return')" class="w-7 h-7 rounded-lg bg-brand text-white flex items-center justify-center hover:bg-brand-dark transition">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" /></svg>
-                      </button>
-                      <button @click="cancelAssignment(a.id)" :title="t('common.cancel')" class="w-7 h-7 rounded-lg bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-                      </button>
-                    </div>
-                  </template>
-                </td>
-              </tr>
-              <tr v-if="!loading && !sortedAssignments.length">
-                <td colspan="6" class="py-10 text-center text-faint">{{ t('asset_assignments.empty') }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        <n-data-table
+          :columns="columns"
+          :data="matched"
+          :loading="loading"
+          :row-key="(row) => row.id"
+          :pagination="{ pageSize: 10, showSizePicker: true, pageSizes: [10, 25, 50, 100] }"
+          :bordered="false"
+        >
+          <template #empty>
+            <p class="py-10 text-center text-faint text-sm">{{ t('asset_assignments.empty') }}</p>
+          </template>
+        </n-data-table>
       </div>
     </div>
 

@@ -1,17 +1,16 @@
 <script setup>
-import { ref, onMounted, reactive } from 'vue'
+import { ref, h, computed, onMounted, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { NDataTable } from 'naive-ui'
 import http from '../../api/http'
 import AppLayout from '../../layouts/AppLayout.vue'
 import PageHeader from '../../components/ui/PageHeader.vue'
 import Modal from '../../components/ui/Modal.vue'
 import StatusBadge from '../../components/ui/StatusBadge.vue'
 import SearchInput from '../../components/ui/SearchInput.vue'
-import TableSortIcon from '../../components/ui/TableSortIcon.vue'
 import { useApiCrud } from '../../composables/useApiCrud'
 import { useTableSearch } from '../../composables/useTableSearch'
 import { useTableFilter } from '../../composables/useTableFilter'
-import { useTableSort } from '../../composables/useTableSort'
 import { useToastStore } from '../../stores/toast'
 import { useAuthStore } from '../../stores/auth'
 
@@ -25,14 +24,44 @@ const { filters, filtered: matched, hasActiveFilters, clearFilters } = useTableF
   status: (row, v) => row.status === v,
   condition: (row, v) => row.condition === v,
 })
-const { sortKey, sortDir, toggleSort, sorted: sortedReturns } = useTableSort(matched, {
-  defaultKey: 'return_date', defaultDir: 'desc',
-  paths: { asset: 'asset.name', returned_by: 'returned_by.name' },
-})
 
 const assignments = ref([])
 const showModal = ref(false)
 const form = reactive({ assignment_id: '', asset_id: '', condition: 'good', damage_notes: '', return_date: '' })
+
+const columns = computed(() => [
+  { title: t('common.asset'), key: 'asset', sorter: 'default', render: (row) => row.asset?.name || t('common.n_a') },
+  { title: t('asset_returns.condition'), key: 'condition', sorter: 'default', render: (row) => h('span', { class: 'capitalize' }, row.condition) },
+  { title: t('asset_returns.returned_by'), key: 'returned_by', sorter: 'default', render: (row) => row.returned_by?.name || t('common.n_a') },
+  { title: t('common.status'), key: 'status', sorter: 'default', render: (row) => h(StatusBadge, { status: row.status }) },
+  {
+    title: t('common.actions'),
+    key: 'actions',
+    render(row) {
+      if (!(row.status === 'pending' && auth.user?.role === 'operations_hr_manager')) return null
+      return h('div', { class: 'flex items-center justify-end gap-1.5' }, [
+        h('button', {
+          onClick: () => approve(row.id),
+          title: t('common.approve'),
+          class: 'w-7 h-7 rounded-lg bg-brand text-white flex items-center justify-center hover:bg-brand-dark transition',
+        }, [
+          h('svg', { class: 'w-4 h-4', fill: 'none', stroke: 'currentColor', 'stroke-width': '2.2', viewBox: '0 0 24 24' }, [
+            h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z' }),
+          ]),
+        ]),
+        h('button', {
+          onClick: () => reject(row.id),
+          title: t('common.reject'),
+          class: 'w-7 h-7 rounded-lg bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition',
+        }, [
+          h('svg', { class: 'w-4 h-4', fill: 'none', stroke: 'currentColor', 'stroke-width': '2.2', viewBox: '0 0 24 24' }, [
+            h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z' }),
+          ]),
+        ]),
+      ])
+    },
+  },
+])
 
 async function loadOptions() {
   const { data } = await http.get('/asset-assignments')
@@ -103,42 +132,18 @@ onMounted(() => {
           </select>
           <button v-if="hasActiveFilters" @click="clearFilters" class="btn-subtle btn-sm">{{ t('common.clear_filters') }}</button>
         </div>
-        <div class="overflow-x-auto">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th class="th-sort" @click="toggleSort('asset')">{{ t('common.asset') }}<TableSortIcon :active="sortKey === 'asset'" :direction="sortDir" /></th>
-                <th class="th-sort" @click="toggleSort('condition')">{{ t('asset_returns.condition') }}<TableSortIcon :active="sortKey === 'condition'" :direction="sortDir" /></th>
-                <th class="th-sort" @click="toggleSort('returned_by')">{{ t('asset_returns.returned_by') }}<TableSortIcon :active="sortKey === 'returned_by'" :direction="sortDir" /></th>
-                <th class="th-sort" @click="toggleSort('status')">{{ t('common.status') }}<TableSortIcon :active="sortKey === 'status'" :direction="sortDir" /></th>
-                <th class="text-right">{{ t('common.actions') }}</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="r in sortedReturns" :key="r.id">
-                <td class="font-medium text-fg">{{ r.asset?.name || t('common.n_a') }}</td>
-                <td class="capitalize">{{ r.condition }}</td>
-                <td>{{ r.returned_by?.name || t('common.n_a') }}</td>
-                <td><StatusBadge :status="r.status" /></td>
-                <td class="text-right whitespace-nowrap">
-                  <template v-if="r.status === 'pending' && auth.user?.role === 'operations_hr_manager'">
-                    <div class="flex items-center justify-end gap-1.5">
-                      <button @click="approve(r.id)" :title="t('common.approve')" class="w-7 h-7 rounded-lg bg-brand text-white flex items-center justify-center hover:bg-brand-dark transition">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                      </button>
-                      <button @click="reject(r.id)" :title="t('common.reject')" class="w-7 h-7 rounded-lg bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                      </button>
-                    </div>
-                  </template>
-                </td>
-              </tr>
-              <tr v-if="!loading && !sortedReturns.length">
-                <td colspan="5" class="py-10 text-center text-faint">{{ t('asset_returns.empty') }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        <n-data-table
+          :columns="columns"
+          :data="matched"
+          :loading="loading"
+          :row-key="(row) => row.id"
+          :pagination="{ pageSize: 10, showSizePicker: true, pageSizes: [10, 25, 50, 100] }"
+          :bordered="false"
+        >
+          <template #empty>
+            <p class="py-10 text-center text-faint text-sm">{{ t('asset_returns.empty') }}</p>
+          </template>
+        </n-data-table>
       </div>
     </div>
 

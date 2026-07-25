@@ -1,17 +1,16 @@
 <script setup>
-import { ref, onMounted, reactive } from 'vue'
+import { ref, h, computed, onMounted, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { NDataTable } from 'naive-ui'
 import http from '../../api/http'
 import AppLayout from '../../layouts/AppLayout.vue'
 import PageHeader from '../../components/ui/PageHeader.vue'
 import Modal from '../../components/ui/Modal.vue'
 import StatusBadge from '../../components/ui/StatusBadge.vue'
 import SearchInput from '../../components/ui/SearchInput.vue'
-import TableSortIcon from '../../components/ui/TableSortIcon.vue'
 import { useApiCrud } from '../../composables/useApiCrud'
 import { useTableSearch } from '../../composables/useTableSearch'
 import { useTableFilter } from '../../composables/useTableFilter'
-import { useTableSort } from '../../composables/useTableSort'
 import { useToastStore } from '../../stores/toast'
 import { useAuthStore } from '../../stores/auth'
 
@@ -25,10 +24,6 @@ const { filters, filtered: matched, hasActiveFilters, clearFilters } = useTableF
   status: (row, v) => row.status === v,
   recommended_action: (row, v) => row.recommended_action === v,
 })
-const { sortKey, sortDir, toggleSort, sorted: sortedDisposals } = useTableSort(matched, {
-  defaultKey: 'created_at', defaultDir: 'desc',
-  paths: { asset: 'asset.name', action: 'recommended_action', requester: 'requester.name' },
-})
 
 const assets = ref([])
 const showModal = ref(false)
@@ -37,9 +32,62 @@ const form = reactive({ asset_id: '', recommended_action: 'disposal', reason: ''
 
 const canApprove = () => ['operations_hr_manager', 'executive_director'].includes(auth.user?.role)
 
+function approveRejectButtons(d) {
+  if (!(d.status === 'pending' && canApprove())) return null
+  return h('div', { class: 'flex items-center justify-end gap-1.5' }, [
+    h('button', {
+      onClick: () => approve(d.id),
+      title: t('common.approve'),
+      class: 'w-7 h-7 rounded-lg bg-brand text-white flex items-center justify-center hover:bg-brand-dark transition',
+    }, [h('svg', { class: 'w-4 h-4', fill: 'none', stroke: 'currentColor', 'stroke-width': '2.2', viewBox: '0 0 24 24' }, [
+      h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z' }),
+    ])]),
+    h('button', {
+      onClick: () => reject(d.id),
+      title: t('common.reject'),
+      class: 'w-7 h-7 rounded-lg bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition',
+    }, [h('svg', { class: 'w-4 h-4', fill: 'none', stroke: 'currentColor', 'stroke-width': '2.2', viewBox: '0 0 24 24' }, [
+      h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z' }),
+    ])]),
+  ])
+}
+
+const columns = computed(() => [
+  {
+    title: t('common.asset'), key: 'asset', sorter: 'default',
+    render: (d) => h('span', { class: 'font-medium text-fg' }, d.asset?.name || t('common.n_a')),
+  },
+  {
+    title: t('asset_disposals.action_col'), key: 'recommended_action', sorter: 'default',
+    render: (d) => h('span', { class: 'capitalize' }, d.recommended_action),
+  },
+  {
+    title: t('asset_disposals.reason_col'), key: 'reason',
+    render: (d) => h('span', { class: 'max-w-xs truncate block', title: d.reason }, d.reason),
+  },
+  {
+    title: t('asset_disposals.photo'), key: 'image_url',
+    render: (d) => d.image_url
+      ? h('a', { href: d.image_url, target: '_blank' }, [h('img', { src: d.image_url, class: 'w-9 h-9 rounded-lg object-cover border border-line', alt: '' })])
+      : h('span', { class: 'text-faint' }, '—'),
+  },
+  {
+    title: t('asset_disposals.requested_by'), key: 'requester', sorter: 'default',
+    render: (d) => d.requester?.name || t('common.n_a'),
+  },
+  {
+    title: t('common.status'), key: 'status', sorter: 'default',
+    render: (d) => h(StatusBadge, { status: d.status }),
+  },
+  {
+    title: t('common.actions'), key: 'actions', width: 90,
+    render: (d) => approveRejectButtons(d),
+  },
+])
+
 async function loadAssets() {
-  const { data } = await http.get('/assets')
-  assets.value = data.filter((a) => a.status === 'active')
+  const { data } = await http.get('/assets/export')
+  assets.value = data.data.filter((a) => a.status === 'active')
 }
 
 function openCreate() {
@@ -109,49 +157,18 @@ onMounted(() => {
           </select>
           <button v-if="hasActiveFilters" @click="clearFilters" class="btn-subtle btn-sm">{{ t('common.clear_filters') }}</button>
         </div>
-        <div class="overflow-x-auto">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th class="th-sort" @click="toggleSort('asset')">{{ t('common.asset') }}<TableSortIcon :active="sortKey === 'asset'" :direction="sortDir" /></th>
-                <th class="th-sort" @click="toggleSort('action')">{{ t('asset_disposals.action_col') }}<TableSortIcon :active="sortKey === 'action'" :direction="sortDir" /></th>
-                <th>{{ t('asset_disposals.reason_col') }}</th>
-                <th>{{ t('asset_disposals.photo') }}</th>
-                <th class="th-sort" @click="toggleSort('requester')">{{ t('asset_disposals.requested_by') }}<TableSortIcon :active="sortKey === 'requester'" :direction="sortDir" /></th>
-                <th class="th-sort" @click="toggleSort('status')">{{ t('common.status') }}<TableSortIcon :active="sortKey === 'status'" :direction="sortDir" /></th>
-                <th class="text-right">{{ t('common.actions') }}</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="d in sortedDisposals" :key="d.id">
-                <td class="font-medium text-fg">{{ d.asset?.name || t('common.n_a') }}</td>
-                <td class="capitalize">{{ d.recommended_action }}</td>
-                <td class="max-w-xs truncate" :title="d.reason">{{ d.reason }}</td>
-                <td>
-                  <a v-if="d.image_url" :href="d.image_url" target="_blank"><img :src="d.image_url" class="w-9 h-9 rounded-lg object-cover border border-line" alt="" /></a>
-                  <span v-else class="text-faint">—</span>
-                </td>
-                <td>{{ d.requester?.name || t('common.n_a') }}</td>
-                <td><StatusBadge :status="d.status" /></td>
-                <td class="text-right whitespace-nowrap">
-                  <template v-if="d.status === 'pending' && canApprove()">
-                    <div class="flex items-center justify-end gap-1.5">
-                      <button @click="approve(d.id)" :title="t('common.approve')" class="w-7 h-7 rounded-lg bg-brand text-white flex items-center justify-center hover:bg-brand-dark transition">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                      </button>
-                      <button @click="reject(d.id)" :title="t('common.reject')" class="w-7 h-7 rounded-lg bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                      </button>
-                    </div>
-                  </template>
-                </td>
-              </tr>
-              <tr v-if="!loading && !sortedDisposals.length">
-                <td colspan="7" class="py-10 text-center text-faint">{{ t('asset_disposals.empty') }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        <n-data-table
+          :columns="columns"
+          :data="matched"
+          :loading="loading"
+          :row-key="(row) => row.id"
+          :pagination="{ pageSize: 10, showSizePicker: true, pageSizes: [10, 25, 50, 100] }"
+          :bordered="false"
+        >
+          <template #empty>
+            <p class="py-10 text-center text-faint text-sm">{{ t('asset_disposals.empty') }}</p>
+          </template>
+        </n-data-table>
       </div>
     </div>
 

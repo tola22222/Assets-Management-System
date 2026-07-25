@@ -1,17 +1,16 @@
 <script setup>
-import { ref, onMounted, reactive } from 'vue'
+import { ref, h, computed, onMounted, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { NDataTable } from 'naive-ui'
 import http from '../../api/http'
 import AppLayout from '../../layouts/AppLayout.vue'
 import PageHeader from '../../components/ui/PageHeader.vue'
 import Modal from '../../components/ui/Modal.vue'
 import StatusBadge from '../../components/ui/StatusBadge.vue'
 import SearchInput from '../../components/ui/SearchInput.vue'
-import TableSortIcon from '../../components/ui/TableSortIcon.vue'
 import { useApiCrud } from '../../composables/useApiCrud'
 import { useTableSearch } from '../../composables/useTableSearch'
 import { useTableFilter } from '../../composables/useTableFilter'
-import { useTableSort } from '../../composables/useTableSort'
 import { useToastStore } from '../../stores/toast'
 import { useAuthStore } from '../../stores/auth'
 
@@ -24,19 +23,50 @@ const { search, filtered: searched } = useTableSearch(transfers, [(r) => r.asset
 const { filters, filtered: matched, hasActiveFilters, clearFilters } = useTableFilter(searched, {
   status: (row, v) => row.status === v,
 })
-const { sortKey, sortDir, toggleSort, sorted: sortedTransfers } = useTableSort(matched, {
-  defaultKey: 'transfer_date', defaultDir: 'desc',
-  paths: { asset: 'asset.name', from: 'from_location.name', to: 'to_location.name', requester: 'requester.name' },
-})
 
 const assets = ref([])
 const locations = ref([])
 const showModal = ref(false)
 const form = reactive({ asset_id: '', from_location_id: '', to_location_id: '', reason: '', transfer_date: '' })
 
+const columns = computed(() => [
+  { title: t('common.asset'), key: 'asset', sorter: 'default', render: (row) => row.asset?.name || t('common.n_a') },
+  { title: t('asset_transfers.from'), key: 'from', sorter: 'default', render: (row) => row.from_location?.name || t('common.n_a') },
+  { title: t('asset_transfers.to'), key: 'to', sorter: 'default', render: (row) => row.to_location?.name || t('common.n_a') },
+  { title: t('asset_transfers.requester'), key: 'requester', sorter: 'default', render: (row) => row.requester?.name || t('common.n_a') },
+  { title: t('common.status'), key: 'status', sorter: 'default', render: (row) => h(StatusBadge, { status: row.status }) },
+  {
+    title: t('common.actions'),
+    key: 'actions',
+    render(row) {
+      if (!(row.status === 'pending' && auth.user?.role === 'operations_hr_manager')) return null
+      return h('div', { class: 'flex items-center justify-end gap-1.5' }, [
+        h('button', {
+          onClick: () => approve(row.id),
+          title: t('common.approve'),
+          class: 'w-7 h-7 rounded-lg bg-brand text-white flex items-center justify-center hover:bg-brand-dark transition',
+        }, [
+          h('svg', { class: 'w-4 h-4', fill: 'none', stroke: 'currentColor', 'stroke-width': '2.2', viewBox: '0 0 24 24' }, [
+            h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z' }),
+          ]),
+        ]),
+        h('button', {
+          onClick: () => reject(row.id),
+          title: t('common.reject'),
+          class: 'w-7 h-7 rounded-lg bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition',
+        }, [
+          h('svg', { class: 'w-4 h-4', fill: 'none', stroke: 'currentColor', 'stroke-width': '2.2', viewBox: '0 0 24 24' }, [
+            h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z' }),
+          ]),
+        ]),
+      ])
+    },
+  },
+])
+
 async function loadOptions() {
-  const [a, l] = await Promise.all([http.get('/assets'), http.get('/locations')])
-  assets.value = a.data
+  const [a, l] = await Promise.all([http.get('/assets/export'), http.get('/locations')])
+  assets.value = a.data.data
   locations.value = l.data
 }
 
@@ -92,44 +122,18 @@ onMounted(() => {
           </select>
           <button v-if="hasActiveFilters" @click="clearFilters" class="btn-subtle btn-sm">{{ t('common.clear_filters') }}</button>
         </div>
-        <div class="overflow-x-auto">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th class="th-sort" @click="toggleSort('asset')">{{ t('common.asset') }}<TableSortIcon :active="sortKey === 'asset'" :direction="sortDir" /></th>
-                <th class="th-sort" @click="toggleSort('from')">{{ t('asset_transfers.from') }}<TableSortIcon :active="sortKey === 'from'" :direction="sortDir" /></th>
-                <th class="th-sort" @click="toggleSort('to')">{{ t('asset_transfers.to') }}<TableSortIcon :active="sortKey === 'to'" :direction="sortDir" /></th>
-                <th class="th-sort" @click="toggleSort('requester')">{{ t('asset_transfers.requester') }}<TableSortIcon :active="sortKey === 'requester'" :direction="sortDir" /></th>
-                <th class="th-sort" @click="toggleSort('status')">{{ t('common.status') }}<TableSortIcon :active="sortKey === 'status'" :direction="sortDir" /></th>
-                <th class="text-right">{{ t('common.actions') }}</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="t2 in sortedTransfers" :key="t2.id">
-                <td class="font-medium text-fg">{{ t2.asset?.name || t('common.n_a') }}</td>
-                <td>{{ t2.from_location?.name || t('common.n_a') }}</td>
-                <td>{{ t2.to_location?.name || t('common.n_a') }}</td>
-                <td>{{ t2.requester?.name || t('common.n_a') }}</td>
-                <td><StatusBadge :status="t2.status" /></td>
-                <td class="text-right whitespace-nowrap">
-                  <template v-if="t2.status === 'pending' && auth.user?.role === 'operations_hr_manager'">
-                    <div class="flex items-center justify-end gap-1.5">
-                      <button @click="approve(t2.id)" :title="t('common.approve')" class="w-7 h-7 rounded-lg bg-brand text-white flex items-center justify-center hover:bg-brand-dark transition">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                      </button>
-                      <button @click="reject(t2.id)" :title="t('common.reject')" class="w-7 h-7 rounded-lg bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                      </button>
-                    </div>
-                  </template>
-                </td>
-              </tr>
-              <tr v-if="!loading && !sortedTransfers.length">
-                <td colspan="6" class="py-10 text-center text-faint">{{ t('asset_transfers.empty') }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        <n-data-table
+          :columns="columns"
+          :data="matched"
+          :loading="loading"
+          :row-key="(row) => row.id"
+          :pagination="{ pageSize: 10, showSizePicker: true, pageSizes: [10, 25, 50, 100] }"
+          :bordered="false"
+        >
+          <template #empty>
+            <p class="py-10 text-center text-faint text-sm">{{ t('asset_transfers.empty') }}</p>
+          </template>
+        </n-data-table>
       </div>
     </div>
 

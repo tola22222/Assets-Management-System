@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import tailwindcss from '@tailwindcss/vite'
+import vuetify from 'vite-plugin-vuetify'
 
 // `--mode artisan` (npm run build:local) builds the SPA with the '/app/' base so
 // `php artisan serve` can serve it at http://localhost:8000/app — a single-server
@@ -18,7 +19,7 @@ import tailwindcss from '@tailwindcss/vite'
 // where they're actually served, and the app renders as a blank white screen.
 export default defineConfig(() => {
   return {
-    plugins: [vue(), tailwindcss()],
+    plugins: [vue(), tailwindcss(), vuetify({ autoImport: true })],
     base: '/app/',
     server: {
       port: 5173,

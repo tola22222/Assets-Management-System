@@ -1,24 +1,19 @@
 <script setup>
-import { ref, onMounted, reactive } from 'vue'
+import { ref, onMounted, reactive, h, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { NDataTable } from 'naive-ui'
 import http from '../../api/http'
 import AppLayout from '../../layouts/AppLayout.vue'
 import PageHeader from '../../components/ui/PageHeader.vue'
 import Modal from '../../components/ui/Modal.vue'
 import ConfirmDialog from '../../components/ui/ConfirmDialog.vue'
 import SearchInput from '../../components/ui/SearchInput.vue'
-import TableSortIcon from '../../components/ui/TableSortIcon.vue'
 import { useApiCrud } from '../../composables/useApiCrud'
 import { useTableSearch } from '../../composables/useTableSearch'
-import { useTableSort } from '../../composables/useTableSort'
 
 const { t } = useI18n()
 const { items: receipts, loading, fetchAll, create, destroy } = useApiCrud('/asset-stocks', { entityName: t('asset_stocks.entity') })
 const { search, filtered: searched } = useTableSearch(receipts, [(r) => r.asset?.name, (r) => r.asset?.asset_code, (r) => r.to_location?.name, 'reference_no'])
-const { sortKey, sortDir, toggleSort, sorted: sortedReceipts } = useTableSort(searched, {
-  defaultKey: 'created_at', defaultDir: 'desc',
-  paths: { code: 'asset.asset_code', asset: 'asset.name', location: 'to_location.name' },
-})
 
 const categories = ref([])
 const locations = ref([])
@@ -62,6 +57,41 @@ function formatDate(v) {
   return v ? new Date(v).toLocaleDateString() : '—'
 }
 
+const columns = computed(() => [
+  {
+    title: t('assets.code'), key: 'code', sorter: 'default',
+    render: (r) => h('span', { class: 'font-mono text-xs text-fg' }, r.asset?.asset_code || t('common.n_a')),
+  },
+  {
+    title: t('common.asset'), key: 'asset', sorter: 'default',
+    render: (r) => h('span', { class: 'font-medium text-fg' }, r.asset?.name || t('common.n_a')),
+  },
+  {
+    title: t('common.location'), key: 'location', sorter: 'default',
+    render: (r) => r.to_location?.name || t('common.n_a'),
+  },
+  {
+    title: t('asset_stocks.reference'), key: 'reference_no',
+    render: (r) => h('span', { class: 'font-mono text-xs' }, r.reference_no),
+  },
+  {
+    title: t('asset_stocks.received_at'), key: 'created_at', sorter: 'default',
+    render: (r) => formatDate(r.created_at),
+  },
+  {
+    title: t('common.actions'), key: 'actions', width: 70,
+    render: (r) => h('div', { class: 'flex justify-end' }, [
+      h('button', {
+        onClick: () => { deletingId.value = r.id },
+        title: t('common.delete'),
+        class: 'w-7 h-7 rounded-lg bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition',
+      }, [h('svg', { class: 'w-4 h-4', fill: 'none', stroke: 'currentColor', 'stroke-width': '2.2', viewBox: '0 0 24 24' }, [
+        h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M14.74 9l-.346 9m-4.788 0L9 9m9.968-3.21c.342.052.682.107 1.022.166M18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0' }),
+      ])]),
+    ]),
+  },
+])
+
 onMounted(() => {
   fetchAll()
   loadOptions()
@@ -79,37 +109,18 @@ onMounted(() => {
             <SearchInput v-model="search" :placeholder="t('common.search')" />
           </div>
         </div>
-        <div class="overflow-x-auto">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th class="th-sort" @click="toggleSort('code')">{{ t('assets.code') }}<TableSortIcon :active="sortKey === 'code'" :direction="sortDir" /></th>
-                <th class="th-sort" @click="toggleSort('asset')">{{ t('common.asset') }}<TableSortIcon :active="sortKey === 'asset'" :direction="sortDir" /></th>
-                <th class="th-sort" @click="toggleSort('location')">{{ t('common.location') }}<TableSortIcon :active="sortKey === 'location'" :direction="sortDir" /></th>
-                <th>{{ t('asset_stocks.reference') }}</th>
-                <th class="th-sort" @click="toggleSort('created_at')">{{ t('asset_stocks.received_at') }}<TableSortIcon :active="sortKey === 'created_at'" :direction="sortDir" /></th>
-                <th class="text-right">{{ t('common.actions') }}</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="r in sortedReceipts" :key="r.id">
-                <td class="font-mono text-xs text-fg">{{ r.asset?.asset_code || t('common.n_a') }}</td>
-                <td class="font-medium text-fg">{{ r.asset?.name || t('common.n_a') }}</td>
-                <td>{{ r.to_location?.name || t('common.n_a') }}</td>
-                <td class="font-mono text-xs">{{ r.reference_no }}</td>
-                <td>{{ formatDate(r.created_at) }}</td>
-                <td class="text-right">
-                  <button @click="deletingId = r.id" :title="t('common.delete')" class="w-7 h-7 rounded-lg bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9 9m9.968-3.21c.342.052.682.107 1.022.166M18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
-                  </button>
-                </td>
-              </tr>
-              <tr v-if="!loading && !sortedReceipts.length">
-                <td colspan="6" class="py-10 text-center text-faint">{{ t('asset_stocks.empty') }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        <n-data-table
+          :columns="columns"
+          :data="searched"
+          :loading="loading"
+          :row-key="(row) => row.id"
+          :pagination="{ pageSize: 10, showSizePicker: true, pageSizes: [10, 25, 50, 100] }"
+          :bordered="false"
+        >
+          <template #empty>
+            <p class="py-10 text-center text-faint text-sm">{{ t('asset_stocks.empty') }}</p>
+          </template>
+        </n-data-table>
       </div>
     </div>
 

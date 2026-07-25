@@ -1,27 +1,25 @@
 <script setup>
-import { ref, onMounted, reactive, computed } from 'vue'
+import { ref, h, onMounted, reactive, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { NDataTable } from 'naive-ui'
 import http from '../../api/http'
 import AppLayout from '../../layouts/AppLayout.vue'
 import PageHeader from '../../components/ui/PageHeader.vue'
 import Modal from '../../components/ui/Modal.vue'
 import ConfirmDialog from '../../components/ui/ConfirmDialog.vue'
 import SearchInput from '../../components/ui/SearchInput.vue'
-import TableSortIcon from '../../components/ui/TableSortIcon.vue'
 import { useApiCrud } from '../../composables/useApiCrud'
 import { useTableSearch } from '../../composables/useTableSearch'
 import { useTableFilter } from '../../composables/useTableFilter'
-import { useTableSort } from '../../composables/useTableSort'
 import { useToastStore } from '../../stores/toast'
 
 const { t } = useI18n()
 const { items: users, loading, fetchAll, create, update, destroy } = useApiCrud('/users', { entityName: t('users.entity') })
 const { search, filtered: searched } = useTableSearch(users, ['name', 'email', 'role'])
-const { filters, filtered: matched, hasActiveFilters, clearFilters } = useTableFilter(searched, {
+const { filters, filtered, hasActiveFilters, clearFilters } = useTableFilter(searched, {
   role: (row, v) => row.role === v,
   is_locked: (row, v) => String(!!row.is_locked) === v,
 })
-const { sortKey, sortDir, toggleSort, sorted: filtered } = useTableSort(matched, { defaultKey: 'name' })
 const toast = useToastStore()
 
 const staffList = ref([])
@@ -45,6 +43,78 @@ const roleColors = {
 
 const emptyForm = () => ({ name: '', email: '', password: '', role: 'staff', staff_id: '' })
 const form = reactive(emptyForm())
+
+const columns = computed(() => [
+  {
+    title: t('common.name'),
+    key: 'name',
+    sorter: 'default',
+    render: (u) => h('span', { class: 'font-medium text-fg' }, u.name),
+  },
+  {
+    title: t('common.email'),
+    key: 'email',
+    sorter: 'default',
+    render: (u) => u.email,
+  },
+  {
+    title: t('users.role'),
+    key: 'role',
+    sorter: 'default',
+    render: (u) => h('span', { class: `px-2.5 py-1 rounded-lg text-xs font-semibold ${roleColors[u.role]}` }, roleLabels.value[u.role] || u.role),
+  },
+  {
+    title: t('common.status'),
+    key: 'is_locked',
+    render: (u) => h('span', { class: ['badge', u.is_locked ? 'badge-danger' : 'badge-success'] }, u.is_locked ? t('status.locked') : t('status.active')),
+  },
+  {
+    title: t('common.actions'),
+    key: 'actions',
+    render: (u) => h('div', { class: 'flex items-center justify-end gap-1.5' }, [
+      h('button', {
+        onClick: () => openEdit(u),
+        title: 'Edit',
+        class: 'w-7 h-7 rounded-lg bg-brand text-white flex items-center justify-center hover:bg-brand-dark transition',
+      }, [
+        h('svg', { class: 'w-4 h-4', fill: 'none', stroke: 'currentColor', 'stroke-width': '2.2', viewBox: '0 0 24 24' }, [
+          h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487z' }),
+        ]),
+      ]),
+      h('button', {
+        onClick: () => toggleLock(u),
+        title: u.is_locked ? t('common.unlock') : t('common.lock'),
+        class: 'w-7 h-7 rounded-lg bg-slate-500 text-white flex items-center justify-center hover:bg-slate-600 transition',
+      }, [
+        u.is_locked
+          ? h('svg', { class: 'w-4 h-4', fill: 'none', stroke: 'currentColor', 'stroke-width': '2.2', viewBox: '0 0 24 24' }, [
+            h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M13.5 10.5V6.75a4.5 4.5 0 119 0v3.75M3.75 21.75h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H3.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z' }),
+          ])
+          : h('svg', { class: 'w-4 h-4', fill: 'none', stroke: 'currentColor', 'stroke-width': '2.2', viewBox: '0 0 24 24' }, [
+            h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z' }),
+          ]),
+      ]),
+      h('button', {
+        onClick: () => { resettingId.value = u.id; newPassword.value = ''; newPasswordConfirm.value = '' },
+        title: t('common.reset_password'),
+        class: 'w-7 h-7 rounded-lg bg-indigo-500 text-white flex items-center justify-center hover:bg-indigo-600 transition',
+      }, [
+        h('svg', { class: 'w-4 h-4', fill: 'none', stroke: 'currentColor', 'stroke-width': '2.2', viewBox: '0 0 24 24' }, [
+          h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z' }),
+        ]),
+      ]),
+      h('button', {
+        onClick: () => { deletingId.value = u.id },
+        title: 'Delete',
+        class: 'w-7 h-7 rounded-lg bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition',
+      }, [
+        h('svg', { class: 'w-4 h-4', fill: 'none', stroke: 'currentColor', 'stroke-width': '2.2', viewBox: '0 0 24 24' }, [
+          h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M14.74 9l-.346 9m-4.788 0L9 9m9.968-3.21c.342.052.682.107 1.022.166M18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0' }),
+        ]),
+      ]),
+    ]),
+  },
+])
 
 async function loadStaff() {
   const { data } = await http.get('/staff')
@@ -136,51 +206,18 @@ onMounted(() => {
           </select>
           <button v-if="hasActiveFilters" @click="clearFilters" class="btn-subtle btn-sm">{{ t('common.clear_filters') }}</button>
         </div>
-        <div class="overflow-x-auto">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th class="th-sort" @click="toggleSort('name')">{{ t('common.name') }}<TableSortIcon :active="sortKey === 'name'" :direction="sortDir" /></th>
-                <th class="th-sort" @click="toggleSort('email')">{{ t('common.email') }}<TableSortIcon :active="sortKey === 'email'" :direction="sortDir" /></th>
-                <th class="th-sort" @click="toggleSort('role')">{{ t('users.role') }}<TableSortIcon :active="sortKey === 'role'" :direction="sortDir" /></th>
-                <th>{{ t('common.status') }}</th>
-                <th class="text-right">{{ t('common.actions') }}</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="u in filtered" :key="u.id">
-                <td class="font-medium text-fg">{{ u.name }}</td>
-                <td>{{ u.email }}</td>
-                <td><span class="px-2.5 py-1 rounded-lg text-xs font-semibold" :class="roleColors[u.role]">{{ roleLabels[u.role] || u.role }}</span></td>
-                <td>
-                  <span class="badge" :class="u.is_locked ? 'badge-danger' : 'badge-success'">
-                    {{ u.is_locked ? t('status.locked') : t('status.active') }}
-                  </span>
-                </td>
-                <td class="text-right whitespace-nowrap">
-                  <div class="flex items-center justify-end gap-1.5">
-                    <button @click="openEdit(u)" title="Edit" class="w-7 h-7 rounded-lg bg-brand text-white flex items-center justify-center hover:bg-brand-dark transition">
-                      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487z" /></svg>
-                    </button>
-                    <button @click="toggleLock(u)" :title="u.is_locked ? t('common.unlock') : t('common.lock')" class="w-7 h-7 rounded-lg bg-slate-500 text-white flex items-center justify-center hover:bg-slate-600 transition">
-                      <svg v-if="u.is_locked" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 10.5V6.75a4.5 4.5 0 119 0v3.75M3.75 21.75h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H3.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" /></svg>
-                      <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" /></svg>
-                    </button>
-                    <button @click="resettingId = u.id; newPassword = ''; newPasswordConfirm = ''" :title="t('common.reset_password')" class="w-7 h-7 rounded-lg bg-indigo-500 text-white flex items-center justify-center hover:bg-indigo-600 transition">
-                      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z" /></svg>
-                    </button>
-                    <button @click="deletingId = u.id" title="Delete" class="w-7 h-7 rounded-lg bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition">
-                      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9 9m9.968-3.21c.342.052.682.107 1.022.166M18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
-                    </button>
-                  </div>
-                </td>
-              </tr>
-              <tr v-if="!loading && !filtered.length">
-                <td colspan="5" class="py-10 text-center text-faint">{{ search ? t('users.empty_search') : t('users.empty') }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        <n-data-table
+          :columns="columns"
+          :data="filtered"
+          :loading="loading"
+          :row-key="(row) => row.id"
+          :pagination="{ pageSize: 10, showSizePicker: true, pageSizes: [10, 25, 50, 100] }"
+          :bordered="false"
+        >
+          <template #empty>
+            <p class="py-10 text-center text-faint text-sm">{{ search ? t('users.empty_search') : t('users.empty') }}</p>
+          </template>
+        </n-data-table>
       </div>
     </div>
 

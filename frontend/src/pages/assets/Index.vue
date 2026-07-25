@@ -1,28 +1,37 @@
 <script setup>
-import { ref, computed, onMounted, reactive } from 'vue'
+import { ref, h, computed, onMounted, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { NDataTable, NDropdown, NButton, NTag, NIcon } from 'naive-ui'
 import http from '../../api/http'
 import AppLayout from '../../layouts/AppLayout.vue'
 import PageHeader from '../../components/ui/PageHeader.vue'
 import Modal from '../../components/ui/Modal.vue'
 import ConfirmDialog from '../../components/ui/ConfirmDialog.vue'
 import SearchInput from '../../components/ui/SearchInput.vue'
-import TableSortIcon from '../../components/ui/TableSortIcon.vue'
-import { useApiCrud } from '../../composables/useApiCrud'
-import { useTableSearch } from '../../composables/useTableSearch'
-import { useTableFilter } from '../../composables/useTableFilter'
-import { useTableSort } from '../../composables/useTableSort'
+import ColumnVisibilityMenu from '../../components/ui/ColumnVisibilityMenu.vue'
+import { useServerTable } from '../../composables/useServerTable'
+import { useColumnVisibility } from '../../composables/useColumnVisibility'
 import { useToastStore } from '../../stores/toast'
+import { exportCsv } from '../../utils/exportCsv'
 
 const { t } = useI18n()
-const { items: assetsList, loading, fetchAll, destroy } = useApiCrud('/assets', { entityName: t('assets.entity') })
 const toast = useToastStore()
+
+const {
+  items: assetsList, loading, page, perPage, total, lastPage,
+  search, setSearch, sortBy, sortDir,
+  goToPage, setPerPage, fetchPage,
+} = useServerTable('/assets', {
+  defaultSort: 'created_at',
+  defaultDir: 'desc',
+})
 
 const categories = ref([])
 const locations = ref([])
 const showModal = ref(false)
 const editingId = ref(null)
 const deletingId = ref(null)
+const bulkDeleting = ref(false)
 const viewing = ref(null)
 const imageFile = ref(null)
 const submitting = ref(false)
@@ -31,24 +40,178 @@ const flagNote = ref('')
 const flagCondition = ref('')
 const flagSubmitting = ref(false)
 
+// --- Columns ---
+const ALL_COLUMNS = [
+  { key: 'code', label: t('assets.code') },
+  { key: 'category', label: t('assets.category') },
+  { key: 'brand', label: t('assets.brand') },
+  { key: 'model', label: t('assets.model') },
+  { key: 'serial_number', label: t('common.serial_number') },
+  { key: 'condition', label: t('assets.condition') },
+  { key: 'status', label: t('common.status') },
+  { key: 'assigned_to', label: t('assets.assigned_to') },
+  { key: 'location', label: t('common.location') },
+  { key: 'purchase_date', label: t('assets.purchase_date') },
+  { key: 'price', label: t('common.price') },
+]
+const { isVisible, toggle: toggleColumn, reset: resetColumns } = useColumnVisibility(
+  'assets.visibleColumns',
+  ALL_COLUMNS.map((c) => c.key),
+  ['brand', 'model', 'serial_number', 'location', 'purchase_date'],
+)
+
+// --- Row selection (n-data-table's native checkbox column) ---
+const checkedRowKeys = ref([])
+function clearSelection() {
+  checkedRowKeys.value = []
+}
+
+// --- Server-side sort <-> n-data-table's controlled sortOrder ---
+function sortOrderFor(key) {
+  return sortBy.value === key ? (sortDir.value === 'asc' ? 'ascend' : 'descend') : false
+}
+function handleUpdateSorter(sorter) {
+  if (!sorter || !sorter.order) {
+    sortBy.value = 'created_at'
+    sortDir.value = 'desc'
+  } else {
+    sortBy.value = sorter.columnKey
+    sortDir.value = sorter.order === 'ascend' ? 'asc' : 'desc'
+  }
+  page.value = 1
+  fetchPage()
+}
+
+const STATUS_TAG_TYPE = { active: 'success', disposed: 'default' }
+const CONDITION_TAG_TYPE = { good: 'success', fair: 'warning', broken: 'error', lost: 'error' }
+
+function rowActions(asset) {
+  return [
+    { label: t('common.view'), key: 'view' },
+    { label: t('common.edit'), key: 'edit' },
+    { label: t('assets.flag_issue'), key: 'flag' },
+    { label: t('assets.regenerate_qr'), key: 'regenerate_qr' },
+    { label: t('assets.print'), key: 'print' },
+    { type: 'divider', key: 'd1' },
+    { label: t('common.delete'), key: 'delete' },
+  ]
+}
+function handleRowAction(key, asset) {
+  if (key === 'view') viewing.value = asset
+  else if (key === 'edit') openEdit(asset)
+  else if (key === 'flag') openFlag(asset)
+  else if (key === 'regenerate_qr') regenerateQr(asset)
+  else if (key === 'print') printQr(asset)
+  else if (key === 'delete') deletingId.value = asset.id
+}
+
+const columns = computed(() => {
+  const cols = [
+    { type: 'selection' },
+    {
+      title: t('assets.asset_col'),
+      key: 'name',
+      sorter: true,
+      sortOrder: sortOrderFor('name'),
+      render(asset) {
+        return h('div', { class: 'flex items-center gap-3' }, [
+          asset.image_url
+            ? h('img', { src: asset.image_url, class: 'w-9 h-9 rounded-lg object-cover border border-line flex-shrink-0' })
+            : h('span', { class: 'w-9 h-9 rounded-lg bg-surface-3 border border-line flex items-center justify-center text-faint text-[10px] flex-shrink-0' }, 'No'),
+          h('div', { class: 'min-w-0' }, [
+            h('button', {
+              class: 'font-medium text-fg truncate hover:text-brand hover:underline text-left block',
+              onClick: () => { viewing.value = asset },
+            }, asset.name),
+            (asset.brand || asset.model)
+              ? h('p', { class: 'text-xs text-faint truncate' }, [asset.brand, asset.model].filter(Boolean).join(' '))
+              : null,
+          ]),
+        ])
+      },
+    },
+  ]
+
+  if (isVisible('code')) {
+    cols.push({
+      title: t('assets.code'), key: 'asset_code', sorter: true, sortOrder: sortOrderFor('asset_code'),
+      render: (a) => h('span', { class: 'font-mono text-xs' }, a.asset_code),
+    })
+  }
+  if (isVisible('category')) {
+    cols.push({ title: t('assets.category'), key: 'category', render: (a) => a.category?.name || '—' })
+  }
+  if (isVisible('brand')) {
+    cols.push({ title: t('assets.brand'), key: 'brand', sorter: true, sortOrder: sortOrderFor('brand'), render: (a) => a.brand || '—' })
+  }
+  if (isVisible('model')) {
+    cols.push({ title: t('assets.model'), key: 'model', sorter: true, sortOrder: sortOrderFor('model'), render: (a) => a.model || '—' })
+  }
+  if (isVisible('serial_number')) {
+    cols.push({ title: t('common.serial_number'), key: 'serial_number', render: (a) => h('span', { class: 'font-mono text-xs' }, a.serial_number || '—') })
+  }
+  if (isVisible('condition')) {
+    cols.push({
+      title: t('assets.condition'), key: 'condition', sorter: true, sortOrder: sortOrderFor('condition'),
+      render: (a) => h(NTag, { type: CONDITION_TAG_TYPE[a.condition] || 'default', size: 'small', round: true }, { default: () => t(`assets.condition_${a.condition}`) || a.condition }),
+    })
+  }
+  if (isVisible('status')) {
+    cols.push({
+      title: t('common.status'), key: 'status', sorter: true, sortOrder: sortOrderFor('status'),
+      render: (a) => h(NTag, { type: STATUS_TAG_TYPE[a.status] || 'default', size: 'small', round: true }, { default: () => t(`status.${a.status}`) }),
+    })
+  }
+  if (isVisible('assigned_to')) {
+    cols.push({ title: t('assets.assigned_to'), key: 'assigned_to', render: (a) => a.current_assignee || t('common.unassigned') })
+  }
+  if (isVisible('location')) {
+    cols.push({ title: t('common.location'), key: 'location', render: (a) => a.location?.name || '—' })
+  }
+  if (isVisible('purchase_date')) {
+    cols.push({ title: t('assets.purchase_date'), key: 'purchase_date', sorter: true, sortOrder: sortOrderFor('purchase_date'), render: (a) => a.purchase_date || '—' })
+  }
+  if (isVisible('price')) {
+    cols.push({
+      title: t('common.price'), key: 'purchase_price', sorter: true, sortOrder: sortOrderFor('purchase_price'),
+      render: (a) => h('span', { class: 'font-medium text-fg' }, money(a.purchase_price)),
+    })
+  }
+
+  cols.push({
+    title: t('common.actions'),
+    key: 'actions',
+    width: 70,
+    render(asset) {
+      return h('div', { class: 'flex justify-end' }, [
+        h(NDropdown, { trigger: 'click', options: rowActions(asset), onSelect: (key) => handleRowAction(key, asset) }, {
+          default: () => h(NButton, { quaternary: true, circle: true, size: 'small' }, {
+            icon: () => h(NIcon, null, { default: () => h('svg', { viewBox: '0 0 24 24', fill: 'currentColor' }, [h('circle', { cx: 12, cy: 5, r: 1.75 }), h('circle', { cx: 12, cy: 12, r: 1.75 }), h('circle', { cx: 12, cy: 19, r: 1.75 })]) }),
+          }),
+        }),
+      ])
+    },
+  })
+
+  return cols
+})
+
+const naivePagination = computed(() => ({
+  page: page.value,
+  pageSize: perPage.value,
+  pageCount: Math.max(lastPage.value, 1),
+  itemCount: total.value,
+  showSizePicker: true,
+  pageSizes: [10, 25, 50, 100],
+  onUpdatePage: (p) => goToPage(p),
+  onUpdatePageSize: (n) => setPerPage(n),
+}))
+
 const emptyForm = () => ({
   name: '', category_id: '', location_id: '', description: '', model: '', brand: '',
   serial_number: '', purchase_date: '', purchase_price: '', condition: 'good', status: 'active',
 })
 const form = reactive(emptyForm())
-
-const { search, filtered: searched } = useTableSearch(assetsList, [
-  'name', 'asset_code', 'brand', 'model', (a) => a.category?.name, 'purchase_price', 'serial_number',
-])
-const { filters, filtered: matched, hasActiveFilters, clearFilters } = useTableFilter(searched, {
-  category_id: (row, v) => String(row.category_id) === String(v),
-  status: (row, v) => row.status === v,
-  condition: (row, v) => row.condition === v,
-})
-const { sortKey, sortDir, toggleSort, sorted: filtered } = useTableSort(matched, {
-  defaultKey: 'name',
-  paths: { category: 'category.name', price: 'purchase_price', code: 'asset_code' },
-})
 
 function money(v) {
   return v ? '$' + Number(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'
@@ -110,7 +273,7 @@ async function handleSubmit() {
       toast.success(t('assets.created'))
     }
     showModal.value = false
-    await fetchAll()
+    await fetchPage()
   } catch (e) {
     toast.error(e.response?.data?.message || t('assets.save_failed'))
   } finally {
@@ -119,14 +282,69 @@ async function handleSubmit() {
 }
 
 async function confirmDelete() {
-  await destroy(deletingId.value)
-  deletingId.value = null
+  try {
+    await http.delete(`/assets/${deletingId.value}`)
+    toast.success(t('common.deleted_successfully', { entity: t('assets.entity') }))
+    checkedRowKeys.value = checkedRowKeys.value.filter((id) => id !== deletingId.value)
+    await fetchPage()
+  } catch (e) {
+    toast.error(e.response?.data?.message || t('assets.save_failed'))
+  } finally {
+    deletingId.value = null
+  }
+}
+
+async function bulkDelete() {
+  bulkDeleting.value = true
+  try {
+    await http.post('/assets/bulk-delete', { ids: checkedRowKeys.value })
+    toast.success(t('assets.bulk_deleted', { count: checkedRowKeys.value.length }))
+    clearSelection()
+    await fetchPage()
+  } catch (e) {
+    toast.error(e.response?.data?.message || t('assets.save_failed'))
+  } finally {
+    bulkDeleting.value = false
+  }
+}
+
+function rowsToCsvColumns() {
+  return [
+    { key: 'asset_code', label: t('assets.code') },
+    { key: 'name', label: t('common.name') },
+    { key: 'category', label: t('assets.category'), value: (r) => r.category?.name || '' },
+    { key: 'brand', label: t('assets.brand') },
+    { key: 'model', label: t('assets.model') },
+    { key: 'serial_number', label: t('common.serial_number') },
+    { key: 'condition', label: t('assets.condition') },
+    { key: 'status', label: t('common.status') },
+    { key: 'assigned_to', label: t('assets.assigned_to'), value: (r) => r.current_assignee || '' },
+    { key: 'location', label: t('common.location'), value: (r) => r.location?.name || '' },
+    { key: 'purchase_date', label: t('assets.purchase_date') },
+    { key: 'purchase_price', label: t('assets.purchase_price') },
+  ]
+}
+
+function exportSelected() {
+  const rows = assetsList.value.filter((a) => checkedRowKeys.value.includes(a.id))
+  exportCsv(`assets-selected-${Date.now()}.csv`, rows, rowsToCsvColumns())
+}
+
+async function exportFiltered() {
+  try {
+    const params = { sort_by: sortBy.value, sort_dir: sortDir.value }
+    if (search.value) params.search = search.value
+    const { data } = await http.get('/assets/export', { params })
+    exportCsv(`assets-${Date.now()}.csv`, data.data, rowsToCsvColumns())
+  } catch (e) {
+    toast.error(t('assets.export_failed'))
+  }
 }
 
 async function regenerateQr(asset) {
   await http.post(`/assets/${asset.id}/regenerate-qr`)
   toast.success(t('assets.qr_regenerated'))
-  await fetchAll()
+  await fetchPage()
   if (viewing.value?.id === asset.id) {
     viewing.value = assetsList.value.find((a) => a.id === asset.id) || viewing.value
   }
@@ -148,7 +366,7 @@ async function submitFlag() {
     })
     toast.success(t('assets.flagged_successfully'))
     flagging.value = null
-    await fetchAll()
+    await fetchPage()
     if (viewing.value?.id) {
       viewing.value = assetsList.value.find((a) => a.id === viewing.value.id) || viewing.value
     }
@@ -173,7 +391,7 @@ function printQr(asset) {
 }
 
 onMounted(() => {
-  fetchAll()
+  fetchPage()
   loadCategories()
   loadLocations()
 })
@@ -181,97 +399,55 @@ onMounted(() => {
 
 <template>
   <AppLayout>
-    <div class="p-6 sm:p-8 max-w-6xl mx-auto space-y-6">
+    <div class="p-6 sm:p-8 max-w-7xl mx-auto space-y-6">
       <PageHeader :title="t('assets.title')" :subtitle="t('assets.subtitle')" :buttonText="t('assets.register')" @action="openCreate" />
 
       <div class="table-wrap">
         <div class="table-toolbar">
           <div class="w-full sm:max-w-xs">
-            <SearchInput v-model="search" :placeholder="t('assets.search_placeholder')" />
+            <SearchInput :modelValue="search" @update:modelValue="setSearch" :placeholder="t('assets.search_placeholder')" />
           </div>
-          <select v-model="filters.category_id" class="filter-select">
-            <option value="">{{ t('assets.category') }}: {{ t('common.all') }}</option>
-            <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option>
-          </select>
-          <select v-model="filters.status" class="filter-select">
-            <option value="">{{ t('common.status') }}: {{ t('common.all') }}</option>
-            <option value="active">{{ t('status.active') }}</option>
-            <option value="disposed">{{ t('status.disposed') }}</option>
-          </select>
-          <select v-model="filters.condition" class="filter-select">
-            <option value="">{{ t('assets.condition') }}: {{ t('common.all') }}</option>
-            <option value="good">{{ t('assets.condition_good') }}</option>
-            <option value="fair">{{ t('assets.condition_fair') }}</option>
-            <option value="broken">{{ t('assets.condition_broken') }}</option>
-            <option value="lost">{{ t('assets.condition_lost') }}</option>
-          </select>
-          <button v-if="hasActiveFilters" @click="clearFilters" class="btn-subtle btn-sm">{{ t('common.clear_filters') }}</button>
-          <div class="flex items-center gap-3 sm:ml-auto">
-            <p class="text-sm text-faint">{{ t('assets.count_of', { filtered: filtered.length, total: assetsList.length }) }}</p>
+          <div class="flex items-center gap-2 sm:ml-auto">
+            <ColumnVisibilityMenu :columns="ALL_COLUMNS" :isVisible="isVisible" @toggle="toggleColumn" @reset="resetColumns" />
+            <button @click="exportFiltered" class="btn-ghost btn-sm">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M7.5 12L12 16.5m0 0L16.5 12M12 16.5V3" /></svg>
+              {{ t('common.export') }}
+            </button>
             <RouterLink to="/assets/import" class="btn-ghost btn-sm">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
               {{ t('assets.import') }}
             </RouterLink>
           </div>
         </div>
-        <div class="overflow-x-auto">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th class="th-sort" @click="toggleSort('name')">{{ t('assets.asset_col') }}<TableSortIcon :active="sortKey === 'name'" :direction="sortDir" /></th>
-                <th class="th-sort" @click="toggleSort('code')">{{ t('assets.code') }}<TableSortIcon :active="sortKey === 'code'" :direction="sortDir" /></th>
-                <th class="th-sort" @click="toggleSort('category')">{{ t('assets.category') }}<TableSortIcon :active="sortKey === 'category'" :direction="sortDir" /></th>
-                <th class="th-sort" @click="toggleSort('condition')">{{ t('assets.condition') }}<TableSortIcon :active="sortKey === 'condition'" :direction="sortDir" /></th>
-                <th class="th-sort" @click="toggleSort('status')">{{ t('common.status') }}<TableSortIcon :active="sortKey === 'status'" :direction="sortDir" /></th>
-                <th class="th-sort" @click="toggleSort('price')">{{ t('common.price') }}<TableSortIcon :active="sortKey === 'price'" :direction="sortDir" /></th>
-                <th class="text-right">{{ t('common.actions') }}</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="asset in filtered" :key="asset.id">
-                <td>
-                  <div class="flex items-center gap-3">
-                    <img v-if="asset.image_url" :src="asset.image_url" class="w-9 h-9 rounded-lg object-cover border border-line flex-shrink-0" alt="" />
-                    <span v-else class="w-9 h-9 rounded-lg bg-surface-3 border border-line flex items-center justify-center text-faint text-[10px] flex-shrink-0">No</span>
-                    <div class="min-w-0">
-                      <p class="font-medium text-fg truncate">{{ asset.name }}</p>
-                      <p v-if="asset.brand || asset.model" class="text-xs text-faint truncate">{{ [asset.brand, asset.model].filter(Boolean).join(' ') }}</p>
-                    </div>
-                  </div>
-                </td>
-                <td><span class="font-mono text-xs">{{ asset.asset_code }}</span></td>
-                <td>{{ asset.category?.name || '—' }}</td>
-                <td class="capitalize">{{ asset.condition }}</td>
-                <td>
-                  <span class="badge" :class="asset.status === 'active' ? 'badge-success' : 'badge-neutral'">{{ t(`status.${asset.status}`) }}</span>
-                </td>
-                <td class="font-medium text-fg">{{ money(asset.purchase_price) }}</td>
-                <td>
-                  <div class="flex items-center justify-end gap-1.5">
-                    <button @click="viewing = asset" title="View" class="w-7 h-7 rounded-lg bg-amber-500 text-white flex items-center justify-center hover:bg-amber-600 transition">
-                      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-                    </button>
-                    <button @click="openEdit(asset)" title="Edit" class="w-7 h-7 rounded-lg bg-brand text-white flex items-center justify-center hover:bg-brand-dark transition">
-                      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487z" /></svg>
-                    </button>
-                    <button @click="deletingId = asset.id" title="Delete" class="w-7 h-7 rounded-lg bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition">
-                      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9 9m9.968-3.21c.342.052.682.107 1.022.166M18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
-                    </button>
-                  </div>
-                </td>
-              </tr>
-              <tr v-if="!loading && !filtered.length">
-                <td colspan="7" class="py-12 text-center">
-                  <div class="flex flex-col items-center gap-2">
-                    <svg class="w-10 h-10 text-line-strong" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
-                    <p class="text-muted text-sm font-medium">{{ search ? t('assets.empty_search') : t('assets.empty') }}</p>
-                    <p class="text-xs text-faint">{{ search ? t('assets.empty_search_hint') : t('assets.empty_hint') }}</p>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+
+        <!-- Bulk action bar -->
+        <div v-if="checkedRowKeys.length > 0" class="flex items-center gap-3 px-4 py-2.5 bg-brand-50 dark:bg-brand-900/30 border-b border-line text-sm">
+          <span class="font-semibold text-fg">{{ t('common.n_selected', { count: checkedRowKeys.length }) }}</span>
+          <button @click="exportSelected" class="btn-ghost btn-sm">{{ t('common.export') }}</button>
+          <button @click="bulkDelete" :disabled="bulkDeleting" class="btn-danger btn-sm">{{ t('common.delete') }}</button>
+          <button @click="clearSelection" class="btn-subtle btn-sm ml-auto">{{ t('common.clear_selection') }}</button>
         </div>
+
+        <n-data-table
+          :columns="columns"
+          :data="assetsList"
+          :loading="loading"
+          :row-key="(row) => row.id"
+          :pagination="naivePagination"
+          :remote="true"
+          v-model:checked-row-keys="checkedRowKeys"
+          max-height="65vh"
+          :bordered="false"
+          @update:sorter="handleUpdateSorter"
+        >
+          <template #empty>
+            <div class="flex flex-col items-center gap-2 py-10">
+              <svg class="w-10 h-10 text-line-strong" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
+              <p class="text-muted text-sm font-medium">{{ search ? t('assets.empty_search') : t('assets.empty') }}</p>
+              <p class="text-xs text-faint">{{ search ? t('assets.empty_search_hint') : t('assets.empty_hint') }}</p>
+            </div>
+          </template>
+        </n-data-table>
       </div>
     </div>
 
@@ -381,6 +557,8 @@ onMounted(() => {
           <div><p class="text-xs font-semibold text-faint uppercase tracking-wide">{{ t('assets.brand') }}</p><p class="font-semibold text-fg mt-0.5">{{ viewing.brand || '—' }}</p></div>
           <div><p class="text-xs font-semibold text-faint uppercase tracking-wide">{{ t('assets.model') }}</p><p class="font-semibold text-fg mt-0.5">{{ viewing.model || '—' }}</p></div>
           <div><p class="text-xs font-semibold text-faint uppercase tracking-wide">{{ t('assets.serial_number') }}</p><p class="font-semibold text-fg mt-0.5">{{ viewing.serial_number || '—' }}</p></div>
+          <div><p class="text-xs font-semibold text-faint uppercase tracking-wide">{{ t('common.location') }}</p><p class="font-semibold text-fg mt-0.5">{{ viewing.location?.name || '—' }}</p></div>
+          <div><p class="text-xs font-semibold text-faint uppercase tracking-wide">{{ t('assets.assigned_to') }}</p><p class="font-semibold text-fg mt-0.5">{{ viewing.current_assignee || t('common.unassigned') }}</p></div>
           <div><p class="text-xs font-semibold text-faint uppercase tracking-wide">{{ t('assets.purchase_date') }}</p><p class="font-semibold text-fg mt-0.5">{{ viewing.purchase_date || '—' }}</p></div>
           <div><p class="text-xs font-semibold text-faint uppercase tracking-wide">{{ t('assets.purchase_price') }}</p><p class="font-semibold text-fg mt-0.5">{{ money(viewing.purchase_price) }}</p></div>
         </div>

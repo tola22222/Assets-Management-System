@@ -121,7 +121,21 @@
     "search_placeholder": "Search…",
     "created_successfully": "{entity} created successfully.",
     "updated_successfully": "{entity} updated successfully.",
-    "deleted_successfully": "{entity} deleted successfully."
+    "deleted_successfully": "{entity} deleted successfully.",
+    "rows_per_page": "Rows per page",
+    "showing_range": "Showing {from}–{to} of {total}",
+    "first_page": "First page",
+    "previous": "Previous",
+    "next": "Next",
+    "last_page": "Last page",
+    "page_of": "Page {page} of {lastPage}",
+    "columns": "Columns",
+    "toggle_columns": "Toggle columns",
+    "reset_columns": "Reset to default",
+    "n_selected": "{count} selected",
+    "clear_selection": "Clear selection",
+    "export": "Export",
+    "unassigned": "Unassigned"
   },
   "confirm": {
     "delete_title": "Delete Confirmation",
@@ -193,7 +207,10 @@
     "flag_condition_none": "Don't change condition",
     "flag_submit": "Submit Flag",
     "flagged_successfully": "Issue flagged — Operations has been notified.",
-    "flag_failed": "Could not flag this asset."
+    "flag_failed": "Could not flag this asset.",
+    "assigned_to": "Assigned To",
+    "bulk_deleted": "{count} assets deleted.",
+    "export_failed": "Could not export assets."
   },
   "import": {
     "title": "Import Asset Register",

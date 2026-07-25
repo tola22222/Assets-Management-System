@@ -121,7 +121,21 @@
     "search_placeholder": "ស្វែងរក…",
     "created_successfully": "{entity} ត្រូវបានបង្កើតដោយជោគជ័យ។",
     "updated_successfully": "{entity} ត្រូវបានធ្វើបច្ចុប្បន្នភាពដោយជោគជ័យ។",
-    "deleted_successfully": "{entity} ត្រូវបានលុបដោយជោគជ័យ។"
+    "deleted_successfully": "{entity} ត្រូវបានលុបដោយជោគជ័យ។",
+    "rows_per_page": "ជួរដេកក្នុងមួយទំព័រ",
+    "showing_range": "កំពុងបង្ហាញ {from}–{to} នៃ {total}",
+    "first_page": "ទំព័រដំបូង",
+    "previous": "មុន",
+    "next": "បន្ទាប់",
+    "last_page": "ទំព័រចុងក្រោយ",
+    "page_of": "ទំព័រ {page} នៃ {lastPage}",
+    "columns": "ជួរឈរ",
+    "toggle_columns": "បង្ហាញ/លាក់ជួរឈរ",
+    "reset_columns": "កំណត់ត្រឡប់ដើម",
+    "n_selected": "បានជ្រើសរើស {count}",
+    "clear_selection": "សម្អាតការជ្រើសរើស",
+    "export": "នាំចេញ",
+    "unassigned": "មិនទាន់កំណត់"
   },
   "confirm": {
     "delete_title": "បញ្ជាក់ការលុប",
@@ -193,7 +207,10 @@
     "flag_condition_none": "កុំផ្លាស់ប្តូរស្ថានភាព",
     "flag_submit": "ដាក់ស្នើរបាយការណ៍",
     "flagged_successfully": "បញ្ហាត្រូវបានរាយការណ៍ — ក្រុមប្រតិបត្តិការត្រូវបានជូនដំណឹង។",
-    "flag_failed": "មិនអាចរាយការណ៍បញ្ហាទ្រព្យសម្បត្តិនេះបានទេ។"
+    "flag_failed": "មិនអាចរាយការណ៍បញ្ហាទ្រព្យសម្បត្តិនេះបានទេ។",
+    "assigned_to": "ប្រគល់ឱ្យ",
+    "bulk_deleted": "បានលុបទ្រព្យសម្បត្តិចំនួន {count}។",
+    "export_failed": "មិនអាចនាំចេញទ្រព្យសម្បត្តិបានទេ។"
   },
   "import": {
     "title": "នាំចូលបញ្ជីទ្រព្យសម្បត្តិ",

@@ -237,7 +237,8 @@
     @apply text-faint bg-surface-2 border-b border-line;
   }
   .data-table thead th {
-    @apply px-4 py-3 font-semibold text-xs uppercase tracking-wider first:pl-5 last:pr-5;
+    @apply px-4 py-3 font-semibold text-xs uppercase tracking-wider first:pl-5 last:pr-5
+           sticky top-0 z-10 bg-surface-2;
   }
   .data-table tbody tr {
     @apply border-b border-line/70 last:border-0 transition-colors hover:bg-surface-2/60;
