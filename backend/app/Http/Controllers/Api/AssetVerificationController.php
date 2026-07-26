@@ -86,6 +86,28 @@ class AssetVerificationController extends Controller
         return response()->json($verification->fresh(['asset', 'location']), 201);
     }
 
+    public function update(Request $request, AssetVerification $asset_verification)
+    {
+        $validated = $request->validate([
+            'condition' => 'required|in:good,fair,broken,lost',
+            'remark' => 'nullable|string',
+        ]);
+
+        $asset_verification->update($validated);
+
+        if (in_array($validated['condition'], ['broken', 'lost'])) {
+            $asset_verification->asset()->update(['condition' => $validated['condition']]);
+        }
+
+        ActivityLog::create([
+            'user_id' => Auth::id(),
+            'action' => 'Update Verification',
+            'description' => 'Updated verification condition to '.$validated['condition'].' for asset: '.($asset_verification->asset->name ?? ''),
+        ]);
+
+        return response()->json($asset_verification->fresh(['asset', 'location']));
+    }
+
     public function complete(AssetVerification $asset_verification)
     {
         $asset_verification->update(['verified_at' => now()]);

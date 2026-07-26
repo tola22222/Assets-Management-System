@@ -51,6 +51,7 @@ export function useAppNav() {
         { to: '/assets/add', label: t('nav.add_asset'), icon: ICONS.addAsset },
         { to: '/asset-movements', label: t('nav.stock_motion'), icon: ICONS.swap },
         { to: '/locations', label: t('nav.locations'), icon: ICONS.location },
+        { to: '/maintenance', label: t('nav.maintenance'), icon: ICONS.maintenance },
         { to: '/asset-verifications', label: t('nav.verification'), icon: ICONS.shield },
       ],
     },
@@ -59,6 +60,7 @@ export function useAppNav() {
       title: t('nav.insight'),
       items: [
         { to: '/reports', label: t('nav.reports'), icon: ICONS.chart },
+        { to: '/analytics', label: t('nav.analytics'), icon: ICONS.analytics },
       ],
     },
     {

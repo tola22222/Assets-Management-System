@@ -3,6 +3,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import http from '../../api/http'
 import AppPageHeader from '../../components/common/AppPageHeader.vue'
 import TableSortIcon from '../../components/ui/TableSortIcon.vue'
+import StatCard from '../../components/ui/StatCard.vue'
 
 const reportTypes = [
   { key: 'inventory', label: 'Inventory' },
@@ -162,26 +163,14 @@ onMounted(load)
 
       <v-row dense>
         <v-col cols="6" sm="3">
-          <v-card rounded="lg" variant="flat" border class="pa-4 d-flex align-center ga-3">
-            <v-avatar rounded="lg" color="primary" variant="tonal" size="40"><v-icon icon="mdi-format-list-bulleted" /></v-avatar>
-            <div>
-              <p class="text-h5 font-weight-bold" style="line-height: 1">{{ rows.length }}</p>
-              <p class="text-caption text-medium-emphasis mt-1">Total records</p>
-            </div>
-          </v-card>
+          <StatCard :value="rows.length" label="Total records" />
         </v-col>
         <v-col cols="6" sm="3">
-          <v-card rounded="lg" variant="flat" border class="pa-4 d-flex align-center ga-3">
-            <v-avatar rounded="lg" color="success" variant="tonal" size="40"><v-icon icon="mdi-check-circle-outline" /></v-avatar>
-            <div>
-              <p class="text-h5 font-weight-bold" style="line-height: 1">{{ sortedRows.length }}</p>
-              <p class="text-caption text-medium-emphasis mt-1">{{ granularity === 'all' ? 'Showing' : 'Matching period' }}</p>
-            </div>
-          </v-card>
+          <StatCard :value="sortedRows.length" :label="granularity === 'all' ? 'Showing' : 'Matching period'" />
         </v-col>
         <v-col cols="12" sm="6">
-          <v-card rounded="lg" variant="flat" border class="pa-4 d-flex align-center ga-3 h-100">
-            <v-avatar rounded="lg" color="warning" variant="tonal" size="40"><v-icon icon="mdi-calendar-month-outline" /></v-avatar>
+          <v-card rounded="lg" variant="flat" border class="pa-5 d-flex align-center ga-3 h-100">
+            <v-avatar rounded="lg" color="mint-tint" size="40"><v-icon icon="mdi-calendar-month-outline" color="primary" /></v-avatar>
             <p class="text-body-2 text-medium-emphasis">{{ reportTypes.find((t) => t.key === selected)?.label }}{{ granularity !== 'all' && periodValue ? ` — ${periodValue}` : '' }}</p>
           </v-card>
         </v-col>
@@ -220,6 +209,7 @@ onMounted(load)
                   <v-chip v-if="col[0] === 'stock_level'" size="small" :color="STOCK_LEVEL_COLOR[cell(row, col)]" variant="tonal" class="text-capitalize">
                     {{ cell(row, col) }}
                   </v-chip>
+                  <span v-else-if="col[0] === 'asset_code'" class="font-mono font-mono-tag">{{ cell(row, col) }}</span>
                   <template v-else>{{ cell(row, col) }}</template>
                 </td>
               </tr>

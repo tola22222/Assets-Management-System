@@ -10,6 +10,7 @@ const COLORS = {
   completed: 'success',
   stock_in: 'success',
   pending: 'warning',
+  in_progress: 'info',
   assigned: 'info',
   transfer: 'info',
   rejected: 'error',

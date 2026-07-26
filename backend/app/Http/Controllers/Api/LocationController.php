@@ -13,13 +13,13 @@ class LocationController extends Controller
 {
     use PaginatesAndSorts;
 
-    private const SORTABLE = ['name', 'type', 'created_at'];
+    private const SORTABLE = ['name', 'code', 'type', 'created_at'];
 
     public function index(Request $request)
     {
         $query = Location::withCount('assets');
 
-        $this->applySearch($query, $request, ['name', 'type', 'description']);
+        $this->applySearch($query, $request, ['name', 'code', 'type', 'description']);
         $this->applyExactFilters($query, $request, ['type']);
 
         return response()->json($this->paginateSorted($query, $request, self::SORTABLE, 'name', 'asc'));
@@ -36,6 +36,7 @@ class LocationController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
+            'code' => 'nullable|string|max:4|unique:locations,code',
             'type' => 'required|in:office,lab,program',
             'description' => 'nullable|string',
         ]);
@@ -55,6 +56,7 @@ class LocationController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
+            'code' => 'nullable|string|max:4|unique:locations,code,'.$location->id,
             'type' => 'required|in:office,lab,program',
             'description' => 'nullable|string',
         ]);

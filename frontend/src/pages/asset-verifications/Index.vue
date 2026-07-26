@@ -3,15 +3,17 @@ import { ref, computed, onMounted, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
 import http from '../../api/http'
 import AppPageHeader from '../../components/common/AppPageHeader.vue'
-import Modal from '../../components/ui/Modal.vue'
+import PepyDialog from '../../components/ui/PepyDialog.vue'
 import AppDataTable from '../../components/common/AppDataTable.vue'
 import { useServerTable } from '../../composables/useServerTable'
+import { useConfirm } from '../../composables/useConfirm'
 import { useToastStore } from '../../stores/toast'
 import { useAuthStore } from '../../stores/auth'
 
 const { t } = useI18n()
 const toast = useToastStore()
 const auth = useAuthStore()
+const { confirm } = useConfirm()
 
 const {
   items: verifications, loading, page, perPage, total, sortByVuetify,
@@ -24,13 +26,17 @@ const locations = ref([])
 const showModal = ref(false)
 const form = reactive({ asset_id: '', location_id: '', quantity_verified: 1, condition: 'good', remark: '' })
 
+const updatingItem = ref(null)
+const updatingCondition = ref('good')
+const updatingSubmitting = ref(false)
+
 const headers = computed(() => [
   { title: t('common.asset'), key: 'asset', sortable: false },
   { title: t('common.location'), key: 'location', sortable: false },
   { title: t('asset_returns.condition'), key: 'condition', sortable: true },
   { title: t('asset_verifications.verified_by'), key: 'verified_by', sortable: false },
   { title: t('common.status'), key: 'verified_at', sortable: false },
-  { title: t('common.actions'), key: 'actions', sortable: false, align: 'end', width: 70 },
+  { title: t('common.actions'), key: 'actions', sortable: false, align: 'end', width: 90 },
 ])
 
 async function loadOptions() {
@@ -55,10 +61,40 @@ async function handleSubmit() {
   }
 }
 
-async function complete(id) {
+async function verify(id) {
   await http.post(`/asset-verifications/${id}/complete`)
   toast.success(t('asset_verifications.marked_complete'))
   await fetchPage()
+}
+
+async function markMissing(item) {
+  const ok = await confirm({
+    title: t('asset_verifications.confirm_missing_title'),
+    message: t('asset_verifications.confirm_missing_message'),
+    color: 'error',
+    confirmText: t('asset_verifications.mark_missing'),
+  })
+  if (!ok) return
+  await http.put(`/asset-verifications/${item.id}`, { condition: 'lost', remark: item.remark })
+  toast.success(t('asset_verifications.condition_updated'))
+  await fetchPage()
+}
+
+function openUpdateCondition(item) {
+  updatingItem.value = item
+  updatingCondition.value = item.condition
+}
+
+async function submitUpdateCondition() {
+  updatingSubmitting.value = true
+  try {
+    await http.put(`/asset-verifications/${updatingItem.value.id}`, { condition: updatingCondition.value, remark: updatingItem.value.remark })
+    toast.success(t('asset_verifications.condition_updated'))
+    updatingItem.value = null
+    await fetchPage()
+  } finally {
+    updatingSubmitting.value = false
+  }
 }
 
 onMounted(() => {
@@ -134,51 +170,89 @@ onMounted(() => {
         </template>
 
         <template #item.actions="{ item }">
-          <div v-if="!item.verified_at && auth.canCompleteVerification" class="d-flex justify-end">
-            <v-btn icon="mdi-check" size="small" variant="text" color="success" :title="t('common.mark_complete')" @click="complete(item.id)" />
+          <div class="d-flex align-center justify-end ga-1">
+            <v-btn
+              v-if="!item.verified_at && auth.canCompleteVerification"
+              icon="mdi-check"
+              size="small"
+              variant="text"
+              color="success"
+              :title="t('asset_verifications.verify')"
+              @click="verify(item.id)"
+            />
+            <v-menu>
+              <template #activator="{ props: menuProps }">
+                <v-btn icon="mdi-dots-vertical" size="small" variant="text" v-bind="menuProps" />
+              </template>
+              <v-list density="compact">
+                <v-list-item :title="t('asset_verifications.update_condition')" @click="openUpdateCondition(item)" />
+                <v-list-item :title="t('asset_verifications.mark_missing')" class="text-error" @click="markMissing(item)" />
+              </v-list>
+            </v-menu>
           </div>
         </template>
       </AppDataTable>
   </v-container>
 
-  <Modal v-if="showModal" :title="t('asset_verifications.modal_title')" @close="showModal = false">
-    <v-form @submit.prevent="handleSubmit">
-      <v-card-text class="d-flex flex-column ga-1">
+  <PepyDialog
+    v-if="showModal"
+    :title="t('asset_verifications.modal_title')"
+    icon="mdi-shield-check-outline"
+    :confirm-text="t('asset_verifications.submit_button')"
+    @update:model-value="(v) => !v && (showModal = false)"
+    @confirm="handleSubmit"
+  >
+    <v-select
+      v-model="form.asset_id"
+      :label="t('asset_verifications.asset_required')"
+      :items="assets.map((a) => ({ title: `${a.name} (${a.asset_code})`, value: a.id }))"
+      required
+    />
+    <v-row dense>
+      <v-col cols="12" sm="6">
         <v-select
-          v-model="form.asset_id"
-          :label="t('asset_verifications.asset_required')"
-          :items="assets.map((a) => ({ title: `${a.name} (${a.asset_code})`, value: a.id }))"
+          v-model="form.location_id"
+          :label="t('asset_verifications.location_required')"
+          :items="locations.map((l) => ({ title: l.name, value: l.id }))"
           required
         />
-        <v-row dense>
-          <v-col cols="12" sm="6">
-            <v-select
-              v-model="form.location_id"
-              :label="t('asset_verifications.location_required')"
-              :items="locations.map((l) => ({ title: l.name, value: l.id }))"
-              required
-            />
-          </v-col>
-          <v-col cols="12" sm="6">
-            <v-text-field v-model.number="form.quantity_verified" type="number" min="1" :label="t('asset_verifications.quantity_verified_required')" required />
-          </v-col>
-        </v-row>
-        <v-select
-          v-model="form.condition"
-          :label="t('asset_verifications.condition_required')"
-          :items="[
-            { title: t('asset_verifications.condition_good'), value: 'good' },
-            { title: t('asset_verifications.condition_fair'), value: 'fair' },
-            { title: t('asset_verifications.condition_broken'), value: 'broken' },
-            { title: t('asset_verifications.condition_lost'), value: 'lost' },
-          ]"
-        />
-        <v-textarea v-model="form.remark" :label="t('asset_verifications.remark')" rows="2" />
-      </v-card-text>
-      <v-card-actions class="px-4 pb-4">
-        <v-btn type="submit" color="primary" variant="flat" prepend-icon="mdi-plus">{{ t('asset_verifications.submit_button') }}</v-btn>
-        <v-btn variant="text" @click="showModal = false">{{ t('common.cancel') }}</v-btn>
-      </v-card-actions>
-    </v-form>
-  </Modal>
+      </v-col>
+      <v-col cols="12" sm="6">
+        <v-text-field v-model.number="form.quantity_verified" type="number" min="1" :label="t('asset_verifications.quantity_verified_required')" required />
+      </v-col>
+    </v-row>
+    <v-select
+      v-model="form.condition"
+      :label="t('asset_verifications.condition_required')"
+      :items="[
+        { title: t('asset_verifications.condition_good'), value: 'good' },
+        { title: t('asset_verifications.condition_fair'), value: 'fair' },
+        { title: t('asset_verifications.condition_broken'), value: 'broken' },
+        { title: t('asset_verifications.condition_lost'), value: 'lost' },
+      ]"
+    />
+    <v-textarea v-model="form.remark" :label="t('asset_verifications.remark')" rows="2" />
+  </PepyDialog>
+
+  <PepyDialog
+    v-if="updatingItem"
+    :title="t('asset_verifications.update_condition')"
+    :subtitle="updatingItem.asset?.name"
+    icon="mdi-pencil-outline"
+    max-width="440"
+    :loading="updatingSubmitting"
+    @update:model-value="(v) => !v && (updatingItem = null)"
+    @confirm="submitUpdateCondition"
+  >
+    <v-select
+      v-model="updatingCondition"
+      :label="t('asset_returns.condition')"
+      :items="[
+        { title: t('asset_verifications.condition_good'), value: 'good' },
+        { title: t('asset_verifications.condition_fair'), value: 'fair' },
+        { title: t('asset_verifications.condition_broken'), value: 'broken' },
+        { title: t('asset_verifications.condition_lost'), value: 'lost' },
+      ]"
+    />
+  </PepyDialog>
 </template>

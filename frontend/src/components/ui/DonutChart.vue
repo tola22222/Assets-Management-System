@@ -9,6 +9,7 @@ const props = defineProps({
   segments: { type: Array, required: true }, // [{ category, count, percentage }]
   total: { type: [String, Number], required: true },
   totalLabel: { type: String, default: 'total items' },
+  formatCount: { type: Function, default: (v) => v }, // legend display only — chart arcs always use the raw number
 })
 
 const palette = ['#1F4B43', '#C79A46', '#2E6358', '#B5573D', '#9B8A62', '#616A62']
@@ -48,7 +49,7 @@ const chartOptions = {
           <span class="font-weight-semibold text-truncate">{{ segment.category }}</span>
         </div>
         <div class="d-flex align-center ga-3 flex-shrink-0">
-          <span class="font-weight-semibold">{{ segment.count }}</span>
+          <span class="font-weight-semibold">{{ formatCount(segment.count) }}</span>
           <span class="text-right text-medium-emphasis" style="width: 36px">{{ segment.percentage }}%</span>
         </div>
       </div>

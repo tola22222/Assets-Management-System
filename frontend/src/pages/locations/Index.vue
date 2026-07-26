@@ -2,7 +2,7 @@
 import { ref, computed, onMounted, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppPageHeader from '../../components/common/AppPageHeader.vue'
-import Modal from '../../components/ui/Modal.vue'
+import PepyDialog from '../../components/ui/PepyDialog.vue'
 import AppDataTable from '../../components/common/AppDataTable.vue'
 import { useApiCrud } from '../../composables/useApiCrud'
 import { useServerTable } from '../../composables/useServerTable'
@@ -21,27 +21,35 @@ const toast = useToastStore()
 
 const showModal = ref(false)
 const editingId = ref(null)
-const form = reactive({ name: '', type: 'office', description: '' })
+const submitting = ref(false)
+const form = reactive({ name: '', code: '', type: 'office', description: '' })
 
 function openCreate() {
   editingId.value = null
-  Object.assign(form, { name: '', type: 'office', description: '' })
+  Object.assign(form, { name: '', code: '', type: 'office', description: '' })
   showModal.value = true
 }
 
 function openEdit(location) {
   editingId.value = location.id
-  Object.assign(form, { name: location.name, type: location.type, description: location.description || '' })
+  Object.assign(form, { name: location.name, code: location.code || '', type: location.type, description: location.description || '' })
   showModal.value = true
 }
 
 async function handleSubmit() {
-  if (editingId.value) {
-    await update(editingId.value, form)
-  } else {
-    await create(form)
+  submitting.value = true
+  try {
+    if (editingId.value) {
+      await update(editingId.value, form)
+    } else {
+      await create(form)
+    }
+    showModal.value = false
+  } catch (e) {
+    toast.error(e.response?.data?.message || t('locations.save_failed'))
+  } finally {
+    submitting.value = false
   }
-  showModal.value = false
 }
 
 async function handleDelete(row) {
@@ -62,6 +70,7 @@ async function handleDelete(row) {
 
 const headers = computed(() => [
   { title: t('common.name'), key: 'name', sortable: true },
+  { title: t('locations.code'), key: 'code', sortable: true },
   { title: t('locations.type'), key: 'type', sortable: true },
   { title: t('locations.stock_records'), key: 'assets_count', sortable: false, align: 'end' },
   { title: t('common.actions'), key: 'actions', sortable: false, align: 'end', width: 110 },
@@ -114,32 +123,38 @@ onMounted(fetchPage)
         <v-btn v-if="hasActiveFilters" variant="text" size="small" @click="clearFilters">{{ t('common.clear_filters') }}</v-btn>
       </template>
 
+      <template #item.code="{ item }"><span class="font-mono font-mono-tag text-caption">{{ item.code || '—' }}</span></template>
       <template #item.type="{ item }"><span class="text-capitalize">{{ item.type }}</span></template>
       <template #item.assets_count="{ item }">{{ item.assets_count ?? 0 }}</template>
     </AppDataTable>
   </v-container>
 
-  <Modal v-if="showModal" :title="editingId ? t('locations.edit_title') : t('locations.create_title')" @close="showModal = false">
-    <v-form @submit.prevent="handleSubmit">
-      <v-card-text class="d-flex flex-column ga-1">
+  <PepyDialog
+    v-if="showModal"
+    :title="editingId ? t('locations.edit_title') : t('locations.create_title')"
+    icon="mdi-map-marker-outline"
+    :loading="submitting"
+    :confirm-text="editingId ? t('locations.save_changes') : t('locations.create_button')"
+    @update:model-value="(v) => !v && (showModal = false)"
+    @confirm="handleSubmit"
+  >
+    <v-row dense>
+      <v-col cols="12" sm="8">
         <v-text-field v-model="form.name" :label="t('locations.name_required')" required />
-        <v-select
-          v-model="form.type"
-          :label="t('locations.type_required')"
-          :items="[
-            { title: t('locations.type_office'), value: 'office' },
-            { title: t('locations.type_lab'), value: 'lab' },
-            { title: t('locations.type_program'), value: 'program' },
-          ]"
-        />
-        <v-textarea v-model="form.description" :label="t('common.description')" rows="2" />
-      </v-card-text>
-      <v-card-actions class="px-4 pb-4">
-        <v-btn type="submit" color="primary" variant="flat" prepend-icon="mdi-plus">
-          {{ editingId ? t('locations.save_changes') : t('locations.create_button') }}
-        </v-btn>
-        <v-btn variant="text" @click="showModal = false">{{ t('common.cancel') }}</v-btn>
-      </v-card-actions>
-    </v-form>
-  </Modal>
+      </v-col>
+      <v-col cols="12" sm="4">
+        <v-text-field v-model="form.code" :label="t('locations.code')" maxlength="4" class="text-uppercase" />
+      </v-col>
+    </v-row>
+    <v-select
+      v-model="form.type"
+      :label="t('locations.type_required')"
+      :items="[
+        { title: t('locations.type_office'), value: 'office' },
+        { title: t('locations.type_lab'), value: 'lab' },
+        { title: t('locations.type_program'), value: 'program' },
+      ]"
+    />
+    <v-textarea v-model="form.description" :label="t('common.description')" rows="2" />
+  </PepyDialog>
 </template>

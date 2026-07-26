@@ -11,10 +11,108 @@ use App\Models\AssetVerification;
 use App\Models\Location;
 use App\Models\Notification;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class ReportController extends Controller
 {
+    /** Sum of purchase_price per category — same shape as DashboardController's count-based
+     *  assets_by_category, but value-weighted, for the Analytics "value by category" donut. */
+    public function valueByCategory()
+    {
+        $totalValue = (float) Asset::sum('purchase_price');
+
+        $rows = Asset::select('category_id', DB::raw('sum(purchase_price) as value'), DB::raw('count(*) as count'))
+            ->with('category:id,name')
+            ->groupBy('category_id')
+            ->get()
+            ->map(fn ($row) => [
+                'category' => $row->category->name ?? 'Uncategorized',
+                'count' => (float) $row->value,
+                'percentage' => $totalValue > 0 ? round((float) $row->value / $totalValue * 100) : 0,
+            ])
+            ->sortByDesc('count')
+            ->values();
+
+        return response()->json(['total_value' => $totalValue, 'segments' => $rows]);
+    }
+
+    /**
+     * Value + count of assets acquired per day/month/year, gap-filled — same
+     * bucketing approach as DashboardController::byPeriod() (grouped in PHP via
+     * Carbon since dev is sqlite and production is MySQL and their date
+     * functions differ), extended to also sum purchase_price per bucket.
+     */
+    public function acquisitionsOverTime(Request $request)
+    {
+        $period = in_array($request->query('period'), ['day', 'month', 'year'], true)
+            ? $request->query('period')
+            : 'month';
+
+        [$format, $since, $step] = match ($period) {
+            'day' => ['Y-m-d', now()->subDays(29)->startOfDay(), fn (Carbon $d) => $d->addDay()],
+            'year' => ['Y', now()->subYears(4)->startOfYear(), fn (Carbon $d) => $d->addYear()],
+            default => ['Y-m', now()->subMonths(11)->startOfMonth(), fn (Carbon $d) => $d->addMonth()],
+        };
+
+        $buckets = [];
+        for ($cursor = $since->copy(); $cursor->lte(now()); $cursor = $step($cursor)) {
+            $buckets[$cursor->format($format)] = ['count' => 0, 'value' => 0.0];
+        }
+
+        Asset::where('created_at', '>=', $since)
+            ->get(['created_at', 'purchase_price'])
+            ->each(function ($asset) use (&$buckets, $format) {
+                $key = $asset->created_at->format($format);
+                if (array_key_exists($key, $buckets)) {
+                    $buckets[$key]['count']++;
+                    $buckets[$key]['value'] += (float) ($asset->purchase_price ?? 0);
+                }
+            });
+
+        return response()->json([
+            'period' => $period,
+            'data' => collect($buckets)->map(fn ($b, $label) => ['label' => $label, 'count' => $b['count'], 'value' => $b['value']])->values(),
+        ]);
+    }
+
+    /** Condition breakdown per location, for the Analytics stacked-bar. */
+    public function conditionByLocation()
+    {
+        $rows = Asset::select('location_id', 'condition', DB::raw('count(*) as count'))
+            ->whereNotNull('location_id')
+            ->with('location:id,name')
+            ->groupBy('location_id', 'condition')
+            ->get()
+            ->groupBy(fn ($row) => $row->location->name ?? 'Unknown')
+            ->map(function ($rows, $location) {
+                $byCondition = $rows->pluck('count', 'condition');
+
+                return [
+                    'location' => $location,
+                    'good' => (int) ($byCondition['good'] ?? 0),
+                    'fair' => (int) ($byCondition['fair'] ?? 0),
+                    'broken' => (int) ($byCondition['broken'] ?? 0),
+                    'lost' => (int) ($byCondition['lost'] ?? 0),
+                ];
+            })
+            ->values();
+
+        return response()->json($rows);
+    }
+
+    /** Top assets by recorded value, for the Analytics "top value assets" mini table. */
+    public function topValueAssets()
+    {
+        $rows = Asset::whereNotNull('purchase_price')
+            ->with(['category', 'location'])
+            ->orderByDesc('purchase_price')
+            ->take(10)
+            ->get(['id', 'name', 'asset_code', 'category_id', 'location_id', 'purchase_price']);
+
+        return response()->json($rows);
+    }
+
     /**
      * Grouped "count by model" view: each Asset row stays an individually
      * tracked unit with its own tag, but this rolls same-name units up into

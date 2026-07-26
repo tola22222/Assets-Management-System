@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\AssetCategoryController;
 use App\Http\Controllers\Api\AssetController;
 use App\Http\Controllers\Api\AssetDisposalController;
 use App\Http\Controllers\Api\AssetImportController;
+use App\Http\Controllers\Api\AssetMaintenanceController;
 use App\Http\Controllers\Api\AssetMovementController;
 use App\Http\Controllers\Api\AssetReturnController;
 use App\Http\Controllers\Api\AssetStockController;
@@ -75,13 +76,17 @@ Route::name('api.')->group(function () {
         Route::apiResource('asset-returns', AssetReturnController::class)->only(['index', 'store']);
 
         Route::post('/asset-verifications/{asset_verification}/complete', [AssetVerificationController::class, 'complete'])->middleware('role:operations_hr_manager,finance_manager');
-        Route::apiResource('asset-verifications', AssetVerificationController::class)->only(['index', 'store', 'destroy']);
+        Route::apiResource('asset-verifications', AssetVerificationController::class)->only(['index', 'store', 'update', 'destroy']);
 
         Route::post('/asset-disposals/{asset_disposal}/approve', [AssetDisposalController::class, 'approve'])->middleware('role:operations_hr_manager,executive_director');
         Route::post('/asset-disposals/{asset_disposal}/reject', [AssetDisposalController::class, 'reject'])->middleware('role:operations_hr_manager,executive_director');
         Route::apiResource('asset-disposals', AssetDisposalController::class)->only(['index', 'store', 'destroy']);
 
         Route::apiResource('asset-movements', AssetMovementController::class)->only(['index']);
+
+        Route::post('/asset-maintenance/{asset_maintenance}/start', [AssetMaintenanceController::class, 'start'])->middleware('role:operations_hr_manager,finance_manager');
+        Route::post('/asset-maintenance/{asset_maintenance}/complete', [AssetMaintenanceController::class, 'complete'])->middleware('role:operations_hr_manager,finance_manager');
+        Route::apiResource('asset-maintenance', AssetMaintenanceController::class)->except(['show']);
 
         Route::apiResource('programs', ProgramController::class)->except(['create', 'show', 'edit']);
         Route::apiResource('staff', StaffController::class)->except(['create', 'show', 'edit']);
@@ -98,6 +103,10 @@ Route::name('api.')->group(function () {
         Route::get('/reports/locations', [ReportController::class, 'locations']);
         Route::get('/reports/qr-scans', [ReportController::class, 'qrScans']);
         Route::get('/reports/data-completeness', [ReportController::class, 'dataCompleteness']);
+        Route::get('/reports/value-by-category', [ReportController::class, 'valueByCategory']);
+        Route::get('/reports/acquisitions-over-time', [ReportController::class, 'acquisitionsOverTime']);
+        Route::get('/reports/condition-by-location', [ReportController::class, 'conditionByLocation']);
+        Route::get('/reports/top-value-assets', [ReportController::class, 'topValueAssets']);
 
         Route::middleware('role:operations_hr_manager')->group(function () {
             Route::apiResource('users', UserController::class)->except(['create', 'show']);

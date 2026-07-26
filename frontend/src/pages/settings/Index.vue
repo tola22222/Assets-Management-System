@@ -2,6 +2,7 @@
 import { ref, onMounted, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
 import http from '../../api/http'
+import AppPageHeader from '../../components/common/AppPageHeader.vue'
 import { useToastStore } from '../../stores/toast'
 import { useLocale } from '../../composables/useLocale'
 import { useThemeColor } from '../../composables/useThemeColor'
@@ -128,12 +129,13 @@ onMounted(() => {
 
 <template>
   <v-container fluid class="pa-0 d-flex flex-column ga-6" style="max-width: 640px">
-      <div>
-        <h1 class="text-h5 font-weight-bold">{{ t('settings.title') }}</h1>
-        <p class="text-body-2 text-medium-emphasis mt-1">{{ t('settings.subtitle') }}</p>
-      </div>
+      <AppPageHeader :title="t('settings.title')" :subtitle="t('settings.subtitle')" class="mb-0" />
 
       <v-card v-if="!loading" rounded="lg" variant="flat" border class="pa-6">
+        <div class="d-flex align-center ga-3 mb-4">
+          <v-avatar rounded="lg" color="mint-tint" size="40"><v-icon icon="mdi-office-building-outline" color="primary" /></v-avatar>
+          <h2 class="text-subtitle-1 font-weight-bold">{{ t('settings.organization_section') }}</h2>
+        </div>
         <v-form @submit.prevent="handleSubmit">
           <div class="d-flex flex-column ga-1">
             <v-text-field v-model="form.organization_name" :label="t('settings.organization_name')" />
@@ -174,9 +176,12 @@ onMounted(() => {
 
       <v-card rounded="lg" variant="flat" border class="pa-6">
         <div class="d-flex align-center justify-space-between ga-3 mb-4">
-          <div>
-            <h2 class="text-subtitle-1 font-weight-bold">{{ t('settings.backup_title') }}</h2>
-            <p class="text-body-2 text-medium-emphasis mt-1">{{ t('settings.backup_subtitle') }}</p>
+          <div class="d-flex align-center ga-3">
+            <v-avatar rounded="lg" color="mint-tint" size="40"><v-icon icon="mdi-database-outline" color="primary" /></v-avatar>
+            <div>
+              <h2 class="text-subtitle-1 font-weight-bold">{{ t('settings.backup_title') }}</h2>
+              <p class="text-body-2 text-medium-emphasis mt-1">{{ t('settings.backup_subtitle') }}</p>
+            </div>
           </div>
           <v-btn color="primary" variant="flat" size="small" :loading="backingUp" class="flex-shrink-0" @click="createBackup">
             {{ t('settings.create_backup') }}

@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, onMounted, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRoute, useRouter } from 'vue-router'
 import http from '../../api/http'
 import AppPageHeader from '../../components/common/AppPageHeader.vue'
 import Modal from '../../components/ui/Modal.vue'
@@ -16,6 +17,8 @@ const { t } = useI18n()
 const toast = useToastStore()
 const auth = useAuthStore()
 const { confirm } = useConfirm()
+const route = useRoute()
+const router = useRouter()
 
 const {
   items: returnsList, loading, page, perPage, total, sortByVuetify,
@@ -96,6 +99,10 @@ async function confirmReject(reason) {
 onMounted(() => {
   fetchPage()
   loadOptions()
+  if (route.query.create === '1') {
+    openCreate()
+    router.replace({ query: { ...route.query, create: undefined } })
+  }
 })
 </script>
 

@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, onMounted, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRoute, useRouter } from 'vue-router'
 import http from '../../api/http'
 import AppPageHeader from '../../components/common/AppPageHeader.vue'
 import Modal from '../../components/ui/Modal.vue'
@@ -16,6 +17,8 @@ const {
   filters, hasActiveFilters, applyFilters, clearFilters,
 } = useServerTable('/asset-assignments', { filterKeys: ['status'] })
 const toast = useToastStore()
+const route = useRoute()
+const router = useRouter()
 
 const assets = ref([])
 const locations = ref([])
@@ -84,6 +87,10 @@ async function submitReturn() {
 onMounted(() => {
   fetchPage()
   loadOptions()
+  if (route.query.create === '1') {
+    openCreate()
+    router.replace({ query: { ...route.query, create: undefined } })
+  }
 })
 </script>
 

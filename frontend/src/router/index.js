@@ -12,6 +12,7 @@ import AssetAssignmentsIndex from '../pages/asset-assignments/Index.vue'
 import AssetTransfersIndex from '../pages/asset-transfers/Index.vue'
 import AssetReturnsIndex from '../pages/asset-returns/Index.vue'
 import AssetVerificationsIndex from '../pages/asset-verifications/Index.vue'
+import MaintenanceIndex from '../pages/maintenance/Index.vue'
 import AssetDisposalsIndex from '../pages/asset-disposals/Index.vue'
 import ProgramsIndex from '../pages/programs/Index.vue'
 import StaffIndex from '../pages/staff/Index.vue'
@@ -20,6 +21,7 @@ import UsersIndex from '../pages/users/Index.vue'
 import SettingsIndex from '../pages/settings/Index.vue'
 import ActivityLogsIndex from '../pages/activity-logs/Index.vue'
 import ReportsIndex from '../pages/reports/Index.vue'
+import AnalyticsIndex from '../pages/analytics/Index.vue'
 import QrScanIndex from '../pages/qr-scan/Index.vue'
 import SearchIndex from '../pages/search/Index.vue'
 import NotificationsIndex from '../pages/notifications/Index.vue'
@@ -44,6 +46,7 @@ const routes = [
       { path: 'asset-transfers', name: 'asset-transfers', component: AssetTransfersIndex },
       { path: 'asset-returns', name: 'asset-returns', component: AssetReturnsIndex },
       { path: 'asset-verifications', name: 'asset-verifications', component: AssetVerificationsIndex },
+      { path: 'maintenance', name: 'maintenance', component: MaintenanceIndex },
       { path: 'asset-disposals', name: 'asset-disposals', component: AssetDisposalsIndex },
       { path: 'programs', name: 'programs', component: ProgramsIndex },
       { path: 'staff', name: 'staff', component: StaffIndex },
@@ -52,6 +55,7 @@ const routes = [
       { path: 'settings', name: 'settings', component: SettingsIndex, meta: { adminOnly: true } },
       { path: 'activity-logs', name: 'activity-logs', component: ActivityLogsIndex, meta: { adminOnly: true } },
       { path: 'reports', name: 'reports', component: ReportsIndex },
+      { path: 'analytics', name: 'analytics', component: AnalyticsIndex },
       { path: 'qr-scan', name: 'qr-scan', component: QrScanIndex },
       { path: 'search', name: 'search', component: SearchIndex },
       { path: 'notifications', name: 'notifications', component: NotificationsIndex },
