@@ -1,10 +1,12 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import http from '../../api/http'
 import { useToastStore } from '../../stores/toast'
 
 const toast = useToastStore()
-const q = ref('')
+const route = useRoute()
+const q = ref(typeof route.query.q === 'string' ? route.query.q : '')
 const results = ref(null)
 const loading = ref(false)
 
@@ -31,6 +33,10 @@ async function search() {
     loading.value = false
   }
 }
+
+onMounted(() => {
+  if (q.value.length >= 2) search()
+})
 </script>
 
 <template>

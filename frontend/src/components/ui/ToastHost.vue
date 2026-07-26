@@ -10,7 +10,7 @@ const toast = useToastStore()
       <v-alert
         v-for="t in toast.items"
         :key="t.id"
-        :type="t.type === 'error' ? 'error' : 'success'"
+        :type="['error', 'info', 'warning'].includes(t.type) ? t.type : 'success'"
         variant="tonal"
         density="compact"
         border="start"

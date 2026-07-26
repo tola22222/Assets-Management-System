@@ -92,7 +92,7 @@ onMounted(fetchPage)
         </template>
 
         <template #item.asset="{ item }">
-          <p class="font-medium">{{ item.asset?.name || t('common.n_a') }}</p>
+          <p class="font-weight-medium">{{ item.asset?.name || t('common.n_a') }}</p>
           <p class="font-mono text-caption text-medium-emphasis">{{ item.asset?.asset_code }}</p>
         </template>
         <template #item.movement_type="{ item }"><StatusBadge :status="item.movement_type" /></template>

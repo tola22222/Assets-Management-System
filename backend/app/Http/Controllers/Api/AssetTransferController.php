@@ -95,11 +95,16 @@ class AssetTransferController extends Controller
         return response()->json($asset_transfer->fresh(['asset', 'fromLocation', 'toLocation']));
     }
 
-    public function reject(AssetTransfer $asset_transfer)
+    public function reject(Request $request, AssetTransfer $asset_transfer)
     {
+        $validated = $request->validate([
+            'rejection_reason' => 'nullable|string',
+        ]);
+
         $asset_transfer->update([
             'status' => 'rejected',
             'approved_by' => Auth::id(),
+            'rejection_reason' => $validated['rejection_reason'] ?? null,
         ]);
 
         return response()->json($asset_transfer->fresh());

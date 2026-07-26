@@ -5,3 +5,20 @@
   --v-font-body: 'Kantumruy Pro', sans-serif;
   --v-font-heading: 'Kantumruy Pro', sans-serif;
 }
+
+/* Vuetify ships no monospace utility class; asset codes/reference numbers use this. */
+.font-mono {
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  letter-spacing: 0.04em;
+}
+
+/* Asset tags specifically (not serials/reference numbers, which keep their own casing). */
+.font-mono-tag {
+  text-transform: uppercase;
+}
+
+/* Serif treatment for page titles/stat numbers, falling back to Kantumruy Pro so
+   Khmer text (which Playfair Display has no glyphs for) never silently disappears. */
+.font-display {
+  font-family: 'Playfair Display', 'Kantumruy Pro', serif;
+}

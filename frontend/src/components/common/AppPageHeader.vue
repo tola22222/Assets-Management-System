@@ -15,7 +15,7 @@ defineEmits(['action'])
   <div class="d-flex flex-column flex-sm-row justify-space-between align-sm-center ga-4 mb-6">
     <div class="flex-grow-1" style="min-width: 0">
       <v-breadcrumbs v-if="breadcrumbs.length" :items="breadcrumbs" class="pa-0 mb-1" density="compact" />
-      <h1 class="text-h5 font-weight-bold text-truncate">{{ title }}</h1>
+      <h1 class="text-h5 font-weight-bold font-display text-truncate">{{ title }}</h1>
       <p v-if="subtitle" class="text-body-2 text-medium-emphasis mt-1 mb-0">{{ subtitle }}</p>
     </div>
 

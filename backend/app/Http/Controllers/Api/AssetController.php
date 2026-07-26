@@ -40,7 +40,8 @@ class AssetController extends Controller
 
     private function filteredQuery(Request $request)
     {
-        $query = Asset::with(['category', 'location', 'currentAssignment']);
+        $query = Asset::with(['category', 'location', 'currentAssignment'])
+            ->withMax('verifications', 'verified_at');
 
         if ($search = trim((string) $request->query('search', ''))) {
             $query->where(function ($q) use ($search) {
@@ -74,8 +75,10 @@ class AssetController extends Controller
         return response()->json($asset->load([
             'category',
             'location',
+            'currentAssignment',
             'assignments' => fn ($q) => $q->latest(),
             'verifications' => fn ($q) => $q->latest(),
+            'transfers' => fn ($q) => $q->latest()->with(['fromLocation', 'toLocation']),
         ]));
     }
 
@@ -244,6 +247,8 @@ class AssetController extends Controller
             'location_id' => 'required|exists:locations,id',
             'purchase_date' => 'nullable|date',
             'purchase_price' => 'nullable|numeric',
+            'warranty_expiry' => 'nullable|date',
+            'warranty_provider' => 'nullable|string|max:255',
             'status' => 'required|string',
             'description' => 'nullable|string',
             'model' => 'nullable|string',

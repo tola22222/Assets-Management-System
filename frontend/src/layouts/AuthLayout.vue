@@ -1,6 +1,9 @@
 <script setup>
+import { useI18n } from 'vue-i18n'
 import ThemeToggle from '../components/ui/ThemeToggle.vue'
 import logoUrl from '../assets/logo/Official PEPY Logo_Green.png'
+
+const { t } = useI18n()
 </script>
 
 <template>
@@ -17,16 +20,14 @@ import logoUrl from '../assets/logo/Official PEPY Logo_Green.png'
             <v-img :src="logoUrl" alt="PEPY" />
           </v-avatar>
           <div>
-            <p class="text-h6 font-weight-bold mb-0" style="line-height: 1.2">PEPY Assets</p>
-            <p class="text-caption mb-0" style="opacity: 0.5">Empowering Youth · Siem Reap</p>
+            <p class="text-h6 font-weight-bold font-display mb-0" style="line-height: 1.2">{{ t('app_name') }}</p>
+            <p class="text-caption mb-0" style="opacity: 0.5">{{ t('app_subtitle') }} · {{ t('app_location') }}</p>
           </div>
         </div>
 
         <div style="position: relative; z-index: 1">
-          <h2 class="text-h4 font-weight-bold" style="line-height: 1.25">Every asset, accounted for.</h2>
-          <p class="mt-4" style="opacity: 0.6; max-width: 28rem">
-            Track, assign, transfer and verify fixed assets across the office and every learning center — all in one place.
-          </p>
+          <h2 class="text-h4 font-weight-bold font-display" style="line-height: 1.25">{{ t('login.brand_headline') }}</h2>
+          <p class="mt-4" style="opacity: 0.6; max-width: 28rem">{{ t('login.brand_tagline') }}</p>
         </div>
 
         <p class="text-caption mb-0" style="opacity: 0.4; position: relative; z-index: 1">
@@ -46,8 +47,8 @@ import logoUrl from '../assets/logo/Official PEPY Logo_Green.png'
               <v-img :src="logoUrl" alt="PEPY" />
             </v-avatar>
             <div>
-              <p class="text-subtitle-1 font-weight-bold text-primary mb-0" style="line-height: 1.2">PEPY Assets</p>
-              <p class="text-caption text-medium-emphasis mb-0">Empowering Youth</p>
+              <p class="text-subtitle-1 font-weight-bold font-display text-primary mb-0" style="line-height: 1.2">{{ t('app_name') }}</p>
+              <p class="text-caption text-medium-emphasis mb-0">{{ t('app_subtitle') }}</p>
             </div>
           </div>
           <slot />

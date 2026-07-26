@@ -50,7 +50,7 @@ onMounted(fetchPage)
         @update:options="handleOptions"
         @delete="(row) => removeLog(row.id)"
       >
-        <template #item.user="{ item }"><span class="font-medium">{{ item.user?.name || 'System' }}</span></template>
+        <template #item.user="{ item }"><span class="font-weight-medium">{{ item.user?.name || 'System' }}</span></template>
         <template #item.created_at="{ item }">{{ new Date(item.created_at).toLocaleString() }}</template>
       </AppDataTable>
   </v-container>

@@ -126,7 +126,7 @@ function reset() {
             </v-col>
           </v-row>
 
-          <div v-if="result.errors.length" class="d-flex flex-column ga-1.5">
+          <div v-if="result.errors.length" class="d-flex flex-column ga-2">
             <p class="text-body-2 font-weight-semibold">{{ t('import.failed_rows') }}</p>
             <v-sheet rounded="lg" border class="d-flex flex-column" style="max-height: 192px; overflow-y: auto">
               <p v-for="(err, i) in result.errors" :key="i" class="px-3 py-2 text-caption text-medium-emphasis mb-0 border-b">{{ err }}</p>

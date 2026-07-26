@@ -12,7 +12,7 @@ class Asset extends Model
     protected $fillable = [
         'asset_code', 'name', 'category_id', 'location_id', 'description',
         'model', 'brand', 'serial_number', 'purchase_date',
-        'purchase_price', 'condition', 'status', 'image_path',
+        'purchase_price', 'warranty_expiry', 'warranty_provider', 'condition', 'status', 'image_path',
         'qr_code_path',
     ];
 

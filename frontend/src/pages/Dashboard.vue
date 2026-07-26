@@ -41,6 +41,19 @@ function formatCurrency(value) {
   return `$${Math.round(value || 0)}`
 }
 
+function relativeTime(date) {
+  const seconds = Math.floor((Date.now() - new Date(date).getTime()) / 1000)
+  const units = [
+    ['year', 31536000], ['month', 2592000], ['day', 86400],
+    ['hour', 3600], ['minute', 60],
+  ]
+  for (const [unit, secs] of units) {
+    const value = Math.floor(seconds / secs)
+    if (value >= 1) return new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' }).format(-value, unit)
+  }
+  return t('dashboard.just_now')
+}
+
 watch(trendPeriod, loadTrend)
 
 onMounted(async () => {
@@ -64,7 +77,7 @@ onMounted(async () => {
   <v-container fluid class="pa-0 d-flex flex-column ga-6">
       <div class="d-flex flex-column flex-sm-row align-sm-start justify-space-between ga-4">
         <div>
-          <h1 class="text-h4 font-weight-bold">{{ greeting }}, {{ auth.user?.name?.split(' ')[0] || auth.user?.name }}</h1>
+          <h1 class="text-h4 font-weight-bold font-display">{{ greeting }}, {{ auth.user?.name?.split(' ')[0] || auth.user?.name }}</h1>
           <p class="text-body-2 text-medium-emphasis mt-2">{{ t('dashboard.subtitle') }}</p>
         </div>
         <v-btn to="/assets" color="primary" variant="flat" prepend-icon="mdi-plus" class="flex-shrink-0">
@@ -107,6 +120,21 @@ onMounted(async () => {
             </v-card>
           </v-col>
 
+          <v-col v-if="stats.assets_by_condition" cols="12" lg="6">
+            <v-card rounded="lg" variant="flat" border class="pa-6 h-100">
+              <h2 class="text-subtitle-1 font-weight-bold">{{ t('dashboard.by_condition') }}</h2>
+              <p class="text-body-2 text-medium-emphasis mb-6">{{ t('dashboard.by_condition_subtitle') }}</p>
+              <DonutChart
+                v-if="stats.assets_by_condition.length"
+                :segments="stats.assets_by_condition"
+                :total="stats.total_assets"
+              />
+              <p v-else class="text-body-2 text-medium-emphasis">{{ t('dashboard.no_assets') }}</p>
+            </v-card>
+          </v-col>
+        </v-row>
+
+        <v-row v-if="stats.recent_activity" dense>
           <v-col cols="12" lg="6">
             <v-card rounded="lg" variant="flat" border class="pa-6 h-100">
               <h2 class="text-subtitle-1 font-weight-bold">{{ t('dashboard.needs_attention') }}</h2>
@@ -114,12 +142,59 @@ onMounted(async () => {
               <NeedsAttentionList :items="stats.needs_attention" />
             </v-card>
           </v-col>
+
+          <v-col cols="12" lg="6">
+            <v-card rounded="lg" variant="flat" border class="pa-6 h-100">
+              <h2 class="text-subtitle-1 font-weight-bold">{{ t('dashboard.recent_activity') }}</h2>
+              <p class="text-body-2 text-medium-emphasis mb-6">{{ t('dashboard.recent_activity_subtitle') }}</p>
+              <ul class="d-flex flex-column pl-0" style="list-style: none">
+                <li
+                  v-for="(log, i) in stats.recent_activity"
+                  :key="log.id"
+                  class="d-flex align-center justify-space-between ga-3 py-2"
+                  :class="{ 'border-b border-dashed': i < stats.recent_activity.length - 1 }"
+                >
+                  <span class="text-body-2 font-weight-medium text-truncate" style="min-width: 0">{{ log.description }}</span>
+                  <span class="text-caption text-medium-emphasis flex-shrink-0 text-no-wrap">
+                    {{ log.user?.name || t('common.n_a') }} · {{ relativeTime(log.created_at) }}
+                  </span>
+                </li>
+                <li v-if="!stats.recent_activity.length" class="py-6 text-center text-body-2 text-medium-emphasis">{{ t('dashboard.no_activity') }}</li>
+              </ul>
+            </v-card>
+          </v-col>
         </v-row>
+
+        <v-card v-else rounded="lg" variant="flat" border class="pa-6">
+          <h2 class="text-subtitle-1 font-weight-bold">{{ t('dashboard.needs_attention') }}</h2>
+          <p class="text-body-2 text-medium-emphasis mb-6">{{ t('dashboard.needs_attention_subtitle') }}</p>
+          <NeedsAttentionList :items="stats.needs_attention" />
+        </v-card>
 
         <v-card rounded="lg" variant="flat" border class="pa-6">
           <h2 class="text-subtitle-1 font-weight-bold">{{ t('dashboard.by_location') }}</h2>
           <p class="text-body-2 text-medium-emphasis mb-6">{{ t('dashboard.by_location_subtitle') }}</p>
           <LocationPillCards :locations="stats.assets_by_location" />
+        </v-card>
+
+        <v-card v-if="stats.recent_assets" rounded="lg" variant="flat" border class="pa-6">
+          <h2 class="text-subtitle-1 font-weight-bold">{{ t('dashboard.recent_assets') }}</h2>
+          <p class="text-body-2 text-medium-emphasis mb-6">{{ t('dashboard.recent_assets_subtitle') }}</p>
+          <ul class="d-flex flex-column pl-0" style="list-style: none">
+            <li
+              v-for="(asset, i) in stats.recent_assets"
+              :key="asset.id"
+              class="d-flex align-center justify-space-between ga-3 py-2"
+              :class="{ 'border-b border-dashed': i < stats.recent_assets.length - 1 }"
+            >
+              <div class="d-flex align-center ga-2 flex-grow-1" style="min-width: 0">
+                <span class="font-weight-semibold text-body-2 text-truncate">{{ asset.name }}</span>
+                <span class="font-mono font-mono-tag text-caption text-medium-emphasis text-truncate flex-shrink-0">{{ asset.asset_code }}</span>
+              </div>
+              <span class="text-caption text-medium-emphasis flex-shrink-0 text-no-wrap">{{ asset.category?.name || t('common.n_a') }}</span>
+            </li>
+            <li v-if="!stats.recent_assets.length" class="py-6 text-center text-body-2 text-medium-emphasis">{{ t('dashboard.no_assets') }}</li>
+          </ul>
         </v-card>
 
         <v-card v-if="stats.assets_by_category !== undefined" rounded="lg" variant="flat" border class="pa-6">

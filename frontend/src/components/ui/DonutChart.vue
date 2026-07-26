@@ -11,7 +11,7 @@ const props = defineProps({
   totalLabel: { type: String, default: 'total items' },
 })
 
-const palette = ['#3f7a5f', '#c9a24b', '#5b9bd5', '#e07a5f', '#8a7bb8', '#4bbf9a']
+const palette = ['#1F4B43', '#C79A46', '#2E6358', '#B5573D', '#9B8A62', '#616A62']
 
 const chartData = computed(() => ({
   labels: props.segments.map((s) => s.category),
@@ -37,7 +37,7 @@ const chartOptions = {
     <div class="position-relative flex-shrink-0" style="width: 128px; height: 128px">
       <Doughnut :data="chartData" :options="chartOptions" />
       <div class="position-absolute d-flex flex-column align-center justify-center" style="inset: 0; pointer-events: none">
-        <span class="text-h6 font-weight-bold" style="line-height: 1">{{ total }}</span>
+        <span class="text-h6 font-weight-bold font-display" style="line-height: 1">{{ total }}</span>
         <span class="text-caption text-medium-emphasis mt-1">{{ totalLabel }}</span>
       </div>
     </div>

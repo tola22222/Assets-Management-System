@@ -2,37 +2,43 @@ import 'vuetify/styles'
 import '@mdi/font/css/materialdesignicons.css'
 import { createVuetify } from 'vuetify'
 
-// Full PEPY brand palette, ported from the retired Tailwind design system
-// (assets/main.css's @theme block) so the app keeps its identity once Tailwind
-// utility classes are gone. Primary is overwritten at runtime by
-// useThemeColor.js's applyThemeColor() when the user picks a custom brand
-// color in Settings — these are just the shipped defaults (brand-700/-800/-500
-// etc.), matching the exact hex the old CSS tokens used.
+// PEPY brand palette v2 ("forest & gold" style guide). Primary is overwritten
+// at runtime by useThemeColor.js's applyThemeColor() when the user picks a
+// custom brand color in Settings — these are just the shipped defaults.
 const brand = {
-  300: '#7fa992',
-  500: '#35634c',
-  600: '#274c3a',
-  700: '#1f3d2e',
-  800: '#16281e',
+  forest: '#1F4B43',
+  forestDeep: '#163832',
+  forestMid: '#2E6358',
+  gold: '#C79A46',
+  goldDark: '#AE8C43',
+  terracotta: '#B5573D',
+  terracottaSoft: '#C27F68',
 }
-const accent = { DEFAULT: '#c9a24b', dark: '#a9822f' }
 
 const pepyLight = {
   dark: false,
   colors: {
-    primary: brand[700],
-    'primary-darken-1': brand[800],
-    'primary-lighten-1': brand[500],
-    secondary: accent.DEFAULT,
-    'secondary-darken-1': accent.dark,
-    error: '#dc2626',
-    success: '#059669',
-    warning: '#d97706',
+    primary: brand.forest,
+    'primary-darken-1': brand.forestDeep,
+    'primary-lighten-1': brand.forestMid,
+    secondary: brand.gold,
+    'secondary-darken-1': brand.goldDark,
+    error: brand.terracotta,
+    success: '#2E6358',
+    warning: '#C27F68',
     info: '#2563eb',
-    background: '#f5f2ea',
-    surface: '#fdfcf9',
-    'surface-variant': '#f6f3ec',
-    'on-surface-variant': '#6b6656',
+    background: '#F6F1E6',
+    surface: '#FBF8F1',
+    'surface-variant': '#F3EEE1',
+    'on-surface-variant': '#616A62',
+    'terracotta-soft': brand.terracottaSoft,
+    tan: '#C9BB98',
+    'tan-dark': '#9B8A62',
+    ink: '#1C231F',
+    'ink-2': '#303632',
+    muted: '#616A62',
+    'gold-tint': '#F3E0C9',
+    'mint-tint': '#CFE6DB',
   },
   // Vuetify's built-in 'light'/'dark' themes ship a full variables block
   // (border-opacity, *-emphasis-opacity, hover/focus/selected/etc. opacity) —
@@ -42,7 +48,7 @@ const pepyLight = {
   // resolve to an invalid color and vanish. Values below match Vuetify's
   // built-in 'light' theme, only 'border-color' is customized.
   variables: {
-    'border-color': '#e5e0d1',
+    'border-color': '#DDD5C3',
     'border-opacity': 0.12,
     'high-emphasis-opacity': 0.87,
     'medium-emphasis-opacity': 0.60,
@@ -66,12 +72,12 @@ const pepyLight = {
 const pepyDark = {
   dark: true,
   colors: {
-    primary: brand[500],
-    'primary-darken-1': brand[600],
-    'primary-lighten-1': brand[300],
-    secondary: accent.DEFAULT,
-    'secondary-darken-1': accent.dark,
-    error: '#ef4444',
+    primary: brand.forestMid,
+    'primary-darken-1': brand.forest,
+    'primary-lighten-1': '#7fa992',
+    secondary: brand.gold,
+    'secondary-darken-1': brand.goldDark,
+    error: brand.terracottaSoft,
     success: '#10b981',
     warning: '#f59e0b',
     info: '#3b82f6',
@@ -79,6 +85,11 @@ const pepyDark = {
     surface: '#16201a',
     'surface-variant': '#1c2a22',
     'on-surface-variant': '#9db0a4',
+    'terracotta-soft': brand.terracottaSoft,
+    tan: '#8a7a5c',
+    'tan-dark': '#6b5d45',
+    'gold-tint': '#4a3f26',
+    'mint-tint': '#1f3a30',
   },
   // See pepyLight above — values here match Vuetify's built-in 'dark' theme,
   // only 'border-color' is customized.
@@ -114,11 +125,11 @@ const vuetify = createVuetify({
   },
   defaults: {
     VBtn: { rounded: 'lg' },
-    VTextField: { variant: 'outlined', density: 'comfortable' },
-    VSelect: { variant: 'outlined', density: 'comfortable' },
-    VTextarea: { variant: 'outlined', density: 'comfortable' },
+    VTextField: { variant: 'outlined', density: 'comfortable', bgColor: 'background' },
+    VSelect: { variant: 'outlined', density: 'comfortable', bgColor: 'background' },
+    VTextarea: { variant: 'outlined', density: 'comfortable', bgColor: 'background' },
     VCard: { rounded: 'lg' },
-    VChip: { rounded: 'lg' },
+    VChip: { rounded: 'pill' },
   },
 })
 

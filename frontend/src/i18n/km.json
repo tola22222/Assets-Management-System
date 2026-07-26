@@ -10,7 +10,15 @@
     "password": "ពាក្យសម្ងាត់",
     "submit": "ចូលប្រើប្រាស់",
     "signing_in": "កំពុងចូល…",
-    "error": "អត្តសញ្ញាណដែលបានផ្តល់ មិនត្រូវគ្នាទេ។"
+    "error": "អត្តសញ្ញាណដែលបានផ្តល់ មិនត្រូវគ្នាទេ។",
+    "email_required": "Email is required.",
+    "email_invalid": "Enter a valid email address.",
+    "password_required": "Password is required.",
+    "remember_me": "Remember me",
+    "forgot_password": "Forgot password?",
+    "forgot_password_notice": "Contact your system administrator to reset your password.",
+    "brand_headline": "Every asset, accounted for.",
+    "brand_tagline": "Track, assign, transfer and verify fixed assets across the office and every learning center — all in one place."
   },
   "dashboard": {
     "greeting_morning": "អរុណសួស្តី",
@@ -28,6 +36,14 @@
     "by_category_subtitle": "ការបែងចែកអ្វីដែល PEPY មាន",
     "by_location": "ទ្រព្យសម្បត្តិតាមទីតាំង",
     "by_location_subtitle": "ការិយាល័យ និងមជ្ឈមណ្ឌលសិក្សាមានចំណែកធំបំផុត; សាលានីមួយៗមានសំណុំការងាររៀងៗខ្លួន",
+    "by_condition": "Assets by condition",
+    "by_condition_subtitle": "Physical condition of everything on the register",
+    "recent_activity": "Recent activity",
+    "recent_activity_subtitle": "Latest actions across the system",
+    "no_activity": "No activity recorded yet.",
+    "recent_assets": "Recent assets",
+    "recent_assets_subtitle": "Newest additions to the register",
+    "just_now": "just now",
     "registered_over_time": "ទ្រព្យសម្បត្តិដែលបានចុះឈ្មោះតាមពេលវេលា",
     "registered_over_time_subtitle": "ទ្រព្យសម្បត្តិថ្មីដែលបានបន្ថែមទៅក្នុងបញ្ជី តាមរយៈពេល",
     "period_day": "ថ្ងៃ",
@@ -74,9 +90,24 @@
     "user_management": "ការគ្រប់គ្រងអ្នកប្រើប្រាស់",
     "system_settings": "ការកំណត់ប្រព័ន្ធ",
     "activity_logs": "កំណត់ហេតុសកម្មភាព",
+    "system": "System",
+    "stock_motion": "Stock Motion",
+    "maintenance": "Maintenance",
+    "analytics": "Analytics",
     "logout": "ចាកចេញ",
     "show_sidebar": "បង្ហាញរបារចំហៀង",
     "hide_sidebar": "លាក់របារចំហៀង"
+  },
+  "header": {
+    "profile": "My Profile",
+    "settings": "Settings",
+    "logout": "ចាកចេញ",
+    "search_placeholder": "Search assets, locations, staff…",
+    "language": "Language",
+    "toggle_theme": "Toggle theme"
+  },
+  "notifications": {
+    "title": "Notifications"
   },
   "common": {
     "all": "ទាំងអស់",
@@ -90,6 +121,9 @@
     "create": "បង្កើត",
     "approve": "អនុម័ត",
     "reject": "បដិសេធ",
+    "rejection_reason": "Rejection reason (optional)",
+    "confirm_approve_title": "Approve request?",
+    "confirm_approve_message": "This will approve the request and apply its changes.",
     "view": "មើល",
     "download": "ទាញយក",
     "restore": "ស្តារឡើងវិញ",

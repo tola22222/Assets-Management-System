@@ -21,10 +21,12 @@ function toggleSidebar() {
 
 <template>
   <AppNavigationDrawer
-    :model-value="mdAndUp ? !collapsed : mobileOpen"
+    :model-value="mdAndUp ? true : mobileOpen"
     :permanent="mdAndUp"
     :temporary="!mdAndUp"
+    :rail="mdAndUp && collapsed"
     @update:model-value="(v) => { if (!mdAndUp) mobileOpen = v }"
+    @toggle-rail="toggleSidebar"
   />
 
   <AppHeader :collapsed="collapsed" @toggle-sidebar="toggleSidebar" />

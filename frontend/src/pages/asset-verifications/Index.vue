@@ -123,7 +123,7 @@ onMounted(() => {
           <v-btn v-if="hasActiveFilters" variant="text" size="small" @click="clearFilters">{{ t('common.clear_filters') }}</v-btn>
         </template>
 
-        <template #item.asset="{ item }"><span class="font-medium">{{ item.asset?.name || t('common.n_a') }}</span></template>
+        <template #item.asset="{ item }"><span class="font-weight-medium">{{ item.asset?.name || t('common.n_a') }}</span></template>
         <template #item.location="{ item }">{{ item.location?.name || t('common.n_a') }}</template>
         <template #item.condition="{ item }"><span class="text-capitalize">{{ item.condition }}</span></template>
         <template #item.verified_by="{ item }">{{ item.verified_by?.name || t('common.n_a') }}</template>

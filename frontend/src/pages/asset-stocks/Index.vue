@@ -115,7 +115,7 @@ onMounted(() => {
         @delete="handleDelete"
       >
         <template #item.code="{ item }"><span class="font-mono text-caption">{{ item.asset?.asset_code || t('common.n_a') }}</span></template>
-        <template #item.asset="{ item }"><span class="font-medium">{{ item.asset?.name || t('common.n_a') }}</span></template>
+        <template #item.asset="{ item }"><span class="font-weight-medium">{{ item.asset?.name || t('common.n_a') }}</span></template>
         <template #item.location="{ item }">{{ item.to_location?.name || t('common.n_a') }}</template>
         <template #item.reference_no="{ item }"><span class="font-mono text-caption">{{ item.reference_no }}</span></template>
         <template #item.created_at="{ item }">{{ formatDate(item.created_at) }}</template>

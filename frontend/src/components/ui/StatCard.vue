@@ -9,7 +9,7 @@ defineProps({
 <template>
   <v-card rounded="lg" variant="flat" border class="pa-5">
     <div class="d-flex align-start justify-space-between ga-2">
-      <span class="text-h4 font-weight-bold" style="line-height: 1">{{ value }}</span>
+      <span class="text-h4 font-weight-bold font-display" style="line-height: 1">{{ value }}</span>
       <v-chip v-if="badge" size="small" color="secondary" variant="tonal" class="flex-shrink-0 text-no-wrap">
         {{ badge }}
       </v-chip>

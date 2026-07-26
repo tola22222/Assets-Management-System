@@ -6,13 +6,16 @@ import AppPageHeader from '../../components/common/AppPageHeader.vue'
 import Modal from '../../components/ui/Modal.vue'
 import StatusBadge from '../../components/ui/StatusBadge.vue'
 import AppDataTable from '../../components/common/AppDataTable.vue'
+import RejectReasonDialog from '../../components/dialogs/RejectReasonDialog.vue'
 import { useServerTable } from '../../composables/useServerTable'
+import { useConfirm } from '../../composables/useConfirm'
 import { useToastStore } from '../../stores/toast'
 import { useAuthStore } from '../../stores/auth'
 
 const { t } = useI18n()
 const toast = useToastStore()
 const auth = useAuthStore()
+const { confirm } = useConfirm()
 
 const {
   items: returnsList, loading, page, perPage, total, sortByVuetify,
@@ -59,15 +62,35 @@ async function handleSubmit() {
 }
 
 async function approve(id) {
+  const ok = await confirm({
+    title: t('common.confirm_approve_title'),
+    message: t('common.confirm_approve_message'),
+    confirmText: t('common.approve'),
+  })
+  if (!ok) return
+
   await http.post(`/asset-returns/${id}/approve`)
   toast.success(t('asset_returns.approved'))
   await fetchPage()
 }
 
-async function reject(id) {
-  await http.post(`/asset-returns/${id}/reject`)
-  toast.success(t('asset_returns.rejected'))
-  await fetchPage()
+const rejectingId = ref(null)
+const rejecting = ref(false)
+
+function openReject(id) {
+  rejectingId.value = id
+}
+
+async function confirmReject(reason) {
+  rejecting.value = true
+  try {
+    await http.post(`/asset-returns/${rejectingId.value}/reject`, { admin_notes: reason })
+    toast.success(t('asset_returns.rejected'))
+    rejectingId.value = null
+    await fetchPage()
+  } finally {
+    rejecting.value = false
+  }
 }
 
 onMounted(() => {
@@ -141,11 +164,18 @@ onMounted(() => {
         <template #item.actions="{ item }">
           <div v-if="item.status === 'pending' && auth.isOperationsHrManager" class="d-flex align-center justify-end ga-1">
             <v-btn icon="mdi-check" size="small" variant="text" color="success" :title="t('common.approve')" @click="approve(item.id)" />
-            <v-btn icon="mdi-close" size="small" variant="text" color="error" :title="t('common.reject')" @click="reject(item.id)" />
+            <v-btn icon="mdi-close" size="small" variant="text" color="error" :title="t('common.reject')" @click="openReject(item.id)" />
           </div>
         </template>
       </AppDataTable>
   </v-container>
+
+  <RejectReasonDialog
+    :model-value="rejectingId !== null"
+    :loading="rejecting"
+    @update:model-value="(v) => !v && (rejectingId = null)"
+    @confirm="confirmReject"
+  />
 
   <Modal v-if="showModal" :title="t('asset_returns.modal_title')" @close="showModal = false">
     <v-form @submit.prevent="handleSubmit">

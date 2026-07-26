@@ -34,6 +34,7 @@ const routes = [
     children: [
       { path: '', name: 'dashboard', component: Dashboard },
       { path: 'assets', name: 'assets', component: AssetsIndex },
+      { path: 'assets/add', name: 'assets-add', redirect: { name: 'assets', query: { add: '1' } } },
       { path: 'assets/import', name: 'assets-import', component: AssetsImport },
       { path: 'categories', name: 'categories', component: CategoriesIndex },
       { path: 'locations', name: 'locations', component: LocationsIndex },

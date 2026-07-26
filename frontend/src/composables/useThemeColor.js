@@ -1,15 +1,14 @@
 import { ref } from 'vue'
 import vuetify from '../plugins/vuetify'
 
-// Drives two things from one picked hex: the legacy --color-brand-* CSS custom
-// properties (read by any not-yet-migrated Tailwind utility still in the DOM)
-// and Vuetify's live theme `primary` color (read by every v-* component,
-// mutated directly on the vuetify instance — no re-render/rebuild needed).
-// This is what makes the Settings "Theme Color" picker work app-wide.
-const themeColor = ref(localStorage.getItem('themeColor') || '#1f3d2e')
+// Converts one picked hex into Vuetify's live theme `primary` color (read by
+// every v-* component), mutated directly on the vuetify instance — no
+// re-render/rebuild needed. This is what makes the Settings "Theme Color"
+// picker work app-wide.
+const themeColor = ref(localStorage.getItem('themeColor') || '#1F4B43')
 
-// Roughly matches the lightness curve of the shipped brand-50..900 scale.
-const SHADE_LIGHTNESS = { 50: 95, 100: 88, 200: 76, 300: 60, 400: 45, 500: 34, 600: 26, 700: 20, 800: 14, 900: 9 }
+// Lightness stops used to derive Vuetify's primary/darken-1/lighten-1 shades.
+const SHADE_LIGHTNESS = { 300: 60, 500: 34, 600: 26, 700: 20, 800: 14 }
 
 function hexToHsl(hex) {
   const r = parseInt(hex.slice(1, 3), 16) / 255
@@ -52,13 +51,6 @@ function applyThemeColor(hex) {
   }
 
   const [h, s] = hexToHsl(hex)
-  const root = document.documentElement
-  Object.entries(SHADE_LIGHTNESS).forEach(([shade, l]) => {
-    root.style.setProperty(`--color-brand-${shade}`, hslToHex(h, s, l))
-  })
-  root.style.setProperty('--color-brand', hslToHex(h, s, 20))
-  root.style.setProperty('--color-brand-dark', hslToHex(h, s, 14))
-  root.style.setProperty('--color-brand-light', hslToHex(h, s, 26))
 
   // Same hue/saturation curve, applied to Vuetify's live theme colors —
   // lightness stops chosen to match the brand-700/800/500/600/300 shades

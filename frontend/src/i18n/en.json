@@ -10,7 +10,15 @@
     "password": "Password",
     "submit": "Sign in",
     "signing_in": "Signing in…",
-    "error": "The provided credentials do not match our records."
+    "error": "The provided credentials do not match our records.",
+    "email_required": "Email is required.",
+    "email_invalid": "Enter a valid email address.",
+    "password_required": "Password is required.",
+    "remember_me": "Remember me",
+    "forgot_password": "Forgot password?",
+    "forgot_password_notice": "Contact your system administrator to reset your password.",
+    "brand_headline": "Every asset, accounted for.",
+    "brand_tagline": "Track, assign, transfer and verify fixed assets across the office and every learning center — all in one place."
   },
   "dashboard": {
     "greeting_morning": "Good morning",
@@ -28,6 +36,14 @@
     "by_category_subtitle": "Breakdown of what PEPY owns",
     "by_location": "Assets by location",
     "by_location_subtitle": "Office & Learning Center holds the largest share; each school carries its own working set",
+    "by_condition": "Assets by condition",
+    "by_condition_subtitle": "Physical condition of everything on the register",
+    "recent_activity": "Recent activity",
+    "recent_activity_subtitle": "Latest actions across the system",
+    "no_activity": "No activity recorded yet.",
+    "recent_assets": "Recent assets",
+    "recent_assets_subtitle": "Newest additions to the register",
+    "just_now": "just now",
     "registered_over_time": "Assets registered over time",
     "registered_over_time_subtitle": "New assets added to the register, by period",
     "period_day": "Day",
@@ -74,9 +90,24 @@
     "user_management": "User Management",
     "system_settings": "System Settings",
     "activity_logs": "Activity Logs",
+    "system": "System",
+    "stock_motion": "Stock Motion",
+    "maintenance": "Maintenance",
+    "analytics": "Analytics",
     "logout": "Log out",
     "show_sidebar": "Show sidebar",
     "hide_sidebar": "Hide sidebar"
+  },
+  "header": {
+    "profile": "My Profile",
+    "settings": "Settings",
+    "logout": "Log out",
+    "search_placeholder": "Search assets, locations, staff…",
+    "language": "Language",
+    "toggle_theme": "Toggle theme"
+  },
+  "notifications": {
+    "title": "Notifications"
   },
   "common": {
     "all": "All",
@@ -90,6 +121,9 @@
     "create": "Create",
     "approve": "Approve",
     "reject": "Reject",
+    "rejection_reason": "Rejection reason (optional)",
+    "confirm_approve_title": "Approve request?",
+    "confirm_approve_message": "This will approve the request and apply its changes.",
     "view": "View",
     "download": "Download",
     "restore": "Restore",
