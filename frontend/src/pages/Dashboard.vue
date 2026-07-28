@@ -12,6 +12,7 @@ import LocationPillCards from '../components/ui/LocationPillCards.vue'
 
 const { t } = useI18n()
 const auth = useAuthStore()
+const isStaff = computed(() => auth.user?.role === 'staff')
 const stats = ref(null)
 const loading = ref(true)
 const error = ref('')
@@ -55,7 +56,7 @@ onMounted(async () => {
   }
 
   // Trend data is an admin-only concept (mirrors the admin vs. staff dashboard split).
-  if (stats.value?.assets_by_category !== undefined) {
+  if (!isStaff.value) {
     loadTrend()
   }
 })
@@ -79,6 +80,40 @@ onMounted(async () => {
         <div v-for="i in 4" :key="i" class="card p-5 h-24 animate-pulse"></div>
       </div>
       <div v-else-if="error" class="card p-4 text-red-600 dark:text-red-400 text-sm">{{ error }}</div>
+
+      <template v-else-if="stats && isStaff">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <StatCard :value="stats.pending_returns" :label="t('dashboard.pending_returns')" />
+          <StatCard :value="stats.upcoming_verifications" :label="t('dashboard.upcoming_verifications')" />
+        </div>
+
+        <div class="card p-6">
+          <h2 class="font-display text-lg font-bold text-fg">{{ t('dashboard.my_assignments') }}</h2>
+          <p class="text-sm text-faint mb-6">{{ t('dashboard.my_assignments_subtitle') }}</p>
+          <div v-if="stats.my_assignments.length" class="rounded-2xl border border-line divide-y divide-line">
+            <div v-for="a in stats.my_assignments" :key="a.id" class="p-4 flex items-center justify-between gap-4">
+              <div>
+                <p class="text-sm font-medium text-fg">{{ a.asset?.name }}</p>
+                <p class="text-xs text-faint mt-0.5">{{ a.asset?.asset_code }}</p>
+              </div>
+              <span class="text-xs text-muted capitalize">{{ a.status }}</span>
+            </div>
+          </div>
+          <p v-else class="text-sm text-faint">{{ t('dashboard.no_assignments') }}</p>
+        </div>
+
+        <div class="card p-6">
+          <h2 class="font-display text-lg font-bold text-fg">{{ t('dashboard.recent_scans') }}</h2>
+          <p class="text-sm text-faint mb-6">{{ t('dashboard.recent_scans_subtitle') }}</p>
+          <div v-if="stats.recent_scans.length" class="rounded-2xl border border-line divide-y divide-line">
+            <div v-for="n in stats.recent_scans" :key="n.id" class="p-4">
+              <p class="text-sm text-fg">{{ n.message }}</p>
+              <p class="text-xs text-faint mt-0.5">{{ new Date(n.created_at).toLocaleString() }}</p>
+            </div>
+          </div>
+          <p v-else class="text-sm text-faint">{{ t('dashboard.no_scans') }}</p>
+        </div>
+      </template>
 
       <template v-else-if="stats">
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -117,7 +152,7 @@ onMounted(async () => {
           <LocationPillCards :locations="stats.assets_by_location" />
         </div>
 
-        <div v-if="stats.assets_by_category !== undefined" class="card p-6">
+        <div class="card p-6">
           <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-2">
             <div>
               <h2 class="font-display text-lg font-bold text-fg">{{ t('dashboard.registered_over_time') }}</h2>

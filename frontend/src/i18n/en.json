@@ -39,7 +39,15 @@
     "no_assets": "No assets registered yet.",
     "load_error": "Could not load dashboard data.",
     "no_attention": "Nothing needs attention right now. 🎉",
-    "no_stock": "No stock recorded at any location yet."
+    "no_stock": "No stock recorded at any location yet.",
+    "pending_returns": "Pending returns",
+    "upcoming_verifications": "Upcoming verifications",
+    "my_assignments": "My assigned assets",
+    "my_assignments_subtitle": "Assets currently checked out to you",
+    "no_assignments": "You have no assigned assets.",
+    "recent_scans": "Recent QR scans",
+    "recent_scans_subtitle": "Latest asset condition reports from your scans",
+    "no_scans": "No recent scans."
   },
   "nav": {
     "overview": "Overview",
