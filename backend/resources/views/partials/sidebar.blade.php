@@ -1,5 +1,11 @@
 @php
     $user = Auth::user();
+    // Only staff get the restricted flat nav below — finance_manager and executive_director
+    // are manager-tier roles with the same backend access as operations_hr_manager to
+    // everything except Users/Settings/Activity Logs (see role: middleware in routes/web.php),
+    // so they get the full Asset Management group too. $isAdmin stays operations_hr_manager-only
+    // and is used solely for that bottom Setting group, matching the route middleware exactly.
+    $isStaff = $user && $user->isStaff();
     $isAdmin = $user && $user->isOperationsHrManager();
     $groups = [
         'inventory' => ['assets.*', 'asset-assignments.*', 'asset-verifications.*', 'asset-transfers.*', 'asset-returns.*', 'asset-disposals.*'],
@@ -46,7 +52,7 @@
                 {{ __('messages.qr_scanner') }}
             </a>
 
-            @if($isAdmin)
+            @if(!$isStaff)
             <div>
                 <button @click="openGroup = openGroup === 'inventory' ? '' : 'inventory'"
                     class="flex items-center justify-between w-full px-4 py-3.5 rounded-xl font-medium transition {{ $openGroup === 'inventory' ? $dropdownActiveClass : $inactiveClass }}">

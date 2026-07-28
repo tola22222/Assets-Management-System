@@ -30,7 +30,14 @@ async function handleLogout() {
   router.push({ name: 'login' })
 }
 
-const isAdmin = computed(() => auth.user?.role === 'operations_hr_manager')
+// Only `staff` gets the restricted flat nav — finance_manager and executive_director
+// are manager-tier roles with full backend access to the same routes as
+// operations_hr_manager (see role: middleware in routes/web.php), so they get the
+// full grouped nav too. Only Users/Settings/Activity Logs stay operations_hr_manager-only,
+// matching the `adminOnly` route guard and the role: middleware on those routes exactly.
+const isStaff = computed(() => auth.user?.role === 'staff')
+const isManager = computed(() => !isStaff.value)
+const isOperationsHrManager = computed(() => auth.user?.role === 'operations_hr_manager')
 
 const I = {
   home: 'M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75',
@@ -103,9 +110,10 @@ const settingGroup = computed(() => ({
   ],
 }))
 
-// Groups rendered in the scrollable area (order matches the old sidebar)
+// Groups rendered in the scrollable area (order matches the old sidebar).
+// Staff get none of these — just the flat "My Assets" section below.
 const mainGroups = computed(() =>
-  isAdmin.value ? [inventoryGroup.value, peopleGroup.value, systemSetupGroup.value] : [peopleGroup.value, systemSetupGroup.value]
+  isManager.value ? [inventoryGroup.value, peopleGroup.value, systemSetupGroup.value] : []
 )
 
 function isActive(to) {
@@ -203,8 +211,8 @@ function initials(name) {
               <span class="truncate">{{ item.label }}</span>
             </RouterLink>
 
-            <!-- Non-admin flat My Assets -->
-            <div v-if="!isAdmin" class="pt-2">
+            <!-- Staff-only flat My Assets -->
+            <div v-if="isStaff" class="pt-2">
               <p class="nav-section-label">{{ t('nav.my_assets') }}</p>
               <RouterLink
                 v-for="item in myAssets"
@@ -252,9 +260,9 @@ function initials(name) {
             </RouterLink>
           </nav>
 
-          <!-- Pinned bottom: Setting group (admin) + logout -->
+          <!-- Pinned bottom: Setting group (operations_hr_manager only) + logout -->
           <div class="px-3 py-3 border-t border-white/10 space-y-0.5">
-            <div v-if="isAdmin">
+            <div v-if="isOperationsHrManager">
               <button
                 class="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm text-white/70 border-l-[3px] border-solid border-transparent hover:bg-white/10 hover:text-white active:bg-white/20 active:scale-[0.98] transition-[background-color,color,transform,border-color] duration-150"
                 :class="openGroup === settingGroup.key ? 'bg-black/20 text-white' : ''"
