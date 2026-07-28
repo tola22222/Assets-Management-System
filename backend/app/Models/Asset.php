@@ -73,11 +73,6 @@ class Asset extends Model
         return $this->belongsTo(Location::class);
     }
 
-    public function stocks()
-    {
-        return $this->hasMany(AssetStock::class);
-    }
-
     public function assignments()
     {
         return $this->hasMany(AssetAssignment::class);

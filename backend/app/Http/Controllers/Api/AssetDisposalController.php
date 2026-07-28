@@ -68,17 +68,18 @@ class AssetDisposalController extends Controller
             'description' => 'Requested '.$validated['recommended_action'].' for asset '.($disposal->asset->name ?? ''),
         ]);
 
-        (new AssetNotificationService)->send('DISPOSAL_REQUEST', [
+        AssetNotificationService::send(AssetNotificationService::DISPOSAL_REQUEST, [
             'assetId' => $disposal->asset->asset_code ?? null,
-            'assetDbId' => $disposal->asset_id,
             'description' => $disposal->asset->name ?? null,
             'category' => $disposal->asset->category->name ?? null,
             'location' => $disposal->asset->location->name ?? null,
-            'note' => $validated['reason'],
-            'url' => route('asset.public.show', $disposal->asset->asset_code ?? ''),
+            'note' => $disposal->reason,
+            'recipients' => ['executive_director'],
+            'ccRecipients' => ['finance_manager'],
             'extraData' => [
                 'recommendedAction' => $disposal->recommended_action,
                 'requestedBy' => Auth::user()->name,
+                'link' => route('asset.public.show', $disposal->asset->asset_code ?? ''),
             ],
         ]);
 
@@ -87,7 +88,7 @@ class AssetDisposalController extends Controller
 
     public function approve(AssetDisposal $asset_disposal)
     {
-        abort_unless(Auth::user()->canApproveDisposal(), 403, 'Only the Executive Director can approve disposal requests.');
+        abort_unless(Auth::user()->canApproveDisposal(), 403, 'Only the Operations & HR Manager or Executive Director can approve disposal requests.');
 
         $asset_disposal->update([
             'status' => 'approved',
@@ -117,10 +118,10 @@ class AssetDisposalController extends Controller
 
     public function reject(Request $request, AssetDisposal $asset_disposal)
     {
-        abort_unless(Auth::user()->canApproveDisposal(), 403, 'Only the Executive Director can reject disposal requests.');
+        abort_unless(Auth::user()->canApproveDisposal(), 403, 'Only the Operations & HR Manager or Executive Director can reject disposal requests.');
 
         $validated = $request->validate([
-            'review_notes' => 'nullable|string',
+            'review_notes' => 'required|string',
         ]);
 
         $asset_disposal->update([

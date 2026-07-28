@@ -119,7 +119,15 @@
     "no_assets": "No assets registered yet.",
     "load_error": "Could not load dashboard data.",
     "no_attention": "Nothing needs attention right now. 🎉",
-    "no_stock": "No stock recorded at any location yet."
+    "no_stock": "No stock recorded at any location yet.",
+    "pending_returns": "Pending returns",
+    "upcoming_verifications": "Upcoming verifications",
+    "my_assignments": "My assigned assets",
+    "my_assignments_subtitle": "Assets currently checked out to you",
+    "no_assignments": "You have no assigned assets.",
+    "recent_scans": "Recent QR scans",
+    "recent_scans_subtitle": "Latest asset condition reports from your scans",
+    "no_scans": "No recent scans."
   },
   "nav": {
     "overview": "Overview",
@@ -137,8 +145,6 @@
     "transfer_requests": "Transfer Requests",
     "verification": "Verification",
     "asset_management": "Asset Management",
-    "workflows": "Workflows",
-    "receive_assets": "Receive Assets",
     "stock_movements": "Stock Movements",
     "assignments": "Assignments",
     "transfers": "Transfers",
@@ -518,20 +524,6 @@
     "deleted": "Backup deleted.",
     "delete_failed": "Delete failed."
   },
-  "asset_stocks": {
-    "title": "Receive Assets",
-    "subtitle": "Every unit received gets its own Asset ID, tag, and QR code",
-    "new": "Receive Assets",
-    "empty": "No assets received yet.",
-    "hint": "Each unit received gets its own Asset ID, tag, and QR code — quantity creates that many individual asset records, not a shared counter.",
-    "location_required": "Location *",
-    "quantity_required": "Quantity *",
-    "reference": "Receipt #",
-    "received_at": "Received",
-    "save": "Receive",
-    "entity": "Receipt",
-    "delete_failed": "Could not delete this receipt."
-  },
   "asset_movements": {
     "title": "Stock Movements",
     "subtitle": "Full movement ledger — every receipt and approved transfer, in one place",
@@ -678,6 +670,11 @@
     "reason_placeholder": "Describe the condition and why this action is recommended",
     "photo_reference": "Photo Reference",
     "submit_button": "Submit Request",
-    "entity": "Disposal request"
+    "entity": "Disposal request",
+    "reject_modal_title": "Reject Disposal Request",
+    "review_notes_required": "Reason for rejection *",
+    "review_notes_placeholder": "Explain why this request is being rejected",
+    "reject_button": "Reject Request",
+    "reject_failed": "Could not reject disposal request."
   }
 }

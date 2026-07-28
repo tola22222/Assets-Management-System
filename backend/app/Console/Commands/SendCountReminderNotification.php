@@ -27,7 +27,7 @@ class SendCountReminderNotification extends Command
 
     protected $description = 'Email a count reminder ~2 weeks before, and on, each Feb/Aug asset count date';
 
-    public function handle(AssetNotificationService $notifications): int
+    public function handle(): int
     {
         $today = Carbon::today();
         $lastSentFor = Setting::where('key', 'last_count_reminder_sent_for')->value('value');
@@ -40,10 +40,13 @@ class SendCountReminderNotification extends Command
                     continue;
                 }
 
-                $notifications->send('COUNT_REMINDER', [
-                    'note' => 'Locations to cover: '.Location::orderBy('name')->pluck('name')->implode(', '),
-                    'url' => route('reports.inventory'),
-                    'extraData' => ['date' => $countDate->toFormattedDateString()],
+                AssetNotificationService::send(AssetNotificationService::COUNT_REMINDER, [
+                    'recipients' => ['operations_hr_manager', 'finance_manager'],
+                    'extraData' => [
+                        'date' => $countDate->toFormattedDateString(),
+                        'locations' => Location::orderBy('name')->pluck('name')->all(),
+                        'link' => route('reports.inventory'),
+                    ],
                 ]);
 
                 Setting::updateOrCreate(['key' => 'last_count_reminder_sent_for'], ['value' => $marker]);

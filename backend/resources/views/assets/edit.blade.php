@@ -51,10 +51,18 @@
                 </div>
                 <div>
                     <label class="block text-sm font-bold text-slate-700 mb-1">Status *</label>
-                    <select name="status" required class="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-brand focus:border-brand outline-none">
+                    {{-- "Disposed" can only be reached via an approved disposal request, never picked here.
+                         If the asset is already disposed (e.g. from historical import), that's shown but
+                         locked — editing other fields on it is still allowed. --}}
+                    <select name="status" required {{ $asset->status == 'disposed' ? 'disabled' : '' }} class="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-brand focus:border-brand outline-none disabled:bg-gray-100 disabled:text-gray-500">
                         <option value="active" {{ $asset->status == 'active' ? 'selected' : '' }}>Active</option>
-                        <option value="disposed" {{ $asset->status == 'disposed' ? 'selected' : '' }}>Disposed</option>
+                        @if ($asset->status == 'disposed')
+                            <option value="disposed" selected>Disposed</option>
+                        @endif
                     </select>
+                    @if ($asset->status == 'disposed')
+                        <input type="hidden" name="status" value="disposed">
+                    @endif
                 </div>
                 <div>
                     <label class="block text-sm font-bold text-slate-700 mb-1">Purchase Date</label>

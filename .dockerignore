@@ -1,12 +1,12 @@
 .git
-node_modules
 frontend/node_modules
 frontend/dist
-vendor
+backend/vendor
+backend/node_modules
 backend/storage/logs/*
 backend/storage/framework/cache/*
 backend/storage/framework/sessions/*
 backend/storage/framework/views/*
-.env
-.env.backup
-.env.production
+backend/.env
+backend/.env.backup
+backend/.env.production

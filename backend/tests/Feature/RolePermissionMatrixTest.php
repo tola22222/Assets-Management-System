@@ -79,15 +79,15 @@ class RolePermissionMatrixTest extends TestCase
         $this->assertDatabaseHas('assets', ['id' => $asset->id]);
     }
 
-    public function test_opm_can_delete_an_asset(): void
+    public function test_not_even_opm_can_delete_an_asset_directly(): void
     {
         $opm = User::factory()->create(['role' => 'operations_hr_manager']);
         $asset = $this->makeAsset();
 
         $response = $this->actingAs($opm)->deleteJson("/api/assets/{$asset->id}");
 
-        $response->assertStatus(200);
-        $this->assertDatabaseMissing('assets', ['id' => $asset->id]);
+        $response->assertStatus(403);
+        $this->assertDatabaseHas('assets', ['id' => $asset->id]);
     }
 
     public function test_all_roles_can_view_the_asset_register(): void
@@ -136,10 +136,10 @@ class RolePermissionMatrixTest extends TestCase
         ]);
 
         $staff = User::factory()->create(['role' => 'staff']);
-        $this->actingAs($staff)->deleteJson("/api/asset-stocks/{$movement->id}")->assertStatus(403);
+        $this->actingAs($staff)->deleteJson("/api/asset-movements/{$movement->id}")->assertStatus(403);
         $this->assertDatabaseHas('asset_movements', ['id' => $movement->id]);
 
-        $this->actingAs($opm)->deleteJson("/api/asset-stocks/{$movement->id}")->assertStatus(200);
+        $this->actingAs($opm)->deleteJson("/api/asset-movements/{$movement->id}")->assertStatus(200);
         $this->assertDatabaseMissing('asset_movements', ['id' => $movement->id]);
     }
 

@@ -11,6 +11,7 @@ import LocationPillCards from '../components/ui/LocationPillCards.vue'
 
 const { t } = useI18n()
 const auth = useAuthStore()
+const isStaff = computed(() => auth.user?.role === 'staff')
 const stats = ref(null)
 const loading = ref(true)
 const error = ref('')
@@ -67,7 +68,7 @@ onMounted(async () => {
   }
 
   // Trend data is an admin-only concept (mirrors the admin vs. staff dashboard split).
-  if (stats.value?.assets_by_category !== undefined) {
+  if (!isStaff.value) {
     loadTrend()
   }
 })
@@ -91,6 +92,40 @@ onMounted(async () => {
         </v-col>
       </v-row>
       <v-alert v-else-if="error" type="error" variant="tonal" density="compact">{{ error }}</v-alert>
+
+      <template v-else-if="stats && isStaff">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <StatCard :value="stats.pending_returns" :label="t('dashboard.pending_returns')" />
+          <StatCard :value="stats.upcoming_verifications" :label="t('dashboard.upcoming_verifications')" />
+        </div>
+
+        <div class="card p-6">
+          <h2 class="font-display text-lg font-bold text-fg">{{ t('dashboard.my_assignments') }}</h2>
+          <p class="text-sm text-faint mb-6">{{ t('dashboard.my_assignments_subtitle') }}</p>
+          <div v-if="stats.my_assignments.length" class="rounded-2xl border border-line divide-y divide-line">
+            <div v-for="a in stats.my_assignments" :key="a.id" class="p-4 flex items-center justify-between gap-4">
+              <div>
+                <p class="text-sm font-medium text-fg">{{ a.asset?.name }}</p>
+                <p class="text-xs text-faint mt-0.5">{{ a.asset?.asset_code }}</p>
+              </div>
+              <span class="text-xs text-muted capitalize">{{ a.status }}</span>
+            </div>
+          </div>
+          <p v-else class="text-sm text-faint">{{ t('dashboard.no_assignments') }}</p>
+        </div>
+
+        <div class="card p-6">
+          <h2 class="font-display text-lg font-bold text-fg">{{ t('dashboard.recent_scans') }}</h2>
+          <p class="text-sm text-faint mb-6">{{ t('dashboard.recent_scans_subtitle') }}</p>
+          <div v-if="stats.recent_scans.length" class="rounded-2xl border border-line divide-y divide-line">
+            <div v-for="n in stats.recent_scans" :key="n.id" class="p-4">
+              <p class="text-sm text-fg">{{ n.message }}</p>
+              <p class="text-xs text-faint mt-0.5">{{ new Date(n.created_at).toLocaleString() }}</p>
+            </div>
+          </div>
+          <p v-else class="text-sm text-faint">{{ t('dashboard.no_scans') }}</p>
+        </div>
+      </template>
 
       <template v-else-if="stats">
         <v-row dense>

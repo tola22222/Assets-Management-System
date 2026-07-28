@@ -2,109 +2,144 @@
 
 namespace App\Services;
 
-use App\Mail\AssetEventMail;
-use App\Models\NotificationLog;
+use App\Mail\AssetNotificationMail;
+use App\Models\AssetNotificationLog;
 use App\Models\User;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use InvalidArgumentException;
 
 /**
- * Central email dispatcher for asset/stock lifecycle events (Part B of the PEPY spec).
- * Recipients are always looked up by role — callers may narrow via payload['recipients']
- * but must never pass a hardcoded individual address.
+ * sendAssetNotification(eventType, payload) — the single entry point for
+ * every asset-related email in the system (damage/loss flags, disposal
+ * approvals, data-completeness nudges, count reminders, count discrepancies).
+ *
+ * payload shape (all keys optional except noted):
+ *   assetId       string  the printed asset code (PEY-SITE-CATEGORY-####), not the DB id
+ *   description   string  asset name/description
+ *   location      string  location name
+ *   category      string  category name
+ *   flaggedBy     string  who triggered the event
+ *   note          string  free-text note/remark/reason
+ *   recipients    string[]  REQUIRED — role keys (e.g. 'executive_director'), not email
+ *                           addresses or names, so this survives staff turnover
+ *   ccRecipients  string[]  role keys, cc'd on every recipient's email
+ *   extraData     array   event-specific extra fields (see each template)
+ *
+ * Every field is optional beyond `recipients` — a blank serial number, price,
+ * etc. must never crash template rendering (the data model already treats
+ * those as optional/recommended, not required).
  */
 class AssetNotificationService
 {
-    private const VALID_ROLES = ['operations_hr_manager', 'finance_manager', 'executive_director', 'staff'];
+    public const DAMAGE_FLAGGED = 'DAMAGE_FLAGGED';
 
-    private const RECIPIENT_ROLES = [
-        'DAMAGE_FLAGGED' => ['operations_hr_manager'],
-        'DISPOSAL_REQUEST' => ['executive_director'],
-        'MISSING_FIELDS' => ['operations_hr_manager'],
-        'COUNT_REMINDER' => ['operations_hr_manager', 'finance_manager'],
-        'COUNT_DISCREPANCY' => ['operations_hr_manager'],
-        'LOW_STOCK' => ['operations_hr_manager'],
+    public const DISPOSAL_REQUEST = 'DISPOSAL_REQUEST';
+
+    public const MISSING_FIELDS = 'MISSING_FIELDS';
+
+    public const COUNT_REMINDER = 'COUNT_REMINDER';
+
+    public const COUNT_DISCREPANCY = 'COUNT_DISCREPANCY';
+
+    private const EVENT_TYPES = [
+        self::DAMAGE_FLAGGED,
+        self::DISPOSAL_REQUEST,
+        self::MISSING_FIELDS,
+        self::COUNT_REMINDER,
+        self::COUNT_DISCREPANCY,
     ];
 
-    private const CC_ROLES = [
-        'DISPOSAL_REQUEST' => ['finance_manager'],
-        'COUNT_DISCREPANCY' => ['finance_manager'],
-    ];
-
-    public function send(string $eventType, array $payload): void
+    public static function send(string $eventType, array $payload): void
     {
-        if (! array_key_exists($eventType, self::RECIPIENT_ROLES)) {
-            throw new InvalidArgumentException("Unknown asset notification event type: {$eventType}");
+        if (! in_array($eventType, self::EVENT_TYPES, true)) {
+            throw new InvalidArgumentException("Unknown asset notification event type \"{$eventType}\".");
         }
 
-        if (array_key_exists('flaggedBy', $payload)) {
-            $this->assertValidRole($payload['flaggedBy']);
-        }
-
-        $recipients = $payload['recipients'] ?? $this->usersWithRoles(self::RECIPIENT_ROLES[$eventType]);
-        $ccRecipients = $payload['ccRecipients'] ?? $this->usersWithRoles(self::CC_ROLES[$eventType] ?? []);
-        $ccEmails = $ccRecipients->pluck('email')->filter()->values()->all();
-
-        foreach ($recipients as $recipient) {
-            $this->deliver($eventType, $payload, $recipient, $ccEmails);
-        }
-    }
-
-    private function usersWithRoles(array $roles): Collection
-    {
-        if (empty($roles)) {
-            return collect();
-        }
-
-        return User::whereIn('role', $roles)->get();
-    }
-
-    private function assertValidRole(mixed $flaggedBy): void
-    {
-        $role = $flaggedBy instanceof User ? $flaggedBy->role : $flaggedBy;
-
-        if (! is_string($role) || ! in_array($role, self::VALID_ROLES, true)) {
-            throw new InvalidArgumentException('Invalid or unknown role for flaggedBy.');
-        }
-    }
-
-    private function deliver(string $eventType, array $payload, User $recipient, array $ccEmails): void
-    {
-        if (! $recipient->email) {
+        $recipients = self::emailsForRoles($payload['recipients'] ?? []);
+        if (empty($recipients)) {
+            // Nobody currently holds that role — nothing to send, and not an
+            // error: role assignment can change (e.g. no ED configured yet).
             return;
         }
 
-        $mailable = new AssetEventMail($eventType, $payload);
-        if (! empty($ccEmails)) {
-            $mailable->cc($ccEmails);
+        $cc = self::emailsForRoles($payload['ccRecipients'] ?? []);
+        $subject = self::subjectFor($eventType, $payload);
+
+        foreach ($recipients as $to) {
+            self::deliver($eventType, $payload, $to, $cc, $subject);
+        }
+    }
+
+    /** Role keys → current email addresses. Never hardcode a person's email. */
+    public static function emailsForRoles(array $roles): array
+    {
+        if (empty($roles)) {
+            return [];
         }
 
-        $error = null;
-        $sent = false;
+        return User::whereIn('role', $roles)
+            ->whereNotNull('email')
+            ->pluck('email')
+            ->unique()
+            ->values()
+            ->all();
+    }
 
-        for ($attempt = 1; $attempt <= 2 && ! $sent; $attempt++) {
+    /** Send with one retry on failure; always logs the outcome for audit / HR visibility. */
+    private static function deliver(string $eventType, array $payload, string $to, array $cc, string $subject): void
+    {
+        $error = null;
+        $attempts = 0;
+
+        while ($attempts < 2) {
+            $attempts++;
             try {
-                Mail::to($recipient->email)->send($mailable);
-                $sent = true;
+                $mailer = Mail::to($to);
+                if ($cc) {
+                    $mailer->cc($cc);
+                }
+                $mailer->send(new AssetNotificationMail($eventType, $payload, $subject));
+                $error = null;
+                break;
             } catch (\Throwable $e) {
-                $error = $e;
+                $error = $e->getMessage();
+                Log::warning("AssetNotificationService: [{$eventType}] to {$to} failed on attempt {$attempts}: {$error}");
             }
         }
 
-        NotificationLog::create([
+        AssetNotificationLog::create([
             'event_type' => $eventType,
-            // payload['assetId'] is the human-readable asset_code for the email body/subject;
-            // the FK here needs the numeric PK, passed separately to avoid overloading that key.
-            'asset_id' => $payload['assetDbId'] ?? null,
-            'recipient_user_id' => $recipient->id,
-            'status' => $sent ? 'sent' : 'failed',
-            'error' => $sent ? null : $error?->getMessage(),
+            'asset_code' => $payload['assetId'] ?? null,
+            'recipient' => $to,
+            'subject' => $subject,
+            'status' => $error ? 'failed' : 'sent',
+            'error' => $error,
+            'attempts' => $attempts,
         ]);
+    }
 
-        if (! $sent) {
-            Log::warning("AssetNotificationService: failed to deliver {$eventType} to {$recipient->email}: ".$error?->getMessage());
-        }
+    private static function subjectFor(string $eventType, array $payload): string
+    {
+        $assetId = $payload['assetId'] ?? 'Unknown asset';
+        $description = $payload['description'] ?? 'Asset';
+        $location = $payload['location'] ?? 'unknown location';
+        $extra = $payload['extraData'] ?? [];
+
+        return match ($eventType) {
+            self::DAMAGE_FLAGGED => sprintf(
+                '[Asset Flag] %s — %s flagged %s at %s',
+                $assetId, $description, $extra['status'] ?? 'an issue', $location
+            ),
+            self::DISPOSAL_REQUEST => "[Approval Needed] Disposal request — {$assetId}",
+            self::MISSING_FIELDS => '[Data Check] '.self::countOf($extra).' assets missing required fields',
+            self::COUNT_REMINDER => '[Reminder] Asset count scheduled for '.($extra['date'] ?? 'soon'),
+            self::COUNT_DISCREPANCY => '[Discrepancy] '.self::countOf($extra).' items require reconciliation',
+        };
+    }
+
+    private static function countOf(array $extra): int
+    {
+        return $extra['count'] ?? count($extra['items'] ?? []);
     }
 }
