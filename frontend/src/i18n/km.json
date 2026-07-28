@@ -538,6 +538,11 @@
     "reason_placeholder": "ពិពណ៌នាអំពីស្ថានភាព និងមូលហេតុនៃសកម្មភាពដែលបានណែនាំ",
     "photo_reference": "រូបថតយោង",
     "submit_button": "ដាក់ស្នើសំណើ",
-    "entity": "សំណើបោះបង់"
+    "entity": "សំណើបោះបង់",
+    "reject_modal_title": "ច្រានចោលសំណើបោះបង់",
+    "review_notes_required": "មូលហេតុនៃការច្រានចោល *",
+    "review_notes_placeholder": "ពន្យល់ពីមូលហេតុដែលសំណើនេះត្រូវបានច្រានចោល",
+    "reject_button": "ច្រានចោលសំណើ",
+    "reject_failed": "មិនអាចច្រានចោលសំណើបោះបង់បានទេ។"
   }
 }

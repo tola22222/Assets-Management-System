@@ -46,7 +46,7 @@ class AssetDisposalController extends Controller
             Notification::create([
                 'user_id' => $approver->id,
                 'type' => 'disposal_request',
-                'message' => 'Disposal request submitted for ' . ($disposal->asset->name ?? 'an asset'),
+                'message' => 'Disposal request submitted for '.($disposal->asset->name ?? 'an asset'),
                 'url' => null,
             ]);
         });
@@ -54,7 +54,7 @@ class AssetDisposalController extends Controller
         ActivityLog::create([
             'user_id' => Auth::id(),
             'action' => 'Create',
-            'description' => 'Requested ' . $validated['recommended_action'] . ' for asset ' . ($disposal->asset->name ?? ''),
+            'description' => 'Requested '.$validated['recommended_action'].' for asset '.($disposal->asset->name ?? ''),
         ]);
 
         AssetNotificationService::send(AssetNotificationService::DISPOSAL_REQUEST, [
@@ -76,7 +76,7 @@ class AssetDisposalController extends Controller
 
     public function approve(AssetDisposal $asset_disposal)
     {
-        abort_unless(Auth::user()->canApproveDisposal(), 403, 'Only the Executive Director can approve disposal requests.');
+        abort_unless(Auth::user()->canApproveDisposal(), 403, 'Only the Operations & HR Manager or Executive Director can approve disposal requests.');
 
         $asset_disposal->update([
             'status' => 'approved',
@@ -91,14 +91,14 @@ class AssetDisposalController extends Controller
         Notification::create([
             'user_id' => $asset_disposal->requested_by,
             'type' => 'disposal_approved',
-            'message' => 'Your disposal request for ' . ($asset_disposal->asset->name ?? 'an asset') . ' has been approved.',
+            'message' => 'Your disposal request for '.($asset_disposal->asset->name ?? 'an asset').' has been approved.',
             'url' => null,
         ]);
 
         ActivityLog::create([
             'user_id' => Auth::id(),
             'action' => 'Approve',
-            'description' => 'Approved ' . $asset_disposal->recommended_action . ' for asset ' . ($asset_disposal->asset->name ?? ''),
+            'description' => 'Approved '.$asset_disposal->recommended_action.' for asset '.($asset_disposal->asset->name ?? ''),
         ]);
 
         return response()->json($asset_disposal->fresh(['asset', 'reviewer']));
@@ -106,10 +106,10 @@ class AssetDisposalController extends Controller
 
     public function reject(Request $request, AssetDisposal $asset_disposal)
     {
-        abort_unless(Auth::user()->canApproveDisposal(), 403, 'Only the Executive Director can reject disposal requests.');
+        abort_unless(Auth::user()->canApproveDisposal(), 403, 'Only the Operations & HR Manager or Executive Director can reject disposal requests.');
 
         $validated = $request->validate([
-            'review_notes' => 'nullable|string',
+            'review_notes' => 'required|string',
         ]);
 
         $asset_disposal->update([
@@ -122,14 +122,14 @@ class AssetDisposalController extends Controller
         Notification::create([
             'user_id' => $asset_disposal->requested_by,
             'type' => 'disposal_rejected',
-            'message' => 'Your disposal request for ' . ($asset_disposal->asset->name ?? 'an asset') . ' has been rejected.',
+            'message' => 'Your disposal request for '.($asset_disposal->asset->name ?? 'an asset').' has been rejected.',
             'url' => null,
         ]);
 
         ActivityLog::create([
             'user_id' => Auth::id(),
             'action' => 'Reject',
-            'description' => 'Rejected ' . $asset_disposal->recommended_action . ' for asset ' . ($asset_disposal->asset->name ?? ''),
+            'description' => 'Rejected '.$asset_disposal->recommended_action.' for asset '.($asset_disposal->asset->name ?? ''),
         ]);
 
         return response()->json($asset_disposal->fresh());
@@ -141,6 +141,7 @@ class AssetDisposalController extends Controller
             return response()->json(['message' => 'Cannot delete a reviewed disposal request.'], 422);
         }
         $asset_disposal->delete();
+
         return response()->json(['message' => 'Disposal request deleted.']);
     }
 }

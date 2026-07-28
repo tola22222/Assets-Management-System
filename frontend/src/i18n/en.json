@@ -538,6 +538,11 @@
     "reason_placeholder": "Describe the condition and why this action is recommended",
     "photo_reference": "Photo Reference",
     "submit_button": "Submit Request",
-    "entity": "Disposal request"
+    "entity": "Disposal request",
+    "reject_modal_title": "Reject Disposal Request",
+    "review_notes_required": "Reason for rejection *",
+    "review_notes_placeholder": "Explain why this request is being rejected",
+    "reject_button": "Reject Request",
+    "reject_failed": "Could not reject disposal request."
   }
 }

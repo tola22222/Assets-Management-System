@@ -32,7 +32,7 @@ class AssetController extends Controller
 
     public function store(Request $request)
     {
-        $validated = $this->validateAsset($request);
+        $validated = $this->validateAsset($request, isUpdate: false);
 
         if ($request->hasFile('image')) {
             $validated['image_path'] = $request->file('image')->store('assets', 'public');
@@ -61,7 +61,17 @@ class AssetController extends Controller
 
     public function update(Request $request, Asset $asset)
     {
-        $validated = $this->validateAsset($request);
+        $validated = $this->validateAsset($request, isUpdate: true);
+
+        // "disposed" can only be reached via an approved AssetDisposal request
+        // (AssetDisposalController::approve()) — never by editing the asset
+        // directly. Editing an already-disposed asset's other fields is fine;
+        // what's blocked is *escalating* an active asset to disposed here.
+        abort_if(
+            $validated['status'] === 'disposed' && $asset->status !== 'disposed',
+            422,
+            'An asset can only be marked disposed through an approved disposal request.'
+        );
 
         if ($request->hasFile('image')) {
             if ($asset->image_path) {
@@ -87,21 +97,10 @@ class AssetController extends Controller
 
     public function destroy(Asset $asset)
     {
-        if ($asset->qr_code_path) {
-            Storage::disk('public')->delete($asset->qr_code_path);
-        }
-        if ($asset->image_path) {
-            Storage::disk('public')->delete($asset->image_path);
-        }
-        $asset->delete();
-
-        ActivityLog::create([
-            'user_id' => Auth::id(),
-            'action' => 'Delete',
-            'description' => 'Deleted asset: '.$asset->name,
-        ]);
-
-        return response()->json(['message' => 'Asset deleted.']);
+        // Assets can never be deleted outright — retirement via an approved
+        // AssetDisposal request is the only removal path (Asset Checking &
+        // Counting Manual). This keeps the historical record intact for audit.
+        abort(403, 'Assets cannot be deleted directly. Submit a disposal request instead.');
     }
 
     public function flagIssue(Request $request, Asset $asset)
@@ -158,7 +157,7 @@ class AssetController extends Controller
         return response()->json($asset->fresh());
     }
 
-    private function validateAsset(Request $request): array
+    private function validateAsset(Request $request, bool $isUpdate): array
     {
         return $request->validate([
             'name' => 'required|string|max:255',
@@ -166,7 +165,10 @@ class AssetController extends Controller
             'location_id' => 'required|exists:locations,id',
             'purchase_date' => 'nullable|date',
             'purchase_price' => 'nullable|numeric',
-            'status' => 'required|string',
+            // New assets are always active. Existing ones may already be
+            // "disposed" (historical import or a prior approval) — update()
+            // additionally guards against *escalating* to disposed here.
+            'status' => $isUpdate ? 'required|in:active,disposed' : 'required|in:active',
             'description' => 'nullable|string',
             'model' => 'nullable|string',
             'brand' => 'nullable|string',

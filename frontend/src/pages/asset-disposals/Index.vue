@@ -35,6 +35,9 @@ const showModal = ref(false)
 const imageFile = ref(null)
 const form = reactive({ asset_id: '', recommended_action: 'disposal', reason: '' })
 
+const rejectingId = ref(null)
+const rejectForm = reactive({ review_notes: '' })
+
 const canApprove = () => ['operations_hr_manager', 'executive_director'].includes(auth.user?.role)
 
 async function loadAssets() {
@@ -73,10 +76,20 @@ async function approve(id) {
   await fetchAll()
 }
 
-async function reject(id) {
-  await http.post(`/asset-disposals/${id}/reject`)
-  toast.success(t('asset_disposals.rejected'))
-  await fetchAll()
+function openReject(id) {
+  rejectForm.review_notes = ''
+  rejectingId.value = id
+}
+
+async function submitReject() {
+  try {
+    await http.post(`/asset-disposals/${rejectingId.value}/reject`, { review_notes: rejectForm.review_notes })
+    toast.success(t('asset_disposals.rejected'))
+    rejectingId.value = null
+    await fetchAll()
+  } catch (e) {
+    toast.error(e.response?.data?.message || t('asset_disposals.reject_failed'))
+  }
 }
 
 onMounted(() => {
@@ -139,7 +152,7 @@ onMounted(() => {
                       <button @click="approve(d.id)" :title="t('common.approve')" class="w-7 h-7 rounded-lg bg-brand text-white flex items-center justify-center hover:bg-brand-dark transition">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                       </button>
-                      <button @click="reject(d.id)" :title="t('common.reject')" class="w-7 h-7 rounded-lg bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition">
+                      <button @click="openReject(d.id)" :title="t('common.reject')" class="w-7 h-7 rounded-lg bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                       </button>
                     </div>
@@ -188,6 +201,21 @@ onMounted(() => {
             {{ t('asset_disposals.submit_button') }}
           </button>
           <button type="button" class="btn-ghost" @click="showModal = false">{{ t('common.cancel') }}</button>
+        </div>
+      </form>
+    </Modal>
+
+    <Modal v-if="rejectingId" :title="t('asset_disposals.reject_modal_title')" @close="rejectingId = null">
+      <form @submit.prevent="submitReject">
+        <div class="p-6 space-y-4">
+          <div class="space-y-1.5">
+            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_disposals.review_notes_required') }}</label>
+            <textarea v-model="rejectForm.review_notes" rows="3" required :placeholder="t('asset_disposals.review_notes_placeholder')" class="input"></textarea>
+          </div>
+        </div>
+        <div class="flex items-center gap-3 border-t border-line px-6 py-4">
+          <button type="submit" class="btn-primary">{{ t('asset_disposals.reject_button') }}</button>
+          <button type="button" class="btn-ghost" @click="rejectingId = null">{{ t('common.cancel') }}</button>
         </div>
       </form>
     </Modal>
