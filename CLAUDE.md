@@ -30,7 +30,7 @@ Assets-Management-System/
 ### Backend (Laravel, run from `backend/`)
 - `composer dev` — runs server + queue listener + `pail` logs + Vite (Blade assets) concurrently. This is the normal local dev loop for the Blade UI.
 - `php artisan serve` — API/backend only on `http://127.0.0.1:8000` (what the SPA proxies to).
-- `composer test` or `php artisan test` — runs the PHPUnit suite (clears config first). Tests use **sqlite `:memory:`** (see `phpunit.xml`), not the MySQL dev DB.
+- `composer test` or `php artisan test` — runs the PHPUnit suite (clears config first). Tests use **sqlite `:memory:`** (see `backend/phpunit.xml`), not the MySQL dev DB.
 - Run one test: `php artisan test --filter=SomeTest` or `php artisan test tests/Feature/SomeTest.php`.
 - `./vendor/bin/pint` — code style (Laravel Pint). CI style config is `.styleci.yml`.
 - `php artisan migrate` / `php artisan db:seed` — schema and seed data. Local dev DB defaults to **sqlite** (`database/database.sqlite`, per `.env.example`'s `DB_CONNECTION=sqlite`) — not MySQL as you might expect from the deployment setup; production (`docker-compose.yml`, written inline by the deploy workflow) runs MySQL 8. Check `.env`'s actual `DB_CONNECTION` before assuming either.
@@ -48,7 +48,7 @@ Note: there are **two `package.json` / Vite setups**, both inside `backend/`. `b
 ## Architecture notes that aren't obvious from a single file
 
 ### Route naming collision
-`routes/api.php` wraps everything in `Route::name('api.')->group(...)`. This is deliberate: web and API define overlapping resources (e.g. both have an `assets` resource), and Laravel route names must be globally unique or `php artisan route:cache` fails to build (this broke a deploy — see commit `c0e3f93`). **Any new API route must keep the `api.` prefix.**
+`backend/routes/api.php` wraps everything in `Route::name('api.')->group(...)`. This is deliberate: web and API define overlapping resources (e.g. both have an `assets` resource), and Laravel route names must be globally unique or `php artisan route:cache` fails to build (this broke a deploy — see commit `c0e3f93`). **Any new API route must keep the `api.` prefix.**
 
 ### Auth & roles
 - API auth is Sanctum (`auth:sanctum` middleware, bearer tokens). Web auth is session-based with a `guest`/auth middleware split.
@@ -59,13 +59,13 @@ Note: there are **two `package.json` / Vite setups**, both inside `backend/`. `b
 - Asset codes follow the Asset Checking & Counting Manual's scheme: `PEY-[SITE]-[CATEGORY]-[####]` (e.g. `PEY-SR-FAF-0928`). `SITE` is the `code` column on `locations` (seeded for the 13 real PEPY sites — office `SR` + 12 partner schools); `CATEGORY` is one of `MOV`/`FAF`/`COM`/`EQU` (the `AssetCategory.short_name`). `AssetCodeService::nextCode(?int $locationId, int $categoryId)` throws `InvalidArgumentException` for an unrecognized category or a location without a site code.
 - The numeric sequence is **global per category** — not per site, not per year — and never reused: it's tracked in the `asset_code_sequences` table (one row per category code) and incremented inside a `DB::transaction` with `lockForUpdate()`, so concurrent "add asset" requests can't collide. A `2026_07_20_..._backfill_asset_codes_to_pey_format` migration renamed any pre-existing non-conforming codes into this scheme.
 - Both the `Asset` create/update controllers (web + Api) and the bulk import services (`AssetImportService`, the legacy CSV `AssetImportController`) require `location_id` and resolve it before generating a code — assets always belong to a location now.
-- Each asset gets a PNG QR code (stored on the `public` disk at `qrcodes/{code}.png`) that encodes the **public** asset URL (`asset.public.show` route). `routes/web.php` exposes public, unauthenticated `/asset/{assetCode}` view + condition-update endpoints — these are how scanned QR codes let anyone report an asset's condition.
+- Each asset gets a PNG QR code (stored on the `public` disk at `qrcodes/{code}.png`) that encodes the **public** asset URL (`asset.public.show` route). `backend/routes/web.php` exposes public, unauthenticated `/asset/{assetCode}` view + condition-update endpoints — these are how scanned QR codes let anyone report an asset's condition.
 
 ### Domain workflow modules
 The core entities are `Asset`, `AssetCategory`, `Location`, plus workflow entities that carry approve/reject/complete state transitions: `AssetAssignment`, `AssetTransfer`, `AssetReturn`, `AssetVerification`, `AssetDisposal`, `AssetMovement`. Supporting: `Program`, `Staff`, `Supplier`, `Notification`, `ActivityLog`, `Setting`, `Report`. Workflow actions are custom POST routes on top of the resource routes (e.g. `asset-transfers/{id}/approve`), present in both `web.php` and `api.php`. Assets are received into the register via the standard Asset create endpoints (web + Api) or bulk import — there is no separate "receive stock" workflow.
 
 ### Orphaned legacy code — not wired into any route
-`StockTransferController` (+ its `StockTransfer`/`StockTransferItem` models), `InventoryController`, and `AssetReportController` exist under `backend/app/Http/Controllers/` but have **no entries in `routes/web.php` or `routes/api.php`** — they predate the current `AssetTransfer`/`AssetMovement` workflow and were superseded but never deleted. Likewise the `Role` model (roles are a `users.role` string, see below) and `AssetAudit` model have no live callers. Don't assume a match on these names means the feature is reachable — grep the route files to confirm before building on top of them.
+`StockTransferController` (+ its `StockTransfer`/`StockTransferItem` models), `InventoryController`, and `AssetReportController` exist under `backend/app/Http/Controllers/` but have **no entries in `backend/routes/web.php` or `backend/routes/api.php`** — they predate the current `AssetTransfer`/`AssetMovement` workflow and were superseded but never deleted. Likewise the `Role` model (roles are a `users.role` string, see below) and `AssetAudit` model have no live callers. Don't assume a match on these names means the feature is reachable — grep the route files to confirm before building on top of them.
 
 ### SPA structure (`frontend/src/`)
 - `api/http.js` — the single axios instance (baseURL `/api`, injects bearer token, redirects to login on 401).
