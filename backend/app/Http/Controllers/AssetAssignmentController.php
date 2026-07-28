@@ -2,15 +2,17 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\ActivityLog;
 use App\Models\Asset;
 use App\Models\AssetAssignment;
 use App\Models\Location;
-use App\Models\Notification;
-use App\Models\Program;
 use App\Models\Staff;
+use App\Models\Program;
+use App\Models\ActivityLog;
+use App\Models\Notification;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class AssetAssignmentController extends Controller
 {
@@ -30,7 +32,6 @@ class AssetAssignmentController extends Controller
         $locations = Location::all();
         $staffList = Staff::where('status', 'active')->get();
         $programs = Program::all();
-
         return view('asset-assignments.index', compact('assignments', 'assets', 'locations', 'staffList', 'programs'));
     }
 
@@ -66,13 +67,13 @@ class AssetAssignmentController extends Controller
         ActivityLog::create([
             'user_id' => Auth::id(),
             'action' => 'Assign',
-            'description' => 'Assigned asset to '.$recipientName,
+            'description' => 'Assigned asset to ' . $recipientName,
         ]);
 
         Notification::create([
             'user_id' => Auth::id(),
             'type' => 'asset_assigned',
-            'message' => 'Asset assigned to '.$recipientName,
+            'message' => 'Asset assigned to ' . $recipientName,
             'url' => route('asset-assignments.index'),
         ]);
 
@@ -82,7 +83,6 @@ class AssetAssignmentController extends Controller
     public function show(AssetAssignment $assetAssignment)
     {
         $assetAssignment->load(['asset', 'assignee', 'location', 'returns']);
-
         return view('asset-assignments.show', compact('assetAssignment'));
     }
 
@@ -104,7 +104,7 @@ class AssetAssignmentController extends Controller
         ActivityLog::create([
             'user_id' => Auth::id(),
             'action' => 'Update',
-            'description' => 'Updated assignment for '.$assetAssignment->recipient_name,
+            'description' => 'Updated assignment for ' . $assetAssignment->recipient_name,
         ]);
 
         return redirect()->route('asset-assignments.index')->with('success', 'Assignment updated successfully.');
@@ -117,7 +117,7 @@ class AssetAssignmentController extends Controller
         ActivityLog::create([
             'user_id' => Auth::id(),
             'action' => 'Cancel',
-            'description' => 'Cancelled assignment for '.$assetAssignment->recipient_name,
+            'description' => 'Cancelled assignment for ' . $assetAssignment->recipient_name,
         ]);
 
         return redirect()->route('asset-assignments.index')->with('success', 'Assignment cancelled.');
@@ -144,7 +144,7 @@ class AssetAssignmentController extends Controller
         ActivityLog::create([
             'user_id' => Auth::id(),
             'action' => 'Return',
-            'description' => 'Processed return for '.$assetAssignment->recipient_name,
+            'description' => 'Processed return for ' . $assetAssignment->recipient_name,
         ]);
 
         return redirect()->route('asset-assignments.index')->with('success', 'Asset returned successfully.');
@@ -156,7 +156,6 @@ class AssetAssignmentController extends Controller
             ->with(['assignee', 'location'])
             ->latest()
             ->get();
-
         return response()->json($history);
     }
 
@@ -164,10 +163,8 @@ class AssetAssignmentController extends Controller
     {
         if ($assetAssignment->status === 'returned') {
             $assetAssignment->delete();
-
             return redirect()->route('asset-assignments.index')->with('success', 'Assignment deleted.');
         }
-
         return redirect()->route('asset-assignments.index')->with('error', 'Cannot delete active assignment.');
     }
 }

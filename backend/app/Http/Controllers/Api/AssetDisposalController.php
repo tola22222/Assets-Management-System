@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Controllers\Concerns\PaginatesAndSorts;
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\AssetDisposal;
@@ -14,21 +13,11 @@ use Illuminate\Support\Facades\Auth;
 
 class AssetDisposalController extends Controller
 {
-    use PaginatesAndSorts;
-
-    private const SORTABLE = ['status', 'recommended_action', 'created_at'];
-
-    public function index(Request $request)
+    public function index()
     {
-        $query = AssetDisposal::with(['asset', 'requester', 'reviewer']);
-
-        $this->applySearch($query, $request, ['reason'], [
-            'asset' => ['name', 'asset_code'],
-            'requester' => ['name'],
-        ]);
-        $this->applyExactFilters($query, $request, ['status', 'recommended_action']);
-
-        return response()->json($this->paginateSorted($query, $request, self::SORTABLE));
+        return response()->json(
+            AssetDisposal::with(['asset', 'requester', 'reviewer'])->latest()->get()
+        );
     }
 
     public function store(Request $request)
@@ -68,18 +57,17 @@ class AssetDisposalController extends Controller
             'description' => 'Requested '.$validated['recommended_action'].' for asset '.($disposal->asset->name ?? ''),
         ]);
 
-        AssetNotificationService::send(AssetNotificationService::DISPOSAL_REQUEST, [
+        (new AssetNotificationService)->send('DISPOSAL_REQUEST', [
             'assetId' => $disposal->asset->asset_code ?? null,
+            'assetDbId' => $disposal->asset_id,
             'description' => $disposal->asset->name ?? null,
             'category' => $disposal->asset->category->name ?? null,
             'location' => $disposal->asset->location->name ?? null,
-            'note' => $disposal->reason,
-            'recipients' => ['executive_director'],
-            'ccRecipients' => ['finance_manager'],
+            'note' => $validated['reason'],
+            'url' => route('asset.public.show', $disposal->asset->asset_code ?? ''),
             'extraData' => [
                 'recommendedAction' => $disposal->recommended_action,
                 'requestedBy' => Auth::user()->name,
-                'link' => route('asset.public.show', $disposal->asset->asset_code ?? ''),
             ],
         ]);
 
@@ -88,7 +76,7 @@ class AssetDisposalController extends Controller
 
     public function approve(AssetDisposal $asset_disposal)
     {
-        abort_unless(Auth::user()->canApproveDisposal(), 403, 'Only the Operations & HR Manager or Executive Director can approve disposal requests.');
+        abort_unless(Auth::user()->canApproveDisposal(), 403, 'Only the Executive Director can approve disposal requests.');
 
         $asset_disposal->update([
             'status' => 'approved',
@@ -118,10 +106,10 @@ class AssetDisposalController extends Controller
 
     public function reject(Request $request, AssetDisposal $asset_disposal)
     {
-        abort_unless(Auth::user()->canApproveDisposal(), 403, 'Only the Operations & HR Manager or Executive Director can reject disposal requests.');
+        abort_unless(Auth::user()->canApproveDisposal(), 403, 'Only the Executive Director can reject disposal requests.');
 
         $validated = $request->validate([
-            'review_notes' => 'required|string',
+            'review_notes' => 'nullable|string',
         ]);
 
         $asset_disposal->update([

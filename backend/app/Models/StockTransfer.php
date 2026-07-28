@@ -12,13 +12,11 @@ class StockTransfer extends Model
         'status',
     ];
 
-    public function user()
-    {
+    public function user() {
         return $this->belongsTo(User::class, 'transferred_by');
     }
 
-    public function items()
-    {
+    public function items() {
         return $this->hasMany(StockTransferItem::class);
     }
 }

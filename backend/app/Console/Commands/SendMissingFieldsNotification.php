@@ -19,7 +19,7 @@ class SendMissingFieldsNotification extends Command
 
     private const GRACE_DAYS = 7;
 
-    public function handle(): int
+    public function handle(AssetNotificationService $notifications): int
     {
         $cutoff = now()->subDays(self::GRACE_DAYS);
 
@@ -30,7 +30,6 @@ class SendMissingFieldsNotification extends Command
                     ->orWhereNull('purchase_date')
                     ->orWhereNull('serial_number');
             })
-            ->with('category')
             ->get();
 
         if ($assets->isEmpty()) {
@@ -39,36 +38,23 @@ class SendMissingFieldsNotification extends Command
             return self::SUCCESS;
         }
 
-        $items = $assets->map(function ($asset) {
-            $missing = [];
-            if (is_null($asset->purchase_price)) {
-                $missing[] = 'Price';
-            }
-            if (is_null($asset->purchase_date)) {
-                $missing[] = 'Purchase Date';
-            }
-            if (blank($asset->serial_number)) {
-                $missing[] = 'Serial Number';
-            }
+        $note = $assets->map(function (Asset $asset) {
+            $missing = collect([
+                'Price' => $asset->purchase_price,
+                'Purchase Date' => $asset->purchase_date,
+                'Serial Number' => $asset->serial_number,
+            ])->filter(fn ($value) => blank($value))->keys()->implode(', ');
 
-            return [
-                'assetId' => $asset->asset_code,
-                'description' => $asset->name,
-                'missingFields' => implode(', ', $missing),
-            ];
-        })->all();
+            return "{$asset->asset_code} — missing {$missing}";
+        })->implode("\n");
 
-        AssetNotificationService::send(AssetNotificationService::MISSING_FIELDS, [
-            'recipients' => ['operations_hr_manager'],
-            'extraData' => [
-                'items' => $items,
-                'count' => count($items),
-                'graceDays' => self::GRACE_DAYS,
-                'link' => route('reports.data-completeness'),
-            ],
+        $notifications->send('MISSING_FIELDS', [
+            'note' => $note,
+            'url' => route('reports.data-completeness'),
+            'extraData' => ['count' => $assets->count()],
         ]);
 
-        $this->info(count($items).' asset(s) flagged for missing fields.');
+        $this->info($assets->count().' asset(s) flagged for missing fields.');
 
         return self::SUCCESS;
     }

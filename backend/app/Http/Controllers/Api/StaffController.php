@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Controllers\Concerns\PaginatesAndSorts;
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\Staff;
@@ -12,18 +11,9 @@ use Illuminate\Support\Facades\Storage;
 
 class StaffController extends Controller
 {
-    use PaginatesAndSorts;
-
-    private const SORTABLE = ['full_name', 'position', 'created_at'];
-
-    public function index(Request $request)
+    public function index()
     {
-        $query = Staff::query();
-
-        $this->applySearch($query, $request, ['full_name', 'position', 'phone', 'email']);
-        $this->applyExactFilters($query, $request, ['status']);
-
-        return response()->json($this->paginateSorted($query, $request, self::SORTABLE));
+        return response()->json(Staff::latest()->get());
     }
 
     public function store(Request $request)
@@ -48,7 +38,7 @@ class StaffController extends Controller
         ActivityLog::create([
             'user_id' => Auth::id(),
             'action' => 'Create',
-            'description' => 'Added staff member: '.$staff->full_name,
+            'description' => 'Added staff member: ' . $staff->full_name,
         ]);
 
         return response()->json($staff, 201);
@@ -60,7 +50,7 @@ class StaffController extends Controller
 
         $data = $request->validate([
             'full_name' => 'required|string|max:255',
-            'email' => 'nullable|email|unique:staff,email,'.$staff->id,
+            'email' => 'nullable|email|unique:staff,email,' . $staff->id,
             'phone' => 'nullable|string|max:20',
             'position' => 'nullable|string|max:100',
             'hire_date' => 'nullable|date',
@@ -80,7 +70,7 @@ class StaffController extends Controller
         ActivityLog::create([
             'user_id' => Auth::id(),
             'action' => 'Update',
-            'description' => 'Updated details for staff: '.$staff->full_name,
+            'description' => 'Updated details for staff: ' . $staff->full_name,
         ]);
 
         return response()->json($staff->fresh());
@@ -101,7 +91,7 @@ class StaffController extends Controller
         ActivityLog::create([
             'user_id' => Auth::id(),
             'action' => 'Delete',
-            'description' => 'Removed staff member: '.$name,
+            'description' => 'Removed staff member: ' . $name,
         ]);
 
         return response()->json(['message' => 'Staff member deleted.']);

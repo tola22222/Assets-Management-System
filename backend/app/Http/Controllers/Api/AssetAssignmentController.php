@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Controllers\Concerns\PaginatesAndSorts;
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\AssetAssignment;
@@ -14,38 +13,21 @@ use Illuminate\Support\Facades\Auth;
 
 class AssetAssignmentController extends Controller
 {
-    use PaginatesAndSorts;
-
-    // recipient_name is a computed accessor (polymorphic staff/program lookup), not a
-    // real column — searchable (see below) but not sortable without a raw subquery.
-    private const SORTABLE = ['status', 'quantity', 'assigned_date', 'created_at'];
-
     public function index(Request $request)
     {
         $user = $request->user();
 
-        $query = AssetAssignment::with(['asset', 'location']);
-
-        if (! $user->isOperationsHrManager()) {
-            $query->where('assigned_to_type', 'staff')->where('assigned_to_id', $user->staff_id);
+        if ($user->isOperationsHrManager()) {
+            $assignments = AssetAssignment::with(['asset', 'location'])->latest()->get();
+        } else {
+            $assignments = AssetAssignment::where('assigned_to_type', 'staff')
+                ->where('assigned_to_id', $user->staff_id)
+                ->with(['asset', 'location'])
+                ->latest()
+                ->get();
         }
 
-        if ($search = trim((string) $request->query('search', ''))) {
-            $staffIds = Staff::where('full_name', 'like', "%{$search}%")->pluck('id');
-            $programIds = Program::where('name', 'like', "%{$search}%")->pluck('id');
-
-            $query->where(function ($q) use ($search, $staffIds, $programIds) {
-                $q->orWhereHas('asset', function ($aq) use ($search) {
-                    $aq->where('name', 'like', "%{$search}%")->orWhere('asset_code', 'like', "%{$search}%");
-                })
-                    ->orWhere(fn ($q2) => $q2->where('assigned_to_type', 'staff')->whereIn('assigned_to_id', $staffIds))
-                    ->orWhere(fn ($q2) => $q2->where('assigned_to_type', 'program')->whereIn('assigned_to_id', $programIds));
-            });
-        }
-
-        $this->applyExactFilters($query, $request, ['status']);
-
-        return response()->json($this->paginateSorted($query, $request, self::SORTABLE));
+        return response()->json($assignments);
     }
 
     public function store(Request $request)
@@ -76,13 +58,13 @@ class AssetAssignmentController extends Controller
         ActivityLog::create([
             'user_id' => Auth::id(),
             'action' => 'Assign',
-            'description' => 'Assigned asset to '.$assignment->recipient_name,
+            'description' => 'Assigned asset to ' . $assignment->recipient_name,
         ]);
 
         Notification::create([
             'user_id' => Auth::id(),
             'type' => 'asset_assigned',
-            'message' => 'Asset assigned to '.$assignment->recipient_name,
+            'message' => 'Asset assigned to ' . $assignment->recipient_name,
             'url' => null,
         ]);
 
@@ -102,7 +84,7 @@ class AssetAssignmentController extends Controller
         ActivityLog::create([
             'user_id' => Auth::id(),
             'action' => 'Update',
-            'description' => 'Updated assignment for '.$assetAssignment->recipient_name,
+            'description' => 'Updated assignment for ' . $assetAssignment->recipient_name,
         ]);
 
         return response()->json($assetAssignment->fresh(['asset', 'location']));
@@ -115,7 +97,7 @@ class AssetAssignmentController extends Controller
         ActivityLog::create([
             'user_id' => Auth::id(),
             'action' => 'Cancel',
-            'description' => 'Cancelled assignment for '.$assetAssignment->recipient_name,
+            'description' => 'Cancelled assignment for ' . $assetAssignment->recipient_name,
         ]);
 
         return response()->json($assetAssignment->fresh());
@@ -140,7 +122,7 @@ class AssetAssignmentController extends Controller
         ActivityLog::create([
             'user_id' => Auth::id(),
             'action' => 'Return',
-            'description' => 'Processed return for '.$assetAssignment->recipient_name,
+            'description' => 'Processed return for ' . $assetAssignment->recipient_name,
         ]);
 
         return response()->json($assetAssignment->fresh());

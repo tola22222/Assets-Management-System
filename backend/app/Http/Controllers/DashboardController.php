@@ -2,17 +2,17 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\ActivityLog;
 use App\Models\Asset;
 use App\Models\AssetAssignment;
 use App\Models\AssetCategory;
-use App\Models\AssetMovement;
-use App\Models\AssetReturn;
-use App\Models\AssetTransfer;
 use App\Models\AssetVerification;
 use App\Models\Location;
-use App\Models\Notification;
 use App\Models\Staff;
+use App\Models\AssetMovement;
+use App\Models\Notification;
+use App\Models\AssetReturn;
+use App\Models\AssetTransfer;
+use App\Models\ActivityLog;
 use Illuminate\Support\Facades\Auth;
 
 class DashboardController extends Controller

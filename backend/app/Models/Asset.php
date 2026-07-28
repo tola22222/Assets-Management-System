@@ -12,11 +12,11 @@ class Asset extends Model
     protected $fillable = [
         'asset_code', 'name', 'category_id', 'location_id', 'description',
         'model', 'brand', 'serial_number', 'purchase_date',
-        'purchase_price', 'warranty_expiry', 'warranty_provider', 'condition', 'status', 'image_path',
+        'purchase_price', 'condition', 'status', 'image_path',
         'qr_code_path',
     ];
 
-    protected $appends = ['image_url', 'qr_code_url', 'current_assignee'];
+    protected $appends = ['image_url', 'qr_code_url'];
 
     /** Thresholds for the "Assets by Model" grouped report's stock-level badge. */
     public const STOCK_LEVEL_MEDIUM_MIN = 5;
@@ -42,22 +42,6 @@ class Asset extends Model
         return $this->qr_code_path ? asset('storage/'.$this->qr_code_path) : null;
     }
 
-    public function getCurrentAssigneeAttribute()
-    {
-        if ($this->relationLoaded('currentAssignment')) {
-            return $this->currentAssignment?->recipient_name;
-        }
-
-        return $this->currentAssignment()->first()?->recipient_name;
-    }
-
-    public function currentAssignment()
-    {
-        return $this->hasOne(AssetAssignment::class)
-            ->whereIn('status', ['assigned', 'active'])
-            ->latest('assigned_date');
-    }
-
     public function getPublicUrlAttribute()
     {
         return route('asset.public.show', $this->asset_code);
@@ -71,6 +55,11 @@ class Asset extends Model
     public function location()
     {
         return $this->belongsTo(Location::class);
+    }
+
+    public function stocks()
+    {
+        return $this->hasMany(AssetStock::class);
     }
 
     public function assignments()

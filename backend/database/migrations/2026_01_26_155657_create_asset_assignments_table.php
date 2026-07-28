@@ -22,7 +22,7 @@ return new class extends Migration
             $table->date('due_date')->nullable(); // ADD THIS LINE
             $table->enum('status', ['assigned', 'active', 'returned', 'overdue'])->default('assigned'); // Updated status options
             $table->timestamps();
-
+            
             // Add index for better performance
             $table->index(['assigned_to_type', 'assigned_to_id']);
             $table->index('status');

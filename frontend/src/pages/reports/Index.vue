@@ -1,9 +1,8 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import http from '../../api/http'
-import AppPageHeader from '../../components/common/AppPageHeader.vue'
+import AppLayout from '../../layouts/AppLayout.vue'
 import TableSortIcon from '../../components/ui/TableSortIcon.vue'
-import StatCard from '../../components/ui/StatCard.vue'
 
 const reportTypes = [
   { key: 'inventory', label: 'Inventory' },
@@ -51,10 +50,10 @@ const dateFields = {
   'qr-scans': 'created_at',
 }
 
-const STOCK_LEVEL_COLOR = {
-  high: 'success',
-  medium: 'warning',
-  low: 'error',
+const STOCK_LEVEL_STYLES = {
+  high: 'bg-emerald-50 text-emerald-700',
+  medium: 'bg-amber-50 text-amber-700',
+  low: 'bg-red-50 text-red-700',
 }
 
 const hasDateField = computed(() => !!dateFields[selected.value])
@@ -148,57 +147,86 @@ onMounted(load)
 </script>
 
 <template>
-  <v-container fluid class="pa-0 d-flex flex-column ga-6">
-      <AppPageHeader
-        title="Reports"
-        subtitle="Export and review asset data"
-        :actions="[{ label: 'Export CSV', icon: 'mdi-tray-arrow-down', onClick: exportCsv }]"
-      />
-
-      <div class="overflow-x-auto">
-        <v-tabs v-model="selected" density="compact">
-          <v-tab v-for="t in reportTypes" :key="t.key" :value="t.key">{{ t.label }}</v-tab>
-        </v-tabs>
+  <AppLayout>
+    <div class="p-8 max-w-6xl mx-auto space-y-6">
+      <div class="flex items-center justify-between gap-4">
+        <div class="flex items-center gap-3">
+          <div class="w-11 h-11 rounded-2xl bg-brand/10 text-brand flex items-center justify-center flex-shrink-0">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" /></svg>
+          </div>
+          <div>
+            <h1 class="font-display text-xl font-bold text-fg tracking-tight">Reports</h1>
+            <p class="text-muted text-sm mt-0.5">Export and review asset data</p>
+          </div>
+        </div>
+        <button @click="exportCsv" class="btn-ghost btn-sm">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
+          Export CSV
+        </button>
       </div>
 
-      <v-row dense>
-        <v-col cols="6" sm="3">
-          <StatCard :value="rows.length" label="Total records" />
-        </v-col>
-        <v-col cols="6" sm="3">
-          <StatCard :value="sortedRows.length" :label="granularity === 'all' ? 'Showing' : 'Matching period'" />
-        </v-col>
-        <v-col cols="12" sm="6">
-          <v-card rounded="lg" variant="flat" border class="pa-5 d-flex align-center ga-3 h-100">
-            <v-avatar rounded="lg" color="mint-tint" size="40"><v-icon icon="mdi-calendar-month-outline" color="primary" /></v-avatar>
-            <p class="text-body-2 text-medium-emphasis">{{ reportTypes.find((t) => t.key === selected)?.label }}{{ granularity !== 'all' && periodValue ? ` — ${periodValue}` : '' }}</p>
-          </v-card>
-        </v-col>
-      </v-row>
+      <div class="border-b border-line overflow-x-auto">
+        <div class="flex gap-6 min-w-max">
+          <button v-for="t in reportTypes" :key="t.key" @click="selected = t.key"
+            class="px-0.5 py-3 text-sm font-medium whitespace-nowrap border-b-2 -mb-px transition"
+            :class="selected === t.key ? 'border-brand text-brand font-semibold' : 'border-transparent text-muted hover:text-fg'">
+            {{ t.label }}
+          </button>
+        </div>
+      </div>
 
-      <v-card rounded="lg" variant="flat" border>
-        <v-card-text v-if="hasDateField" class="d-flex flex-wrap align-center ga-3 pa-4">
-          <v-btn-toggle v-model="granularity" mandatory density="compact" color="primary">
-            <v-btn v-for="g in ['all', 'day', 'month', 'year']" :key="g" :value="g" size="small" class="text-capitalize">{{ g }}</v-btn>
-          </v-btn-toggle>
-          <v-text-field v-if="granularity === 'day'" v-model="periodValue" type="date" density="compact" variant="outlined" hide-details style="max-width: 200px" />
-          <v-text-field v-else-if="granularity === 'month'" v-model="periodValue" type="month" density="compact" variant="outlined" hide-details style="max-width: 200px" />
-          <v-select
-            v-else-if="granularity === 'year'"
-            v-model="periodValue"
-            :items="years.map((y) => ({ title: String(y), value: String(y) }))"
-            density="compact"
-            variant="outlined"
-            hide-details
-            style="max-width: 140px"
-          />
-        </v-card-text>
-        <v-divider v-if="hasDateField" />
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div class="card p-4 flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-brand/10 text-brand flex items-center justify-center flex-shrink-0">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" /></svg>
+          </div>
+          <div>
+            <p class="font-display text-2xl font-bold text-fg leading-none">{{ rows.length }}</p>
+            <p class="text-xs text-muted mt-1">Total records</p>
+          </div>
+        </div>
+        <div class="card p-4 flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center flex-shrink-0">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+          </div>
+          <div>
+            <p class="font-display text-2xl font-bold text-fg leading-none">{{ sortedRows.length }}</p>
+            <p class="text-xs text-muted mt-1">{{ granularity === 'all' ? 'Showing' : 'Matching period' }}</p>
+          </div>
+        </div>
+        <div class="card p-4 col-span-2 flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center flex-shrink-0">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" /></svg>
+          </div>
+          <p class="text-sm text-muted">{{ reportTypes.find((t) => t.key === selected)?.label }}{{ granularity !== 'all' && periodValue ? ` — ${periodValue}` : '' }}</p>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <div class="table-toolbar">
+          <template v-if="hasDateField">
+            <div class="flex items-center gap-1 bg-surface-2 rounded-xl p-1">
+              <button
+                v-for="g in ['all', 'day', 'month', 'year']" :key="g"
+                @click="granularity = g"
+                class="px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition"
+                :class="granularity === g ? 'bg-brand text-white' : 'text-muted hover:text-fg'"
+              >
+                {{ g }}
+              </button>
+            </div>
+            <input v-if="granularity === 'day'" v-model="periodValue" type="date" class="filter-select" />
+            <input v-else-if="granularity === 'month'" v-model="periodValue" type="month" class="filter-select" />
+            <select v-else-if="granularity === 'year'" v-model="periodValue" class="filter-select">
+              <option v-for="y in years" :key="y" :value="String(y)">{{ y }}</option>
+            </select>
+          </template>
+        </div>
         <div class="overflow-x-auto">
-          <v-table>
+          <table class="data-table">
             <thead>
               <tr>
-                <th v-for="col in columns[selected]" :key="col[0]" class="text-no-wrap" style="cursor: pointer" @click="toggleSort(col[0])">
+                <th v-for="col in columns[selected]" :key="col[0]" class="th-sort" @click="toggleSort(col[0])">
                   {{ col[1] }}<TableSortIcon :active="sortKey === col[0]" :direction="sortDir" />
                 </th>
               </tr>
@@ -206,21 +234,21 @@ onMounted(load)
             <tbody>
               <tr v-for="(row, i) in sortedRows" :key="i">
                 <td v-for="col in columns[selected]" :key="col[0]">
-                  <v-chip v-if="col[0] === 'stock_level'" size="small" :color="STOCK_LEVEL_COLOR[cell(row, col)]" variant="tonal" class="text-capitalize">
+                  <span v-if="col[0] === 'stock_level'" class="px-2.5 py-1 rounded-full text-xs font-bold capitalize" :class="STOCK_LEVEL_STYLES[cell(row, col)] ?? ''">
                     {{ cell(row, col) }}
-                  </v-chip>
-                  <span v-else-if="col[0] === 'asset_code'" class="font-mono font-mono-tag">{{ cell(row, col) }}</span>
+                  </span>
                   <template v-else>{{ cell(row, col) }}</template>
                 </td>
               </tr>
               <tr v-if="!loading && !sortedRows.length">
-                <td :colspan="columns[selected].length" class="py-10 text-center text-medium-emphasis">
+                <td :colspan="columns[selected].length" class="py-10 text-center text-faint">
                   {{ granularity !== 'all' ? 'No records in this period.' : 'No data for this report.' }}
                 </td>
               </tr>
             </tbody>
-          </v-table>
+          </table>
         </div>
-      </v-card>
-  </v-container>
+      </div>
+    </div>
+  </AppLayout>
 </template>

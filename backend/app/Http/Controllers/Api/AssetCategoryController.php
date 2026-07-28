@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Controllers\Concerns\PaginatesAndSorts;
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\AssetCategory;
@@ -13,17 +12,9 @@ use Illuminate\Validation\Rule;
 
 class AssetCategoryController extends Controller
 {
-    use PaginatesAndSorts;
-
-    private const SORTABLE = ['name', 'short_name', 'created_at'];
-
-    public function index(Request $request)
+    public function index()
     {
-        $query = AssetCategory::withCount('assets');
-
-        $this->applySearch($query, $request, ['name', 'short_name', 'description']);
-
-        return response()->json($this->paginateSorted($query, $request, self::SORTABLE, 'name', 'asc'));
+        return response()->json(AssetCategory::withCount('assets')->orderBy('name')->get());
     }
 
     public function store(Request $request)
@@ -43,7 +34,7 @@ class AssetCategoryController extends Controller
         ActivityLog::create([
             'user_id' => Auth::id(),
             'action' => 'Create',
-            'description' => 'Created category: '.$category->name,
+            'description' => 'Created category: ' . $category->name,
         ]);
 
         return response()->json($category, 201);
@@ -54,7 +45,7 @@ class AssetCategoryController extends Controller
         $request->merge(['short_name' => $this->normalizeCode($request->short_name)]);
 
         $validated = $request->validate([
-            'name' => 'required|string|max:255|unique:asset_categories,name,'.$category->id,
+            'name' => 'required|string|max:255|unique:asset_categories,name,' . $category->id,
             'short_name' => ['nullable', 'regex:'.AssetCodeService::CODE_FORMAT, Rule::unique('asset_categories', 'short_name')->ignore($category->id)],
             'description' => 'nullable|string',
         ], [
@@ -66,7 +57,7 @@ class AssetCategoryController extends Controller
         ActivityLog::create([
             'user_id' => Auth::id(),
             'action' => 'Update',
-            'description' => 'Updated category: '.$category->name,
+            'description' => 'Updated category: ' . $category->name,
         ]);
 
         return response()->json($category);
@@ -79,7 +70,7 @@ class AssetCategoryController extends Controller
         ActivityLog::create([
             'user_id' => Auth::id(),
             'action' => 'Delete',
-            'description' => 'Deleted category: '.$category->name,
+            'description' => 'Deleted category: ' . $category->name,
         ]);
 
         return response()->json(['message' => 'Category deleted.']);

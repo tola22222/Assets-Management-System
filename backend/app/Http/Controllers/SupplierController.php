@@ -1,11 +1,10 @@
 <?php
 
 // app/Http/Controllers/SupplierController.php
-
 namespace App\Http\Controllers;
 
-use App\Models\ActivityLog;
 use App\Models\Supplier;
+use App\Models\ActivityLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -14,7 +13,6 @@ class SupplierController extends Controller
     public function index()
     {
         $suppliers = Supplier::latest()->get();
-
         return view('suppliers.index', compact('suppliers'));
     }
 
@@ -31,7 +29,7 @@ class SupplierController extends Controller
         ActivityLog::create([
             'user_id' => Auth::id(),
             'action' => 'Create',
-            'description' => 'Added new supplier: '.$request->name,
+            'description' => 'Added new supplier: ' . $request->name,
         ]);
 
         return redirect()->route('suppliers.index')->with('success', 'Supplier created!');
@@ -50,7 +48,7 @@ class SupplierController extends Controller
         ActivityLog::create([
             'user_id' => Auth::id(),
             'action' => 'Update',
-            'description' => 'Updated supplier: '.$supplier->name,
+            'description' => 'Updated supplier: ' . $supplier->name,
         ]);
 
         return redirect()->route('suppliers.index')->with('success', 'Supplier updated!');
@@ -64,7 +62,7 @@ class SupplierController extends Controller
         ActivityLog::create([
             'user_id' => Auth::id(),
             'action' => 'Delete',
-            'description' => 'Removed supplier: '.$name,
+            'description' => 'Removed supplier: ' . $name,
         ]);
 
         return back()->with('success', 'Supplier deleted.');

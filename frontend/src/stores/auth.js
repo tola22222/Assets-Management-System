@@ -9,14 +9,6 @@ export const useAuthStore = defineStore('auth', {
 
   getters: {
     isAuthenticated: (state) => !!state.token,
-    // Mirrors backend/app/Models/User.php's role helpers so the SPA can gate
-    // workflow-action buttons consistently instead of re-checking role strings inline.
-    isOperationsHrManager: (state) => state.user?.role === 'operations_hr_manager',
-    isStaff: (state) => state.user?.role === 'staff',
-    isExecutiveDirector: (state) => state.user?.role === 'executive_director',
-    isFinanceManager: (state) => state.user?.role === 'finance_manager',
-    canApproveDisposal: (state) => ['operations_hr_manager', 'executive_director'].includes(state.user?.role),
-    canCompleteVerification: (state) => ['operations_hr_manager', 'finance_manager'].includes(state.user?.role),
   },
 
   actions: {

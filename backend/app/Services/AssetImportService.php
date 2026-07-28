@@ -125,12 +125,6 @@ class AssetImportService
                 }
             }
 
-            // 'status' is deliberately NOT in this shared payload — re-importing
-            // the register must never be able to silently flip an EXISTING,
-            // already-tracked asset to "disposed" outside the disposal-approval
-            // workflow. It's only ever applied below when a row is brand new
-            // (initial historical-register seeding, where "already disposed in
-            // real life" is a legitimate starting state, not a bypass).
             $payload = [
                 'name' => $name,
                 'category_id' => $category->id,
@@ -141,6 +135,7 @@ class AssetImportService
                 'purchase_date' => $this->parseDate($get('date')),
                 'purchase_price' => $this->parsePrice($get('price')),
                 'condition' => $this->parseCondition($get('condition'), $get('remark')),
+                'status' => $this->parseStatus($get('status')),
                 'description' => $preserveCodes
                     ? $this->buildNote($get('location'), $get('using'), $get('used_by'), $get('remark'))
                     : ($get('description') ?: null),
@@ -156,15 +151,9 @@ class AssetImportService
 
                     continue;
                 }
-                $asset = Asset::create($payload + [
-                    'asset_code' => $code,
-                    'status' => $this->parseStatus($get('status')),
-                ]);
+                $asset = Asset::create($payload + ['asset_code' => $code]);
             } else {
-                $asset = Asset::create($payload + [
-                    'asset_code' => AssetCodeService::nextCode($location->id, $category->id),
-                    'status' => $this->parseStatus($get('status')),
-                ]);
+                $asset = Asset::create($payload + ['asset_code' => AssetCodeService::nextCode($location->id, $category->id)]);
             }
 
             if ($generateQr) {
@@ -299,7 +288,7 @@ class AssetImportService
         return $hasCategory && $hasSequence;
     }
 
-    /** Keep asset_code_sequences ahead of every preserved code so the next Add Asset call can't collide with it. */
+    /** Keep asset_code_sequences ahead of every preserved code so the next Register/Receive Asset call can't collide with it. */
     private function bumpSequenceFromCode(string $code): void
     {
         if (! preg_match('/^PEY-[A-Z]{2,4}-([A-Z]{2,4})-(\d+)$/', $code, $m)) {

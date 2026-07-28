@@ -1,25 +1,30 @@
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
+import { ref, onMounted, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
-import AppPageHeader from '../../components/common/AppPageHeader.vue'
+import AppLayout from '../../layouts/AppLayout.vue'
+import PageHeader from '../../components/ui/PageHeader.vue'
 import Modal from '../../components/ui/Modal.vue'
-import AppDataTable from '../../components/common/AppDataTable.vue'
+import ConfirmDialog from '../../components/ui/ConfirmDialog.vue'
+import SearchInput from '../../components/ui/SearchInput.vue'
+import TableSortIcon from '../../components/ui/TableSortIcon.vue'
 import { useApiCrud } from '../../composables/useApiCrud'
-import { useServerTable } from '../../composables/useServerTable'
-import { useConfirm } from '../../composables/useConfirm'
+import { useTableSearch } from '../../composables/useTableSearch'
+import { useTableSort } from '../../composables/useTableSort'
 
 const { t } = useI18n()
-const {
-  items: categories, loading, page, perPage, total, sortByVuetify,
-  search, setSearch, handleOptions, fetchPage,
-} = useServerTable('/categories', { defaultSort: 'name', defaultDir: 'asc' })
-const { create, update, destroy } = useApiCrud('/categories', { entityName: t('categories.entity'), refetch: fetchPage })
-const { confirm } = useConfirm()
+const { items: categories, loading, fetchAll, create, update, destroy } = useApiCrud('/categories', { entityName: t('categories.entity') })
+const { search, filtered: searched } = useTableSearch(categories, ['name', 'short_name', 'description'])
+const { sortKey, sortDir, toggleSort, sorted: filtered } = useTableSort(searched, { defaultKey: 'name', paths: { count: 'assets_count' } })
 
 const CATEGORY_CODES = ['MOV', 'FAF', 'COM', 'EQU']
 
+function uppercaseShortName(e) {
+  form.short_name = e.target.value.toUpperCase()
+}
+
 const showModal = ref(false)
 const editingId = ref(null)
+const deletingId = ref(null)
 const form = reactive({ name: '', short_name: '', description: '' })
 
 function openCreate() {
@@ -43,78 +48,91 @@ async function handleSubmit() {
   showModal.value = false
 }
 
-async function handleDelete(row) {
-  const ok = await confirm({
-    title: t('confirm.delete_title'),
-    message: t('confirm.delete_message'),
-    color: 'error',
-    confirmText: t('common.delete'),
-    cancelText: t('common.cancel'),
-  })
-  if (ok) await destroy(row.id)
+async function confirmDelete() {
+  await destroy(deletingId.value)
+  deletingId.value = null
 }
 
-const headers = computed(() => [
-  { title: t('common.name'), key: 'name', sortable: true },
-  { title: t('categories.short_name'), key: 'short_name', sortable: true },
-  { title: t('categories.assets_count'), key: 'assets_count', sortable: false, align: 'end' },
-  { title: t('common.actions'), key: 'actions', sortable: false, align: 'end', width: 110 },
-])
-
-onMounted(fetchPage)
+onMounted(fetchAll)
 </script>
 
 <template>
-    <v-container fluid class="pa-0">
-      <AppPageHeader
-        :title="t('categories.title')"
-        :subtitle="t('categories.subtitle')"
-        :actions="[{ label: t('categories.new'), icon: 'mdi-plus', onClick: openCreate }]"
-      />
+  <AppLayout>
+    <div class="p-8 max-w-5xl mx-auto space-y-6">
+      <PageHeader :title="t('categories.title')" :subtitle="t('categories.subtitle')" :buttonText="t('categories.new')" @action="openCreate" />
 
-      <AppDataTable
-        :headers="headers"
-        :items="categories"
-        :items-length="total"
-        :loading="loading"
-        :page="page"
-        :items-per-page="perPage"
-        :items-per-page-options="[10, 25, 50, 100]"
-        :sort-by="sortByVuetify"
-        :search="search"
-        :search-label="t('categories.search_placeholder')"
-        :empty-text="search ? t('categories.empty_search') : t('categories.empty')"
-        @update:search="setSearch"
-        @update:options="handleOptions"
-        @edit="openEdit"
-        @delete="handleDelete"
-      >
-        <template #item.short_name="{ item }">{{ item.short_name || '—' }}</template>
-        <template #item.assets_count="{ item }">{{ item.assets_count ?? 0 }}</template>
-      </AppDataTable>
-    </v-container>
+      <div class="table-wrap">
+        <div class="table-toolbar">
+          <div class="w-full sm:max-w-xs">
+            <SearchInput v-model="search" :placeholder="t('categories.search_placeholder')" />
+          </div>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th class="th-sort" @click="toggleSort('name')">{{ t('common.name') }}<TableSortIcon :active="sortKey === 'name'" :direction="sortDir" /></th>
+                <th class="th-sort" @click="toggleSort('short_name')">{{ t('categories.short_name') }}<TableSortIcon :active="sortKey === 'short_name'" :direction="sortDir" /></th>
+                <th class="th-sort" @click="toggleSort('count')">{{ t('categories.assets_count') }}<TableSortIcon :active="sortKey === 'count'" :direction="sortDir" /></th>
+                <th class="text-right">{{ t('common.actions') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="cat in filtered" :key="cat.id">
+                <td class="font-medium text-fg">{{ cat.name }}</td>
+                <td>{{ cat.short_name || '—' }}</td>
+                <td>{{ cat.assets_count ?? 0 }}</td>
+                <td class="text-right">
+                  <div class="flex items-center justify-end gap-1.5">
+                    <button @click="openEdit(cat)" title="Edit" class="w-7 h-7 rounded-lg bg-brand text-white flex items-center justify-center hover:bg-brand-dark transition">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487z" /></svg>
+                    </button>
+                    <button @click="deletingId = cat.id" title="Delete" class="w-7 h-7 rounded-lg bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9 9m9.968-3.21c.342.052.682.107 1.022.166M18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+              <tr v-if="!loading && !filtered.length">
+                <td colspan="4" class="py-10 text-center text-faint">{{ search ? t('categories.empty_search') : t('categories.empty') }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
 
     <Modal v-if="showModal" :title="editingId ? t('categories.edit_title') : t('categories.create_title')" @close="showModal = false">
-      <v-form @submit.prevent="handleSubmit">
-        <v-card-text class="d-flex flex-column ga-1">
-          <v-text-field v-model="form.name" :label="t('categories.name_required')" required />
-          <v-combobox
-            v-model="form.short_name"
-            :items="CATEGORY_CODES"
-            :label="t('categories.short_name')"
-            maxlength="6"
-            :hint="`2-6 letters/numbers. MOV/FAF/COM/EQU are the Manual's defaults — you can also type your own.`"
-            persistent-hint
-            @update:model-value="(v) => (form.short_name = (v || '').toUpperCase())"
-          />
-          <v-textarea v-model="form.description" :label="t('common.description')" rows="2" class="mt-2" />
-        </v-card-text>
-        <v-card-actions class="px-4 pb-4">
-          <v-btn type="submit" color="primary" variant="flat" prepend-icon="mdi-plus">
+      <form @submit.prevent="handleSubmit">
+        <div class="p-6 space-y-4">
+          <div class="space-y-1.5">
+            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('categories.name_required') }}</label>
+            <input v-model="form.name" required class="input" />
+          </div>
+          <div class="space-y-1.5">
+            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('categories.short_name') }}</label>
+            <input :value="form.short_name" @input="uppercaseShortName" list="category-codes" maxlength="6"
+              placeholder="e.g. MOV, or your own like ELEC" class="input" />
+            <datalist id="category-codes">
+              <option v-for="code in CATEGORY_CODES" :key="code" :value="code" />
+            </datalist>
+            <p class="text-xs text-faint">2-6 letters/numbers. MOV/FAF/COM/EQU are the Manual's defaults — you can also type your own.</p>
+          </div>
+          <div class="space-y-1.5">
+            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('common.description') }}</label>
+            <textarea v-model="form.description" rows="2" class="input"></textarea>
+          </div>
+        </div>
+        <div class="flex items-center gap-3 border-t border-line px-6 py-4">
+          <button type="submit" class="btn-primary">
+            <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
             {{ editingId ? t('categories.save_changes') : t('categories.create_button') }}
-          </v-btn>
-          <v-btn variant="text" @click="showModal = false">{{ t('common.cancel') }}</v-btn>
-        </v-card-actions>
-      </v-form>
+          </button>
+          <button type="button" class="btn-ghost" @click="showModal = false">{{ t('common.cancel') }}</button>
+        </div>
+      </form>
     </Modal>
+
+    <ConfirmDialog v-if="deletingId" @confirm="confirmDelete" @cancel="deletingId = null" />
+  </AppLayout>
 </template>

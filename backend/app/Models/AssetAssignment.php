@@ -2,15 +2,15 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Builder;
 
 class AssetAssignment extends Model
 {
     protected $table = 'asset_assignments';
-
+    
     protected $fillable = [
         'asset_id',
         'assigned_to_type',
@@ -20,7 +20,7 @@ class AssetAssignment extends Model
         'assigned_date',
         'due_date',        // ADD THIS
         'status',
-        'image_path',
+        'image_path'
     ];
 
     protected $appends = ['image_url', 'recipient_name'];
@@ -32,7 +32,7 @@ class AssetAssignment extends Model
 
     public function getImageUrlAttribute()
     {
-        return $this->image_path ? asset('storage/'.$this->image_path) : null;
+        return $this->image_path ? asset('storage/' . $this->image_path) : null;
     }
 
     // Polymorphic relationship for assigned_to (staff OR program)
@@ -61,10 +61,8 @@ class AssetAssignment extends Model
     {
         if ($this->assigned_to_type === 'staff') {
             $staff = \App\Models\Staff::find($this->assigned_to_id);
-
             return $staff?->photo_path_url;
         }
-
         return null;
     }
 
@@ -77,7 +75,6 @@ class AssetAssignment extends Model
         if ($this->assigned_to_type === 'program') {
             return Program::find($this->assigned_to_id)?->name ?? 'Unknown Program';
         }
-
         return 'N/A';
     }
 
@@ -96,7 +93,6 @@ class AssetAssignment extends Model
         if ($this->assigned_to_type === 'program') {
             return \App\Models\Program::find($this->assigned_to_id)?->name ?? 'Unknown Program';
         }
-
         return 'N/A';
     }
 
@@ -106,7 +102,6 @@ class AssetAssignment extends Model
         if ($this->assigned_to_type === 'program') {
             return Program::find($this->assigned_to_id)?->name;
         }
-
         return null;
     }
 
@@ -120,8 +115,8 @@ class AssetAssignment extends Model
     public function scopeOverdue(Builder $query): Builder
     {
         return $query->where('status', 'active')
-            ->whereNotNull('due_date')
-            ->where('due_date', '<', now());
+                     ->whereNotNull('due_date')
+                     ->where('due_date', '<', now());
     }
 
     // Scope for returned assignments
@@ -133,20 +128,20 @@ class AssetAssignment extends Model
     // Check if assignment is overdue
     public function getIsOverdueAttribute(): bool
     {
-        return $this->status === 'active'
-            && $this->due_date
+        return $this->status === 'active' 
+            && $this->due_date 
             && $this->due_date < now();
     }
 
     // Get status with proper badge class
     public function getStatusBadgeClassAttribute(): string
     {
-        return match ($this->status) {
-            'active' => 'bg-brand-50 text-brand',
+        return match($this->status) {
+            'active'   => 'bg-brand-50 text-brand',
             'returned' => 'bg-slate-100 text-slate-500',
-            'overdue' => 'bg-red-50 text-red-500',
+            'overdue'  => 'bg-red-50 text-red-500',
             'assigned' => 'bg-blue-50 text-blue-700',
-            default => 'bg-slate-100 text-slate-600',
+            default    => 'bg-slate-100 text-slate-600',
         };
     }
 }

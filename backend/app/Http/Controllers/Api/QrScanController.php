@@ -20,14 +20,14 @@ class QrScanController extends Controller
             ->where('asset_code', $request->asset_code)
             ->first();
 
-        if (! $asset) {
+        if (!$asset) {
             return response()->json(['message' => 'Asset not found.'], 404);
         }
 
         Notification::create([
             'user_id' => Auth::id(),
             'type' => 'qr_scan',
-            'message' => 'QR scanned: '.$asset->name.' ('.$asset->asset_code.')',
+            'message' => 'QR scanned: ' . $asset->name . ' (' . $asset->asset_code . ')',
             'url' => null,
         ]);
 
@@ -72,7 +72,7 @@ class QrScanController extends Controller
         ActivityLog::create([
             'user_id' => Auth::id(),
             'action' => 'QR Verification',
-            'description' => 'Verified asset via QR scan: '.$asset->name.' ('.$asset->asset_code.')',
+            'description' => 'Verified asset via QR scan: ' . $asset->name . ' (' . $asset->asset_code . ')',
         ]);
 
         return response()->json($verification->fresh(['asset', 'location']));

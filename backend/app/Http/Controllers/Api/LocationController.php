@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Controllers\Concerns\PaginatesAndSorts;
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\Location;
@@ -11,24 +10,14 @@ use Illuminate\Support\Facades\Auth;
 
 class LocationController extends Controller
 {
-    use PaginatesAndSorts;
-
-    private const SORTABLE = ['name', 'code', 'type', 'created_at'];
-
-    public function index(Request $request)
+    public function index()
     {
-        $query = Location::withCount('assets');
-
-        $this->applySearch($query, $request, ['name', 'code', 'type', 'description']);
-        $this->applyExactFilters($query, $request, ['type']);
-
-        return response()->json($this->paginateSorted($query, $request, self::SORTABLE, 'name', 'asc'));
+        return response()->json(Location::withCount('assets')->orderBy('name')->get());
     }
 
     public function show(Location $location)
     {
         $location->load(['assets.category']);
-
         return response()->json($location);
     }
 
@@ -36,7 +25,6 @@ class LocationController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'code' => 'nullable|string|max:4|unique:locations,code',
             'type' => 'required|in:office,lab,program',
             'description' => 'nullable|string',
         ]);
@@ -46,7 +34,7 @@ class LocationController extends Controller
         ActivityLog::create([
             'user_id' => Auth::id(),
             'action' => 'Create',
-            'description' => 'Created location: '.$location->name,
+            'description' => 'Created location: ' . $location->name,
         ]);
 
         return response()->json($location, 201);
@@ -56,7 +44,6 @@ class LocationController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'code' => 'nullable|string|max:4|unique:locations,code,'.$location->id,
             'type' => 'required|in:office,lab,program',
             'description' => 'nullable|string',
         ]);
@@ -66,7 +53,7 @@ class LocationController extends Controller
         ActivityLog::create([
             'user_id' => Auth::id(),
             'action' => 'Update',
-            'description' => 'Updated location: '.$location->name,
+            'description' => 'Updated location: ' . $location->name,
         ]);
 
         return response()->json($location);
@@ -83,7 +70,7 @@ class LocationController extends Controller
         ActivityLog::create([
             'user_id' => Auth::id(),
             'action' => 'Delete',
-            'description' => 'Deleted location: '.$location->name,
+            'description' => 'Deleted location: ' . $location->name,
         ]);
 
         return response()->json(['message' => 'Location deleted.']);

@@ -28,7 +28,7 @@ class AssetVerification extends Model
 
     public function getImageUrlAttribute()
     {
-        return $this->image_path ? asset('storage/'.$this->image_path) : null;
+        return $this->image_path ? asset('storage/' . $this->image_path) : null;
     }
 
     /**
@@ -76,10 +76,8 @@ class AssetVerification extends Model
     {
         if ($this->verified_by) {
             $user = User::find($this->verified_by);
-
             return $user ? $user->name : 'Unknown User';
         }
-
         return '—';
     }
 }

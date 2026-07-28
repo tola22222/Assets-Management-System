@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Controllers\Concerns\PaginatesAndSorts;
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\Supplier;
@@ -11,17 +10,9 @@ use Illuminate\Support\Facades\Auth;
 
 class SupplierController extends Controller
 {
-    use PaginatesAndSorts;
-
-    private const SORTABLE = ['name', 'created_at'];
-
-    public function index(Request $request)
+    public function index()
     {
-        $query = Supplier::query();
-
-        $this->applySearch($query, $request, ['name', 'phone', 'address']);
-
-        return response()->json($this->paginateSorted($query, $request, self::SORTABLE));
+        return response()->json(Supplier::latest()->get());
     }
 
     public function store(Request $request)
@@ -37,7 +28,7 @@ class SupplierController extends Controller
         ActivityLog::create([
             'user_id' => Auth::id(),
             'action' => 'Create',
-            'description' => 'Added new supplier: '.$supplier->name,
+            'description' => 'Added new supplier: ' . $supplier->name,
         ]);
 
         return response()->json($supplier, 201);
@@ -56,7 +47,7 @@ class SupplierController extends Controller
         ActivityLog::create([
             'user_id' => Auth::id(),
             'action' => 'Update',
-            'description' => 'Updated supplier: '.$supplier->name,
+            'description' => 'Updated supplier: ' . $supplier->name,
         ]);
 
         return response()->json($supplier->fresh());
@@ -70,7 +61,7 @@ class SupplierController extends Controller
         ActivityLog::create([
             'user_id' => Auth::id(),
             'action' => 'Delete',
-            'description' => 'Removed supplier: '.$name,
+            'description' => 'Removed supplier: ' . $name,
         ]);
 
         return response()->json(['message' => 'Supplier deleted.']);

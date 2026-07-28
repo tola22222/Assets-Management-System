@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('purchase_order_items', function (Blueprint $table) {
             $table->id();
             $table->integer('quantity');
-            $table->decimal('price', 10, 2);
+            $table->decimal('price',10,2);
             $table->timestamps();
         });
     }

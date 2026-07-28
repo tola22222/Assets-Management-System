@@ -10,7 +10,7 @@ class AssetTransfer extends Model
 
     protected $fillable = [
         'asset_id', 'from_location_id', 'to_location_id',
-        'requested_by', 'reason', 'status', 'approved_by', 'transfer_date', 'rejection_reason',
+        'requested_by', 'reason', 'status', 'approved_by', 'transfer_date'
     ];
 
     protected $casts = [

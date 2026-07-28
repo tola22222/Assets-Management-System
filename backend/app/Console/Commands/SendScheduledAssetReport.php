@@ -27,17 +27,15 @@ class SendScheduledAssetReport extends Command
         $intervalMonths = (int) (Setting::where('key', 'report_interval_months')->value('value') ?? 6);
         $lastSentAt = Setting::where('key', 'last_scheduled_report_at')->value('value');
 
-        if (! $lastSentAt) {
+        if (!$lastSentAt) {
             Setting::updateOrCreate(['key' => 'last_scheduled_report_at'], ['value' => now()->toDateTimeString()]);
-            $this->info('No prior report on record — baseline set to now. First report will send in '.$intervalMonths.' month(s).');
-
+            $this->info('No prior report on record — baseline set to now. First report will send in ' . $intervalMonths . ' month(s).');
             return self::SUCCESS;
         }
 
         $lastSentAt = Carbon::parse($lastSentAt);
         if (now()->lessThan($lastSentAt->copy()->addMonths($intervalMonths))) {
-            $this->info('Not due yet. Next due: '.$lastSentAt->copy()->addMonths($intervalMonths)->toDateString());
-
+            $this->info('Not due yet. Next due: ' . $lastSentAt->copy()->addMonths($intervalMonths)->toDateString());
             return self::SUCCESS;
         }
 
@@ -68,15 +66,14 @@ class SendScheduledAssetReport extends Command
                 try {
                     Mail::to($recipient->email)->send(new ScheduledAssetReportMail($summary, $periodLabel));
                 } catch (\Throwable $e) {
-                    Log::warning('Scheduled asset report email failed for '.$recipient->email.': '.$e->getMessage());
+                    Log::warning('Scheduled asset report email failed for ' . $recipient->email . ': ' . $e->getMessage());
                 }
             }
         }
 
         Setting::updateOrCreate(['key' => 'last_scheduled_report_at'], ['value' => now()->toDateTimeString()]);
 
-        $this->info('Scheduled asset report sent to '.$recipients->count().' recipient(s).');
-
+        $this->info('Scheduled asset report sent to ' . $recipients->count() . ' recipient(s).');
         return self::SUCCESS;
     }
 }

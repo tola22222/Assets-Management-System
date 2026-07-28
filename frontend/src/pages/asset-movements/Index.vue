@@ -1,136 +1,98 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import AppPageHeader from '../../components/common/AppPageHeader.vue'
-import StatCard from '../../components/ui/StatCard.vue'
+import AppLayout from '../../layouts/AppLayout.vue'
+import PageHeader from '../../components/ui/PageHeader.vue'
 import StatusBadge from '../../components/ui/StatusBadge.vue'
-import TrendChart from '../../components/ui/TrendChart.vue'
-import DonutChart from '../../components/ui/DonutChart.vue'
-import MovementDialog from '../../components/dialogs/MovementDialog.vue'
-import { useStockMotion } from '../../composables/useStockMotion'
+import ConfirmDialog from '../../components/ui/ConfirmDialog.vue'
+import SearchInput from '../../components/ui/SearchInput.vue'
+import TableSortIcon from '../../components/ui/TableSortIcon.vue'
+import { useApiCrud } from '../../composables/useApiCrud'
+import { useTableSearch } from '../../composables/useTableSearch'
+import { useTableFilter } from '../../composables/useTableFilter'
+import { useTableSort } from '../../composables/useTableSort'
 
 const { t } = useI18n()
-const { items, loading, stats, load } = useStockMotion()
+const { items: movements, loading, fetchAll, destroy } = useApiCrud('/asset-movements', { entityName: t('asset_movements.title') })
+const deletingId = ref(null)
 
-const showMovementDialog = ref(false)
-const typeFilter = ref('')
-
-const TYPES = ['transfer', 'checkout', 'checkin', 'disposal']
-
-const filteredItems = computed(() => {
-  if (!typeFilter.value) return items.value
-  return items.value.filter((i) => i.type === typeFilter.value)
+const { search, filtered: searched } = useTableSearch(movements, [(m) => m.asset?.name, (m) => m.asset?.asset_code, 'reference_no'])
+const { filters, filtered: matched, hasActiveFilters, clearFilters } = useTableFilter(searched, {
+  movement_type: (row, v) => row.movement_type === v,
 })
-
-// Last 14 days, movement counts per day — computed client-side from the merged feed.
-const trendData = computed(() => {
-  const buckets = {}
-  for (let i = 13; i >= 0; i--) {
-    const d = new Date()
-    d.setDate(d.getDate() - i)
-    buckets[d.toISOString().slice(0, 10)] = 0
-  }
-  items.value.forEach((i) => {
-    const key = new Date(i.date).toISOString().slice(0, 10)
-    if (key in buckets) buckets[key]++
-  })
-  return Object.entries(buckets).map(([label, count]) => ({ label, count }))
-})
-
-// Flow by destination location — reuses DonutChart's {category,count,percentage} shape.
-const flowByLocation = computed(() => {
-  const counts = {}
-  items.value.forEach((i) => {
-    const dest = i.to
-    if (!dest) return
-    counts[dest] = (counts[dest] || 0) + 1
-  })
-  const total = Object.values(counts).reduce((a, b) => a + b, 0)
-  return Object.entries(counts)
-    .map(([category, count]) => ({ category, count, percentage: total ? Math.round((count / total) * 100) : 0 }))
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 6)
+const { sortKey, sortDir, toggleSort, sorted: sortedMovements } = useTableSort(matched, {
+  defaultKey: 'created_at', defaultDir: 'desc',
+  paths: { asset: 'asset.name', from: 'from_location.name', to: 'to_location.name' },
 })
 
 function formatDate(v) {
   return v ? new Date(v).toLocaleString() : t('common.n_a')
 }
 
-onMounted(load)
+async function confirmDelete() {
+  await destroy(deletingId.value)
+  deletingId.value = null
+}
+
+onMounted(fetchAll)
 </script>
 
 <template>
-  <v-container fluid class="pa-0">
-    <AppPageHeader
-      :title="t('stock_motion.title')"
-      :subtitle="t('stock_motion.subtitle')"
-      :actions="[{ label: t('stock_motion.new_movement'), icon: 'mdi-plus', onClick: () => (showMovementDialog = true) }]"
-    />
+  <AppLayout>
+    <div class="p-8 max-w-6xl mx-auto space-y-6">
+      <PageHeader :title="t('asset_movements.title')" :subtitle="t('asset_movements.subtitle')" />
 
-    <v-row dense class="mb-2">
-      <v-col cols="12" sm="6" lg="3"><StatCard :value="stats.movementsThisMonth" :label="t('stock_motion.movements_this_month')" /></v-col>
-      <v-col cols="12" sm="6" lg="3"><StatCard :value="stats.pendingTransfers" :label="t('stock_motion.pending_transfers')" /></v-col>
-      <v-col cols="12" sm="6" lg="3"><StatCard :value="stats.checkedOut" :label="t('stock_motion.checked_out')" /></v-col>
-      <v-col cols="12" sm="6" lg="3"><StatCard :value="stats.overdueReturns" :label="t('stock_motion.overdue_returns')" /></v-col>
-    </v-row>
-
-    <v-row dense class="mb-2">
-      <v-col cols="12" lg="6">
-        <v-card rounded="lg" variant="flat" border class="pa-6 h-100">
-          <h2 class="text-subtitle-1 font-weight-bold">{{ t('stock_motion.trend_title') }}</h2>
-          <p class="text-body-2 text-medium-emphasis mb-4">{{ t('stock_motion.trend_subtitle') }}</p>
-          <TrendChart :data="trendData" period="day" unit-label="movement" action-label="" />
-        </v-card>
-      </v-col>
-      <v-col cols="12" lg="6">
-        <v-card rounded="lg" variant="flat" border class="pa-6 h-100">
-          <h2 class="text-subtitle-1 font-weight-bold">{{ t('stock_motion.flow_title') }}</h2>
-          <p class="text-body-2 text-medium-emphasis mb-4">{{ t('stock_motion.flow_subtitle') }}</p>
-          <DonutChart v-if="flowByLocation.length" :segments="flowByLocation" :total="items.length" :total-label="t('stock_motion.flow_total_label')" />
-          <p v-else class="text-body-2 text-medium-emphasis py-6 text-center">{{ t('stock_motion.no_flow_data') }}</p>
-        </v-card>
-      </v-col>
-    </v-row>
-
-    <v-card rounded="lg" variant="flat" border class="pa-6">
-      <div class="d-flex flex-wrap align-center justify-space-between ga-3 mb-4">
-        <h2 class="text-subtitle-1 font-weight-bold">{{ t('stock_motion.recent_title') }}</h2>
-        <v-chip-group v-model="typeFilter" mandatory="force" filter selected-class="text-primary">
-          <v-chip value="" size="small" variant="outlined">{{ t('common.all') }}</v-chip>
-          <v-chip v-for="type in TYPES" :key="type" :value="type" size="small" variant="outlined">{{ t(`stock_motion.type_${type}`) }}</v-chip>
-        </v-chip-group>
-      </div>
-
-      <v-timeline v-if="!loading && filteredItems.length" density="compact" side="end" truncate-line="both">
-        <v-timeline-item
-          v-for="entry in filteredItems.slice(0, 30)"
-          :key="entry.id"
-          :dot-color="entry.color"
-          size="small"
-        >
-          <div class="d-flex align-center justify-space-between flex-wrap ga-3">
-            <div style="min-width: 0">
-              <div class="d-flex align-center ga-2">
-                <span class="font-weight-semibold text-body-2">{{ entry.asset?.name || t('common.n_a') }}</span>
-                <span class="font-mono font-mono-tag text-caption text-medium-emphasis">{{ entry.asset?.asset_code }}</span>
-              </div>
-              <p class="text-caption text-medium-emphasis mt-1">
-                <span class="text-capitalize">{{ t(`stock_motion.type_${entry.type}`) }}</span>
-                <template v-if="entry.from || entry.to"> · {{ entry.from || '—' }} → {{ entry.to || '—' }}</template>
-                <template v-if="entry.actor"> · {{ entry.actor }}</template>
-              </p>
-            </div>
-            <div class="d-flex align-center ga-3 flex-shrink-0">
-              <StatusBadge v-if="entry.status" :status="entry.status" />
-              <span class="text-caption text-medium-emphasis text-no-wrap">{{ formatDate(entry.date) }}</span>
-            </div>
+      <div class="table-wrap">
+        <div class="table-toolbar">
+          <div class="w-full sm:max-w-xs">
+            <SearchInput v-model="search" :placeholder="t('common.search')" />
           </div>
-        </v-timeline-item>
-      </v-timeline>
-      <p v-else-if="!loading" class="text-body-2 text-medium-emphasis text-center py-10">{{ t('stock_motion.empty') }}</p>
-      <div v-else class="d-flex justify-center py-10"><v-progress-circular indeterminate color="primary" /></div>
-    </v-card>
+          <select v-model="filters.movement_type" class="filter-select">
+            <option value="">{{ t('asset_movements.type') }}: {{ t('common.all') }}</option>
+            <option value="stock_in">{{ t('status.stock_in') }}</option>
+            <option value="transfer">{{ t('status.transfer') }}</option>
+          </select>
+          <button v-if="hasActiveFilters" @click="clearFilters" class="btn-subtle btn-sm">{{ t('common.clear_filters') }}</button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th class="th-sort" @click="toggleSort('asset')">{{ t('common.asset') }}<TableSortIcon :active="sortKey === 'asset'" :direction="sortDir" /></th>
+                <th class="th-sort" @click="toggleSort('movement_type')">{{ t('asset_movements.type') }}<TableSortIcon :active="sortKey === 'movement_type'" :direction="sortDir" /></th>
+                <th class="th-sort" @click="toggleSort('from')">{{ t('asset_movements.from') }}<TableSortIcon :active="sortKey === 'from'" :direction="sortDir" /></th>
+                <th class="th-sort" @click="toggleSort('to')">{{ t('asset_movements.to') }}<TableSortIcon :active="sortKey === 'to'" :direction="sortDir" /></th>
+                <th>{{ t('asset_movements.reference') }}</th>
+                <th class="th-sort" @click="toggleSort('created_at')">{{ t('asset_movements.date') }}<TableSortIcon :active="sortKey === 'created_at'" :direction="sortDir" /></th>
+                <th class="text-right">{{ t('common.actions') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="m in sortedMovements" :key="m.id">
+                <td>
+                  <p class="font-medium text-fg">{{ m.asset?.name || t('common.n_a') }}</p>
+                  <p class="font-mono text-xs text-faint">{{ m.asset?.asset_code }}</p>
+                </td>
+                <td><StatusBadge :status="m.movement_type" /></td>
+                <td>{{ m.from_location?.name || '—' }}</td>
+                <td>{{ m.to_location?.name || t('common.n_a') }}</td>
+                <td class="font-mono text-xs">{{ m.reference_no || '—' }}</td>
+                <td>{{ formatDate(m.created_at) }}</td>
+                <td class="text-right">
+                  <button @click="deletingId = m.id" :title="t('common.delete')" class="w-7 h-7 rounded-lg bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9 9m9.968-3.21c.342.052.682.107 1.022.166M18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
+                  </button>
+                </td>
+              </tr>
+              <tr v-if="!loading && !sortedMovements.length">
+                <td colspan="7" class="py-10 text-center text-faint">{{ t('asset_movements.empty') }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
 
-    <MovementDialog v-model="showMovementDialog" />
-  </v-container>
+    <ConfirmDialog v-if="deletingId" :title="t('asset_movements.delete_confirm_title')" :message="t('asset_movements.delete_confirm_message')" @confirm="confirmDelete" @cancel="deletingId = null" />
+  </AppLayout>
 </template>

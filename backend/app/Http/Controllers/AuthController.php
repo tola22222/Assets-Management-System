@@ -2,12 +2,12 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\ActivityLog;
-use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
+use App\Models\ActivityLog;
+use App\Models\User;
 
 class AuthController extends Controller
 {
@@ -16,7 +16,6 @@ class AuthController extends Controller
         if (Auth::check()) {
             return redirect()->intended('/');
         }
-
         return view('auth.login');
     }
 
@@ -29,7 +28,7 @@ class AuthController extends Controller
 
         $user = User::where('email', $request->email)->first();
 
-        if ($user && ! $user->is_active) {
+        if ($user && !$user->is_active) {
             return back()->withErrors(['email' => 'Your account has been deactivated.'])->onlyInput('email');
         }
 
@@ -46,7 +45,7 @@ class AuthController extends Controller
             ActivityLog::create([
                 'user_id' => Auth::id(),
                 'action' => 'Login',
-                'description' => Auth::user()->name.' signed into the system.',
+                'description' => Auth::user()->name . ' signed into the system.',
             ]);
 
             return redirect()->intended('/');
@@ -62,7 +61,7 @@ class AuthController extends Controller
         ActivityLog::create([
             'user_id' => Auth::id(),
             'action' => 'Logout',
-            'description' => Auth::user()->name.' signed out.',
+            'description' => Auth::user()->name . ' signed out.',
         ]);
 
         Auth::logout();
@@ -86,7 +85,7 @@ class AuthController extends Controller
 
         $user = Auth::user();
 
-        if (! Hash::check($request->current_password, $user->password)) {
+        if (!Hash::check($request->current_password, $user->password)) {
             return back()->withErrors(['current_password' => 'Current password is incorrect.']);
         }
 
@@ -95,7 +94,7 @@ class AuthController extends Controller
         ActivityLog::create([
             'user_id' => $user->id,
             'action' => 'Password Change',
-            'description' => $user->name.' changed their password.',
+            'description' => $user->name . ' changed their password.',
         ]);
 
         return redirect()->route('dashboard')->with('success', 'Password changed successfully.');
@@ -120,7 +119,6 @@ class AuthController extends Controller
     public function showProfile()
     {
         $user = Auth::user()->load(['staff', 'unreadNotifications']);
-
         return view('profile.index', compact('user'));
     }
 
@@ -151,7 +149,7 @@ class AuthController extends Controller
         ActivityLog::create([
             'user_id' => $user->id,
             'action' => 'Profile Update',
-            'description' => $user->name.' updated their profile.',
+            'description' => $user->name . ' updated their profile.',
         ]);
 
         return redirect()->route('profile.show')->with('success', 'Profile updated successfully.');

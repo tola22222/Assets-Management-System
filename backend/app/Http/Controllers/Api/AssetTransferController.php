@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Controllers\Concerns\PaginatesAndSorts;
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\AssetMovement;
@@ -15,21 +14,11 @@ use Illuminate\Support\Facades\DB;
 
 class AssetTransferController extends Controller
 {
-    use PaginatesAndSorts;
-
-    private const SORTABLE = ['status', 'created_at'];
-
-    public function index(Request $request)
+    public function index()
     {
-        $query = AssetTransfer::with(['asset', 'fromLocation', 'toLocation', 'requester']);
-
-        $this->applySearch($query, $request, [], [
-            'asset' => ['name', 'asset_code'],
-            'requester' => ['name'],
-        ]);
-        $this->applyExactFilters($query, $request, ['status']);
-
-        return response()->json($this->paginateSorted($query, $request, self::SORTABLE));
+        return response()->json(
+            AssetTransfer::with(['asset', 'fromLocation', 'toLocation', 'requester'])->latest()->get()
+        );
     }
 
     public function store(Request $request)
@@ -55,7 +44,7 @@ class AssetTransferController extends Controller
                 Notification::create([
                     'user_id' => $admin->id,
                     'type' => 'transfer_request',
-                    'message' => 'New asset transfer request for '.($transfer->asset->name ?? 'Asset'),
+                    'message' => 'New asset transfer request for ' . ($transfer->asset->name ?? 'Asset'),
                     'url' => null,
                 ]);
             }
@@ -64,7 +53,7 @@ class AssetTransferController extends Controller
         ActivityLog::create([
             'user_id' => Auth::id(),
             'action' => 'Create',
-            'description' => ($transfer->status === 'approved' ? 'Transferred' : 'Requested transfer of').' asset',
+            'description' => ($transfer->status === 'approved' ? 'Transferred' : 'Requested transfer of') . ' asset',
         ]);
 
         return response()->json($transfer->fresh(['asset', 'fromLocation', 'toLocation', 'requester']), 201);
@@ -95,16 +84,11 @@ class AssetTransferController extends Controller
         return response()->json($asset_transfer->fresh(['asset', 'fromLocation', 'toLocation']));
     }
 
-    public function reject(Request $request, AssetTransfer $asset_transfer)
+    public function reject(AssetTransfer $asset_transfer)
     {
-        $validated = $request->validate([
-            'rejection_reason' => 'nullable|string',
-        ]);
-
         $asset_transfer->update([
             'status' => 'rejected',
             'approved_by' => Auth::id(),
-            'rejection_reason' => $validated['rejection_reason'] ?? null,
         ]);
 
         return response()->json($asset_transfer->fresh());
@@ -116,7 +100,6 @@ class AssetTransferController extends Controller
             return response()->json(['message' => 'Cannot delete an approved transfer.'], 422);
         }
         $asset_transfer->delete();
-
         return response()->json(['message' => 'Transfer deleted.']);
     }
 
@@ -129,7 +112,7 @@ class AssetTransferController extends Controller
                 'to_location_id' => $transfer->to_location_id,
                 'movement_type' => 'transfer',
                 'quantity' => 1,
-                'reference_no' => 'TRF-'.$transfer->id,
+                'reference_no' => 'TRF-' . $transfer->id,
                 'created_by' => Auth::id(),
             ]);
 

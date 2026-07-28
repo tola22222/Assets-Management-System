@@ -2,10 +2,11 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\ActivityLog;
 use App\Models\Setting;
+use App\Models\ActivityLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 
 class SettingController extends Controller
 {
@@ -60,32 +61,32 @@ class SettingController extends Controller
     public function backup()
     {
         $databasePath = database_path('database.sqlite');
-        if (! file_exists($databasePath)) {
+        if (!file_exists($databasePath)) {
             return redirect()->route('settings.index')->with('error', 'Database file not found.');
         }
 
         $backupPath = storage_path('app/backups');
-        if (! is_dir($backupPath)) {
+        if (!is_dir($backupPath)) {
             mkdir($backupPath, 0755, true);
         }
 
-        $filename = 'backup-'.date('Y-m-d-His').'.sqlite';
-        copy($databasePath, $backupPath.'/'.$filename);
+        $filename = 'backup-' . date('Y-m-d-His') . '.sqlite';
+        copy($databasePath, $backupPath . '/' . $filename);
 
         ActivityLog::create([
             'user_id' => Auth::id(),
             'action' => 'Backup',
-            'description' => 'Created database backup: '.$filename,
+            'description' => 'Created database backup: ' . $filename,
         ]);
 
-        return redirect()->route('settings.index')->with('success', 'Database backed up successfully: '.$filename);
+        return redirect()->route('settings.index')->with('success', 'Database backed up successfully: ' . $filename);
     }
 
     public function restore($filename)
     {
-        $backupPath = storage_path('app/backups/'.basename($filename));
+        $backupPath = storage_path('app/backups/' . basename($filename));
 
-        if (! file_exists($backupPath)) {
+        if (!file_exists($backupPath)) {
             return redirect()->route('settings.index')->with('error', 'Backup file not found.');
         }
 
@@ -94,7 +95,7 @@ class SettingController extends Controller
         ActivityLog::create([
             'user_id' => Auth::id(),
             'action' => 'Restore',
-            'description' => 'Restored database from backup: '.$filename,
+            'description' => 'Restored database from backup: ' . $filename,
         ]);
 
         return redirect()->route('settings.index')->with('success', 'Database restored successfully.');
@@ -103,15 +104,15 @@ class SettingController extends Controller
     public function listBackups()
     {
         $backupPath = storage_path('app/backups');
-        if (! is_dir($backupPath)) {
+        if (!is_dir($backupPath)) {
             return response()->json([]);
         }
 
         $files = array_map(function ($file) {
             return [
                 'name' => $file,
-                'size' => filesize(storage_path('app/backups/'.$file)),
-                'date' => date('Y-m-d H:i:s', filemtime(storage_path('app/backups/'.$file))),
+                'size' => filesize(storage_path('app/backups/' . $file)),
+                'date' => date('Y-m-d H:i:s', filemtime(storage_path('app/backups/' . $file))),
             ];
         }, array_diff(scandir($backupPath), ['.', '..']));
 

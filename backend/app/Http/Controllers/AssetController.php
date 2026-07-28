@@ -39,10 +39,7 @@ class AssetController extends Controller
             'location_id' => 'required|exists:locations,id',
             'purchase_date' => 'nullable|date',
             'purchase_price' => 'nullable|numeric',
-            // A newly registered asset is always active — "disposed" is only
-            // ever reachable via an approved AssetDisposal request, never by
-            // typing it into this form (see AssetDisposalController::approve()).
-            'status' => 'required|in:active',
+            'status' => 'required|string',
             'description' => 'nullable|string',
             'model' => 'nullable|string',
             'brand' => 'nullable|string',
@@ -107,7 +104,7 @@ class AssetController extends Controller
             'location_id' => 'required|exists:locations,id',
             'purchase_date' => 'nullable|date',
             'purchase_price' => 'nullable|numeric',
-            'status' => 'required|in:active,disposed',
+            'status' => 'required|string',
             'description' => 'nullable|string',
             'model' => 'nullable|string',
             'brand' => 'nullable|string',
@@ -115,16 +112,6 @@ class AssetController extends Controller
             'condition' => 'nullable|string',
             'image' => 'nullable|image|mimes:jpeg,png,jpg|max:5120',
         ]);
-
-        // "disposed" can only be reached via an approved AssetDisposal request
-        // (AssetDisposalController::approve()) — never by editing the asset
-        // directly. Editing an already-disposed asset's other fields is fine;
-        // what's blocked is *escalating* an active asset to disposed here.
-        abort_if(
-            $validated['status'] === 'disposed' && $asset->status !== 'disposed',
-            422,
-            'An asset can only be marked disposed through an approved disposal request.'
-        );
 
         if ($request->hasFile('image')) {
             if ($asset->image_path) {
@@ -157,10 +144,22 @@ class AssetController extends Controller
 
     public function destroy($id)
     {
-        // Assets can never be deleted outright — retirement via an approved
-        // AssetDisposal request is the only removal path (Asset Checking &
-        // Counting Manual). This keeps the historical record intact for audit.
-        abort(403, 'Assets cannot be deleted directly. Submit a disposal request instead.');
+        $asset = Asset::findOrFail($id);
+        if ($asset->qr_code_path) {
+            Storage::disk('public')->delete($asset->qr_code_path);
+        }
+        if ($asset->image_path) {
+            Storage::disk('public')->delete($asset->image_path);
+        }
+        $asset->delete();
+
+        ActivityLog::create([
+            'user_id' => Auth::id(),
+            'action' => 'Delete',
+            'description' => 'Deleted asset: '.$asset->name,
+        ]);
+
+        return redirect()->route('assets.index');
     }
 
     public function publicShow($assetCode)

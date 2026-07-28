@@ -3,31 +3,18 @@ import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
-import { useToastStore } from '../stores/toast'
 import AuthLayout from '../layouts/AuthLayout.vue'
 
 const { t } = useI18n()
-const toast = useToastStore()
 const email = ref('')
 const password = ref('')
-const showPassword = ref(false)
-const rememberMe = ref(true)
 const error = ref('')
 const loading = ref(false)
-const form = ref(null)
-
-const rules = {
-  email: [(v) => !!v || t('login.email_required'), (v) => /.+@.+\..+/.test(v) || t('login.email_invalid')],
-  password: [(v) => !!v || t('login.password_required')],
-}
 
 const auth = useAuthStore()
 const router = useRouter()
 
 async function handleSubmit() {
-  const { valid } = await form.value.validate()
-  if (!valid) return
-
   error.value = ''
   loading.value = true
   try {
@@ -39,50 +26,35 @@ async function handleSubmit() {
     loading.value = false
   }
 }
-
-function handleForgotPassword() {
-  toast.info(t('login.forgot_password_notice'))
-}
 </script>
 
 <template>
   <AuthLayout>
     <div class="mb-6">
-      <h1 class="text-h5 font-weight-bold font-display">{{ t('login.welcome') }}</h1>
-      <p class="text-body-2 text-medium-emphasis mt-1">{{ t('login.subtitle') }}</p>
+      <h1 class="font-display text-2xl font-bold text-fg">{{ t('login.welcome') }}</h1>
+      <p class="text-muted text-sm mt-1">{{ t('login.subtitle') }}</p>
     </div>
 
-    <v-card rounded="lg" variant="flat" border class="pa-6">
-      <v-form ref="form" @submit.prevent="handleSubmit">
-        <div class="d-flex flex-column ga-4">
-          <v-alert v-if="error" type="error" variant="tonal" density="compact">{{ error }}</v-alert>
+    <form @submit.prevent="handleSubmit" class="card p-6 space-y-4">
+      <div v-if="error" class="flex items-start gap-2 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 text-red-700 dark:text-red-300 text-sm px-3 py-2.5 rounded-xl">
+        <svg class="w-4 h-4 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" /></svg>
+        <span>{{ error }}</span>
+      </div>
 
-          <v-text-field
-            v-model="email"
-            type="email"
-            :label="t('login.email')"
-            :rules="rules.email"
-            autofocus
-            placeholder="you@ams.com"
-          />
-          <v-text-field
-            v-model="password"
-            :type="showPassword ? 'text' : 'password'"
-            :label="t('login.password')"
-            :rules="rules.password"
-            :append-inner-icon="showPassword ? 'mdi-eye-off-outline' : 'mdi-eye-outline'"
-            placeholder="••••••••"
-            @click:append-inner="showPassword = !showPassword"
-          />
+      <div>
+        <label class="label">{{ t('login.email') }}</label>
+        <input v-model="email" type="email" required autofocus placeholder="you@ams.com" class="input" />
+      </div>
 
-          <div class="d-flex align-center justify-space-between">
-            <v-checkbox v-model="rememberMe" :label="t('login.remember_me')" density="compact" hide-details />
-            <v-btn variant="text" size="small" class="text-none" @click="handleForgotPassword">{{ t('login.forgot_password') }}</v-btn>
-          </div>
+      <div>
+        <label class="label">{{ t('login.password') }}</label>
+        <input v-model="password" type="password" required placeholder="••••••••" class="input" />
+      </div>
 
-          <v-btn type="submit" color="primary" variant="flat" block size="large" :loading="loading">{{ t('login.submit') }}</v-btn>
-        </div>
-      </v-form>
-    </v-card>
+      <button type="submit" :disabled="loading" class="btn-primary w-full">
+        <svg v-if="loading" class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" /><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" /></svg>
+        {{ loading ? t('login.signing_in') : t('login.submit') }}
+      </button>
+    </form>
   </AuthLayout>
 </template>

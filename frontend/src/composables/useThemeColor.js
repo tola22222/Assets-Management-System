@@ -1,14 +1,13 @@
 import { ref } from 'vue'
-import vuetify from '../plugins/vuetify'
 
-// Converts one picked hex into Vuetify's live theme `primary` color (read by
-// every v-* component), mutated directly on the vuetify instance — no
-// re-render/rebuild needed. This is what makes the Settings "Theme Color"
-// picker work app-wide.
-const themeColor = ref(localStorage.getItem('themeColor') || '#1F4B43')
+// Tailwind v4's @theme block compiles --color-brand-* into real CSS custom
+// properties on :root, so overriding them at runtime restyles every
+// bg-brand-*/text-brand-*/border-brand-* utility already in the DOM — no
+// rebuild needed. This is what makes the Settings "Theme Color" picker work.
+const themeColor = ref(localStorage.getItem('themeColor') || '#1f3d2e')
 
-// Lightness stops used to derive Vuetify's primary/darken-1/lighten-1 shades.
-const SHADE_LIGHTNESS = { 300: 60, 500: 34, 600: 26, 700: 20, 800: 14 }
+// Roughly matches the lightness curve of the shipped brand-50..900 scale.
+const SHADE_LIGHTNESS = { 50: 95, 100: 88, 200: 76, 300: 60, 400: 45, 500: 34, 600: 26, 700: 20, 800: 14, 900: 9 }
 
 function hexToHsl(hex) {
   const r = parseInt(hex.slice(1, 3), 16) / 255
@@ -51,19 +50,13 @@ function applyThemeColor(hex) {
   }
 
   const [h, s] = hexToHsl(hex)
-
-  // Same hue/saturation curve, applied to Vuetify's live theme colors —
-  // lightness stops chosen to match the brand-700/800/500/600/300 shades
-  // pepyLight/pepyDark map `primary`/`primary-darken-1`/`primary-lighten-1` to.
-  const light = vuetify.theme.themes.value.pepyLight.colors
-  light.primary = hslToHex(h, s, SHADE_LIGHTNESS[700])
-  light['primary-darken-1'] = hslToHex(h, s, SHADE_LIGHTNESS[800])
-  light['primary-lighten-1'] = hslToHex(h, s, SHADE_LIGHTNESS[500])
-
-  const dark = vuetify.theme.themes.value.pepyDark.colors
-  dark.primary = hslToHex(h, s, SHADE_LIGHTNESS[500])
-  dark['primary-darken-1'] = hslToHex(h, s, SHADE_LIGHTNESS[600])
-  dark['primary-lighten-1'] = hslToHex(h, s, SHADE_LIGHTNESS[300])
+  const root = document.documentElement
+  Object.entries(SHADE_LIGHTNESS).forEach(([shade, l]) => {
+    root.style.setProperty(`--color-brand-${shade}`, hslToHex(h, s, l))
+  })
+  root.style.setProperty('--color-brand', hslToHex(h, s, 20))
+  root.style.setProperty('--color-brand-dark', hslToHex(h, s, 14))
+  root.style.setProperty('--color-brand-light', hslToHex(h, s, 26))
 }
 
 // Apply the persisted color immediately on module load (before mount),

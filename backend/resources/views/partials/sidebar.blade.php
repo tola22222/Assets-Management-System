@@ -1,14 +1,8 @@
 @php
     $user = Auth::user();
-    // Only staff get the restricted flat nav below — finance_manager and executive_director
-    // are manager-tier roles with the same backend access as operations_hr_manager to
-    // everything except Users/Settings/Activity Logs (see role: middleware in routes/web.php),
-    // so they get the full Asset Management group too. $isAdmin stays operations_hr_manager-only
-    // and is used solely for that bottom Setting group, matching the route middleware exactly.
-    $isStaff = $user && $user->isStaff();
     $isAdmin = $user && $user->isOperationsHrManager();
     $groups = [
-        'inventory' => ['assets.*', 'asset-assignments.*', 'asset-verifications.*', 'asset-transfers.*', 'asset-returns.*', 'asset-disposals.*'],
+        'inventory' => ['assets.*', 'asset-assignments.*', 'asset-stocks.*', 'asset-verifications.*', 'asset-transfers.*', 'asset-returns.*', 'asset-disposals.*'],
         'people'    => ['staff.*', 'programs.*'],
         'settings'  => ['categories.*', 'assets-locations.*', 'suppliers.*'],
         'setting'   => ['users.*', 'settings.*'],
@@ -52,7 +46,7 @@
                 {{ __('messages.qr_scanner') }}
             </a>
 
-            @if(!$isStaff)
+            @if($isAdmin)
             <div>
                 <button @click="openGroup = openGroup === 'inventory' ? '' : 'inventory'"
                     class="flex items-center justify-between w-full px-4 py-3.5 rounded-xl font-medium transition {{ $openGroup === 'inventory' ? $dropdownActiveClass : $inactiveClass }}">
@@ -67,6 +61,8 @@
                 <div x-show="openGroup === 'inventory'" x-cloak x-collapse class="space-y-0">
                     <a href="{{ route('assets.index') }}"
                         class="{{ $subClass }} {{ request()->routeIs('assets.*') ? $subActive : $subInactive }}">{{ __('messages.asset_register') }}</a>
+                    <a href="{{ route('asset-stocks.index') }}"
+                        class="{{ $subClass }} {{ request()->routeIs('asset-stocks.*') ? $subActive : $subInactive }}">{{ __('messages.receive_assets') }}</a>
                     <a href="{{ route('asset-assignments.index') }}"
                         class="{{ $subClass }} {{ request()->routeIs('asset-assignments.*') ? $subActive : $subInactive }}">{{ __('messages.assignments') }}</a>
                     <a href="{{ route('asset-transfers.index') }}"

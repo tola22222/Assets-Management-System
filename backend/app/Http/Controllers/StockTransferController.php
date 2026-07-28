@@ -2,13 +2,13 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\ActivityLog;
-use App\Models\Product;
 use App\Models\StockTransfer;
 use App\Models\StockTransferItem;
+use App\Models\Product;
+use App\Models\ActivityLog;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Auth;
 
 class StockTransferController extends Controller
 {
@@ -17,7 +17,6 @@ class StockTransferController extends Controller
         $transfers = StockTransfer::with(['school', 'user'])->latest()->paginate(10);
         $schools = School::all();
         $products = Product::all();
-
         return view('stock_transfers.index', compact('transfers', 'schools', 'products'));
     }
 
@@ -70,9 +69,9 @@ class StockTransferController extends Controller
         }
 
         DB::transaction(function () use ($stockTransfer) {
-            // Here you would typically subtract from HQ inventory
-            // and add to School inventory.
-
+            // Here you would typically subtract from HQ inventory 
+            // and add to School inventory. 
+            
             $stockTransfer->update(['status' => 'Approved']);
 
             ActivityLog::create([
@@ -88,7 +87,6 @@ class StockTransferController extends Controller
     public function show(StockTransfer $stockTransfer)
     {
         $transfer = $stockTransfer->load(['school', 'user', 'items.product']);
-
         return view('stock_transfers.show_modal', compact('transfer'))->render();
     }
 
@@ -99,7 +97,6 @@ class StockTransferController extends Controller
         }
 
         $stockTransfer->delete();
-
         return back()->with('success', 'Transfer cancelled.');
     }
 }

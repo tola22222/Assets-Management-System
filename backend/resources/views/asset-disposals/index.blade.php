@@ -148,8 +148,8 @@
         <form id="rejectForm" method="POST" class="mt-4 space-y-4">
             @csrf
             <div class="space-y-1.5">
-                <label class="text-xs font-semibold text-gray-700 dark:text-gray-300 tracking-wide">Reason for rejection *</label>
-                <textarea name="review_notes" rows="3" required
+                <label class="text-xs font-semibold text-gray-700 dark:text-gray-300 tracking-wide">Reason for rejection</label>
+                <textarea name="review_notes" rows="3"
                     class="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl px-3.5 py-2.5 text-sm dark:text-gray-200 focus:outline-none focus:border-brand transition"></textarea>
             </div>
             <div class="flex items-center justify-center gap-3">

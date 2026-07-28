@@ -53,9 +53,9 @@
                 </div>
                 <div>
                     <label class="block text-sm font-bold text-slate-700 dark:text-gray-300 mb-1">Status *</label>
-                    {{-- New assets are always Active — "Disposed" is only reachable via an approved disposal request. --}}
                     <select name="status" required class="w-full px-4 py-2.5 border border-slate-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-brand focus:border-brand outline-none dark:bg-gray-700 dark:text-gray-200">
                         <option value="active">Active</option>
+                        <option value="disposed">Disposed</option>
                     </select>
                 </div>
                 <div>

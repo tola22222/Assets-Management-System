@@ -20,13 +20,13 @@ class AuthController extends Controller
 
         $user = User::where('email', $credentials['email'])->first();
 
-        if (! $user || ! Hash::check($credentials['password'], $user->password)) {
+        if (!$user || !Hash::check($credentials['password'], $user->password)) {
             throw ValidationException::withMessages([
                 'email' => 'The provided credentials do not match our records.',
             ]);
         }
 
-        if (! $user->is_active) {
+        if (!$user->is_active) {
             throw ValidationException::withMessages([
                 'email' => 'Your account has been deactivated.',
             ]);
@@ -43,7 +43,7 @@ class AuthController extends Controller
         ActivityLog::create([
             'user_id' => $user->id,
             'action' => 'Login',
-            'description' => $user->name.' signed into the system.',
+            'description' => $user->name . ' signed into the system.',
         ]);
 
         $token = $user->createToken('spa')->plainTextToken;
@@ -61,7 +61,7 @@ class AuthController extends Controller
         ActivityLog::create([
             'user_id' => $user->id,
             'action' => 'Logout',
-            'description' => $user->name.' signed out of the system.',
+            'description' => $user->name . ' signed out of the system.',
         ]);
 
         $user->currentAccessToken()->delete();
@@ -101,7 +101,7 @@ class AuthController extends Controller
         ActivityLog::create([
             'user_id' => $user->id,
             'action' => 'Profile Update',
-            'description' => $user->name.' updated their profile.',
+            'description' => $user->name . ' updated their profile.',
         ]);
 
         return response()->json($user->fresh());
@@ -116,7 +116,7 @@ class AuthController extends Controller
             'password' => 'required|min:8|confirmed',
         ]);
 
-        if (! Hash::check($request->current_password, $user->password)) {
+        if (!Hash::check($request->current_password, $user->password)) {
             throw ValidationException::withMessages([
                 'current_password' => 'Current password is incorrect.',
             ]);
@@ -127,7 +127,7 @@ class AuthController extends Controller
         ActivityLog::create([
             'user_id' => $user->id,
             'action' => 'Password Change',
-            'description' => $user->name.' changed their password.',
+            'description' => $user->name . ' changed their password.',
         ]);
 
         return response()->json(['message' => 'Password changed successfully.']);

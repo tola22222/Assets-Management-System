@@ -4,9 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Models\Asset;
 use App\Models\AssetAssignment;
-use App\Models\AssetReturn;
 use App\Models\AssetTransfer;
 use App\Models\AssetVerification;
+use App\Models\AssetReturn;
+use App\Models\AssetMovement;
 use App\Models\Location;
 use App\Models\Notification;
 use Illuminate\Http\Request;
@@ -46,7 +47,6 @@ class ReportController extends Controller
     public function index()
     {
         $user = Auth::user();
-
         return view('reports.index', compact('user'));
     }
 
@@ -210,17 +210,10 @@ class ReportController extends Controller
             ->get()
             ->map(function ($asset) {
                 $missing = [];
-                if (is_null($asset->purchase_price)) {
-                    $missing[] = 'Purchase Price';
-                }
-                if (is_null($asset->purchase_date)) {
-                    $missing[] = 'Purchase Date';
-                }
-                if (blank($asset->serial_number)) {
-                    $missing[] = 'Serial Number';
-                }
+                if (is_null($asset->purchase_price)) $missing[] = 'Purchase Price';
+                if (is_null($asset->purchase_date)) $missing[] = 'Purchase Date';
+                if (blank($asset->serial_number)) $missing[] = 'Serial Number';
                 $asset->missing_fields = implode(', ', $missing);
-
                 return $asset;
             });
 
@@ -235,7 +228,7 @@ class ReportController extends Controller
     {
         $headers = [
             'Content-Type' => 'text/csv',
-            'Content-Disposition' => 'attachment; filename="'.$type.'-report-'.date('Y-m-d').'.csv"',
+            'Content-Disposition' => 'attachment; filename="' . $type . '-report-' . date('Y-m-d') . '.csv"',
         ];
 
         $callback = function () use ($data, $type) {

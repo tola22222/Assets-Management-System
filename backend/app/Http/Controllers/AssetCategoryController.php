@@ -1,7 +1,6 @@
 <?php
 
 namespace App\Http\Controllers;
-
 use App\Models\AssetCategory;
 use App\Services\AssetCodeService;
 use Illuminate\Http\Request;
@@ -12,7 +11,6 @@ class AssetCategoryController extends Controller
     public function index()
     {
         $categories = AssetCategory::orderBy('name')->get();
-
         return view('categories.index', ['categories' => $categories, 'categoryCodes' => AssetCodeService::CATEGORY_CODES]);
     }
 
@@ -49,28 +47,26 @@ class AssetCategoryController extends Controller
     }
 
     public function update(Request $request, $id) // Using ID for maximum reliability with custom naming
-    {
-        $category = AssetCategory::findOrFail($id);
+{
+    $category = AssetCategory::findOrFail($id);
 
-        $request->merge(['short_name' => $this->normalizeCode($request->short_name)]);
+    $request->merge(['short_name' => $this->normalizeCode($request->short_name)]);
 
-        $validated = $request->validate([
-            'name' => 'required|string|max:255|unique:asset_categories,name,'.$id,
-            'short_name' => ['nullable', 'regex:'.AssetCodeService::CODE_FORMAT, Rule::unique('asset_categories', 'short_name')->ignore($id)],
-            'description' => 'nullable|string',
-        ], [
-            'short_name.regex' => 'Short code must be 2-6 letters or numbers (e.g. MOV, ELEC).',
-        ]);
+    $validated = $request->validate([
+        'name' => 'required|string|max:255|unique:asset_categories,name,' . $id,
+        'short_name' => ['nullable', 'regex:'.AssetCodeService::CODE_FORMAT, Rule::unique('asset_categories', 'short_name')->ignore($id)],
+        'description' => 'nullable|string',
+    ], [
+        'short_name.regex' => 'Short code must be 2-6 letters or numbers (e.g. MOV, ELEC).',
+    ]);
 
-        $category->update($validated);
+    $category->update($validated);
 
-        return redirect()->route('categories.index')->with('success', 'Category updated successfully.');
-    }
-
+    return redirect()->route('categories.index')->with('success', 'Category updated successfully.');
+}
     public function destroy(AssetCategory $assetCategory)
     {
         $assetCategory->delete();
-
         return redirect()->route('categories.index')->with('success', 'Category deleted successfully.');
     }
 

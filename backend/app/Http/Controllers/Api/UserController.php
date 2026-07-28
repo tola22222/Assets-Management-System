@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Controllers\Concerns\PaginatesAndSorts;
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\User;
@@ -12,22 +11,9 @@ use Illuminate\Support\Facades\Hash;
 
 class UserController extends Controller
 {
-    use PaginatesAndSorts;
-
-    private const SORTABLE = ['name', 'email', 'role', 'created_at'];
-
-    public function index(Request $request)
+    public function index()
     {
-        $query = User::with('staff');
-
-        $this->applySearch($query, $request, ['name', 'email', 'role']);
-        $this->applyExactFilters($query, $request, ['role']);
-
-        if ($request->filled('is_locked')) {
-            $query->where('is_locked', $request->query('is_locked') === 'true');
-        }
-
-        return response()->json($this->paginateSorted($query, $request, self::SORTABLE));
+        return response()->json(User::with('staff')->latest()->get());
     }
 
     public function store(Request $request)

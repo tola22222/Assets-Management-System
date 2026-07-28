@@ -10,7 +10,6 @@ class ProgramController extends Controller
     public function index()
     {
         $programs = Program::latest()->get();
-
         return view('programs.index', compact('programs'));
     }
 
@@ -18,7 +17,7 @@ class ProgramController extends Controller
     {
         $request->validate([
             'name' => 'required|string|max:255|unique:programs,name',
-            'description' => 'nullable|string',
+            'description' => 'nullable|string'
         ]);
 
         Program::create($request->all());
@@ -29,8 +28,8 @@ class ProgramController extends Controller
     public function update(Request $request, Program $program)
     {
         $request->validate([
-            'name' => 'required|string|max:255|unique:programs,name,'.$program->id,
-            'description' => 'nullable|string',
+            'name' => 'required|string|max:255|unique:programs,name,' . $program->id,
+            'description' => 'nullable|string'
         ]);
 
         $program->update($request->all());
@@ -46,7 +45,6 @@ class ProgramController extends Controller
         }
 
         $program->delete();
-
         return redirect()->back()->with('success', 'Program deleted successfully!');
     }
 }

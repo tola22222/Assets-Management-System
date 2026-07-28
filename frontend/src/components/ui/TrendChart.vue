@@ -8,8 +8,6 @@ ChartJS.register(BarElement, CategoryScale, LinearScale, Tooltip)
 const props = defineProps({
   data: { type: Array, required: true }, // [{ label, count }]
   period: { type: String, default: 'month' },
-  unitLabel: { type: String, default: 'asset' },
-  actionLabel: { type: String, default: 'registered' },
 })
 
 // Recessive axis ink — one fixed mid-tone that reads acceptably on both the
@@ -51,7 +49,7 @@ const chartOptions = computed(() => ({
       displayColors: false,
       callbacks: {
         title: (items) => props.data[items[0].dataIndex]?.label ?? '',
-        label: (item) => `${item.formattedValue} ${props.unitLabel}${item.raw === 1 ? '' : 's'}${props.actionLabel ? ' ' + props.actionLabel : ''}`,
+        label: (item) => `${item.formattedValue} asset${item.raw === 1 ? '' : 's'} registered`,
       },
     },
   },
@@ -70,7 +68,7 @@ const chartOptions = computed(() => ({
 </script>
 
 <template>
-  <div style="height: 224px">
+  <div class="h-56">
     <Bar :data="chartData" :options="chartOptions" />
   </div>
 </template>

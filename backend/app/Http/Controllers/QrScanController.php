@@ -2,11 +2,11 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\ActivityLog;
 use App\Models\Asset;
 use App\Models\AssetVerification;
-use App\Models\Location;
 use App\Models\Notification;
+use App\Models\Location;
+use App\Models\ActivityLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -25,7 +25,7 @@ class QrScanController extends Controller
             ->where('asset_code', $request->asset_code)
             ->first();
 
-        if (! $asset) {
+        if (!$asset) {
             return redirect()->route('qr-scan.index')->with('error', 'Asset not found.');
         }
 
@@ -33,7 +33,7 @@ class QrScanController extends Controller
         Notification::create([
             'user_id' => Auth::id(),
             'type' => 'qr_scan',
-            'message' => 'QR scanned: '.$asset->name.' ('.$asset->asset_code.')',
+            'message' => 'QR scanned: ' . $asset->name . ' (' . $asset->asset_code . ')',
             'url' => route('qr-scan.result', $asset->asset_code),
         ]);
 
@@ -49,7 +49,6 @@ class QrScanController extends Controller
         }])->where('asset_code', $assetCode)->firstOrFail();
 
         $locations = Location::all();
-
         return view('qr-scan.result', compact('asset', 'locations'));
     }
 
@@ -80,7 +79,7 @@ class QrScanController extends Controller
         ActivityLog::create([
             'user_id' => Auth::id(),
             'action' => 'QR Verification',
-            'description' => 'Verified asset via QR scan: '.$asset->name.' ('.$asset->asset_code.')',
+            'description' => 'Verified asset via QR scan: ' . $asset->name . ' (' . $asset->asset_code . ')',
         ]);
 
         return redirect()->route('qr-scan.result', $assetCode)

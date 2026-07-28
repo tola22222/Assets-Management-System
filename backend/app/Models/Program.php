@@ -12,6 +12,6 @@ class Program extends Model
     public function assignments()
     {
         return $this->hasMany(AssetAssignment::class, 'assigned_to_id')
-            ->where('assigned_to_type', 'program');
+                    ->where('assigned_to_type', 'program');
     }
 }

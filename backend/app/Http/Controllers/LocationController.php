@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\ActivityLog;
 use App\Models\Location;
+use App\Models\ActivityLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -12,7 +12,6 @@ class LocationController extends Controller
     public function index()
     {
         $locations = Location::withCount('assets')->orderBy('name')->get();
-
         return view('locations.index', compact('locations'));
     }
 
@@ -29,7 +28,7 @@ class LocationController extends Controller
         ActivityLog::create([
             'user_id' => Auth::id(),
             'action' => 'Create',
-            'description' => 'Created location: '.$location->name,
+            'description' => 'Created location: ' . $location->name,
         ]);
 
         return redirect()->route('assets-locations.index')->with('success', 'Location created successfully.');
@@ -38,7 +37,6 @@ class LocationController extends Controller
     public function show(Location $location)
     {
         $assets = $location->assets()->with('category')->latest()->get();
-
         return view('locations.show', compact('location', 'assets'));
     }
 
@@ -60,7 +58,7 @@ class LocationController extends Controller
         ActivityLog::create([
             'user_id' => Auth::id(),
             'action' => 'Update',
-            'description' => 'Updated location: '.$location->name,
+            'description' => 'Updated location: ' . $location->name,
         ]);
 
         return redirect()->route('assets-locations.index')->with('success', 'Location updated successfully.');
@@ -76,7 +74,7 @@ class LocationController extends Controller
         ActivityLog::create([
             'user_id' => Auth::id(),
             'action' => 'Delete',
-            'description' => 'Deleted location: '.$location->name,
+            'description' => 'Deleted location: ' . $location->name,
         ]);
 
         return redirect()->route('assets-locations.index')->with('success', 'Location deleted.');

@@ -25,8 +25,8 @@ class AssetImportController extends Controller
             'user_id' => $request->user()->id,
             'action' => 'Import',
             'description' => "Imported asset register: {$result['created']} added, {$result['updated']} updated"
-                .($result['skipped'] ? ", {$result['skipped']} skipped" : '')
-                .(count($result['errors']) ? ', '.count($result['errors']).' error(s)' : ''),
+                . ($result['skipped'] ? ", {$result['skipped']} skipped" : '')
+                . (count($result['errors']) ? ', ' . count($result['errors']) . ' error(s)' : ''),
         ]);
 
         return response()->json($result);

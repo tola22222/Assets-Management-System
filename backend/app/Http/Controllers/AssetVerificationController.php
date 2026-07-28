@@ -2,11 +2,11 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\ActivityLog;
 use App\Models\Asset;
-use App\Models\AssetAssignment;
 use App\Models\AssetVerification;
+use App\Models\AssetAssignment;
 use App\Models\Location;
+use App\Models\ActivityLog;
 use App\Models\Notification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -29,7 +29,6 @@ class AssetVerificationController extends Controller
         }
         $assets = Asset::where('status', 'active')->get();
         $locations = Location::all();
-
         return view('asset-verifications.index', compact('verifications', 'assets', 'locations'));
     }
 
@@ -63,13 +62,13 @@ class AssetVerificationController extends Controller
         ActivityLog::create([
             'user_id' => Auth::id(),
             'action' => 'Verification',
-            'description' => 'Verified asset: '.($verification->asset->name ?? ''),
+            'description' => 'Verified asset: ' . ($verification->asset->name ?? ''),
         ]);
 
         Notification::create([
             'user_id' => Auth::id(),
             'type' => 'asset_verified',
-            'message' => 'Verified asset: '.($verification->asset->name ?? '').' ('.$validated['condition'].')',
+            'message' => 'Verified asset: ' . ($verification->asset->name ?? '') . ' (' . $validated['condition'] . ')',
             'url' => route('asset-verifications.index'),
         ]);
 
@@ -79,7 +78,6 @@ class AssetVerificationController extends Controller
     public function show(AssetVerification $assetVerification)
     {
         $assetVerification->load(['asset', 'location', 'verifiedBy']);
-
         return view('asset-verifications.show', compact('assetVerification'));
     }
 
@@ -99,7 +97,6 @@ class AssetVerificationController extends Controller
     public function destroy(AssetVerification $assetVerification)
     {
         $assetVerification->delete();
-
         return redirect()->route('asset-verifications.index')->with('success', 'Verification deleted.');
     }
 }

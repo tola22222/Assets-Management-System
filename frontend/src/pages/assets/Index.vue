@@ -1,43 +1,29 @@
 <script setup>
 import { ref, computed, onMounted, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRoute, useRouter } from 'vue-router'
 import http from '../../api/http'
-import AppPageHeader from '../../components/common/AppPageHeader.vue'
-import PepyDialog from '../../components/ui/PepyDialog.vue'
-import StatusBadge from '../../components/ui/StatusBadge.vue'
-import ColumnVisibilityMenu from '../../components/ui/ColumnVisibilityMenu.vue'
-import AppDataTable from '../../components/common/AppDataTable.vue'
-import { useServerTable } from '../../composables/useServerTable'
-import { useColumnVisibility } from '../../composables/useColumnVisibility'
-import { useConfirm } from '../../composables/useConfirm'
+import AppLayout from '../../layouts/AppLayout.vue'
+import PageHeader from '../../components/ui/PageHeader.vue'
+import Modal from '../../components/ui/Modal.vue'
+import ConfirmDialog from '../../components/ui/ConfirmDialog.vue'
+import SearchInput from '../../components/ui/SearchInput.vue'
+import TableSortIcon from '../../components/ui/TableSortIcon.vue'
+import { useApiCrud } from '../../composables/useApiCrud'
+import { useTableSearch } from '../../composables/useTableSearch'
+import { useTableFilter } from '../../composables/useTableFilter'
+import { useTableSort } from '../../composables/useTableSort'
 import { useToastStore } from '../../stores/toast'
-import { exportCsv } from '../../utils/exportCsv'
 
 const { t } = useI18n()
+const { items: assetsList, loading, fetchAll, destroy } = useApiCrud('/assets', { entityName: t('assets.entity') })
 const toast = useToastStore()
-const { confirm } = useConfirm()
-const route = useRoute()
-const router = useRouter()
-
-const {
-  items: assetsList, loading, page, perPage, total,
-  search, setSearch, sortBy, sortDir, sortByVuetify, handleOptions,
-  fetchPage, filters, hasActiveFilters, applyFilters, clearFilters,
-} = useServerTable('/assets', {
-  defaultSort: 'created_at',
-  defaultDir: 'desc',
-  filterKeys: ['category_id', 'location_id', 'status'],
-})
 
 const categories = ref([])
 const locations = ref([])
 const showModal = ref(false)
 const editingId = ref(null)
-const bulkDeleting = ref(false)
+const deletingId = ref(null)
 const viewing = ref(null)
-const viewingTab = ref('basic')
-const viewLoading = ref(false)
 const imageFile = ref(null)
 const submitting = ref(false)
 const flagging = ref(null)
@@ -45,78 +31,37 @@ const flagNote = ref('')
 const flagCondition = ref('')
 const flagSubmitting = ref(false)
 
-// --- Columns ---
-const ALL_COLUMNS = [
-  { key: 'code', label: t('assets.code') },
-  { key: 'category', label: t('assets.category') },
-  { key: 'brand', label: t('assets.brand') },
-  { key: 'model', label: t('assets.model') },
-  { key: 'serial_number', label: t('common.serial_number') },
-  { key: 'condition', label: t('assets.condition') },
-  { key: 'status', label: t('common.status') },
-  { key: 'assigned_to', label: t('assets.assigned_to') },
-  { key: 'location', label: t('common.location') },
-  { key: 'purchase_date', label: t('assets.purchase_date') },
-  { key: 'price', label: t('common.price') },
-  { key: 'last_verified', label: t('assets.last_verified') },
-]
-const { isVisible, toggle: toggleColumn, reset: resetColumns } = useColumnVisibility(
-  'assets.visibleColumns',
-  ALL_COLUMNS.map((c) => c.key),
-  ['brand', 'model', 'serial_number', 'location', 'purchase_date'],
-)
-
-// --- Row selection (AppDataTable's show-select checkbox column) ---
-const selected = ref([])
-function clearSelection() {
-  selected.value = []
-}
-
-const STATUS_CHIP_COLOR = { active: 'success', disposed: undefined }
-const CONDITION_CHIP_COLOR = { good: 'success', fair: 'warning', broken: 'error', lost: 'error' }
-
-const headers = computed(() => {
-  const cols = [{ title: t('assets.asset_col'), key: 'name', sortable: true }]
-
-  if (isVisible('code')) cols.push({ title: t('assets.code'), key: 'asset_code', sortable: true })
-  if (isVisible('category')) cols.push({ title: t('assets.category'), key: 'category', sortable: false })
-  if (isVisible('brand')) cols.push({ title: t('assets.brand'), key: 'brand', sortable: true })
-  if (isVisible('model')) cols.push({ title: t('assets.model'), key: 'model', sortable: true })
-  if (isVisible('serial_number')) cols.push({ title: t('common.serial_number'), key: 'serial_number', sortable: false })
-  if (isVisible('condition')) cols.push({ title: t('assets.condition'), key: 'condition', sortable: true })
-  if (isVisible('status')) cols.push({ title: t('common.status'), key: 'status', sortable: true })
-  if (isVisible('assigned_to')) cols.push({ title: t('assets.assigned_to'), key: 'assigned_to', sortable: false })
-  if (isVisible('location')) cols.push({ title: t('common.location'), key: 'location', sortable: false })
-  if (isVisible('purchase_date')) cols.push({ title: t('assets.purchase_date'), key: 'purchase_date', sortable: true })
-  if (isVisible('price')) cols.push({ title: t('common.price'), key: 'purchase_price', sortable: true, align: 'end' })
-  if (isVisible('last_verified')) cols.push({ title: t('assets.last_verified'), key: 'last_verified', sortable: false })
-
-  cols.push({ title: t('common.actions'), key: 'actions', sortable: false, align: 'end', width: 60 })
-  return cols
-})
-
 const emptyForm = () => ({
   name: '', category_id: '', location_id: '', description: '', model: '', brand: '',
-  serial_number: '', purchase_date: '', purchase_price: '', warranty_expiry: '', warranty_provider: '',
-  condition: 'good', status: 'active',
+  serial_number: '', purchase_date: '', purchase_price: '', condition: 'good', status: 'active',
 })
 const form = reactive(emptyForm())
+
+const { search, filtered: searched } = useTableSearch(assetsList, [
+  'name', 'asset_code', 'brand', 'model', (a) => a.category?.name, 'purchase_price', 'serial_number',
+])
+const { filters, filtered: matched, hasActiveFilters, clearFilters } = useTableFilter(searched, {
+  category_id: (row, v) => String(row.category_id) === String(v),
+  status: (row, v) => row.status === v,
+  condition: (row, v) => row.condition === v,
+})
+const { sortKey, sortDir, toggleSort, sorted: filtered } = useTableSort(matched, {
+  defaultKey: 'name',
+  paths: { category: 'category.name', price: 'purchase_price', code: 'asset_code' },
+})
 
 function money(v) {
   return v ? '$' + Number(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'
 }
 
-// per_page:100 — these endpoints now paginate for their own table pages, but this
-// form dropdown needs the full lookup list (both are small reference tables, well
-// under 100 rows for this org).
 async function loadCategories() {
-  const { data } = await http.get('/categories', { params: { per_page: 100 } })
-  categories.value = data.data ?? data
+  const { data } = await http.get('/categories')
+  categories.value = data
 }
 
 async function loadLocations() {
-  const { data } = await http.get('/locations', { params: { per_page: 100 } })
-  locations.value = data.data ?? data
+  const { data } = await http.get('/locations')
+  locations.value = data
 }
 
 function openCreate() {
@@ -126,29 +71,20 @@ function openCreate() {
   showModal.value = true
 }
 
-async function openView(asset) {
-  viewing.value = asset
-  viewingTab.value = 'basic'
-  viewLoading.value = true
-  try {
-    const { data } = await http.get(`/assets/${asset.id}`)
-    viewing.value = data
-  } finally {
-    viewLoading.value = false
-  }
-}
-
 function openEdit(asset) {
   editingId.value = asset.id
   Object.assign(form, {
     name: asset.name, category_id: asset.category_id, location_id: asset.location_id || '', description: asset.description || '',
     model: asset.model || '', brand: asset.brand || '', serial_number: asset.serial_number || '',
     purchase_date: asset.purchase_date || '', purchase_price: asset.purchase_price || '',
-    warranty_expiry: asset.warranty_expiry || '', warranty_provider: asset.warranty_provider || '',
     condition: asset.condition, status: asset.status,
   })
   imageFile.value = null
   showModal.value = true
+}
+
+function handleFileChange(e) {
+  imageFile.value = e.target.files[0] || null
 }
 
 function buildFormData() {
@@ -174,7 +110,7 @@ async function handleSubmit() {
       toast.success(t('assets.created'))
     }
     showModal.value = false
-    await fetchPage()
+    await fetchAll()
   } catch (e) {
     toast.error(e.response?.data?.message || t('assets.save_failed'))
   } finally {
@@ -182,78 +118,17 @@ async function handleSubmit() {
   }
 }
 
-async function handleDelete(item) {
-  const ok = await confirm({
-    title: t('confirm.delete_title'),
-    message: t('confirm.delete_message'),
-    color: 'error',
-    confirmText: t('common.delete'),
-    cancelText: t('common.cancel'),
-  })
-  if (!ok) return
-  try {
-    await http.delete(`/assets/${item.id}`)
-    toast.success(t('common.deleted_successfully', { entity: t('assets.entity') }))
-    selected.value = selected.value.filter((id) => id !== item.id)
-    await fetchPage()
-  } catch (e) {
-    toast.error(e.response?.data?.message || t('assets.save_failed'))
-  }
-}
-
-async function bulkDelete() {
-  bulkDeleting.value = true
-  try {
-    await http.post('/assets/bulk-delete', { ids: selected.value })
-    toast.success(t('assets.bulk_deleted', { count: selected.value.length }))
-    clearSelection()
-    await fetchPage()
-  } catch (e) {
-    toast.error(e.response?.data?.message || t('assets.save_failed'))
-  } finally {
-    bulkDeleting.value = false
-  }
-}
-
-function rowsToCsvColumns() {
-  return [
-    { key: 'asset_code', label: t('assets.code') },
-    { key: 'name', label: t('common.name') },
-    { key: 'category', label: t('assets.category'), value: (r) => r.category?.name || '' },
-    { key: 'brand', label: t('assets.brand') },
-    { key: 'model', label: t('assets.model') },
-    { key: 'serial_number', label: t('common.serial_number') },
-    { key: 'condition', label: t('assets.condition') },
-    { key: 'status', label: t('common.status') },
-    { key: 'assigned_to', label: t('assets.assigned_to'), value: (r) => r.current_assignee || '' },
-    { key: 'location', label: t('common.location'), value: (r) => r.location?.name || '' },
-    { key: 'purchase_date', label: t('assets.purchase_date') },
-    { key: 'purchase_price', label: t('assets.purchase_price') },
-  ]
-}
-
-function exportSelected() {
-  const rows = assetsList.value.filter((a) => selected.value.includes(a.id))
-  exportCsv(`assets-selected-${Date.now()}.csv`, rows, rowsToCsvColumns())
-}
-
-async function exportFiltered() {
-  try {
-    const params = { sort_by: sortBy.value, sort_dir: sortDir.value }
-    if (search.value) params.search = search.value
-    const { data } = await http.get('/assets/export', { params })
-    exportCsv(`assets-${Date.now()}.csv`, data.data, rowsToCsvColumns())
-  } catch (e) {
-    toast.error(t('assets.export_failed'))
-  }
+async function confirmDelete() {
+  await destroy(deletingId.value)
+  deletingId.value = null
 }
 
 async function regenerateQr(asset) {
   await http.post(`/assets/${asset.id}/regenerate-qr`)
   toast.success(t('assets.qr_regenerated'))
-  await fetchPage()
+  await fetchAll()
   if (viewing.value?.id === asset.id) {
-    await openView(asset)
+    viewing.value = assetsList.value.find((a) => a.id === asset.id) || viewing.value
   }
 }
 
@@ -272,11 +147,10 @@ async function submitFlag() {
       condition: flagCondition.value || undefined,
     })
     toast.success(t('assets.flagged_successfully'))
-    const flaggedId = flagging.value.id
     flagging.value = null
-    await fetchPage()
-    if (viewing.value?.id === flaggedId) {
-      await openView(viewing.value)
+    await fetchAll()
+    if (viewing.value?.id) {
+      viewing.value = assetsList.value.find((a) => a.id === viewing.value.id) || viewing.value
     }
   } catch (e) {
     toast.error(e.response?.data?.message || t('assets.flag_failed'))
@@ -299,388 +173,256 @@ function printQr(asset) {
 }
 
 onMounted(() => {
-  fetchPage()
+  fetchAll()
   loadCategories()
   loadLocations()
-  if (route.query.add === '1') {
-    openCreate()
-    router.replace({ query: { ...route.query, add: undefined } })
-  }
 })
 </script>
 
 <template>
-  <v-container fluid class="pa-0">
-      <AppPageHeader
-        :title="t('assets.title')"
-        :subtitle="t('assets.subtitle')"
-        :actions="[{ label: t('assets.register'), icon: 'mdi-plus', onClick: openCreate }]"
-      />
+  <AppLayout>
+    <div class="p-6 sm:p-8 max-w-6xl mx-auto space-y-6">
+      <PageHeader :title="t('assets.title')" :subtitle="t('assets.subtitle')" :buttonText="t('assets.register')" @action="openCreate" />
 
-      <AppDataTable
-        :headers="headers"
-        :items="assetsList"
-        :items-length="total"
-        :loading="loading"
-        :page="page"
-        :items-per-page="perPage"
-        :items-per-page-options="[10, 25, 50, 100]"
-        :sort-by="sortByVuetify"
-        :search="search"
-        :search-label="t('assets.search_placeholder')"
-        show-select
-        item-value="id"
-        :selected="selected"
-        @update:selected="(v) => (selected = v)"
-        @update:search="setSearch"
-        @update:options="handleOptions"
-      >
-        <template #toolbar-end>
-          <ColumnVisibilityMenu :columns="ALL_COLUMNS" :isVisible="isVisible" @toggle="toggleColumn" @reset="resetColumns" />
-          <v-btn variant="outlined" size="small" prepend-icon="mdi-tray-arrow-down" @click="exportFiltered">{{ t('common.export') }}</v-btn>
-          <v-btn variant="outlined" size="small" prepend-icon="mdi-tray-arrow-up" to="/assets/import">{{ t('assets.import') }}</v-btn>
-        </template>
-
-        <template #filters>
-          <v-select
-            v-model="filters.category_id"
-            :label="t('assets.category')"
-            :items="categories.map((c) => ({ title: c.name, value: c.id }))"
-            clearable
-            density="compact"
-            variant="outlined"
-            hide-details
-            style="max-width: 200px"
-            @update:model-value="applyFilters"
-          />
-          <v-select
-            v-model="filters.location_id"
-            :label="t('common.location')"
-            :items="locations.map((l) => ({ title: l.name, value: l.id }))"
-            clearable
-            density="compact"
-            variant="outlined"
-            hide-details
-            style="max-width: 200px"
-            @update:model-value="applyFilters"
-          />
-          <v-select
-            v-model="filters.status"
-            :label="t('common.status')"
-            :items="[
-              { title: t('status.active'), value: 'active' },
-              { title: t('status.disposed'), value: 'disposed' },
-            ]"
-            clearable
-            density="compact"
-            variant="outlined"
-            hide-details
-            style="max-width: 180px"
-            @update:model-value="applyFilters"
-          />
-          <v-btn v-if="hasActiveFilters" variant="text" size="small" @click="clearFilters">{{ t('common.clear_filters') }}</v-btn>
-        </template>
-
-        <template #bulk-actions="{ selected: sel, clear }">
-          <span class="font-weight-semibold text-body-2">{{ t('common.n_selected', { count: sel.length }) }}</span>
-          <v-btn variant="outlined" size="small" @click="exportSelected">{{ t('common.export') }}</v-btn>
-          <v-btn variant="flat" color="error" size="small" :loading="bulkDeleting" @click="bulkDelete">{{ t('common.delete') }}</v-btn>
-          <v-btn variant="text" size="small" class="ml-auto" @click="clear">{{ t('common.clear_selection') }}</v-btn>
-        </template>
-
-        <template #item.name="{ item }">
-          <div class="d-flex align-center ga-3">
-            <v-avatar v-if="item.image_url" :image="item.image_url" rounded="lg" size="36" />
-            <v-avatar v-else rounded="lg" size="36" color="surface-variant">
-              <span class="text-caption">{{ t('common.n_a') }}</span>
-            </v-avatar>
-            <div class="flex-grow-1" style="min-width: 0">
-              <button class="font-weight-medium text-truncate text-decoration-none d-block text-left" style="width: 100%" @click="openView(item)">{{ item.name }}</button>
-              <p v-if="item.brand || item.model" class="text-caption text-medium-emphasis text-truncate">{{ [item.brand, item.model].filter(Boolean).join(' ') }}</p>
-            </div>
+      <div class="table-wrap">
+        <div class="table-toolbar">
+          <div class="w-full sm:max-w-xs">
+            <SearchInput v-model="search" :placeholder="t('assets.search_placeholder')" />
           </div>
-        </template>
-
-        <template #item.asset_code="{ item }"><span class="font-mono text-caption">{{ item.asset_code }}</span></template>
-        <template #item.category="{ item }">{{ item.category?.name || '—' }}</template>
-        <template #item.brand="{ item }">{{ item.brand || '—' }}</template>
-        <template #item.model="{ item }">{{ item.model || '—' }}</template>
-        <template #item.serial_number="{ item }"><span class="font-mono text-caption">{{ item.serial_number || '—' }}</span></template>
-        <template #item.condition="{ item }">
-          <v-chip size="small" :color="CONDITION_CHIP_COLOR[item.condition]" variant="tonal">{{ t(`assets.condition_${item.condition}`) || item.condition }}</v-chip>
-        </template>
-        <template #item.status="{ item }">
-          <v-chip size="small" :color="STATUS_CHIP_COLOR[item.status]" variant="tonal">{{ t(`status.${item.status}`) }}</v-chip>
-        </template>
-        <template #item.assigned_to="{ item }">{{ item.current_assignee || t('common.unassigned') }}</template>
-        <template #item.location="{ item }">{{ item.location?.name || '—' }}</template>
-        <template #item.purchase_date="{ item }">{{ item.purchase_date || '—' }}</template>
-        <template #item.purchase_price="{ item }"><span class="font-weight-medium">{{ money(item.purchase_price) }}</span></template>
-        <template #item.last_verified="{ item }">
-          <span v-if="item.verifications_max_verified_at">{{ item.verifications_max_verified_at }}</span>
-          <v-chip v-else size="small" color="warning" variant="tonal">{{ t('assets.verification_overdue') }}</v-chip>
-        </template>
-
-        <template #item.actions="{ item }">
-          <v-menu>
-            <template #activator="{ props: menuProps }">
-              <v-btn icon="mdi-dots-vertical" size="small" variant="text" v-bind="menuProps" />
-            </template>
-            <v-list density="compact">
-              <v-list-item :title="t('common.view')" @click="openView(item)" />
-              <v-list-item :title="t('common.edit')" @click="openEdit(item)" />
-              <v-list-item :title="t('assets.flag_issue')" @click="openFlag(item)" />
-              <v-list-item :title="t('assets.regenerate_qr')" @click="regenerateQr(item)" />
-              <v-list-item :title="t('assets.print')" @click="printQr(item)" />
-              <v-divider />
-              <v-list-item :title="t('common.delete')" class="text-error" @click="handleDelete(item)" />
-            </v-list>
-          </v-menu>
-        </template>
-
-        <template #no-data>
-          <div class="d-flex flex-column align-center ga-2 py-10">
-            <v-icon icon="mdi-package-variant-closed" size="40" class="text-medium-emphasis" />
-            <p class="text-body-2 font-weight-medium">{{ search ? t('assets.empty_search') : t('assets.empty') }}</p>
-            <p class="text-caption text-medium-emphasis">{{ search ? t('assets.empty_search_hint') : t('assets.empty_hint') }}</p>
+          <select v-model="filters.category_id" class="filter-select">
+            <option value="">{{ t('assets.category') }}: {{ t('common.all') }}</option>
+            <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option>
+          </select>
+          <select v-model="filters.status" class="filter-select">
+            <option value="">{{ t('common.status') }}: {{ t('common.all') }}</option>
+            <option value="active">{{ t('status.active') }}</option>
+            <option value="disposed">{{ t('status.disposed') }}</option>
+          </select>
+          <select v-model="filters.condition" class="filter-select">
+            <option value="">{{ t('assets.condition') }}: {{ t('common.all') }}</option>
+            <option value="good">{{ t('assets.condition_good') }}</option>
+            <option value="fair">{{ t('assets.condition_fair') }}</option>
+            <option value="broken">{{ t('assets.condition_broken') }}</option>
+            <option value="lost">{{ t('assets.condition_lost') }}</option>
+          </select>
+          <button v-if="hasActiveFilters" @click="clearFilters" class="btn-subtle btn-sm">{{ t('common.clear_filters') }}</button>
+          <div class="flex items-center gap-3 sm:ml-auto">
+            <p class="text-sm text-faint">{{ t('assets.count_of', { filtered: filtered.length, total: assetsList.length }) }}</p>
+            <RouterLink to="/assets/import" class="btn-ghost btn-sm">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
+              {{ t('assets.import') }}
+            </RouterLink>
           </div>
-        </template>
-      </AppDataTable>
-  </v-container>
-
-    <!-- Create / Edit -->
-    <PepyDialog
-      v-if="showModal"
-      :title="editingId ? t('assets.edit_title') : t('assets.create_title')"
-      icon="mdi-package-variant-closed"
-      max-width="720"
-      :loading="submitting"
-      :confirm-text="editingId ? t('assets.save_changes') : t('assets.register')"
-      @update:model-value="(v) => !v && (showModal = false)"
-      @confirm="handleSubmit"
-    >
-      <v-row dense>
-        <v-col cols="12" sm="6">
-          <v-text-field v-model="form.name" :label="t('assets.name_required')" required />
-        </v-col>
-        <v-col cols="12" sm="6">
-          <v-select
-            v-model="form.category_id"
-            :label="t('assets.category_required')"
-            :items="categories.map((c) => ({ title: c.name, value: c.id }))"
-            required
-          />
-        </v-col>
-        <v-col cols="12" sm="6">
-          <v-select
-            v-model="form.location_id"
-            :label="t('assets.location_required')"
-            :items="locations.map((l) => ({ title: l.name, value: l.id }))"
-            required
-          />
-        </v-col>
-        <v-col cols="12" sm="6">
-          <v-text-field v-model="form.brand" :label="t('assets.brand')" />
-        </v-col>
-        <v-col cols="12" sm="6">
-          <v-text-field v-model="form.model" :label="t('assets.model')" />
-        </v-col>
-        <v-col cols="12" sm="6">
-          <v-text-field v-model="form.serial_number" :label="t('assets.serial_number')" />
-        </v-col>
-        <v-col cols="12" sm="6">
-          <v-text-field v-model="form.purchase_date" type="date" :label="t('assets.purchase_date')" />
-        </v-col>
-        <v-col cols="12" sm="6">
-          <v-text-field v-model="form.purchase_price" type="number" step="0.01" :label="t('assets.purchase_price')" />
-        </v-col>
-        <v-col cols="12" sm="6">
-          <v-text-field v-model="form.warranty_expiry" type="date" :label="t('assets.warranty_expiry')" />
-        </v-col>
-        <v-col cols="12" sm="6">
-          <v-text-field v-model="form.warranty_provider" :label="t('assets.warranty_provider')" />
-        </v-col>
-        <v-col cols="12" sm="6">
-          <v-select
-            v-model="form.condition"
-            :label="t('assets.condition')"
-            :items="[
-              { title: t('assets.condition_good'), value: 'good' },
-              { title: t('assets.condition_fair'), value: 'fair' },
-              { title: t('assets.condition_broken'), value: 'broken' },
-              { title: t('assets.condition_lost'), value: 'lost' },
-            ]"
-          />
-        </v-col>
-        <v-col cols="12" sm="6">
-          <v-select
-            v-model="form.status"
-            :label="t('common.status')"
-            :items="[
-              { title: t('status.active'), value: 'active' },
-              { title: t('status.disposed'), value: 'disposed' },
-            ]"
-          />
-        </v-col>
-        <v-col cols="12">
-          <v-file-input
-            v-model="imageFile"
-            :label="t('assets.photo')"
-            accept="image/jpeg,image/png"
-            variant="outlined"
-            density="comfortable"
-            prepend-icon=""
-            prepend-inner-icon="mdi-camera-outline"
-          />
-        </v-col>
-      </v-row>
-      <v-textarea v-model="form.description" :label="t('common.description')" rows="2" />
-    </PepyDialog>
-
-    <!-- Detail view -->
-    <PepyDialog
-      v-if="viewing"
-      :title="viewing.name"
-      :subtitle="viewing.asset_code"
-      icon="mdi-package-variant-closed"
-      max-width="760"
-      @update:model-value="(v) => !v && (viewing = null)"
-    >
-      <div class="d-flex align-start ga-5 mb-4">
-        <v-img v-if="viewing.image_url" :src="viewing.image_url" width="112" height="96" rounded="lg" cover class="flex-shrink-0" />
-        <v-sheet v-else width="112" height="96" rounded="lg" color="surface-variant" class="d-flex align-center justify-center text-caption flex-shrink-0">
-          {{ t('assets.no_image_full') }}
-        </v-sheet>
-        <div class="flex-grow-1" style="min-width: 0">
-          <v-chip size="small" :color="viewing.status === 'active' ? 'success' : undefined" variant="tonal">
-            {{ t(`status.${viewing.status}`) }}
-          </v-chip>
-          <v-chip size="small" class="ml-2" :color="CONDITION_CHIP_COLOR[viewing.condition]" variant="tonal">
-            {{ t(`assets.condition_${viewing.condition}`) || viewing.condition }}
-          </v-chip>
         </div>
-        <div v-if="viewing.qr_code_url" class="flex-shrink-0 text-center">
-          <v-img :src="viewing.qr_code_url" width="96" height="96" rounded="lg" class="border bg-white mx-auto pa-1" />
-          <div class="d-flex align-center justify-center ga-2 mt-1 text-caption font-weight-bold">
-            <button class="text-primary" @click="printQr(viewing)">{{ t('assets.print') }}</button>
-            <span>|</span>
-            <a :href="viewing.qr_code_url" :download="`qr-${viewing.asset_code}.png`" class="text-primary">{{ t('common.download') }}</a>
-          </div>
+        <div class="overflow-x-auto">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th class="th-sort" @click="toggleSort('name')">{{ t('assets.asset_col') }}<TableSortIcon :active="sortKey === 'name'" :direction="sortDir" /></th>
+                <th class="th-sort" @click="toggleSort('code')">{{ t('assets.code') }}<TableSortIcon :active="sortKey === 'code'" :direction="sortDir" /></th>
+                <th class="th-sort" @click="toggleSort('category')">{{ t('assets.category') }}<TableSortIcon :active="sortKey === 'category'" :direction="sortDir" /></th>
+                <th class="th-sort" @click="toggleSort('condition')">{{ t('assets.condition') }}<TableSortIcon :active="sortKey === 'condition'" :direction="sortDir" /></th>
+                <th class="th-sort" @click="toggleSort('status')">{{ t('common.status') }}<TableSortIcon :active="sortKey === 'status'" :direction="sortDir" /></th>
+                <th class="th-sort" @click="toggleSort('price')">{{ t('common.price') }}<TableSortIcon :active="sortKey === 'price'" :direction="sortDir" /></th>
+                <th class="text-right">{{ t('common.actions') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="asset in filtered" :key="asset.id">
+                <td>
+                  <div class="flex items-center gap-3">
+                    <img v-if="asset.image_url" :src="asset.image_url" class="w-9 h-9 rounded-lg object-cover border border-line flex-shrink-0" alt="" />
+                    <span v-else class="w-9 h-9 rounded-lg bg-surface-3 border border-line flex items-center justify-center text-faint text-[10px] flex-shrink-0">No</span>
+                    <div class="min-w-0">
+                      <p class="font-medium text-fg truncate">{{ asset.name }}</p>
+                      <p v-if="asset.brand || asset.model" class="text-xs text-faint truncate">{{ [asset.brand, asset.model].filter(Boolean).join(' ') }}</p>
+                    </div>
+                  </div>
+                </td>
+                <td><span class="font-mono text-xs">{{ asset.asset_code }}</span></td>
+                <td>{{ asset.category?.name || '—' }}</td>
+                <td class="capitalize">{{ asset.condition }}</td>
+                <td>
+                  <span class="badge" :class="asset.status === 'active' ? 'badge-success' : 'badge-neutral'">{{ t(`status.${asset.status}`) }}</span>
+                </td>
+                <td class="font-medium text-fg">{{ money(asset.purchase_price) }}</td>
+                <td>
+                  <div class="flex items-center justify-end gap-1.5">
+                    <button @click="viewing = asset" title="View" class="w-7 h-7 rounded-lg bg-amber-500 text-white flex items-center justify-center hover:bg-amber-600 transition">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                    </button>
+                    <button @click="openEdit(asset)" title="Edit" class="w-7 h-7 rounded-lg bg-brand text-white flex items-center justify-center hover:bg-brand-dark transition">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487z" /></svg>
+                    </button>
+                    <button @click="deletingId = asset.id" title="Delete" class="w-7 h-7 rounded-lg bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9 9m9.968-3.21c.342.052.682.107 1.022.166M18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+              <tr v-if="!loading && !filtered.length">
+                <td colspan="7" class="py-12 text-center">
+                  <div class="flex flex-col items-center gap-2">
+                    <svg class="w-10 h-10 text-line-strong" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
+                    <p class="text-muted text-sm font-medium">{{ search ? t('assets.empty_search') : t('assets.empty') }}</p>
+                    <p class="text-xs text-faint">{{ search ? t('assets.empty_search_hint') : t('assets.empty_hint') }}</p>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
+    </div>
 
-      <v-tabs v-model="viewingTab" density="compact" color="primary">
-        <v-tab value="basic">{{ t('assets.tab_basic') }}</v-tab>
-        <v-tab value="purchase">{{ t('assets.tab_purchase') }}</v-tab>
-        <v-tab value="assignment">{{ t('assets.tab_assignment') }}</v-tab>
-        <v-tab value="verification">{{ t('assets.tab_verification') }}</v-tab>
-        <v-tab value="movement">{{ t('assets.tab_movement') }}</v-tab>
-      </v-tabs>
-      <v-divider class="mb-4" />
-
-      <v-window v-model="viewingTab">
-        <v-window-item value="basic">
-          <v-row dense>
-            <v-col cols="6"><p class="text-caption font-weight-semibold text-medium-emphasis text-uppercase">{{ t('assets.category') }}</p><p class="font-weight-semibold mt-1">{{ viewing.category?.name || '—' }}</p></v-col>
-            <v-col cols="6"><p class="text-caption font-weight-semibold text-medium-emphasis text-uppercase">{{ t('assets.brand') }}</p><p class="font-weight-semibold mt-1">{{ viewing.brand || '—' }}</p></v-col>
-            <v-col cols="6"><p class="text-caption font-weight-semibold text-medium-emphasis text-uppercase">{{ t('assets.model') }}</p><p class="font-weight-semibold mt-1">{{ viewing.model || '—' }}</p></v-col>
-            <v-col cols="6"><p class="text-caption font-weight-semibold text-medium-emphasis text-uppercase">{{ t('assets.serial_number') }}</p><p class="font-weight-semibold mt-1">{{ viewing.serial_number || '—' }}</p></v-col>
-          </v-row>
-          <div v-if="viewing.description" class="pt-4 mt-4 border-t">
-            <p class="text-caption font-weight-semibold text-medium-emphasis text-uppercase mb-1">{{ t('common.description') }}</p>
-            <p class="text-body-2 text-medium-emphasis">{{ viewing.description }}</p>
+    <!-- Create / Edit -->
+    <Modal v-if="showModal" :title="editingId ? t('assets.edit_title') : t('assets.create_title')" wide @close="showModal = false">
+      <form @submit.prevent="handleSubmit">
+        <div class="p-6 space-y-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label class="label">{{ t('assets.name_required') }} <span class="text-red-500">*</span></label>
+              <input v-model="form.name" required class="input" />
+            </div>
+            <div>
+              <label class="label">{{ t('assets.category_required') }} <span class="text-red-500">*</span></label>
+              <select v-model="form.category_id" required class="select">
+                <option value="">{{ t('assets.select_category') }}</option>
+                <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option>
+              </select>
+            </div>
+            <div>
+              <label class="label">{{ t('assets.location_required') }} <span class="text-red-500">*</span></label>
+              <select v-model="form.location_id" required class="select">
+                <option value="">{{ t('assets.select_location') }}</option>
+                <option v-for="l in locations" :key="l.id" :value="l.id">{{ l.name }}</option>
+              </select>
+            </div>
+            <div>
+              <label class="label">{{ t('assets.brand') }}</label>
+              <input v-model="form.brand" class="input" />
+            </div>
+            <div>
+              <label class="label">{{ t('assets.model') }}</label>
+              <input v-model="form.model" class="input" />
+            </div>
+            <div>
+              <label class="label">{{ t('assets.serial_number') }}</label>
+              <input v-model="form.serial_number" class="input" />
+            </div>
+            <div>
+              <label class="label">{{ t('assets.purchase_date') }}</label>
+              <input v-model="form.purchase_date" type="date" class="input" />
+            </div>
+            <div>
+              <label class="label">{{ t('assets.purchase_price') }}</label>
+              <input v-model="form.purchase_price" type="number" step="0.01" class="input" />
+            </div>
+            <div>
+              <label class="label">{{ t('assets.condition') }}</label>
+              <select v-model="form.condition" class="select">
+                <option value="good">{{ t('assets.condition_good') }}</option>
+                <option value="fair">{{ t('assets.condition_fair') }}</option>
+                <option value="broken">{{ t('assets.condition_broken') }}</option>
+                <option value="lost">{{ t('assets.condition_lost') }}</option>
+              </select>
+            </div>
+            <div>
+              <label class="label">{{ t('common.status') }}</label>
+              <select v-model="form.status" class="select">
+                <option value="active">{{ t('status.active') }}</option>
+                <option value="disposed">{{ t('status.disposed') }}</option>
+              </select>
+            </div>
+            <div>
+              <label class="label">{{ t('assets.photo') }}</label>
+              <input type="file" accept="image/jpeg,image/png" @change="handleFileChange"
+                class="w-full text-sm text-muted file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100 cursor-pointer" />
+            </div>
           </div>
-        </v-window-item>
+          <div>
+            <label class="label">{{ t('common.description') }}</label>
+            <textarea v-model="form.description" rows="2" class="textarea"></textarea>
+          </div>
+        </div>
+        <div class="flex items-center gap-3 border-t border-line px-6 py-4">
+          <button type="submit" :disabled="submitting" class="btn-primary">
+            <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+            {{ submitting ? t('assets.saving') : (editingId ? t('assets.save_changes') : t('assets.register')) }}
+          </button>
+          <button type="button" class="btn-ghost" @click="showModal = false">{{ t('common.cancel') }}</button>
+        </div>
+      </form>
+    </Modal>
 
-        <v-window-item value="purchase">
-          <v-row dense>
-            <v-col cols="6"><p class="text-caption font-weight-semibold text-medium-emphasis text-uppercase">{{ t('assets.purchase_date') }}</p><p class="font-weight-semibold mt-1">{{ viewing.purchase_date || '—' }}</p></v-col>
-            <v-col cols="6"><p class="text-caption font-weight-semibold text-medium-emphasis text-uppercase">{{ t('assets.purchase_price') }}</p><p class="font-weight-semibold mt-1">{{ money(viewing.purchase_price) }}</p></v-col>
-            <v-col cols="6"><p class="text-caption font-weight-semibold text-medium-emphasis text-uppercase">{{ t('assets.warranty_expiry') }}</p><p class="font-weight-semibold mt-1">{{ viewing.warranty_expiry || '—' }}</p></v-col>
-            <v-col cols="6"><p class="text-caption font-weight-semibold text-medium-emphasis text-uppercase">{{ t('assets.warranty_provider') }}</p><p class="font-weight-semibold mt-1">{{ viewing.warranty_provider || '—' }}</p></v-col>
-          </v-row>
-        </v-window-item>
-
-        <v-window-item value="assignment">
-          <v-row dense class="mb-3">
-            <v-col cols="6"><p class="text-caption font-weight-semibold text-medium-emphasis text-uppercase">{{ t('common.location') }}</p><p class="font-weight-semibold mt-1">{{ viewing.location?.name || '—' }}</p></v-col>
-            <v-col cols="6"><p class="text-caption font-weight-semibold text-medium-emphasis text-uppercase">{{ t('assets.assigned_to') }}</p><p class="font-weight-semibold mt-1">{{ viewing.current_assignee || t('common.unassigned') }}</p></v-col>
-          </v-row>
-          <ul class="d-flex flex-column pl-0" style="list-style: none">
-            <li
-              v-for="(a, i) in viewing.assignments"
-              :key="a.id"
-              class="d-flex align-center justify-space-between ga-3 py-2"
-              :class="{ 'border-b border-dashed': i < viewing.assignments.length - 1 }"
-            >
-              <span class="text-body-2">{{ a.recipient_name || t('common.n_a') }}</span>
-              <StatusBadge :status="a.status" />
-            </li>
-            <li v-if="!viewing.assignments?.length" class="py-6 text-center text-body-2 text-medium-emphasis">{{ t('assets.no_assignments') }}</li>
-          </ul>
-        </v-window-item>
-
-        <v-window-item value="verification">
-          <ul class="d-flex flex-column pl-0" style="list-style: none">
-            <li
-              v-for="(v, i) in viewing.verifications"
-              :key="v.id"
-              class="d-flex align-center justify-space-between ga-3 py-2"
-              :class="{ 'border-b border-dashed': i < viewing.verifications.length - 1 }"
-            >
-              <span class="text-body-2 text-capitalize">{{ v.condition }}</span>
-              <span class="text-caption text-medium-emphasis">{{ v.verified_at || t('assets.pending_verification') }}</span>
-            </li>
-            <li v-if="!viewing.verifications?.length" class="py-6 text-center text-body-2 text-medium-emphasis">{{ t('assets.no_verifications') }}</li>
-          </ul>
-        </v-window-item>
-
-        <v-window-item value="movement">
-          <ul class="d-flex flex-column pl-0" style="list-style: none">
-            <li
-              v-for="(m, i) in viewing.transfers"
-              :key="m.id"
-              class="d-flex align-center justify-space-between ga-3 py-2"
-              :class="{ 'border-b border-dashed': i < viewing.transfers.length - 1 }"
-            >
-              <span class="text-body-2">{{ m.from_location?.name || m.fromLocation?.name || '—' }} → {{ m.to_location?.name || m.toLocation?.name || '—' }}</span>
-              <StatusBadge :status="m.status" />
-            </li>
-            <li v-if="!viewing.transfers?.length" class="py-6 text-center text-body-2 text-medium-emphasis">{{ t('assets.no_movements') }}</li>
-          </ul>
-        </v-window-item>
-      </v-window>
-
-      <template #actions>
-        <v-btn variant="text" color="warning" @click="openFlag(viewing)">{{ t('assets.flag_issue') }}</v-btn>
-        <v-btn variant="text" @click="regenerateQr(viewing)">{{ t('assets.regenerate_qr') }}</v-btn>
-        <v-spacer />
-        <v-btn variant="text" @click="viewing = null">{{ t('common.close') }}</v-btn>
-        <v-btn variant="flat" color="primary" @click="openEdit(viewing); viewing = null">{{ t('assets.edit_asset') }}</v-btn>
-      </template>
-    </PepyDialog>
+    <!-- Detail view -->
+    <Modal v-if="viewing" :title="t('assets.detail_title')" wide @close="viewing = null">
+      <div class="p-6 space-y-6">
+        <div class="flex items-start gap-5">
+          <img v-if="viewing.image_url" :src="viewing.image_url" class="w-28 h-24 rounded-xl object-cover border border-line flex-shrink-0" alt="" />
+          <div v-else class="w-28 h-24 rounded-xl bg-surface-2 border border-line flex items-center justify-center text-faint text-xs flex-shrink-0">{{ t('assets.no_image_full') }}</div>
+          <div class="flex-1 min-w-0">
+            <h4 class="text-xl font-bold text-fg truncate">{{ viewing.name }}</h4>
+            <p class="text-sm font-mono text-faint mt-1">{{ viewing.asset_code }}</p>
+            <span class="badge mt-2" :class="viewing.status === 'active' ? 'badge-success' : 'badge-neutral'">{{ t(`status.${viewing.status}`) }}</span>
+          </div>
+          <div v-if="viewing.qr_code_url" class="flex-shrink-0 text-center">
+            <img :src="viewing.qr_code_url" class="w-24 h-24 border border-line rounded-xl p-1.5 bg-white mx-auto" alt="QR" />
+            <div class="flex items-center justify-center gap-2 mt-1.5 text-xs font-semibold">
+              <button @click="printQr(viewing)" class="text-brand-600 dark:text-brand-300 hover:underline">{{ t('assets.print') }}</button>
+              <span class="text-line-strong">|</span>
+              <a :href="viewing.qr_code_url" :download="`qr-${viewing.asset_code}.png`" class="text-brand-600 dark:text-brand-300 hover:underline">{{ t('common.download') }}</a>
+            </div>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-x-6 gap-y-4">
+          <div><p class="text-xs font-semibold text-faint uppercase tracking-wide">{{ t('assets.category') }}</p><p class="font-semibold text-fg mt-0.5">{{ viewing.category?.name || '—' }}</p></div>
+          <div><p class="text-xs font-semibold text-faint uppercase tracking-wide">{{ t('assets.condition') }}</p><p class="font-semibold text-fg mt-0.5 capitalize">{{ viewing.condition || '—' }}</p></div>
+          <div><p class="text-xs font-semibold text-faint uppercase tracking-wide">{{ t('assets.brand') }}</p><p class="font-semibold text-fg mt-0.5">{{ viewing.brand || '—' }}</p></div>
+          <div><p class="text-xs font-semibold text-faint uppercase tracking-wide">{{ t('assets.model') }}</p><p class="font-semibold text-fg mt-0.5">{{ viewing.model || '—' }}</p></div>
+          <div><p class="text-xs font-semibold text-faint uppercase tracking-wide">{{ t('assets.serial_number') }}</p><p class="font-semibold text-fg mt-0.5">{{ viewing.serial_number || '—' }}</p></div>
+          <div><p class="text-xs font-semibold text-faint uppercase tracking-wide">{{ t('assets.purchase_date') }}</p><p class="font-semibold text-fg mt-0.5">{{ viewing.purchase_date || '—' }}</p></div>
+          <div><p class="text-xs font-semibold text-faint uppercase tracking-wide">{{ t('assets.purchase_price') }}</p><p class="font-semibold text-fg mt-0.5">{{ money(viewing.purchase_price) }}</p></div>
+        </div>
+        <div v-if="viewing.description" class="pt-3 border-t border-line">
+          <p class="text-xs font-semibold text-faint uppercase tracking-wide mb-1">{{ t('common.description') }}</p>
+          <p class="text-sm text-muted">{{ viewing.description }}</p>
+        </div>
+        <div class="flex items-center justify-end gap-3 pt-2">
+          <button @click="openFlag(viewing)" class="btn-ghost btn-sm text-amber-600 dark:text-amber-400">{{ t('assets.flag_issue') }}</button>
+          <button @click="regenerateQr(viewing)" class="btn-ghost btn-sm">{{ t('assets.regenerate_qr') }}</button>
+          <button @click="openEdit(viewing); viewing = null" class="btn-primary btn-sm">{{ t('assets.edit_asset') }}</button>
+        </div>
+      </div>
+    </Modal>
 
     <!-- Flag Issue -->
-    <PepyDialog
-      v-if="flagging"
-      :title="t('assets.flag_issue')"
-      :subtitle="`${flagging.name} (${flagging.asset_code})`"
-      icon="mdi-flag-outline"
-      confirm-color="warning"
-      :confirm-text="t('assets.flag_submit')"
-      :loading="flagSubmitting"
-      @update:model-value="(v) => !v && (flagging = null)"
-      @confirm="submitFlag"
-    >
-      <v-textarea v-model="flagNote" :label="t('assets.flag_note_label')" rows="3" required />
-      <v-select
-        v-model="flagCondition"
-        :label="t('assets.flag_condition_label')"
-        :items="[
-          { title: t('assets.flag_condition_none'), value: '' },
-          { title: t('assets.condition_broken'), value: 'broken' },
-          { title: t('assets.condition_lost'), value: 'lost' },
-        ]"
-      />
-    </PepyDialog>
+    <Modal v-if="flagging" :title="t('assets.flag_issue')" @close="flagging = null">
+      <form @submit.prevent="submitFlag">
+        <div class="p-6 space-y-4">
+          <p class="text-sm text-muted">{{ flagging.name }} <span class="font-mono text-xs text-faint">({{ flagging.asset_code }})</span></p>
+          <div>
+            <label class="label">{{ t('assets.flag_note_label') }} <span class="text-red-500">*</span></label>
+            <textarea v-model="flagNote" rows="3" required class="textarea"></textarea>
+          </div>
+          <div>
+            <label class="label">{{ t('assets.flag_condition_label') }}</label>
+            <select v-model="flagCondition" class="select">
+              <option value="">{{ t('assets.flag_condition_none') }}</option>
+              <option value="broken">{{ t('assets.condition_broken') }}</option>
+              <option value="lost">{{ t('assets.condition_lost') }}</option>
+            </select>
+          </div>
+        </div>
+        <div class="flex items-center gap-3 border-t border-line px-6 py-4">
+          <button type="submit" :disabled="flagSubmitting" class="btn-primary">
+            {{ flagSubmitting ? t('assets.saving') : t('assets.flag_submit') }}
+          </button>
+          <button type="button" class="btn-ghost" @click="flagging = null">{{ t('common.cancel') }}</button>
+        </div>
+      </form>
+    </Modal>
+
+    <ConfirmDialog v-if="deletingId" @confirm="confirmDelete" @cancel="deletingId = null" />
+  </AppLayout>
 </template>

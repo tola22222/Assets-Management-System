@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\ActivityLog;
+use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 
 class ActivityLogController extends Controller
@@ -16,7 +17,6 @@ class ActivityLogController extends Controller
         // 2. We use latest() to show the most recent actions first
         // 3. We use paginate() so the page doesn't crash if you have 10,000 logs
         $activityLogs = ActivityLog::with('user')->latest()->paginate(20);
-
         return view('activity_logs.index', compact('activityLogs'));
     }
 

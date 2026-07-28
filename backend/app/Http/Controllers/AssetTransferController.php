@@ -2,11 +2,11 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\ActivityLog;
 use App\Models\Asset;
-use App\Models\AssetMovement;
 use App\Models\AssetTransfer;
+use App\Models\AssetMovement;
 use App\Models\Location;
+use App\Models\ActivityLog;
 use App\Models\Notification;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -22,7 +22,6 @@ class AssetTransferController extends Controller
             ->get();
         $assets = Asset::where('status', 'active')->get();
         $locations = Location::all();
-
         return view('asset-transfers.index', compact('transfers', 'assets', 'locations'));
     }
 
@@ -47,7 +46,7 @@ class AssetTransferController extends Controller
             Notification::create([
                 'user_id' => User::where('role', 'operations_hr_manager')->first()->id,
                 'type' => 'transfer_request',
-                'message' => 'New asset transfer request for '.($transfer->asset->name ?? 'Asset'),
+                'message' => 'New asset transfer request for ' . ($transfer->asset->name ?? 'Asset'),
                 'url' => route('asset-transfers.index'),
             ]);
         }
@@ -55,10 +54,10 @@ class AssetTransferController extends Controller
         ActivityLog::create([
             'user_id' => Auth::id(),
             'action' => 'Create',
-            'description' => ($transfer->status === 'approved' ? 'Transferred' : 'Requested transfer of').' asset',
+            'description' => ($transfer->status === 'approved' ? 'Transferred' : 'Requested transfer of') . ' asset',
         ]);
 
-        return redirect()->route('asset-transfers.index')->with('success', 'Transfer '.($transfer->status === 'approved' ? 'completed' : 'requested').' successfully.');
+        return redirect()->route('asset-transfers.index')->with('success', 'Transfer ' . ($transfer->status === 'approved' ? 'completed' : 'requested') . ' successfully.');
     }
 
     public function approve(AssetTransfer $transfer)
@@ -102,7 +101,6 @@ class AssetTransferController extends Controller
             return redirect()->route('asset-transfers.index')->with('error', 'Cannot delete an approved transfer.');
         }
         $transfer->delete();
-
         return redirect()->route('asset-transfers.index')->with('success', 'Transfer deleted.');
     }
 
@@ -115,7 +113,7 @@ class AssetTransferController extends Controller
                 'to_location_id' => $transfer->to_location_id,
                 'movement_type' => 'transfer',
                 'quantity' => 1,
-                'reference_no' => 'TRF-'.$transfer->id,
+                'reference_no' => 'TRF-' . $transfer->id,
                 'created_by' => Auth::id(),
             ]);
 

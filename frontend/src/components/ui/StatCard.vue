@@ -7,13 +7,13 @@ defineProps({
 </script>
 
 <template>
-  <v-card rounded="lg" variant="flat" border class="pa-5">
-    <div class="d-flex align-start justify-space-between ga-2">
-      <span class="text-h4 font-weight-bold font-display" style="line-height: 1">{{ value }}</span>
-      <v-chip v-if="badge" size="small" color="secondary" variant="tonal" class="flex-shrink-0 text-no-wrap">
+  <div class="card p-5">
+    <div class="flex items-start justify-between gap-2">
+      <span class="font-display text-3xl font-bold text-fg tracking-tight leading-none">{{ value }}</span>
+      <span v-if="badge" class="text-[11px] font-semibold bg-accent-100 text-accent-dark dark:bg-accent/15 dark:text-accent-light px-2 py-1 rounded-full whitespace-nowrap flex-shrink-0">
         {{ badge }}
-      </v-chip>
+      </span>
     </div>
-    <p class="text-body-2 text-medium-emphasis mt-2">{{ label }}</p>
-  </v-card>
+    <p class="text-sm text-muted mt-2">{{ label }}</p>
+  </div>
 </template>

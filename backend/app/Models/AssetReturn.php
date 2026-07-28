@@ -11,7 +11,7 @@ class AssetReturn extends Model
     protected $fillable = [
         'assignment_id', 'asset_id', 'returned_by', 'condition',
         'damage_notes', 'image_path', 'staff_signature', 'status',
-        'approved_by', 'admin_notes', 'return_date',
+        'approved_by', 'admin_notes', 'return_date'
     ];
 
     protected $casts = [

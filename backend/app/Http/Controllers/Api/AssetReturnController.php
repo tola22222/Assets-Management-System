@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Controllers\Concerns\PaginatesAndSorts;
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\AssetReturn;
@@ -14,27 +13,17 @@ use Illuminate\Support\Facades\DB;
 
 class AssetReturnController extends Controller
 {
-    use PaginatesAndSorts;
-
-    private const SORTABLE = ['status', 'condition', 'created_at'];
-
     public function index(Request $request)
     {
         $user = $request->user();
 
-        $query = AssetReturn::with(['asset', 'assignment', 'returnedBy']);
-
-        if (! $user->isOperationsHrManager()) {
-            $query->where('returned_by', $user->id);
+        if ($user->isOperationsHrManager()) {
+            $returns = AssetReturn::with(['asset', 'assignment', 'returnedBy'])->latest()->get();
+        } else {
+            $returns = AssetReturn::where('returned_by', $user->id)->with(['asset', 'assignment'])->latest()->get();
         }
 
-        $this->applySearch($query, $request, [], [
-            'asset' => ['name', 'asset_code'],
-            'returnedBy' => ['name'],
-        ]);
-        $this->applyExactFilters($query, $request, ['status', 'condition']);
-
-        return response()->json($this->paginateSorted($query, $request, self::SORTABLE));
+        return response()->json($returns);
     }
 
     public function store(Request $request)

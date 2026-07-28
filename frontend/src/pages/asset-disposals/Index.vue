@@ -1,55 +1,55 @@
 <script setup>
-import { ref, computed, onMounted, reactive } from 'vue'
+import { ref, onMounted, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRoute, useRouter } from 'vue-router'
 import http from '../../api/http'
-import AppPageHeader from '../../components/common/AppPageHeader.vue'
+import AppLayout from '../../layouts/AppLayout.vue'
+import PageHeader from '../../components/ui/PageHeader.vue'
 import Modal from '../../components/ui/Modal.vue'
 import StatusBadge from '../../components/ui/StatusBadge.vue'
-import AppDataTable from '../../components/common/AppDataTable.vue'
-import RejectReasonDialog from '../../components/dialogs/RejectReasonDialog.vue'
-import { useServerTable } from '../../composables/useServerTable'
-import { useConfirm } from '../../composables/useConfirm'
+import SearchInput from '../../components/ui/SearchInput.vue'
+import TableSortIcon from '../../components/ui/TableSortIcon.vue'
+import { useApiCrud } from '../../composables/useApiCrud'
+import { useTableSearch } from '../../composables/useTableSearch'
+import { useTableFilter } from '../../composables/useTableFilter'
+import { useTableSort } from '../../composables/useTableSort'
 import { useToastStore } from '../../stores/toast'
 import { useAuthStore } from '../../stores/auth'
 
 const { t } = useI18n()
+const { items: disposals, loading, fetchAll } = useApiCrud('/asset-disposals', { entityName: t('asset_disposals.entity') })
 const toast = useToastStore()
 const auth = useAuthStore()
-const { confirm } = useConfirm()
-const route = useRoute()
-const router = useRouter()
 
-const {
-  items: disposals, loading, page, perPage, total, sortByVuetify,
-  search, setSearch, handleOptions, fetchPage,
-  filters, hasActiveFilters, applyFilters, clearFilters,
-} = useServerTable('/asset-disposals', { filterKeys: ['status', 'recommended_action'] })
+const { search, filtered: searched } = useTableSearch(disposals, [(d) => d.asset?.name, (d) => d.asset?.asset_code, (d) => d.requester?.name, 'reason'])
+const { filters, filtered: matched, hasActiveFilters, clearFilters } = useTableFilter(searched, {
+  status: (row, v) => row.status === v,
+  recommended_action: (row, v) => row.recommended_action === v,
+})
+const { sortKey, sortDir, toggleSort, sorted: sortedDisposals } = useTableSort(matched, {
+  defaultKey: 'created_at', defaultDir: 'desc',
+  paths: { asset: 'asset.name', action: 'recommended_action', requester: 'requester.name' },
+})
 
 const assets = ref([])
 const showModal = ref(false)
 const imageFile = ref(null)
 const form = reactive({ asset_id: '', recommended_action: 'disposal', reason: '' })
 
-const headers = computed(() => [
-  { title: t('common.asset'), key: 'asset', sortable: false },
-  { title: t('asset_disposals.action_col'), key: 'recommended_action', sortable: true },
-  { title: t('asset_disposals.reason_col'), key: 'reason', sortable: false },
-  { title: t('asset_disposals.photo'), key: 'image_url', sortable: false },
-  { title: t('asset_disposals.requested_by'), key: 'requester', sortable: false },
-  { title: t('common.status'), key: 'status', sortable: true },
-  { title: t('common.actions'), key: 'actions', sortable: false, align: 'end', width: 90 },
-])
+const canApprove = () => ['operations_hr_manager', 'executive_director'].includes(auth.user?.role)
 
 async function loadAssets() {
-  const { data } = await http.get('/assets/export')
-  assets.value = data.data.filter((a) => a.status === 'active')
+  const { data } = await http.get('/assets')
+  assets.value = data.filter((a) => a.status === 'active')
 }
 
 function openCreate() {
   Object.assign(form, { asset_id: '', recommended_action: 'disposal', reason: '' })
   imageFile.value = null
   showModal.value = true
+}
+
+function handleFileChange(e) {
+  imageFile.value = e.target.files[0] || null
 }
 
 async function handleSubmit() {
@@ -61,171 +61,135 @@ async function handleSubmit() {
     await http.post('/asset-disposals', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
     toast.success(t('asset_disposals.submitted'))
     showModal.value = false
-    await fetchPage()
+    await fetchAll()
   } catch (e) {
     toast.error(e.response?.data?.message || t('asset_disposals.submit_failed'))
   }
 }
 
 async function approve(id) {
-  const ok = await confirm({
-    title: t('common.confirm_approve_title'),
-    message: t('common.confirm_approve_message'),
-    confirmText: t('common.approve'),
-  })
-  if (!ok) return
-
   await http.post(`/asset-disposals/${id}/approve`)
   toast.success(t('asset_disposals.approved'))
-  await fetchPage()
+  await fetchAll()
 }
 
-const rejectingId = ref(null)
-const rejecting = ref(false)
-
-function openReject(id) {
-  rejectingId.value = id
-}
-
-async function confirmReject(reason) {
-  rejecting.value = true
-  try {
-    await http.post(`/asset-disposals/${rejectingId.value}/reject`, { review_notes: reason })
-    toast.success(t('asset_disposals.rejected'))
-    rejectingId.value = null
-    await fetchPage()
-  } finally {
-    rejecting.value = false
-  }
+async function reject(id) {
+  await http.post(`/asset-disposals/${id}/reject`)
+  toast.success(t('asset_disposals.rejected'))
+  await fetchAll()
 }
 
 onMounted(() => {
-  fetchPage()
+  fetchAll()
   loadAssets()
-  if (route.query.create === '1') {
-    openCreate()
-    router.replace({ query: { ...route.query, create: undefined } })
-  }
 })
 </script>
 
 <template>
-  <v-container fluid class="pa-0">
-      <AppPageHeader
-        :title="t('asset_disposals.title')"
-        :subtitle="t('asset_disposals.subtitle')"
-        :actions="[{ label: t('asset_disposals.new'), icon: 'mdi-plus', onClick: openCreate }]"
-      />
+  <AppLayout>
+    <div class="p-8 max-w-6xl mx-auto space-y-6">
+      <PageHeader :title="t('asset_disposals.title')" :subtitle="t('asset_disposals.subtitle')" :buttonText="t('asset_disposals.new')" @action="openCreate" />
 
-      <AppDataTable
-        :headers="headers"
-        :items="disposals"
-        :items-length="total"
-        :loading="loading"
-        :page="page"
-        :items-per-page="perPage"
-        :items-per-page-options="[10, 25, 50, 100]"
-        :sort-by="sortByVuetify"
-        :search="search"
-        :empty-text="t('asset_disposals.empty')"
-        @update:search="setSearch"
-        @update:options="handleOptions"
-      >
-        <template #filters>
-          <v-select
-            v-model="filters.recommended_action"
-            :label="t('asset_disposals.action_col')"
-            :items="[
-              { title: t('common.all'), value: '' },
-              { title: t('asset_disposals.action_repair'), value: 'repair' },
-              { title: t('asset_disposals.action_disposal'), value: 'disposal' },
-              { title: t('asset_disposals.action_replacement'), value: 'replacement' },
-            ]"
-            density="compact"
-            variant="outlined"
-            hide-details
-            style="max-width: 220px"
-            @update:model-value="applyFilters"
-          />
-          <v-select
-            v-model="filters.status"
-            :label="t('common.status')"
-            :items="[
-              { title: t('common.all'), value: '' },
-              { title: t('status.pending'), value: 'pending' },
-              { title: t('status.approved'), value: 'approved' },
-              { title: t('status.rejected'), value: 'rejected' },
-            ]"
-            density="compact"
-            variant="outlined"
-            hide-details
-            style="max-width: 220px"
-            @update:model-value="applyFilters"
-          />
-          <v-btn v-if="hasActiveFilters" variant="text" size="small" @click="clearFilters">{{ t('common.clear_filters') }}</v-btn>
-        </template>
-
-        <template #item.asset="{ item }">{{ item.asset?.name || t('common.n_a') }}</template>
-        <template #item.recommended_action="{ item }"><span class="text-capitalize">{{ item.recommended_action }}</span></template>
-        <template #item.reason="{ item }"><span class="text-truncate d-block" style="max-width: 240px" :title="item.reason">{{ item.reason }}</span></template>
-        <template #item.image_url="{ item }">
-          <a v-if="item.image_url" :href="item.image_url" target="_blank">
-            <v-img :src="item.image_url" width="36" height="36" rounded="lg" cover />
-          </a>
-          <span v-else class="text-medium-emphasis">—</span>
-        </template>
-        <template #item.requester="{ item }">{{ item.requester?.name || t('common.n_a') }}</template>
-        <template #item.status="{ item }"><StatusBadge :status="item.status" /></template>
-
-        <template #item.actions="{ item }">
-          <div v-if="item.status === 'pending' && auth.canApproveDisposal" class="d-flex align-center justify-end ga-1">
-            <v-btn icon="mdi-check" size="small" variant="text" color="success" :title="t('common.approve')" @click="approve(item.id)" />
-            <v-btn icon="mdi-close" size="small" variant="text" color="error" :title="t('common.reject')" @click="openReject(item.id)" />
+      <div class="table-wrap">
+        <div class="table-toolbar">
+          <div class="w-full sm:max-w-xs">
+            <SearchInput v-model="search" :placeholder="t('common.search')" />
           </div>
-        </template>
-      </AppDataTable>
-  </v-container>
+          <select v-model="filters.recommended_action" class="filter-select">
+            <option value="">{{ t('asset_disposals.action_col') }}: {{ t('common.all') }}</option>
+            <option value="repair">{{ t('asset_disposals.action_repair') }}</option>
+            <option value="disposal">{{ t('asset_disposals.action_disposal') }}</option>
+            <option value="replacement">{{ t('asset_disposals.action_replacement') }}</option>
+          </select>
+          <select v-model="filters.status" class="filter-select">
+            <option value="">{{ t('common.status') }}: {{ t('common.all') }}</option>
+            <option value="pending">{{ t('status.pending') }}</option>
+            <option value="approved">{{ t('status.approved') }}</option>
+            <option value="rejected">{{ t('status.rejected') }}</option>
+          </select>
+          <button v-if="hasActiveFilters" @click="clearFilters" class="btn-subtle btn-sm">{{ t('common.clear_filters') }}</button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th class="th-sort" @click="toggleSort('asset')">{{ t('common.asset') }}<TableSortIcon :active="sortKey === 'asset'" :direction="sortDir" /></th>
+                <th class="th-sort" @click="toggleSort('action')">{{ t('asset_disposals.action_col') }}<TableSortIcon :active="sortKey === 'action'" :direction="sortDir" /></th>
+                <th>{{ t('asset_disposals.reason_col') }}</th>
+                <th>{{ t('asset_disposals.photo') }}</th>
+                <th class="th-sort" @click="toggleSort('requester')">{{ t('asset_disposals.requested_by') }}<TableSortIcon :active="sortKey === 'requester'" :direction="sortDir" /></th>
+                <th class="th-sort" @click="toggleSort('status')">{{ t('common.status') }}<TableSortIcon :active="sortKey === 'status'" :direction="sortDir" /></th>
+                <th class="text-right">{{ t('common.actions') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="d in sortedDisposals" :key="d.id">
+                <td class="font-medium text-fg">{{ d.asset?.name || t('common.n_a') }}</td>
+                <td class="capitalize">{{ d.recommended_action }}</td>
+                <td class="max-w-xs truncate" :title="d.reason">{{ d.reason }}</td>
+                <td>
+                  <a v-if="d.image_url" :href="d.image_url" target="_blank"><img :src="d.image_url" class="w-9 h-9 rounded-lg object-cover border border-line" alt="" /></a>
+                  <span v-else class="text-faint">—</span>
+                </td>
+                <td>{{ d.requester?.name || t('common.n_a') }}</td>
+                <td><StatusBadge :status="d.status" /></td>
+                <td class="text-right whitespace-nowrap">
+                  <template v-if="d.status === 'pending' && canApprove()">
+                    <div class="flex items-center justify-end gap-1.5">
+                      <button @click="approve(d.id)" :title="t('common.approve')" class="w-7 h-7 rounded-lg bg-brand text-white flex items-center justify-center hover:bg-brand-dark transition">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                      </button>
+                      <button @click="reject(d.id)" :title="t('common.reject')" class="w-7 h-7 rounded-lg bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                      </button>
+                    </div>
+                  </template>
+                </td>
+              </tr>
+              <tr v-if="!loading && !sortedDisposals.length">
+                <td colspan="7" class="py-10 text-center text-faint">{{ t('asset_disposals.empty') }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
 
-  <RejectReasonDialog
-    :model-value="rejectingId !== null"
-    :loading="rejecting"
-    @update:model-value="(v) => !v && (rejectingId = null)"
-    @confirm="confirmReject"
-  />
-
-  <Modal v-if="showModal" :title="t('asset_disposals.modal_title')" @close="showModal = false">
-    <v-form @submit.prevent="handleSubmit">
-      <v-card-text class="d-flex flex-column ga-1">
-        <v-select
-          v-model="form.asset_id"
-          :label="t('asset_disposals.asset_required')"
-          :items="assets.map((a) => ({ title: `${a.name} (${a.asset_code})`, value: a.id }))"
-          required
-        />
-        <v-select
-          v-model="form.recommended_action"
-          :label="t('asset_disposals.recommended_action_required')"
-          :items="[
-            { title: t('asset_disposals.action_repair'), value: 'repair' },
-            { title: t('asset_disposals.action_disposal'), value: 'disposal' },
-            { title: t('asset_disposals.action_replacement'), value: 'replacement' },
-          ]"
-        />
-        <v-textarea v-model="form.reason" :label="t('asset_disposals.reason_required')" :placeholder="t('asset_disposals.reason_placeholder')" rows="3" required />
-        <v-file-input
-          v-model="imageFile"
-          :label="t('asset_disposals.photo_reference')"
-          accept="image/jpeg,image/png"
-          variant="outlined"
-          density="comfortable"
-          prepend-icon=""
-          prepend-inner-icon="mdi-camera-outline"
-        />
-      </v-card-text>
-      <v-card-actions class="px-4 pb-4">
-        <v-btn type="submit" color="primary" variant="flat" prepend-icon="mdi-plus">{{ t('asset_disposals.submit_button') }}</v-btn>
-        <v-btn variant="text" @click="showModal = false">{{ t('common.cancel') }}</v-btn>
-      </v-card-actions>
-    </v-form>
-  </Modal>
+    <Modal v-if="showModal" :title="t('asset_disposals.modal_title')" @close="showModal = false">
+      <form @submit.prevent="handleSubmit">
+        <div class="p-6 space-y-4">
+          <div class="space-y-1.5">
+            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_disposals.asset_required') }}</label>
+            <select v-model="form.asset_id" required class="input">
+              <option value="">{{ t('common.select_asset') }}</option>
+              <option v-for="a in assets" :key="a.id" :value="a.id">{{ a.name }} ({{ a.asset_code }})</option>
+            </select>
+          </div>
+          <div class="space-y-1.5">
+            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_disposals.recommended_action_required') }}</label>
+            <select v-model="form.recommended_action" class="input">
+              <option value="repair">{{ t('asset_disposals.action_repair') }}</option>
+              <option value="disposal">{{ t('asset_disposals.action_disposal') }}</option>
+              <option value="replacement">{{ t('asset_disposals.action_replacement') }}</option>
+            </select>
+          </div>
+          <div class="space-y-1.5">
+            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_disposals.reason_required') }}</label>
+            <textarea v-model="form.reason" rows="3" required :placeholder="t('asset_disposals.reason_placeholder')" class="input"></textarea>
+          </div>
+          <div class="space-y-1.5">
+            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_disposals.photo_reference') }}</label>
+            <input type="file" accept="image/jpeg,image/png" @change="handleFileChange" class="w-full text-sm" />
+          </div>
+        </div>
+        <div class="flex items-center gap-3 border-t border-line px-6 py-4">
+          <button type="submit" class="btn-primary">
+            <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+            {{ t('asset_disposals.submit_button') }}
+          </button>
+          <button type="button" class="btn-ghost" @click="showModal = false">{{ t('common.cancel') }}</button>
+        </div>
+      </form>
+    </Modal>
+  </AppLayout>
 </template>

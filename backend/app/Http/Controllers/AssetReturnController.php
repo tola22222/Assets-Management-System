@@ -2,9 +2,10 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\ActivityLog;
-use App\Models\AssetAssignment;
+use App\Models\Asset;
 use App\Models\AssetReturn;
+use App\Models\AssetAssignment;
+use App\Models\ActivityLog;
 use App\Models\Notification;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -27,7 +28,6 @@ class AssetReturnController extends Controller
                 ->get();
         }
         $assignments = AssetAssignment::where('status', 'active')->with('asset', 'assignee')->get();
-
         return view('asset-returns.index', compact('returns', 'assignments'));
     }
 
@@ -112,7 +112,6 @@ class AssetReturnController extends Controller
     public function show(AssetReturn $return)
     {
         $return->load(['asset', 'assignment', 'returnedBy', 'approvedBy']);
-
         return view('asset-returns.show', compact('return'));
     }
 }

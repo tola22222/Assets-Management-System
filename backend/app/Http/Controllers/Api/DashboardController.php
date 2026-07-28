@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Models\Asset;
 use App\Models\AssetAssignment;
 use App\Models\AssetCategory;
+use App\Models\AssetDisposal;
 use App\Models\AssetReturn;
+use App\Models\AssetTransfer;
 use App\Models\AssetVerification;
 use App\Models\Location;
 use App\Models\Notification;
@@ -83,17 +85,6 @@ class DashboardController extends Controller
             ->sortByDesc('count')
             ->values();
 
-        $byCondition = Asset::select('condition', DB::raw('count(*) as count'))
-            ->groupBy('condition')
-            ->get()
-            ->map(fn ($row) => [
-                'category' => ucfirst($row->condition ?? 'unknown'),
-                'count' => $row->count,
-                'percentage' => $totalAssets > 0 ? round($row->count / $totalAssets * 100) : 0,
-            ])
-            ->sortByDesc('count')
-            ->values();
-
         $byLocation = Asset::select('location_id', DB::raw('count(*) as total'))
             ->whereNotNull('location_id')
             ->with('location:id,name')
@@ -138,7 +129,6 @@ class DashboardController extends Controller
             'assets_in_use' => AssetAssignment::where('status', 'active')->count(),
             'assets_lost' => Asset::where('condition', 'lost')->count(),
             'assets_by_category' => $byCategory,
-            'assets_by_condition' => $byCondition,
             'assets_by_location' => $byLocation,
             'needs_attention' => $needsAttention,
             'recent_assets' => Asset::with('category')->latest()->take(5)->get(),

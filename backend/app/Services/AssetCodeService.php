@@ -84,8 +84,8 @@ class AssetCodeService
      * Bulk import preserves existing printed-tag codes instead of generating
      * new ones (see AssetImportService), so it never goes through nextCode()'s
      * increment. Without this, the sequence counter stays wherever it was left
-     * after the initial migration backfill, and the next Add Asset call can
-     * hand out a number that collides with an already-imported
+     * after the initial migration backfill, and the next Register/Receive
+     * Asset call can hand out a number that collides with an already-imported
      * code (unique constraint violation on assets.asset_code). Call this for
      * every preserved code so the counter never falls behind what's on disk.
      */

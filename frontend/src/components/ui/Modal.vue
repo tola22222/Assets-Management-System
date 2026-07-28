@@ -7,21 +7,17 @@ const emit = defineEmits(['close'])
 </script>
 
 <template>
-  <v-dialog
-    :model-value="true"
-    :max-width="wide ? 720 : 520"
-    scrollable
-    @update:model-value="(v) => !v && emit('close')"
-  >
-    <v-card rounded="lg">
-      <v-card-title class="d-flex align-center justify-space-between pa-4">
-        <span class="text-h6 font-weight-bold">{{ title }}</span>
-        <v-btn icon="mdi-close" variant="text" size="small" @click="emit('close')" />
-      </v-card-title>
-      <v-divider />
-      <v-card-text class="pa-0">
+  <div class="overlay items-center justify-center sm:justify-end" @click.self="emit('close')">
+    <div class="modal-panel" :class="wide ? 'max-w-2xl' : 'max-w-lg'">
+      <div class="px-6 py-5 border-b border-line flex items-center justify-between">
+        <h3 class="text-lg font-bold text-fg">{{ title }}</h3>
+        <button @click="emit('close')" class="text-faint hover:text-fg transition p-1.5 rounded-lg hover:bg-surface-2">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="flex-1 overflow-y-auto">
         <slot />
-      </v-card-text>
-    </v-card>
-  </v-dialog>
+      </div>
+    </div>
+  </div>
 </template>

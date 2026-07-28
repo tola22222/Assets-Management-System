@@ -4,24 +4,23 @@ import { useI18n } from 'vue-i18n'
 const { t, te } = useI18n()
 defineProps({ status: { type: String, required: true } })
 
-const COLORS = {
-  approved: 'success',
-  active: 'success',
-  completed: 'success',
-  stock_in: 'success',
-  pending: 'warning',
-  in_progress: 'info',
-  assigned: 'info',
-  transfer: 'info',
-  rejected: 'error',
-  disposed: 'error',
-  overdue: 'error',
-  returned: undefined,
+const classes = {
+  approved: 'badge-success',
+  active: 'badge-success',
+  completed: 'badge-success',
+  pending: 'badge-warning',
+  assigned: 'badge-info',
+  rejected: 'badge-danger',
+  disposed: 'badge-danger',
+  returned: 'badge-neutral',
+  stock_in: 'badge-success',
+  transfer: 'badge-info',
+  overdue: 'badge-danger',
 }
 </script>
 
 <template>
-  <v-chip size="small" :color="COLORS[status]" variant="tonal">
+  <span :class="classes[status] || 'badge-neutral'">
     {{ te(`status.${status}`) ? t(`status.${status}`) : status.toUpperCase() }}
-  </v-chip>
+  </span>
 </template>

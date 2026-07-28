@@ -114,7 +114,7 @@ class AssetDisposalWorkflowTest extends TestCase
             'reason' => 'Beyond repair',
         ])->assertStatus(201);
 
-        Mail::assertSent(\App\Mail\AssetNotificationMail::class, function ($mail) use ($ed) {
+        Mail::assertSent(\App\Mail\AssetEventMail::class, function ($mail) use ($ed) {
             return $mail->hasTo($ed->email) && $mail->eventType === 'DISPOSAL_REQUEST';
         });
     }

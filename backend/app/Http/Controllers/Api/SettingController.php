@@ -54,22 +54,22 @@ class SettingController extends Controller
     public function backup()
     {
         $databasePath = database_path('database.sqlite');
-        if (! file_exists($databasePath)) {
+        if (!file_exists($databasePath)) {
             return response()->json(['message' => 'Database file not found.'], 422);
         }
 
         $backupPath = storage_path('app/backups');
-        if (! is_dir($backupPath)) {
+        if (!is_dir($backupPath)) {
             mkdir($backupPath, 0755, true);
         }
 
-        $filename = 'backup-'.date('Y-m-d-His').'.sqlite';
-        copy($databasePath, $backupPath.'/'.$filename);
+        $filename = 'backup-' . date('Y-m-d-His') . '.sqlite';
+        copy($databasePath, $backupPath . '/' . $filename);
 
         ActivityLog::create([
             'user_id' => Auth::id(),
             'action' => 'Backup',
-            'description' => 'Created database backup: '.$filename,
+            'description' => 'Created database backup: ' . $filename,
         ]);
 
         return response()->json(['message' => 'Database backed up successfully.', 'filename' => $filename]);
@@ -78,15 +78,15 @@ class SettingController extends Controller
     public function listBackups()
     {
         $backupPath = storage_path('app/backups');
-        if (! is_dir($backupPath)) {
+        if (!is_dir($backupPath)) {
             return response()->json([]);
         }
 
         $files = array_map(function ($file) use ($backupPath) {
             return [
                 'name' => $file,
-                'size' => filesize($backupPath.'/'.$file),
-                'date' => date('Y-m-d H:i:s', filemtime($backupPath.'/'.$file)),
+                'size' => filesize($backupPath . '/' . $file),
+                'date' => date('Y-m-d H:i:s', filemtime($backupPath . '/' . $file)),
             ];
         }, array_diff(scandir($backupPath), ['.', '..']));
 
@@ -97,8 +97,8 @@ class SettingController extends Controller
 
     public function downloadBackup(string $filename)
     {
-        $backupPath = storage_path('app/backups/'.basename($filename));
-        if (! file_exists($backupPath)) {
+        $backupPath = storage_path('app/backups/' . basename($filename));
+        if (!file_exists($backupPath)) {
             return response()->json(['message' => 'Backup file not found.'], 404);
         }
 
@@ -107,8 +107,8 @@ class SettingController extends Controller
 
     public function restoreBackup(string $filename)
     {
-        $backupPath = storage_path('app/backups/'.basename($filename));
-        if (! file_exists($backupPath)) {
+        $backupPath = storage_path('app/backups/' . basename($filename));
+        if (!file_exists($backupPath)) {
             return response()->json(['message' => 'Backup file not found.'], 404);
         }
 
@@ -117,7 +117,7 @@ class SettingController extends Controller
         ActivityLog::create([
             'user_id' => Auth::id(),
             'action' => 'Restore',
-            'description' => 'Restored database from backup: '.$filename,
+            'description' => 'Restored database from backup: ' . $filename,
         ]);
 
         return response()->json(['message' => 'Database restored successfully.']);
@@ -125,8 +125,8 @@ class SettingController extends Controller
 
     public function deleteBackup(string $filename)
     {
-        $backupPath = storage_path('app/backups/'.basename($filename));
-        if (! file_exists($backupPath)) {
+        $backupPath = storage_path('app/backups/' . basename($filename));
+        if (!file_exists($backupPath)) {
             return response()->json(['message' => 'Backup file not found.'], 404);
         }
 
@@ -135,7 +135,7 @@ class SettingController extends Controller
         ActivityLog::create([
             'user_id' => Auth::id(),
             'action' => 'Delete',
-            'description' => 'Deleted database backup: '.$filename,
+            'description' => 'Deleted database backup: ' . $filename,
         ]);
 
         return response()->json(['message' => 'Backup deleted.']);

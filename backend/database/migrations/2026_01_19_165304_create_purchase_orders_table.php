@@ -15,8 +15,8 @@ return new class extends Migration
             $table->id();
             $table->foreignId('supplier_id')->constrained();
             $table->string('po_number');
-            $table->decimal('total_amount', 10, 2);
-            $table->enum('status', ['Pending', 'Received']);
+            $table->decimal('total_amount',10,2);
+            $table->enum('status',['Pending','Received']);
             $table->timestamps();
         });
     }

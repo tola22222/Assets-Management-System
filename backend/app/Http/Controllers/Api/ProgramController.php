@@ -2,24 +2,15 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Controllers\Concerns\PaginatesAndSorts;
 use App\Http\Controllers\Controller;
 use App\Models\Program;
 use Illuminate\Http\Request;
 
 class ProgramController extends Controller
 {
-    use PaginatesAndSorts;
-
-    private const SORTABLE = ['name', 'created_at'];
-
-    public function index(Request $request)
+    public function index()
     {
-        $query = Program::query();
-
-        $this->applySearch($query, $request, ['name', 'description']);
-
-        return response()->json($this->paginateSorted($query, $request, self::SORTABLE));
+        return response()->json(Program::latest()->get());
     }
 
     public function store(Request $request)
@@ -35,7 +26,7 @@ class ProgramController extends Controller
     public function update(Request $request, Program $program)
     {
         $validated = $request->validate([
-            'name' => 'required|string|max:255|unique:programs,name,'.$program->id,
+            'name' => 'required|string|max:255|unique:programs,name,' . $program->id,
             'description' => 'nullable|string',
         ]);
 

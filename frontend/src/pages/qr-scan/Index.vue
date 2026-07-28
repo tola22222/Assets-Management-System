@@ -1,7 +1,7 @@
 <script setup>
 import { ref } from 'vue'
 import http from '../../api/http'
-import AppPageHeader from '../../components/common/AppPageHeader.vue'
+import AppLayout from '../../layouts/AppLayout.vue'
 import { useToastStore } from '../../stores/toast'
 
 const toast = useToastStore()
@@ -17,8 +17,8 @@ async function handleScan() {
   try {
     const { data } = await http.post('/qr-scan', { asset_code: assetCode.value })
     asset.value = data
-    const { data: locs } = await http.get('/locations', { params: { per_page: 100 } })
-    locations.value = locs.data ?? locs
+    const { data: locs } = await http.get('/locations')
+    locations.value = locs
     verifyForm.value = { location_id: '', condition: 'good', remark: '' }
   } catch (e) {
     toast.error(e.response?.data?.message || 'Asset not found.')
@@ -46,56 +46,63 @@ function reset() {
 </script>
 
 <template>
-  <v-container fluid class="pa-0 d-flex flex-column ga-6" style="max-width: 640px">
-      <AppPageHeader title="QR Scanner" subtitle="Enter or scan an asset code to look it up" />
-
-      <v-form v-if="!asset" @submit.prevent="handleScan">
-        <v-card rounded="lg" variant="flat" border class="pa-6 d-flex ga-3">
-          <v-text-field v-model="assetCode" placeholder="Enter asset code, e.g. IT-2026-000001" autofocus hide-details />
-          <v-btn type="submit" color="primary" variant="flat" :loading="loading">Look Up</v-btn>
-        </v-card>
-      </v-form>
-
-      <div v-else class="d-flex flex-column ga-6">
-        <v-card rounded="lg" variant="flat" border class="pa-6">
-          <div class="d-flex align-start justify-space-between">
-            <div>
-              <h2 class="text-h6 font-weight-bold">{{ asset.name }}</h2>
-              <p class="text-body-2 text-medium-emphasis">{{ asset.asset_code }} — {{ asset.category?.name || 'Uncategorized' }}</p>
-            </div>
-            <v-btn variant="text" size="small" @click="reset">Scan Another</v-btn>
-          </div>
-          <v-row dense class="mt-2 text-body-2">
-            <v-col cols="6"><span class="text-medium-emphasis">Condition:</span> <span class="text-capitalize font-weight-semibold">{{ asset.condition }}</span></v-col>
-            <v-col cols="6"><span class="text-medium-emphasis">Status:</span> <span class="text-capitalize font-weight-semibold">{{ asset.status }}</span></v-col>
-          </v-row>
-        </v-card>
-
-        <v-card rounded="lg" variant="flat" border class="pa-6">
-          <h3 class="text-subtitle-1 font-weight-bold mb-4">Record Verification</h3>
-          <v-form @submit.prevent="submitVerification">
-            <div class="d-flex flex-column ga-1">
-              <v-select
-                v-model="verifyForm.location_id"
-                label="Location *"
-                :items="locations.map((l) => ({ title: l.name, value: l.id }))"
-                required
-              />
-              <v-select
-                v-model="verifyForm.condition"
-                label="Condition *"
-                :items="[
-                  { title: 'Good', value: 'good' },
-                  { title: 'Fair', value: 'fair' },
-                  { title: 'Broken', value: 'broken' },
-                  { title: 'Lost', value: 'lost' },
-                ]"
-              />
-              <v-textarea v-model="verifyForm.remark" label="Remark" rows="2" />
-              <v-btn type="submit" color="primary" variant="flat" block>Confirm Verification</v-btn>
-            </div>
-          </v-form>
-        </v-card>
+  <AppLayout>
+    <div class="p-8 max-w-2xl mx-auto space-y-6">
+      <div>
+        <h1 class="text-xl font-bold text-fg tracking-tight">QR Scanner</h1>
+        <p class="text-muted text-sm mt-0.5">Enter or scan an asset code to look it up</p>
       </div>
-  </v-container>
+
+      <form v-if="!asset" @submit.prevent="handleScan" class="bg-surface rounded-2xl border border-line p-6 flex gap-3">
+        <input v-model="assetCode" placeholder="Enter asset code, e.g. IT-2026-000001" autofocus
+          class="flex-1 border border-line rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-brand" />
+        <button type="submit" :disabled="loading" class="btn-primary">
+          {{ loading ? 'Searching…' : 'Look Up' }}
+        </button>
+      </form>
+
+      <div v-else class="space-y-6">
+        <div class="bg-surface rounded-2xl border border-line p-6">
+          <div class="flex items-start justify-between">
+            <div>
+              <h2 class="font-bold text-fg text-lg">{{ asset.name }}</h2>
+              <p class="text-muted text-sm">{{ asset.asset_code }} — {{ asset.category?.name || 'Uncategorized' }}</p>
+            </div>
+            <button @click="reset" class="text-sm text-faint hover:text-muted">Scan Another</button>
+          </div>
+          <div class="grid grid-cols-2 gap-4 mt-4 text-sm">
+            <div><span class="text-faint">Condition:</span> <span class="capitalize font-semibold text-fg">{{ asset.condition }}</span></div>
+            <div><span class="text-faint">Status:</span> <span class="capitalize font-semibold text-fg">{{ asset.status }}</span></div>
+          </div>
+        </div>
+
+        <div class="bg-surface rounded-2xl border border-line p-6">
+          <h3 class="font-bold text-fg mb-4">Record Verification</h3>
+          <form @submit.prevent="submitVerification" class="space-y-4">
+            <div class="space-y-1.5">
+              <label class="text-xs font-semibold text-muted tracking-wide">Location *</label>
+              <select v-model="verifyForm.location_id" required class="input">
+                <option value="">Select Location</option>
+                <option v-for="l in locations" :key="l.id" :value="l.id">{{ l.name }}</option>
+              </select>
+            </div>
+            <div class="space-y-1.5">
+              <label class="text-xs font-semibold text-muted tracking-wide">Condition *</label>
+              <select v-model="verifyForm.condition" class="input">
+                <option value="good">Good</option>
+                <option value="fair">Fair</option>
+                <option value="broken">Broken</option>
+                <option value="lost">Lost</option>
+              </select>
+            </div>
+            <div class="space-y-1.5">
+              <label class="text-xs font-semibold text-muted tracking-wide">Remark</label>
+              <textarea v-model="verifyForm.remark" rows="2" class="input"></textarea>
+            </div>
+            <button type="submit" class="btn-primary w-full">Confirm Verification</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </AppLayout>
 </template>

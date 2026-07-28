@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Controllers\Concerns\PaginatesAndSorts;
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\Asset;
@@ -14,36 +13,23 @@ use Illuminate\Support\Facades\Auth;
 
 class AssetVerificationController extends Controller
 {
-    use PaginatesAndSorts;
-
-    private const SORTABLE = ['condition', 'created_at'];
-
     public function index(Request $request)
     {
         $user = $request->user();
 
-        $query = AssetVerification::with(['asset', 'location', 'verifiedBy']);
-
-        if (! $user->isOperationsHrManager()) {
+        if ($user->isOperationsHrManager()) {
+            $verifications = AssetVerification::with(['asset', 'location', 'verifiedBy'])->latest()->get();
+        } else {
             $assignedAssetIds = AssetAssignment::where('assigned_to_type', 'staff')
                 ->where('assigned_to_id', $user->staff_id)
                 ->pluck('asset_id');
-            $query->whereIn('asset_id', $assignedAssetIds);
+            $verifications = AssetVerification::whereIn('asset_id', $assignedAssetIds)
+                ->with(['asset', 'location', 'verifiedBy'])
+                ->latest()
+                ->get();
         }
 
-        $this->applySearch($query, $request, ['remark'], [
-            'asset' => ['name', 'asset_code'],
-            'location' => ['name'],
-        ]);
-        $this->applyExactFilters($query, $request, ['condition']);
-
-        if ($request->filled('completed')) {
-            $request->query('completed') === 'yes'
-                ? $query->whereNotNull('verified_at')
-                : $query->whereNull('verified_at');
-        }
-
-        return response()->json($this->paginateSorted($query, $request, self::SORTABLE));
+        return response()->json($verifications);
     }
 
     public function store(Request $request)
@@ -73,39 +59,17 @@ class AssetVerificationController extends Controller
         ActivityLog::create([
             'user_id' => Auth::id(),
             'action' => 'Verification',
-            'description' => 'Verified asset: '.($verification->asset->name ?? ''),
+            'description' => 'Verified asset: ' . ($verification->asset->name ?? ''),
         ]);
 
         Notification::create([
             'user_id' => Auth::id(),
             'type' => 'asset_verified',
-            'message' => 'Verified asset: '.($verification->asset->name ?? '').' ('.$validated['condition'].')',
+            'message' => 'Verified asset: ' . ($verification->asset->name ?? '') . ' (' . $validated['condition'] . ')',
             'url' => null,
         ]);
 
         return response()->json($verification->fresh(['asset', 'location']), 201);
-    }
-
-    public function update(Request $request, AssetVerification $asset_verification)
-    {
-        $validated = $request->validate([
-            'condition' => 'required|in:good,fair,broken,lost',
-            'remark' => 'nullable|string',
-        ]);
-
-        $asset_verification->update($validated);
-
-        if (in_array($validated['condition'], ['broken', 'lost'])) {
-            $asset_verification->asset()->update(['condition' => $validated['condition']]);
-        }
-
-        ActivityLog::create([
-            'user_id' => Auth::id(),
-            'action' => 'Update Verification',
-            'description' => 'Updated verification condition to '.$validated['condition'].' for asset: '.($asset_verification->asset->name ?? ''),
-        ]);
-
-        return response()->json($asset_verification->fresh(['asset', 'location']));
     }
 
     public function complete(AssetVerification $asset_verification)
@@ -124,7 +88,6 @@ class AssetVerificationController extends Controller
     public function destroy(AssetVerification $asset_verification)
     {
         $asset_verification->delete();
-
         return response()->json(['message' => 'Verification deleted.']);
     }
 }

@@ -12,7 +12,9 @@ class ScheduledAssetReportMail extends Mailable
 {
     use Queueable, SerializesModels;
 
-    public function __construct(public array $summary, public string $periodLabel) {}
+    public function __construct(public array $summary, public string $periodLabel)
+    {
+    }
 
     public function envelope(): Envelope
     {

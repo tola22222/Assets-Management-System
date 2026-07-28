@@ -1,48 +1,41 @@
 <script setup>
-import { ref, computed, onMounted, reactive } from 'vue'
+import { ref, onMounted, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
 import http from '../../api/http'
-import AppPageHeader from '../../components/common/AppPageHeader.vue'
-import PepyDialog from '../../components/ui/PepyDialog.vue'
-import AppDataTable from '../../components/common/AppDataTable.vue'
-import { useServerTable } from '../../composables/useServerTable'
-import { useConfirm } from '../../composables/useConfirm'
+import AppLayout from '../../layouts/AppLayout.vue'
+import PageHeader from '../../components/ui/PageHeader.vue'
+import Modal from '../../components/ui/Modal.vue'
+import SearchInput from '../../components/ui/SearchInput.vue'
+import TableSortIcon from '../../components/ui/TableSortIcon.vue'
+import { useApiCrud } from '../../composables/useApiCrud'
+import { useTableSearch } from '../../composables/useTableSearch'
+import { useTableFilter } from '../../composables/useTableFilter'
+import { useTableSort } from '../../composables/useTableSort'
 import { useToastStore } from '../../stores/toast'
-import { useAuthStore } from '../../stores/auth'
 
 const { t } = useI18n()
+const { items: verifications, loading, fetchAll } = useApiCrud('/asset-verifications', { entityName: t('asset_verifications.entity') })
 const toast = useToastStore()
-const auth = useAuthStore()
-const { confirm } = useConfirm()
 
-const {
-  items: verifications, loading, page, perPage, total, sortByVuetify,
-  search, setSearch, handleOptions, fetchPage,
-  filters, hasActiveFilters, applyFilters, clearFilters,
-} = useServerTable('/asset-verifications', { filterKeys: ['condition', 'completed'] })
+const { search, filtered: searched } = useTableSearch(verifications, [(v) => v.asset?.name, (v) => v.asset?.asset_code, (v) => v.location?.name])
+const { filters, filtered: matched, hasActiveFilters, clearFilters } = useTableFilter(searched, {
+  condition: (row, v) => row.condition === v,
+  completed: (row, v) => (v === 'yes' ? !!row.verified_at : !row.verified_at),
+})
+const { sortKey, sortDir, toggleSort, sorted: sortedVerifications } = useTableSort(matched, {
+  defaultKey: 'verified_at', defaultDir: 'desc',
+  paths: { asset: 'asset.name', location: 'location.name', verified_by: 'verified_by.name' },
+})
 
 const assets = ref([])
 const locations = ref([])
 const showModal = ref(false)
 const form = reactive({ asset_id: '', location_id: '', quantity_verified: 1, condition: 'good', remark: '' })
 
-const updatingItem = ref(null)
-const updatingCondition = ref('good')
-const updatingSubmitting = ref(false)
-
-const headers = computed(() => [
-  { title: t('common.asset'), key: 'asset', sortable: false },
-  { title: t('common.location'), key: 'location', sortable: false },
-  { title: t('asset_returns.condition'), key: 'condition', sortable: true },
-  { title: t('asset_verifications.verified_by'), key: 'verified_by', sortable: false },
-  { title: t('common.status'), key: 'verified_at', sortable: false },
-  { title: t('common.actions'), key: 'actions', sortable: false, align: 'end', width: 90 },
-])
-
 async function loadOptions() {
-  const [a, l] = await Promise.all([http.get('/assets/export'), http.get('/locations', { params: { per_page: 100 } })])
-  assets.value = a.data.data
-  locations.value = l.data.data ?? l.data
+  const [a, l] = await Promise.all([http.get('/assets'), http.get('/locations')])
+  assets.value = a.data
+  locations.value = l.data
 }
 
 function openCreate() {
@@ -55,204 +48,131 @@ async function handleSubmit() {
     await http.post('/asset-verifications', form)
     toast.success(t('asset_verifications.recorded'))
     showModal.value = false
-    await fetchPage()
+    await fetchAll()
   } catch (e) {
     toast.error(e.response?.data?.message || t('asset_verifications.record_failed'))
   }
 }
 
-async function verify(id) {
+async function complete(id) {
   await http.post(`/asset-verifications/${id}/complete`)
   toast.success(t('asset_verifications.marked_complete'))
-  await fetchPage()
-}
-
-async function markMissing(item) {
-  const ok = await confirm({
-    title: t('asset_verifications.confirm_missing_title'),
-    message: t('asset_verifications.confirm_missing_message'),
-    color: 'error',
-    confirmText: t('asset_verifications.mark_missing'),
-  })
-  if (!ok) return
-  await http.put(`/asset-verifications/${item.id}`, { condition: 'lost', remark: item.remark })
-  toast.success(t('asset_verifications.condition_updated'))
-  await fetchPage()
-}
-
-function openUpdateCondition(item) {
-  updatingItem.value = item
-  updatingCondition.value = item.condition
-}
-
-async function submitUpdateCondition() {
-  updatingSubmitting.value = true
-  try {
-    await http.put(`/asset-verifications/${updatingItem.value.id}`, { condition: updatingCondition.value, remark: updatingItem.value.remark })
-    toast.success(t('asset_verifications.condition_updated'))
-    updatingItem.value = null
-    await fetchPage()
-  } finally {
-    updatingSubmitting.value = false
-  }
+  await fetchAll()
 }
 
 onMounted(() => {
-  fetchPage()
+  fetchAll()
   loadOptions()
 })
 </script>
 
 <template>
-  <v-container fluid class="pa-0">
-      <AppPageHeader
-        :title="t('asset_verifications.title')"
-        :subtitle="t('asset_verifications.subtitle')"
-        :actions="[{ label: t('asset_verifications.new'), icon: 'mdi-plus', onClick: openCreate }]"
-      />
+  <AppLayout>
+    <div class="p-8 max-w-6xl mx-auto space-y-6">
+      <PageHeader :title="t('asset_verifications.title')" :subtitle="t('asset_verifications.subtitle')" :buttonText="t('asset_verifications.new')" @action="openCreate" />
 
-      <AppDataTable
-        :headers="headers"
-        :items="verifications"
-        :items-length="total"
-        :loading="loading"
-        :page="page"
-        :items-per-page="perPage"
-        :items-per-page-options="[10, 25, 50, 100]"
-        :sort-by="sortByVuetify"
-        :search="search"
-        :empty-text="t('asset_verifications.empty')"
-        @update:search="setSearch"
-        @update:options="handleOptions"
-      >
-        <template #filters>
-          <v-select
-            v-model="filters.condition"
-            :label="t('asset_returns.condition')"
-            :items="[
-              { title: t('common.all'), value: '' },
-              { title: t('asset_verifications.condition_good'), value: 'good' },
-              { title: t('asset_verifications.condition_fair'), value: 'fair' },
-              { title: t('asset_verifications.condition_broken'), value: 'broken' },
-              { title: t('asset_verifications.condition_lost'), value: 'lost' },
-            ]"
-            density="compact"
-            variant="outlined"
-            hide-details
-            style="max-width: 220px"
-            @update:model-value="applyFilters"
-          />
-          <v-select
-            v-model="filters.completed"
-            :label="t('common.status')"
-            :items="[
-              { title: t('common.all'), value: '' },
-              { title: t('asset_verifications.complete'), value: 'yes' },
-              { title: t('asset_verifications.pending'), value: 'no' },
-            ]"
-            density="compact"
-            variant="outlined"
-            hide-details
-            style="max-width: 220px"
-            @update:model-value="applyFilters"
-          />
-          <v-btn v-if="hasActiveFilters" variant="text" size="small" @click="clearFilters">{{ t('common.clear_filters') }}</v-btn>
-        </template>
-
-        <template #item.asset="{ item }"><span class="font-weight-medium">{{ item.asset?.name || t('common.n_a') }}</span></template>
-        <template #item.location="{ item }">{{ item.location?.name || t('common.n_a') }}</template>
-        <template #item.condition="{ item }"><span class="text-capitalize">{{ item.condition }}</span></template>
-        <template #item.verified_by="{ item }">{{ item.verified_by?.name || t('common.n_a') }}</template>
-        <template #item.verified_at="{ item }">
-          <v-chip size="small" :color="item.verified_at ? 'success' : 'warning'" variant="tonal">
-            {{ item.verified_at ? t('asset_verifications.complete') : t('asset_verifications.pending') }}
-          </v-chip>
-        </template>
-
-        <template #item.actions="{ item }">
-          <div class="d-flex align-center justify-end ga-1">
-            <v-btn
-              v-if="!item.verified_at && auth.canCompleteVerification"
-              icon="mdi-check"
-              size="small"
-              variant="text"
-              color="success"
-              :title="t('asset_verifications.verify')"
-              @click="verify(item.id)"
-            />
-            <v-menu>
-              <template #activator="{ props: menuProps }">
-                <v-btn icon="mdi-dots-vertical" size="small" variant="text" v-bind="menuProps" />
-              </template>
-              <v-list density="compact">
-                <v-list-item :title="t('asset_verifications.update_condition')" @click="openUpdateCondition(item)" />
-                <v-list-item :title="t('asset_verifications.mark_missing')" class="text-error" @click="markMissing(item)" />
-              </v-list>
-            </v-menu>
+      <div class="table-wrap">
+        <div class="table-toolbar">
+          <div class="w-full sm:max-w-xs">
+            <SearchInput v-model="search" :placeholder="t('common.search')" />
           </div>
-        </template>
-      </AppDataTable>
-  </v-container>
+          <select v-model="filters.condition" class="filter-select">
+            <option value="">{{ t('asset_returns.condition') }}: {{ t('common.all') }}</option>
+            <option value="good">{{ t('asset_verifications.condition_good') }}</option>
+            <option value="fair">{{ t('asset_verifications.condition_fair') }}</option>
+            <option value="broken">{{ t('asset_verifications.condition_broken') }}</option>
+            <option value="lost">{{ t('asset_verifications.condition_lost') }}</option>
+          </select>
+          <select v-model="filters.completed" class="filter-select">
+            <option value="">{{ t('common.status') }}: {{ t('common.all') }}</option>
+            <option value="yes">{{ t('asset_verifications.complete') }}</option>
+            <option value="no">{{ t('asset_verifications.pending') }}</option>
+          </select>
+          <button v-if="hasActiveFilters" @click="clearFilters" class="btn-subtle btn-sm">{{ t('common.clear_filters') }}</button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th class="th-sort" @click="toggleSort('asset')">{{ t('common.asset') }}<TableSortIcon :active="sortKey === 'asset'" :direction="sortDir" /></th>
+                <th class="th-sort" @click="toggleSort('location')">{{ t('common.location') }}<TableSortIcon :active="sortKey === 'location'" :direction="sortDir" /></th>
+                <th class="th-sort" @click="toggleSort('condition')">{{ t('asset_returns.condition') }}<TableSortIcon :active="sortKey === 'condition'" :direction="sortDir" /></th>
+                <th class="th-sort" @click="toggleSort('verified_by')">{{ t('asset_verifications.verified_by') }}<TableSortIcon :active="sortKey === 'verified_by'" :direction="sortDir" /></th>
+                <th>{{ t('common.status') }}</th>
+                <th class="text-right">{{ t('common.actions') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="v in sortedVerifications" :key="v.id">
+                <td class="font-medium text-fg">{{ v.asset?.name || t('common.n_a') }}</td>
+                <td>{{ v.location?.name || t('common.n_a') }}</td>
+                <td class="capitalize">{{ v.condition }}</td>
+                <td>{{ v.verified_by?.name || t('common.n_a') }}</td>
+                <td>
+                  <span class="px-2.5 py-1 rounded-lg text-xs font-bold" :class="v.verified_at ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'">
+                    {{ v.verified_at ? t('asset_verifications.complete') : t('asset_verifications.pending') }}
+                  </span>
+                </td>
+                <td class="text-right">
+                  <button v-if="!v.verified_at" @click="complete(v.id)" :title="t('common.mark_complete')" class="w-7 h-7 rounded-lg bg-brand text-white flex items-center justify-center hover:bg-brand-dark transition">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                  </button>
+                </td>
+              </tr>
+              <tr v-if="!loading && !sortedVerifications.length">
+                <td colspan="6" class="py-10 text-center text-faint">{{ t('asset_verifications.empty') }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
 
-  <PepyDialog
-    v-if="showModal"
-    :title="t('asset_verifications.modal_title')"
-    icon="mdi-shield-check-outline"
-    :confirm-text="t('asset_verifications.submit_button')"
-    @update:model-value="(v) => !v && (showModal = false)"
-    @confirm="handleSubmit"
-  >
-    <v-select
-      v-model="form.asset_id"
-      :label="t('asset_verifications.asset_required')"
-      :items="assets.map((a) => ({ title: `${a.name} (${a.asset_code})`, value: a.id }))"
-      required
-    />
-    <v-row dense>
-      <v-col cols="12" sm="6">
-        <v-select
-          v-model="form.location_id"
-          :label="t('asset_verifications.location_required')"
-          :items="locations.map((l) => ({ title: l.name, value: l.id }))"
-          required
-        />
-      </v-col>
-      <v-col cols="12" sm="6">
-        <v-text-field v-model.number="form.quantity_verified" type="number" min="1" :label="t('asset_verifications.quantity_verified_required')" required />
-      </v-col>
-    </v-row>
-    <v-select
-      v-model="form.condition"
-      :label="t('asset_verifications.condition_required')"
-      :items="[
-        { title: t('asset_verifications.condition_good'), value: 'good' },
-        { title: t('asset_verifications.condition_fair'), value: 'fair' },
-        { title: t('asset_verifications.condition_broken'), value: 'broken' },
-        { title: t('asset_verifications.condition_lost'), value: 'lost' },
-      ]"
-    />
-    <v-textarea v-model="form.remark" :label="t('asset_verifications.remark')" rows="2" />
-  </PepyDialog>
-
-  <PepyDialog
-    v-if="updatingItem"
-    :title="t('asset_verifications.update_condition')"
-    :subtitle="updatingItem.asset?.name"
-    icon="mdi-pencil-outline"
-    max-width="440"
-    :loading="updatingSubmitting"
-    @update:model-value="(v) => !v && (updatingItem = null)"
-    @confirm="submitUpdateCondition"
-  >
-    <v-select
-      v-model="updatingCondition"
-      :label="t('asset_returns.condition')"
-      :items="[
-        { title: t('asset_verifications.condition_good'), value: 'good' },
-        { title: t('asset_verifications.condition_fair'), value: 'fair' },
-        { title: t('asset_verifications.condition_broken'), value: 'broken' },
-        { title: t('asset_verifications.condition_lost'), value: 'lost' },
-      ]"
-    />
-  </PepyDialog>
+    <Modal v-if="showModal" :title="t('asset_verifications.modal_title')" @close="showModal = false">
+      <form @submit.prevent="handleSubmit">
+        <div class="p-6 space-y-4">
+          <div class="space-y-1.5">
+            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_verifications.asset_required') }}</label>
+            <select v-model="form.asset_id" required class="input">
+              <option value="">{{ t('common.select_asset') }}</option>
+              <option v-for="a in assets" :key="a.id" :value="a.id">{{ a.name }} ({{ a.asset_code }})</option>
+            </select>
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div class="space-y-1.5">
+              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_verifications.location_required') }}</label>
+              <select v-model="form.location_id" required class="input">
+                <option value="">{{ t('common.select_location') }}</option>
+                <option v-for="l in locations" :key="l.id" :value="l.id">{{ l.name }}</option>
+              </select>
+            </div>
+            <div class="space-y-1.5">
+              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_verifications.quantity_verified_required') }}</label>
+              <input v-model.number="form.quantity_verified" type="number" min="1" required class="input" />
+            </div>
+          </div>
+          <div class="space-y-1.5">
+            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_verifications.condition_required') }}</label>
+            <select v-model="form.condition" class="input">
+              <option value="good">{{ t('asset_verifications.condition_good') }}</option>
+              <option value="fair">{{ t('asset_verifications.condition_fair') }}</option>
+              <option value="broken">{{ t('asset_verifications.condition_broken') }}</option>
+              <option value="lost">{{ t('asset_verifications.condition_lost') }}</option>
+            </select>
+          </div>
+          <div class="space-y-1.5">
+            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_verifications.remark') }}</label>
+            <textarea v-model="form.remark" rows="2" class="input"></textarea>
+          </div>
+        </div>
+        <div class="flex items-center gap-3 border-t border-line px-6 py-4">
+          <button type="submit" class="btn-primary">
+            <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+            {{ t('asset_verifications.submit_button') }}
+          </button>
+          <button type="button" class="btn-ghost" @click="showModal = false">{{ t('common.cancel') }}</button>
+        </div>
+      </form>
+    </Modal>
+  </AppLayout>
 </template>
