@@ -65,7 +65,6 @@
     "transfer_requests": "Transfer Requests",
     "verification": "Verification",
     "asset_management": "Asset Management",
-    "receive_assets": "Receive Assets",
     "stock_movements": "Stock Movements",
     "assignments": "Assignments",
     "transfers": "Transfers",
@@ -392,19 +391,6 @@
     "delete_message": "This backup file will be permanently deleted.",
     "deleted": "Backup deleted.",
     "delete_failed": "Delete failed."
-  },
-  "asset_stocks": {
-    "title": "Receive Assets",
-    "subtitle": "Every unit received gets its own Asset ID, tag, and QR code",
-    "new": "Receive Assets",
-    "empty": "No assets received yet.",
-    "hint": "Each unit received gets its own Asset ID, tag, and QR code — quantity creates that many individual asset records, not a shared counter.",
-    "location_required": "Location *",
-    "quantity_required": "Quantity *",
-    "reference": "Receipt #",
-    "received_at": "Received",
-    "save": "Receive",
-    "entity": "Receipt"
   },
   "asset_movements": {
     "title": "Stock Movements",
