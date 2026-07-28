@@ -32,13 +32,15 @@ Route::get('/asset/{assetCode}/update-condition', fn ($code) => redirect()->rout
 // Serve the built Vue app under /app so `php artisan serve` shows the frontend
 // with no separate Vite process. Build it with:  cd frontend && npm run build:local
 //
-// Files are served from frontend/dist (NOT public/) on purpose: a real public/app
-// directory makes PHP's built-in server strip "/app" from deep-link paths. Serving
-// through this route means Laravel sees the full path and history-mode routing works.
-// In the Docker image frontend/dist is absent, so this falls back to public/app,
-// though in production nginx serves those static files before Laravel is reached.
+// Files are served from ../frontend/dist (the sibling frontend/ package, NOT
+// public/) on purpose: a real public/app directory makes PHP's built-in server
+// strip "/app" from deep-link paths. Serving through this route means Laravel
+// sees the full path and history-mode routing works. In the Docker image
+// frontend/dist is absent, so this falls back to public/app, though in
+// production nginx serves those static files before Laravel is reached.
 Route::get('/app/{path?}', function (string $path = '') {
-    $dist = is_dir(base_path('frontend/dist')) ? base_path('frontend/dist') : public_path('app');
+    $siblingDist = dirname(base_path()).'/frontend/dist';
+    $dist = is_dir($siblingDist) ? $siblingDist : public_path('app');
 
     // Serve a real built asset (js/css/img) with a correct Content-Type.
     if ($path !== '' && is_file($dist.'/'.$path)) {
