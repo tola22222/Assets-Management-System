@@ -13,12 +13,18 @@ class Staff extends Model
         'photo_path',
         'position',
         'hire_date',
-        'status'
+        'status',
+        'location_id',
     ];
 
     protected $appends = ['photo_path_url'];
 
     public function getPhotoPathUrlAttribute() {
         return $this->photo_path ? asset('storage/' . $this->photo_path) : null;
+    }
+
+    public function location()
+    {
+        return $this->belongsTo(Location::class);
     }
 }

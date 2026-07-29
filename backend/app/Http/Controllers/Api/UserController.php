@@ -62,6 +62,12 @@ class UserController extends Controller
     {
         $user->update(['is_locked' => ! $user->is_locked]);
 
+        if ($user->is_locked) {
+            // Otherwise an already-issued bearer token keeps working until it expires
+            // naturally — locking the account should end the session immediately.
+            $user->tokens()->delete();
+        }
+
         ActivityLog::create([
             'user_id' => Auth::id(),
             'action' => 'Update',

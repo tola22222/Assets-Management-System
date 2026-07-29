@@ -16,6 +16,7 @@ class AuthController extends Controller
         $credentials = $request->validate([
             'email' => ['required', 'email'],
             'password' => ['required'],
+            'remember' => ['nullable', 'boolean'],
         ]);
 
         $user = User::where('email', $credentials['email'])->first();
@@ -46,7 +47,10 @@ class AuthController extends Controller
             'description' => $user->name . ' signed into the system.',
         ]);
 
-        $token = $user->createToken('spa')->plainTextToken;
+        // Remember me: 30-day token; otherwise a short 12-hour token, so a shared/kiosk
+        // login at a site doesn't stay valid indefinitely.
+        $expiresAt = $request->boolean('remember') ? now()->addDays(30) : now()->addHours(12);
+        $token = $user->createToken('spa', ['*'], $expiresAt)->plainTextToken;
 
         return response()->json([
             'token' => $token,

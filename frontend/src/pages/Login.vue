@@ -8,6 +8,7 @@ import AuthLayout from '../layouts/AuthLayout.vue'
 const { t } = useI18n()
 const email = ref('')
 const password = ref('')
+const remember = ref(false)
 const error = ref('')
 const loading = ref(false)
 
@@ -18,7 +19,7 @@ async function handleSubmit() {
   error.value = ''
   loading.value = true
   try {
-    await auth.login(email.value, password.value)
+    await auth.login(email.value, password.value, remember.value)
     router.push({ name: 'dashboard' })
   } catch (e) {
     error.value = e.response?.data?.message || t('login.error')
@@ -50,6 +51,11 @@ async function handleSubmit() {
         <label class="label">{{ t('login.password') }}</label>
         <input v-model="password" type="password" required placeholder="••••••••" class="input" />
       </div>
+
+      <label class="flex items-center gap-2 text-sm text-muted select-none cursor-pointer">
+        <input v-model="remember" type="checkbox" class="rounded border-line text-brand focus:ring-brand/30" />
+        {{ t('login.remember_me') }}
+      </label>
 
       <button type="submit" :disabled="loading" class="btn-primary w-full">
         <svg v-if="loading" class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" /><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" /></svg>

@@ -33,7 +33,7 @@ class AssetDisposalWorkflowTest extends TestCase
     public function test_approving_a_disposal_request_marks_the_asset_disposed(): void
     {
         Mail::fake();
-        $opm = User::factory()->create(['role' => 'operations_hr_manager']);
+        $ed = User::factory()->create(['role' => 'executive_director']);
         $staff = User::factory()->create(['role' => 'staff']);
         $asset = $this->makeAsset();
 
@@ -45,7 +45,7 @@ class AssetDisposalWorkflowTest extends TestCase
             'status' => 'pending',
         ]);
 
-        $response = $this->actingAs($opm)->postJson("/api/asset-disposals/{$disposal->id}/approve");
+        $response = $this->actingAs($ed)->postJson("/api/asset-disposals/{$disposal->id}/approve");
 
         $response->assertStatus(200);
         $this->assertSame('disposed', $asset->fresh()->status);
@@ -55,7 +55,7 @@ class AssetDisposalWorkflowTest extends TestCase
     public function test_rejecting_a_disposal_request_leaves_the_asset_status_unchanged(): void
     {
         Mail::fake();
-        $opm = User::factory()->create(['role' => 'operations_hr_manager']);
+        $ed = User::factory()->create(['role' => 'executive_director']);
         $staff = User::factory()->create(['role' => 'staff']);
         $asset = $this->makeAsset();
 
@@ -67,13 +67,31 @@ class AssetDisposalWorkflowTest extends TestCase
             'status' => 'pending',
         ]);
 
-        $response = $this->actingAs($opm)->postJson("/api/asset-disposals/{$disposal->id}/reject", [
+        $response = $this->actingAs($ed)->postJson("/api/asset-disposals/{$disposal->id}/reject", [
             'review_notes' => 'Still under warranty',
         ]);
 
         $response->assertStatus(200);
         $this->assertSame('active', $asset->fresh()->status);
         $this->assertSame('rejected', $disposal->fresh()->status);
+    }
+
+    public function test_opm_cannot_approve_its_own_submitted_disposal_request(): void
+    {
+        Mail::fake();
+        $opm = User::factory()->create(['role' => 'operations_hr_manager']);
+        $asset = $this->makeAsset();
+
+        $disposal = AssetDisposal::create([
+            'asset_id' => $asset->id,
+            'requested_by' => $opm->id,
+            'recommended_action' => 'disposal',
+            'reason' => 'Beyond repair',
+            'status' => 'pending',
+        ]);
+
+        $this->actingAs($opm)->postJson("/api/asset-disposals/{$disposal->id}/approve")->assertStatus(403);
+        $this->assertSame('pending', $disposal->fresh()->status);
     }
 
     public function test_duplicate_pending_disposal_request_for_the_same_asset_is_rejected(): void

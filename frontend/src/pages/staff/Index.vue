@@ -27,8 +27,14 @@ const showModal = ref(false)
 const editingId = ref(null)
 const deletingId = ref(null)
 const photoFile = ref(null)
-const emptyForm = () => ({ full_name: '', email: '', phone: '', position: '', hire_date: '', status: 'active' })
+const locations = ref([])
+const emptyForm = () => ({ full_name: '', email: '', phone: '', position: '', hire_date: '', status: 'active', location_id: '' })
 const form = reactive(emptyForm())
+
+async function loadLocations() {
+  const { data } = await http.get('/locations')
+  locations.value = data
+}
 
 function openCreate() {
   editingId.value = null
@@ -42,6 +48,7 @@ function openEdit(staff) {
   Object.assign(form, {
     full_name: staff.full_name, email: staff.email || '', phone: staff.phone || '',
     position: staff.position || '', hire_date: staff.hire_date || '', status: staff.status || 'active',
+    location_id: staff.location_id || '',
   })
   photoFile.value = null
   showModal.value = true
@@ -77,7 +84,10 @@ async function confirmDelete() {
   deletingId.value = null
 }
 
-onMounted(fetchAll)
+onMounted(() => {
+  fetchAll()
+  loadLocations()
+})
 </script>
 
 <template>
@@ -168,6 +178,13 @@ onMounted(fetchAll)
               <label class="text-xs font-semibold text-muted tracking-wide">{{ t('staff.hire_date') }}</label>
               <input v-model="form.hire_date" type="date" class="input" />
             </div>
+          </div>
+          <div class="space-y-1.5">
+            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('staff.site') }}</label>
+            <select v-model="form.location_id" class="input">
+              <option value="">{{ t('common.select_location') }}</option>
+              <option v-for="l in locations" :key="l.id" :value="l.id">{{ l.name }}</option>
+            </select>
           </div>
           <div v-if="editingId" class="space-y-1.5">
             <label class="text-xs font-semibold text-muted tracking-wide">{{ t('staff.status_required') }}</label>

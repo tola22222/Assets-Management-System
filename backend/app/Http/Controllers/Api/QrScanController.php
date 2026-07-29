@@ -20,7 +20,7 @@ class QrScanController extends Controller
             ->where('asset_code', $request->asset_code)
             ->first();
 
-        if (!$asset) {
+        if (!$asset || $this->outsideStaffSite($request->user(), $asset)) {
             return response()->json(['message' => 'Asset not found.'], 404);
         }
 
@@ -34,7 +34,7 @@ class QrScanController extends Controller
         return response()->json($asset);
     }
 
-    public function result($assetCode)
+    public function result(Request $request, $assetCode)
     {
         $asset = Asset::with([
             'category', 'location',
@@ -42,12 +42,16 @@ class QrScanController extends Controller
             'verifications' => fn ($q) => $q->latest(),
         ])->where('asset_code', $assetCode)->firstOrFail();
 
+        abort_if($this->outsideStaffSite($request->user(), $asset), 404);
+
         return response()->json($asset);
     }
 
     public function verify(Request $request, $assetCode)
     {
         $asset = Asset::where('asset_code', $assetCode)->firstOrFail();
+
+        abort_if($this->outsideStaffSite($request->user(), $asset), 404);
 
         $validated = $request->validate([
             'location_id' => 'required|exists:locations,id',
@@ -76,5 +80,11 @@ class QrScanController extends Controller
         ]);
 
         return response()->json($verification->fresh(['asset', 'location']));
+    }
+
+    /** Staff can only view/verify assets at their own site; every other role is unrestricted. */
+    private function outsideStaffSite($user, Asset $asset): bool
+    {
+        return $user->isStaff() && $asset->location_id !== $user->staff?->location_id;
     }
 }

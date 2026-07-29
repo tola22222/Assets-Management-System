@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Models\Asset;
 use App\Models\AssetVerification;
-use App\Models\AssetAssignment;
 use App\Models\Location;
 use App\Models\ActivityLog;
 use App\Models\Notification;
@@ -16,16 +15,13 @@ class AssetVerificationController extends Controller
     public function index()
     {
         $user = Auth::user();
-        if ($user->isOperationsHrManager()) {
-            $verifications = AssetVerification::with(['asset', 'location', 'verifiedBy'])->latest()->get();
-        } else {
-            $assignedAssetIds = AssetAssignment::where('assigned_to_type', 'staff')
-                ->where('assigned_to_id', $user->staff_id)
-                ->pluck('asset_id');
-            $verifications = AssetVerification::whereIn('asset_id', $assignedAssetIds)
+        if ($user->isStaff()) {
+            $verifications = AssetVerification::where('location_id', $user->staff?->location_id)
                 ->with(['asset', 'location', 'verifiedBy'])
                 ->latest()
                 ->get();
+        } else {
+            $verifications = AssetVerification::with(['asset', 'location', 'verifiedBy'])->latest()->get();
         }
         $assets = Asset::where('status', 'active')->get();
         $locations = Location::all();

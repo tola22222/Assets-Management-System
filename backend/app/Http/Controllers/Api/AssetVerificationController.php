@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\Asset;
-use App\Models\AssetAssignment;
 use App\Models\AssetVerification;
 use App\Models\Notification;
 use Illuminate\Http\Request;
@@ -17,16 +16,16 @@ class AssetVerificationController extends Controller
     {
         $user = $request->user();
 
-        if ($user->isOperationsHrManager()) {
-            $verifications = AssetVerification::with(['asset', 'location', 'verifiedBy'])->latest()->get();
-        } else {
-            $assignedAssetIds = AssetAssignment::where('assigned_to_type', 'staff')
-                ->where('assigned_to_id', $user->staff_id)
-                ->pluck('asset_id');
-            $verifications = AssetVerification::whereIn('asset_id', $assignedAssetIds)
+        // Staff only ever see verifications for their own site — everyone else (OPM,
+        // Finance, ED) sees the full register, matching the manual's roles table where
+        // only Staff is site-restricted.
+        if ($user->isStaff()) {
+            $verifications = AssetVerification::where('location_id', $user->staff?->location_id)
                 ->with(['asset', 'location', 'verifiedBy'])
                 ->latest()
                 ->get();
+        } else {
+            $verifications = AssetVerification::with(['asset', 'location', 'verifiedBy'])->latest()->get();
         }
 
         return response()->json($verifications);

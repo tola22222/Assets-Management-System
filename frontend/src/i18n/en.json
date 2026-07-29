@@ -8,6 +8,7 @@
     "title": "Sign in",
     "email": "Email address",
     "password": "Password",
+    "remember_me": "Remember me for 30 days",
     "submit": "Sign in",
     "signing_in": "Signing in…",
     "error": "The provided credentials do not match our records."
@@ -284,6 +285,7 @@
     "search_placeholder": "Search staff…",
     "position": "Position",
     "hire_date": "Hire Date",
+    "site": "Site",
     "full_name": "Full Name *",
     "photo": "Photo",
     "status_required": "Status *",

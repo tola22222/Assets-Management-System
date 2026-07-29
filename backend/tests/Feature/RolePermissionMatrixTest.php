@@ -23,10 +23,10 @@ class RolePermissionMatrixTest extends TestCase
         return AssetCategory::create(['name' => 'Furniture & Fixture', 'short_name' => 'FAF']);
     }
 
-    private function makeAsset(): Asset
+    private function makeAsset(?string $code = null): Asset
     {
         return Asset::create([
-            'asset_code' => 'PEY-SR-FAF-0001',
+            'asset_code' => $code ?? 'PEY-SR-FAF-0001',
             'name' => 'Office Chair',
             'category_id' => $this->category()->id,
             'location_id' => $this->location()->id,
@@ -50,19 +50,24 @@ class RolePermissionMatrixTest extends TestCase
         $this->assertDatabaseCount('assets', 0);
     }
 
-    public function test_finance_manager_cannot_update_an_asset(): void
+    public function test_finance_manager_can_update_an_asset_but_staff_and_ed_cannot(): void
     {
-        $finance = User::factory()->create(['role' => 'finance_manager']);
-        $asset = $this->makeAsset();
-
-        $response = $this->actingAs($finance)->putJson("/api/assets/{$asset->id}", [
+        $payload = fn ($asset) => [
             'name' => 'Renamed',
             'category_id' => $asset->category_id,
             'location_id' => $asset->location_id,
             'status' => 'active',
-        ]);
+        ];
 
-        $response->assertStatus(403);
+        $asset = $this->makeAsset('PEY-SR-FAF-0001');
+        $finance = User::factory()->create(['role' => 'finance_manager']);
+        $this->actingAs($finance)->putJson("/api/assets/{$asset->id}", $payload($asset))->assertStatus(200);
+
+        foreach (['staff', 'executive_director'] as $i => $role) {
+            $asset = $this->makeAsset('PEY-SR-FAF-000'.($i + 2));
+            $user = User::factory()->create(['role' => $role]);
+            $this->actingAs($user)->putJson("/api/assets/{$asset->id}", $payload($asset))->assertStatus(403);
+        }
     }
 
     public function test_no_role_other_than_opm_can_delete_an_asset(): void
@@ -214,12 +219,15 @@ class RolePermissionMatrixTest extends TestCase
         $this->actingAs($opm)->postJson('/api/categories', ['name' => 'Electronics', 'short_name' => 'ELE'])->assertStatus(201);
     }
 
-    public function test_only_opm_can_manage_suppliers(): void
+    public function test_opm_and_finance_can_manage_suppliers_but_staff_cannot(): void
     {
-        $finance = User::factory()->create(['role' => 'finance_manager']);
+        $staff = User::factory()->create(['role' => 'staff']);
 
-        $this->actingAs($finance)->postJson('/api/suppliers', ['name' => 'Acme Supplies'])->assertStatus(403);
+        $this->actingAs($staff)->postJson('/api/suppliers', ['name' => 'Acme Supplies'])->assertStatus(403);
         $this->assertDatabaseMissing('suppliers', ['name' => 'Acme Supplies']);
+
+        $finance = User::factory()->create(['role' => 'finance_manager']);
+        $this->actingAs($finance)->postJson('/api/suppliers', ['name' => 'Acme Supplies'])->assertStatus(201);
     }
 
     public function test_only_opm_can_manage_programs(): void
@@ -230,7 +238,7 @@ class RolePermissionMatrixTest extends TestCase
         $this->assertDatabaseMissing('programs', ['name' => 'Dream Program']);
     }
 
-    public function test_only_opm_can_create_or_cancel_an_assignment(): void
+    public function test_opm_and_finance_can_create_or_cancel_an_assignment_but_staff_cannot(): void
     {
         $asset = $this->makeAsset();
         $staffMember = \App\Models\Staff::create(['full_name' => 'Test Staff', 'phone' => '012345678']);
@@ -245,6 +253,16 @@ class RolePermissionMatrixTest extends TestCase
             'assigned_date' => now()->toDateString(),
         ])->assertStatus(403);
         $this->assertDatabaseCount('asset_assignments', 0);
+
+        $finance = User::factory()->create(['role' => 'finance_manager']);
+        $this->actingAs($finance)->postJson('/api/asset-assignments', [
+            'asset_id' => $asset->id,
+            'assigned_to_type' => 'staff',
+            'assigned_to_id' => $staffMember->id,
+            'location_id' => $asset->location_id,
+            'quantity' => 1,
+            'assigned_date' => now()->toDateString(),
+        ])->assertStatus(201);
 
         $opm = User::factory()->create(['role' => 'operations_hr_manager']);
         $assignment = \App\Models\AssetAssignment::create([
@@ -276,5 +294,63 @@ class RolePermissionMatrixTest extends TestCase
 
         $this->actingAs($staff)->deleteJson("/api/asset-verifications/{$verification->id}")->assertStatus(403);
         $this->assertDatabaseHas('asset_verifications', ['id' => $verification->id]);
+    }
+
+    public function test_only_opm_can_finalize_a_verification(): void
+    {
+        $asset = $this->makeAsset();
+
+        $verification = \App\Models\AssetVerification::create([
+            'asset_id' => $asset->id,
+            'location_id' => $asset->location_id,
+            'quantity_verified' => 1,
+            'condition' => 'good',
+            'verified_by' => 1,
+            'verified_at' => now(),
+        ]);
+
+        $finance = User::factory()->create(['role' => 'finance_manager']);
+        $this->actingAs($finance)->postJson("/api/asset-verifications/{$verification->id}/complete")->assertStatus(403);
+
+        $opm = User::factory()->create(['role' => 'operations_hr_manager']);
+        $this->actingAs($opm)->postJson("/api/asset-verifications/{$verification->id}/complete")->assertStatus(200);
+    }
+
+    public function test_staff_cannot_pull_reports(): void
+    {
+        $staff = User::factory()->create(['role' => 'staff']);
+
+        $this->actingAs($staff)->getJson('/api/reports/inventory')->assertStatus(403);
+
+        $opm = User::factory()->create(['role' => 'operations_hr_manager']);
+        $this->actingAs($opm)->getJson('/api/reports/inventory')->assertStatus(200);
+    }
+
+    public function test_staff_can_only_scan_and_verify_assets_at_their_own_site(): void
+    {
+        $ownSite = $this->location();
+        $otherSite = Location::where('code', '!=', 'SR')->firstOrFail();
+
+        $staffMember = \App\Models\Staff::create(['full_name' => 'Site Staff', 'location_id' => $ownSite->id]);
+        $staffUser = User::factory()->create(['role' => 'staff', 'staff_id' => $staffMember->id]);
+
+        $ownAsset = $this->makeAsset('PEY-SR-FAF-0010');
+        $otherAsset = Asset::create([
+            'asset_code' => 'PEY-OT-FAF-0011',
+            'name' => 'Other Site Chair',
+            'category_id' => $this->category()->id,
+            'location_id' => $otherSite->id,
+            'status' => 'active',
+            'condition' => 'good',
+        ]);
+
+        $this->actingAs($staffUser)->getJson('/api/qr-scan/'.$otherAsset->asset_code)->assertStatus(404);
+        $this->actingAs($staffUser)->getJson('/api/qr-scan/'.$ownAsset->asset_code)->assertStatus(200);
+
+        $this->actingAs($staffUser)->postJson("/api/qr-scan/{$otherAsset->asset_code}/verify", [
+            'location_id' => $otherSite->id,
+            'condition' => 'good',
+        ])->assertStatus(404);
+        $this->assertDatabaseMissing('asset_verifications', ['asset_id' => $otherAsset->id]);
     }
 }

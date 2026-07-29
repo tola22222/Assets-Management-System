@@ -14,7 +14,7 @@ import { useAuthStore } from '../../stores/auth'
 
 const { t } = useI18n()
 const auth = useAuthStore()
-const isOpm = computed(() => auth.user?.role === 'operations_hr_manager')
+const canManage = computed(() => ['operations_hr_manager', 'finance_manager'].includes(auth.user?.role))
 const { items: suppliers, loading, fetchAll, create, update, destroy } = useApiCrud('/suppliers', { entityName: t('suppliers.entity') })
 const { search, filtered: searched } = useTableSearch(suppliers, ['name', 'phone', 'address'])
 const { sortKey, sortDir, toggleSort, sorted: filtered } = useTableSort(searched, { defaultKey: 'name' })
@@ -53,7 +53,7 @@ onMounted(fetchAll)
 <template>
   <AppLayout>
     <div class="p-8 max-w-4xl mx-auto space-y-6">
-      <PageHeader :title="t('suppliers.title')" :subtitle="t('suppliers.subtitle')" :buttonText="isOpm ? t('suppliers.new') : null" @action="openCreate" />
+      <PageHeader :title="t('suppliers.title')" :subtitle="t('suppliers.subtitle')" :buttonText="canManage ? t('suppliers.new') : null" @action="openCreate" />
 
       <div class="table-wrap">
         <div class="table-toolbar">
@@ -77,7 +77,7 @@ onMounted(fetchAll)
                 <td>{{ s.phone || '—' }}</td>
                 <td>{{ s.address || '—' }}</td>
                 <td class="text-right">
-                  <div v-if="isOpm" class="flex items-center justify-end gap-1.5">
+                  <div v-if="canManage" class="flex items-center justify-end gap-1.5">
                     <button @click="openEdit(s)" title="Edit" class="w-7 h-7 rounded-lg bg-brand text-white flex items-center justify-center hover:bg-brand-dark transition">
                       <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487z" /></svg>
                     </button>

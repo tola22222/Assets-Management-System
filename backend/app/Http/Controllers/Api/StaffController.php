@@ -26,6 +26,7 @@ class StaffController extends Controller
             'phone' => 'nullable|string|max:20',
             'position' => 'nullable|string|max:100',
             'hire_date' => 'nullable|date',
+            'location_id' => 'nullable|exists:locations,id',
             'photo' => 'nullable|image|mimes:jpeg,png,jpg|max:5120',
         ]);
 
@@ -55,6 +56,7 @@ class StaffController extends Controller
             'position' => 'nullable|string|max:100',
             'hire_date' => 'nullable|date',
             'status' => 'required|in:active,inactive',
+            'location_id' => 'nullable|exists:locations,id',
             'photo' => 'nullable|image|mimes:jpeg,png,jpg|max:5120',
         ]);
 

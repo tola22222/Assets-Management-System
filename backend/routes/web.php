@@ -25,7 +25,9 @@ use Illuminate\Support\Facades\Route;
 
 // --- PUBLIC ROUTES ---
 Route::get('/asset/{assetCode}', [AssetController::class, 'publicShow'])->name('asset.public.show');
-Route::post('/asset/{assetCode}/update-condition', [AssetController::class, 'publicUpdateCondition'])->name('asset.public.update-condition');
+Route::post('/asset/{assetCode}/update-condition', [AssetController::class, 'publicUpdateCondition'])
+    ->middleware('throttle:10,1')
+    ->name('asset.public.update-condition');
 Route::get('/asset/{assetCode}/update-condition', fn ($code) => redirect()->route('asset.public.show', $code));
 
 // --- VUE 3 SPA ---
@@ -99,7 +101,10 @@ Route::middleware('auth')->group(function () {
         Route::get('/assets-registeration/import', [AssetImportController::class, 'index'])->name('assets.import');
         Route::get('/assets-registeration/import/template', [AssetImportController::class, 'template'])->name('assets.import.template');
         Route::post('/assets-registeration/import', [AssetImportController::class, 'store'])->name('assets.import.store');
-        Route::resource('assets-registeration', AssetController::class)->only(['create', 'store', 'edit', 'update', 'destroy'])->names('assets');
+        Route::resource('assets-registeration', AssetController::class)->only(['create', 'store', 'destroy'])->names('assets');
+    });
+    Route::middleware('role:operations_hr_manager,finance_manager')->group(function () {
+        Route::resource('assets-registeration', AssetController::class)->only(['edit', 'update'])->names('assets');
     });
 
     // QR Scan
@@ -123,7 +128,7 @@ Route::middleware('auth')->group(function () {
     // Asset Assignments
     Route::resource('asset-assignments', AssetAssignmentController::class)->only(['index', 'show']);
     Route::get('/asset-assignments/{assetAssignment}/history', [AssetAssignmentController::class, 'history'])->name('asset-assignments.history');
-    Route::middleware('role:operations_hr_manager')->group(function () {
+    Route::middleware('role:operations_hr_manager,finance_manager')->group(function () {
         Route::resource('asset-assignments', AssetAssignmentController::class)->only(['store', 'edit', 'update', 'destroy']);
         Route::post('/asset-assignments/{assetAssignment}/cancel', [AssetAssignmentController::class, 'cancel'])->name('asset-assignments.cancel');
         Route::post('/asset-assignments/{assetAssignment}/return', [AssetAssignmentController::class, 'returnAsset'])->name('asset-assignments.return');
@@ -149,7 +154,7 @@ Route::middleware('auth')->group(function () {
     // Asset Verifications
     Route::resource('asset-verifications', AssetVerificationController::class)->only(['index', 'store', 'show']);
     Route::post('/asset-verifications/{assetVerification}/complete', [AssetVerificationController::class, 'complete'])
-        ->middleware('role:operations_hr_manager,finance_manager')
+        ->middleware('role:operations_hr_manager')
         ->name('asset-verifications.complete');
     Route::middleware('role:operations_hr_manager')->group(function () {
         Route::resource('asset-verifications', AssetVerificationController::class)->only(['destroy']);
@@ -176,6 +181,8 @@ Route::middleware('auth')->group(function () {
 
     Route::middleware('role:operations_hr_manager')->group(function () {
         Route::resource('programs', ProgramController::class)->only(['store', 'update', 'destroy']);
+    });
+    Route::middleware('role:operations_hr_manager,finance_manager')->group(function () {
         Route::resource('suppliers', SupplierController::class)->only(['store', 'update', 'destroy']);
     });
 
@@ -186,19 +193,22 @@ Route::middleware('auth')->group(function () {
         Route::post('/users/{user}/reset-password', [UserController::class, 'resetPassword'])->name('users.reset-password');
     });
 
-    // Reports
-    Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
-    Route::get('/reports/inventory', [ReportController::class, 'inventory'])->name('reports.inventory');
-    Route::get('/reports/by-model', [ReportController::class, 'byModel'])->name('reports.by-model');
-    Route::get('/reports/assignments', [ReportController::class, 'assignments'])->name('reports.assignments');
-    Route::get('/reports/transfers', [ReportController::class, 'transfers'])->name('reports.transfers');
-    Route::get('/reports/verifications', [ReportController::class, 'verifications'])->name('reports.verifications');
-    Route::get('/reports/returns', [ReportController::class, 'returns'])->name('reports.returns');
-    Route::get('/reports/disposed', [ReportController::class, 'disposed'])->name('reports.disposed');
-    Route::get('/reports/lost', [ReportController::class, 'lost'])->name('reports.lost');
-    Route::get('/reports/locations', [ReportController::class, 'locations'])->name('reports.locations');
-    Route::get('/reports/qr-scans', [ReportController::class, 'qrScans'])->name('reports.qr-scans');
-    Route::get('/reports/data-completeness', [ReportController::class, 'dataCompleteness'])->name('reports.data-completeness');
+    // Reports — staff cannot pull reports (manual: counting is led by OPM, verified by
+    // Finance, ED reads summaries only).
+    Route::middleware('role:operations_hr_manager,finance_manager,executive_director')->group(function () {
+        Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
+        Route::get('/reports/inventory', [ReportController::class, 'inventory'])->name('reports.inventory');
+        Route::get('/reports/by-model', [ReportController::class, 'byModel'])->name('reports.by-model');
+        Route::get('/reports/assignments', [ReportController::class, 'assignments'])->name('reports.assignments');
+        Route::get('/reports/transfers', [ReportController::class, 'transfers'])->name('reports.transfers');
+        Route::get('/reports/verifications', [ReportController::class, 'verifications'])->name('reports.verifications');
+        Route::get('/reports/returns', [ReportController::class, 'returns'])->name('reports.returns');
+        Route::get('/reports/disposed', [ReportController::class, 'disposed'])->name('reports.disposed');
+        Route::get('/reports/lost', [ReportController::class, 'lost'])->name('reports.lost');
+        Route::get('/reports/locations', [ReportController::class, 'locations'])->name('reports.locations');
+        Route::get('/reports/qr-scans', [ReportController::class, 'qrScans'])->name('reports.qr-scans');
+        Route::get('/reports/data-completeness', [ReportController::class, 'dataCompleteness'])->name('reports.data-completeness');
+    });
 
     // Settings (Admin only)
     Route::middleware('role:operations_hr_manager')->group(function () {

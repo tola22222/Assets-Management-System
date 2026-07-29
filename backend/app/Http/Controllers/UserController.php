@@ -71,6 +71,10 @@ class UserController extends Controller
     {
         $user->update(['is_locked' => ! $user->is_locked]);
 
+        if ($user->is_locked) {
+            $user->tokens()->delete();
+        }
+
         ActivityLog::create([
             'user_id' => Auth::id(),
             'action' => 'Update',
