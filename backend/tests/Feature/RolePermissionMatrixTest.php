@@ -4,7 +4,6 @@ namespace Tests\Feature;
 
 use App\Models\Asset;
 use App\Models\AssetCategory;
-use App\Models\AssetMovement;
 use App\Models\Location;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -121,26 +120,6 @@ class RolePermissionMatrixTest extends TestCase
         $response = $this->actingAs($ed)->putJson("/api/users/{$target->id}", ['name' => 'New Name']);
 
         $response->assertStatus(403);
-    }
-
-    public function test_only_opm_can_delete_a_stock_movement_record(): void
-    {
-        $opm = User::factory()->create(['role' => 'operations_hr_manager']);
-        $asset = $this->makeAsset();
-        $movement = AssetMovement::create([
-            'asset_id' => $asset->id,
-            'to_location_id' => $this->location()->id,
-            'movement_type' => 'stock_in',
-            'quantity' => 1,
-            'reference_no' => 'REC-0001',
-        ]);
-
-        $staff = User::factory()->create(['role' => 'staff']);
-        $this->actingAs($staff)->deleteJson("/api/asset-stocks/{$movement->id}")->assertStatus(403);
-        $this->assertDatabaseHas('asset_movements', ['id' => $movement->id]);
-
-        $this->actingAs($opm)->deleteJson("/api/asset-stocks/{$movement->id}")->assertStatus(200);
-        $this->assertDatabaseMissing('asset_movements', ['id' => $movement->id]);
     }
 
     public function test_non_opm_non_ed_role_cannot_approve_disposal(): void

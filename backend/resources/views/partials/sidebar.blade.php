@@ -2,7 +2,7 @@
     $user = Auth::user();
     $isAdmin = $user && $user->isOperationsHrManager();
     $groups = [
-        'inventory' => ['assets.*', 'asset-assignments.*', 'asset-stocks.*', 'asset-verifications.*', 'asset-transfers.*', 'asset-returns.*', 'asset-disposals.*'],
+        'inventory' => ['assets.*', 'asset-assignments.*', 'asset-verifications.*', 'asset-transfers.*', 'asset-returns.*', 'asset-disposals.*'],
         'people'    => ['staff.*', 'programs.*'],
         'settings'  => ['categories.*', 'assets-locations.*', 'suppliers.*'],
         'setting'   => ['users.*', 'settings.*'],
@@ -61,8 +61,6 @@
                 <div x-show="openGroup === 'inventory'" x-cloak x-collapse class="space-y-0">
                     <a href="{{ route('assets.index') }}"
                         class="{{ $subClass }} {{ request()->routeIs('assets.*') ? $subActive : $subInactive }}">{{ __('messages.asset_register') }}</a>
-                    <a href="{{ route('asset-stocks.index') }}"
-                        class="{{ $subClass }} {{ request()->routeIs('asset-stocks.*') ? $subActive : $subInactive }}">{{ __('messages.receive_assets') }}</a>
                     <a href="{{ route('asset-assignments.index') }}"
                         class="{{ $subClass }} {{ request()->routeIs('asset-assignments.*') ? $subActive : $subInactive }}">{{ __('messages.assignments') }}</a>
                     <a href="{{ route('asset-transfers.index') }}"
