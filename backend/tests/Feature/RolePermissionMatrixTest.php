@@ -138,4 +138,143 @@ class RolePermissionMatrixTest extends TestCase
 
         $this->actingAs($finance)->postJson("/api/asset-disposals/{$disposal->id}/approve")->assertStatus(403);
     }
+
+    public function test_only_opm_can_approve_or_reject_a_transfer(): void
+    {
+        $asset = $this->makeAsset();
+        $otherLocation = Location::where('code', '!=', 'SR')->firstOrFail();
+        $requester = User::factory()->create(['role' => 'staff']);
+
+        $transfer = \App\Models\AssetTransfer::create([
+            'asset_id' => $asset->id,
+            'from_location_id' => $asset->location_id,
+            'to_location_id' => $otherLocation->id,
+            'requested_by' => $requester->id,
+            'transfer_date' => now(),
+            'status' => 'pending',
+        ]);
+
+        foreach (['staff', 'finance_manager', 'executive_director'] as $role) {
+            $user = User::factory()->create(['role' => $role]);
+            $this->actingAs($user)->postJson("/api/asset-transfers/{$transfer->id}/approve")->assertStatus(403);
+            $this->actingAs($user)->postJson("/api/asset-transfers/{$transfer->id}/reject")->assertStatus(403);
+        }
+        $this->assertDatabaseHas('asset_transfers', ['id' => $transfer->id, 'status' => 'pending']);
+
+        $opm = User::factory()->create(['role' => 'operations_hr_manager']);
+        $this->actingAs($opm)->postJson("/api/asset-transfers/{$transfer->id}/approve")->assertStatus(200);
+        $this->assertDatabaseHas('asset_transfers', ['id' => $transfer->id, 'status' => 'approved']);
+    }
+
+    public function test_only_opm_can_approve_or_reject_a_return(): void
+    {
+        $asset = $this->makeAsset();
+        $staffMember = \App\Models\Staff::create(['full_name' => 'Test Staff', 'phone' => '012345678']);
+        $requester = User::factory()->create(['role' => 'staff']);
+
+        $assignment = \App\Models\AssetAssignment::create([
+            'asset_id' => $asset->id,
+            'assigned_to_type' => 'staff',
+            'assigned_to_id' => $staffMember->id,
+            'location_id' => $asset->location_id,
+            'quantity' => 1,
+            'assigned_date' => now(),
+            'status' => 'assigned',
+        ]);
+
+        $return = \App\Models\AssetReturn::create([
+            'assignment_id' => $assignment->id,
+            'asset_id' => $asset->id,
+            'returned_by' => $requester->id,
+            'condition' => 'good',
+            'return_date' => now(),
+            'status' => 'pending',
+        ]);
+
+        foreach (['staff', 'finance_manager', 'executive_director'] as $role) {
+            $user = User::factory()->create(['role' => $role]);
+            $this->actingAs($user)->postJson("/api/asset-returns/{$return->id}/approve")->assertStatus(403);
+            $this->actingAs($user)->postJson("/api/asset-returns/{$return->id}/reject")->assertStatus(403);
+        }
+        $this->assertDatabaseHas('asset_returns', ['id' => $return->id, 'status' => 'pending']);
+
+        $opm = User::factory()->create(['role' => 'operations_hr_manager']);
+        $this->actingAs($opm)->postJson("/api/asset-returns/{$return->id}/approve")->assertStatus(200);
+        $this->assertDatabaseHas('asset_returns', ['id' => $return->id, 'status' => 'approved']);
+    }
+
+    public function test_only_opm_can_manage_categories(): void
+    {
+        $staff = User::factory()->create(['role' => 'staff']);
+
+        $this->actingAs($staff)->postJson('/api/categories', ['name' => 'Electronics', 'short_name' => 'ELE'])->assertStatus(403);
+        $this->assertDatabaseMissing('asset_categories', ['name' => 'Electronics']);
+
+        $opm = User::factory()->create(['role' => 'operations_hr_manager']);
+        $this->actingAs($opm)->postJson('/api/categories', ['name' => 'Electronics', 'short_name' => 'ELE'])->assertStatus(201);
+    }
+
+    public function test_only_opm_can_manage_suppliers(): void
+    {
+        $finance = User::factory()->create(['role' => 'finance_manager']);
+
+        $this->actingAs($finance)->postJson('/api/suppliers', ['name' => 'Acme Supplies'])->assertStatus(403);
+        $this->assertDatabaseMissing('suppliers', ['name' => 'Acme Supplies']);
+    }
+
+    public function test_only_opm_can_manage_programs(): void
+    {
+        $ed = User::factory()->create(['role' => 'executive_director']);
+
+        $this->actingAs($ed)->postJson('/api/programs', ['name' => 'Dream Program'])->assertStatus(403);
+        $this->assertDatabaseMissing('programs', ['name' => 'Dream Program']);
+    }
+
+    public function test_only_opm_can_create_or_cancel_an_assignment(): void
+    {
+        $asset = $this->makeAsset();
+        $staffMember = \App\Models\Staff::create(['full_name' => 'Test Staff', 'phone' => '012345678']);
+        $staff = User::factory()->create(['role' => 'staff']);
+
+        $this->actingAs($staff)->postJson('/api/asset-assignments', [
+            'asset_id' => $asset->id,
+            'assigned_to_type' => 'staff',
+            'assigned_to_id' => $staffMember->id,
+            'location_id' => $asset->location_id,
+            'quantity' => 1,
+            'assigned_date' => now()->toDateString(),
+        ])->assertStatus(403);
+        $this->assertDatabaseCount('asset_assignments', 0);
+
+        $opm = User::factory()->create(['role' => 'operations_hr_manager']);
+        $assignment = \App\Models\AssetAssignment::create([
+            'asset_id' => $asset->id,
+            'assigned_to_type' => 'staff',
+            'assigned_to_id' => $staffMember->id,
+            'location_id' => $asset->location_id,
+            'quantity' => 1,
+            'assigned_date' => now(),
+            'status' => 'assigned',
+        ]);
+        $this->actingAs($staff)->postJson("/api/asset-assignments/{$assignment->id}/cancel")->assertStatus(403);
+        $this->actingAs($opm)->postJson("/api/asset-assignments/{$assignment->id}/cancel")->assertStatus(200);
+    }
+
+    public function test_only_opm_can_delete_a_verification_record(): void
+    {
+        $asset = $this->makeAsset();
+        $staff = User::factory()->create(['role' => 'staff']);
+
+        $verification = \App\Models\AssetVerification::create([
+            'asset_id' => $asset->id,
+            'location_id' => $asset->location_id,
+            'quantity_verified' => 1,
+            'condition' => 'good',
+            'verified_by' => $staff->id,
+            'verified_at' => now(),
+        ]);
+
+        $this->actingAs($staff)->deleteJson("/api/asset-verifications/{$verification->id}")->assertStatus(403);
+        $this->assertDatabaseHas('asset_verifications', ['id' => $verification->id]);
+    }
 }

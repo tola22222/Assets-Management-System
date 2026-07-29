@@ -64,7 +64,7 @@ class User extends Authenticatable
 
     public function canApproveDisposal(): bool
     {
-        return $this->isOperationsHrManager() || $this->isExecutiveDirector();
+        return $this->isExecutiveDirector();
     }
 
     public function staff()
