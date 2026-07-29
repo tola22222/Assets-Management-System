@@ -8,7 +8,6 @@ use App\Http\Controllers\Api\AssetDisposalController;
 use App\Http\Controllers\Api\AssetImportController;
 use App\Http\Controllers\Api\AssetMovementController;
 use App\Http\Controllers\Api\AssetReturnController;
-use App\Http\Controllers\Api\AssetStockController;
 use App\Http\Controllers\Api\AssetTransferController;
 use App\Http\Controllers\Api\AssetVerificationController;
 use App\Http\Controllers\Api\AuthController;
@@ -52,12 +51,10 @@ Route::name('api.')->group(function () {
             Route::post('/assets/import', [AssetImportController::class, 'store']);
             Route::apiResource('assets', AssetController::class)->only(['store', 'update', 'destroy']);
             Route::apiResource('locations', LocationController::class)->only(['store', 'update', 'destroy']);
-            Route::apiResource('asset-stocks', AssetStockController::class)->only(['destroy']);
             Route::apiResource('asset-movements', AssetMovementController::class)->only(['destroy']);
         });
 
         Route::apiResource('categories', AssetCategoryController::class)->except(['show']);
-        Route::apiResource('asset-stocks', AssetStockController::class)->only(['index', 'store']);
 
         Route::post('/asset-assignments/{asset_assignment}/cancel', [AssetAssignmentController::class, 'cancel']);
         Route::post('/asset-assignments/{asset_assignment}/return', [AssetAssignmentController::class, 'returnAsset']);

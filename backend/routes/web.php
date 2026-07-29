@@ -7,7 +7,6 @@ use App\Http\Controllers\AssetDisposalController;
 use App\Http\Controllers\AssetImportController;
 use App\Http\Controllers\AssetMovementController;
 use App\Http\Controllers\AssetReturnController;
-use App\Http\Controllers\AssetStockController;
 use App\Http\Controllers\AssetTransferController;
 use App\Http\Controllers\AssetVerificationController;
 use App\Http\Controllers\AuthController;
@@ -116,12 +115,6 @@ Route::middleware('auth')->group(function () {
     Route::resource('locations', LocationController::class)->only(['index', 'show'])->names('assets-locations');
     Route::middleware('role:operations_hr_manager')->group(function () {
         Route::resource('locations', LocationController::class)->only(['store', 'update', 'destroy'])->names('assets-locations');
-    });
-
-    // Asset Stocks
-    Route::resource('asset-stocks', AssetStockController::class)->only(['index', 'store']);
-    Route::middleware('role:operations_hr_manager')->group(function () {
-        Route::resource('asset-stocks', AssetStockController::class)->only(['destroy']);
     });
 
     // Asset Assignments
