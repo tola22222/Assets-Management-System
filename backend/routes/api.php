@@ -83,7 +83,12 @@ Route::name('api.')->group(function () {
         Route::apiResource('asset-returns', AssetReturnController::class)->only(['index', 'store']);
 
         Route::post('/asset-verifications/{asset_verification}/complete', [AssetVerificationController::class, 'complete'])->middleware('role:operations_hr_manager');
-        Route::apiResource('asset-verifications', AssetVerificationController::class)->only(['index', 'store']);
+        Route::apiResource('asset-verifications', AssetVerificationController::class)->only(['index']);
+        // Staff submit condition reports only through the QR scan flow (/qr-scan/{code}/verify
+        // above), never this direct endpoint — it would let them bypass the own-site restriction.
+        Route::middleware('role:operations_hr_manager,finance_manager')->group(function () {
+            Route::apiResource('asset-verifications', AssetVerificationController::class)->only(['store']);
+        });
         Route::middleware('role:operations_hr_manager')->group(function () {
             Route::apiResource('asset-verifications', AssetVerificationController::class)->only(['destroy']);
         });

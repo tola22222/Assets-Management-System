@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, reactive } from 'vue'
+import { ref, computed, onMounted, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
 import http from '../../api/http'
 import AppLayout from '../../layouts/AppLayout.vue'
@@ -12,10 +12,15 @@ import { useTableSearch } from '../../composables/useTableSearch'
 import { useTableFilter } from '../../composables/useTableFilter'
 import { useTableSort } from '../../composables/useTableSort'
 import { useToastStore } from '../../stores/toast'
+import { useAuthStore } from '../../stores/auth'
 
 const { t } = useI18n()
 const { items: verifications, loading, fetchAll } = useApiCrud('/asset-verifications', { entityName: t('asset_verifications.entity') })
 const toast = useToastStore()
+const auth = useAuthStore()
+// Staff submit condition reports only via the QR scan flow — the backend
+// now rejects a direct POST here, so don't offer a button that would 403.
+const canCreate = computed(() => auth.user?.role !== 'staff')
 
 const { search, filtered: searched } = useTableSearch(verifications, [(v) => v.asset?.name, (v) => v.asset?.asset_code, (v) => v.location?.name])
 const { filters, filtered: matched, hasActiveFilters, clearFilters } = useTableFilter(searched, {
@@ -69,7 +74,7 @@ onMounted(() => {
 <template>
   <AppLayout>
     <div class="p-8 max-w-6xl mx-auto space-y-6">
-      <PageHeader :title="t('asset_verifications.title')" :subtitle="t('asset_verifications.subtitle')" :buttonText="t('asset_verifications.new')" @action="openCreate" />
+      <PageHeader :title="t('asset_verifications.title')" :subtitle="t('asset_verifications.subtitle')" :buttonText="canCreate ? t('asset_verifications.new') : null" @action="openCreate" />
 
       <div class="table-wrap">
         <div class="table-toolbar">

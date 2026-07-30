@@ -14,9 +14,16 @@ use Illuminate\Support\Facades\Storage;
 
 class AssetController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $assets = Asset::with(['category', 'location'])->latest()->get();
+        $query = Asset::with(['category', 'location']);
+
+        // Staff only ever see their own site's assets; every other role sees all sites.
+        if ($request->user()->isStaff()) {
+            $query->where('location_id', $request->user()->staff?->location_id);
+        }
+
+        $assets = $query->latest()->get();
         $categories = AssetCategory::orderBy('name')->get();
         $locations = Location::orderBy('name')->get();
 
@@ -74,13 +81,15 @@ class AssetController extends Controller
         return redirect()->route('assets.index')->with('success', 'Asset registered successfully.');
     }
 
-    public function show($id)
+    public function show(Request $request, $id)
     {
         $asset = Asset::with(['category', 'stocks.location', 'assignments' => function ($q) {
             $q->latest();
         }, 'verifications' => function ($q) {
             $q->latest();
         }])->findOrFail($id);
+
+        abort_if($request->user()->isStaff() && $asset->location_id !== $request->user()->staff?->location_id, 404);
 
         return view('assets.show', compact('asset'));
     }
