@@ -9,17 +9,13 @@ import SearchInput from '../../components/ui/SearchInput.vue'
 import TableSortIcon from '../../components/ui/TableSortIcon.vue'
 import { useApiCrud } from '../../composables/useApiCrud'
 import { useTableSearch } from '../../composables/useTableSearch'
-import { useTableFilter } from '../../composables/useTableFilter'
 import { useTableSort } from '../../composables/useTableSort'
 import { useToastStore } from '../../stores/toast'
 
 const { t } = useI18n()
 const { items: locations, loading, fetchAll, create, update, destroy } = useApiCrud('/locations', { entityName: t('locations.entity') })
 const { search, filtered: searched } = useTableSearch(locations, ['name', 'type', 'description'])
-const { filters, filtered: matched, hasActiveFilters, clearFilters } = useTableFilter(searched, {
-  type: (row, v) => row.type === v,
-})
-const { sortKey, sortDir, toggleSort, sorted: filtered } = useTableSort(matched, { defaultKey: 'name', paths: { count: 'assets_count' } })
+const { sortKey, sortDir, toggleSort, sorted: filtered } = useTableSort(searched, { defaultKey: 'name', paths: { count: 'assets_count' } })
 const toast = useToastStore()
 
 const showModal = ref(false)
@@ -63,7 +59,7 @@ onMounted(fetchAll)
 
 <template>
   <AppLayout>
-    <div class="p-8 max-w-5xl mx-auto space-y-6">
+    <div class="p-8 space-y-6">
       <PageHeader :title="t('locations.title')" :subtitle="t('locations.subtitle')" :buttonText="t('locations.new')" @action="openCreate" />
 
       <div class="table-wrap">
@@ -71,13 +67,6 @@ onMounted(fetchAll)
           <div class="w-full sm:max-w-xs">
             <SearchInput v-model="search" :placeholder="t('locations.search_placeholder')" />
           </div>
-          <select v-model="filters.type" class="filter-select">
-            <option value="">{{ t('locations.type') }}: {{ t('common.all') }}</option>
-            <option value="office">{{ t('locations.type_office') }}</option>
-            <option value="lab">{{ t('locations.type_lab') }}</option>
-            <option value="program">{{ t('locations.type_program') }}</option>
-          </select>
-          <button v-if="hasActiveFilters" @click="clearFilters" class="btn-subtle btn-sm">{{ t('common.clear_filters') }}</button>
         </div>
         <div class="overflow-x-auto">
           <table class="data-table">

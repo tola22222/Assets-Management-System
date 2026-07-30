@@ -10,7 +10,6 @@ import SearchInput from '../../components/ui/SearchInput.vue'
 import TableSortIcon from '../../components/ui/TableSortIcon.vue'
 import { useApiCrud } from '../../composables/useApiCrud'
 import { useTableSearch } from '../../composables/useTableSearch'
-import { useTableFilter } from '../../composables/useTableFilter'
 import { useTableSort } from '../../composables/useTableSort'
 import { useToastStore } from '../../stores/toast'
 import { useAuthStore } from '../../stores/auth'
@@ -21,11 +20,7 @@ const toast = useToastStore()
 const auth = useAuthStore()
 
 const { search, filtered: searched } = useTableSearch(returnsList, [(r) => r.asset?.name, (r) => r.asset?.asset_code, (r) => r.returned_by?.name])
-const { filters, filtered: matched, hasActiveFilters, clearFilters } = useTableFilter(searched, {
-  status: (row, v) => row.status === v,
-  condition: (row, v) => row.condition === v,
-})
-const { sortKey, sortDir, toggleSort, sorted: sortedReturns } = useTableSort(matched, {
+const { sortKey, sortDir, toggleSort, sorted: sortedReturns } = useTableSort(searched, {
   defaultKey: 'return_date', defaultDir: 'desc',
   paths: { asset: 'asset.name', returned_by: 'returned_by.name' },
 })
@@ -80,7 +75,7 @@ onMounted(() => {
 
 <template>
   <AppLayout>
-    <div class="p-8 max-w-6xl mx-auto space-y-6">
+    <div class="p-8 space-y-6">
       <PageHeader :title="t('asset_returns.title')" :subtitle="t('asset_returns.subtitle')" :buttonText="t('asset_returns.new')" @action="openCreate" />
 
       <div class="table-wrap">
@@ -88,20 +83,6 @@ onMounted(() => {
           <div class="w-full sm:max-w-xs">
             <SearchInput v-model="search" :placeholder="t('common.search')" />
           </div>
-          <select v-model="filters.status" class="filter-select">
-            <option value="">{{ t('common.status') }}: {{ t('common.all') }}</option>
-            <option value="pending">{{ t('status.pending') }}</option>
-            <option value="approved">{{ t('status.approved') }}</option>
-            <option value="rejected">{{ t('status.rejected') }}</option>
-          </select>
-          <select v-model="filters.condition" class="filter-select">
-            <option value="">{{ t('asset_returns.condition') }}: {{ t('common.all') }}</option>
-            <option value="good">{{ t('asset_returns.condition_good') }}</option>
-            <option value="fair">{{ t('asset_returns.condition_fair') }}</option>
-            <option value="broken">{{ t('asset_returns.condition_broken') }}</option>
-            <option value="lost">{{ t('asset_returns.condition_lost') }}</option>
-          </select>
-          <button v-if="hasActiveFilters" @click="clearFilters" class="btn-subtle btn-sm">{{ t('common.clear_filters') }}</button>
         </div>
         <div class="overflow-x-auto">
           <table class="data-table">

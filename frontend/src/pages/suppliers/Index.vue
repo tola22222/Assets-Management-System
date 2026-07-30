@@ -52,7 +52,7 @@ onMounted(fetchAll)
 
 <template>
   <AppLayout>
-    <div class="p-8 max-w-4xl mx-auto space-y-6">
+    <div class="p-8 space-y-6">
       <PageHeader :title="t('suppliers.title')" :subtitle="t('suppliers.subtitle')" :buttonText="canManage ? t('suppliers.new') : null" @action="openCreate" />
 
       <div class="table-wrap">

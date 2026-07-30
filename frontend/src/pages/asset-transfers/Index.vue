@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, reactive } from 'vue'
+import { ref, computed, onMounted, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
 import http from '../../api/http'
 import AppLayout from '../../layouts/AppLayout.vue'
@@ -10,7 +10,6 @@ import SearchInput from '../../components/ui/SearchInput.vue'
 import TableSortIcon from '../../components/ui/TableSortIcon.vue'
 import { useApiCrud } from '../../composables/useApiCrud'
 import { useTableSearch } from '../../composables/useTableSearch'
-import { useTableFilter } from '../../composables/useTableFilter'
 import { useTableSort } from '../../composables/useTableSort'
 import { useToastStore } from '../../stores/toast'
 import { useAuthStore } from '../../stores/auth'
@@ -21,10 +20,7 @@ const toast = useToastStore()
 const auth = useAuthStore()
 
 const { search, filtered: searched } = useTableSearch(transfers, [(r) => r.asset?.name, (r) => r.asset?.asset_code, (r) => r.requester?.name])
-const { filters, filtered: matched, hasActiveFilters, clearFilters } = useTableFilter(searched, {
-  status: (row, v) => row.status === v,
-})
-const { sortKey, sortDir, toggleSort, sorted: sortedTransfers } = useTableSort(matched, {
+const { sortKey, sortDir, toggleSort, sorted: sortedTransfers } = useTableSort(searched, {
   defaultKey: 'transfer_date', defaultDir: 'desc',
   paths: { asset: 'asset.name', from: 'from_location.name', to: 'to_location.name', requester: 'requester.name' },
 })
@@ -76,7 +72,7 @@ onMounted(() => {
 
 <template>
   <AppLayout>
-    <div class="p-8 max-w-6xl mx-auto space-y-6">
+    <div class="p-8 space-y-6">
       <PageHeader :title="t('asset_transfers.title')" :subtitle="t('asset_transfers.subtitle')" :buttonText="t('asset_transfers.new')" @action="openCreate" />
 
       <div class="table-wrap">
@@ -84,13 +80,6 @@ onMounted(() => {
           <div class="w-full sm:max-w-xs">
             <SearchInput v-model="search" :placeholder="t('common.search')" />
           </div>
-          <select v-model="filters.status" class="filter-select">
-            <option value="">{{ t('common.status') }}: {{ t('common.all') }}</option>
-            <option value="pending">{{ t('status.pending') }}</option>
-            <option value="approved">{{ t('status.approved') }}</option>
-            <option value="rejected">{{ t('status.rejected') }}</option>
-          </select>
-          <button v-if="hasActiveFilters" @click="clearFilters" class="btn-subtle btn-sm">{{ t('common.clear_filters') }}</button>
         </div>
         <div class="overflow-x-auto">
           <table class="data-table">

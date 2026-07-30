@@ -3,6 +3,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import http from '../../api/http'
 import AppLayout from '../../layouts/AppLayout.vue'
 import TableSortIcon from '../../components/ui/TableSortIcon.vue'
+import FilterPills from '../../components/ui/FilterPills.vue'
 
 const reportTypes = [
   { key: 'inventory', label: 'Inventory' },
@@ -62,6 +63,7 @@ const granularity = ref('all') // all | day | month | year
 const periodValue = ref('')
 const today = new Date()
 const years = Array.from({ length: 6 }, (_, i) => today.getFullYear() - i)
+const yearOptions = years.map((y) => ({ value: String(y), label: String(y) }))
 
 function defaultPeriodValue(g) {
   if (g === 'day') return today.toISOString().slice(0, 10)
@@ -70,6 +72,20 @@ function defaultPeriodValue(g) {
   return ''
 }
 watch(granularity, (g) => { periodValue.value = defaultPeriodValue(g) })
+watch(selected, load)
+
+const completenessStats = ref(null)
+async function loadCompletenessStats() {
+  const { data } = await http.get('/reports/inventory')
+  const total = data.length
+  const pct = (pred) => (total ? Math.round((data.filter(pred).length / total) * 100) : 0)
+  completenessStats.value = {
+    total,
+    price: pct((a) => a.purchase_price !== null && a.purchase_price !== undefined),
+    date: pct((a) => a.purchase_date !== null && a.purchase_date !== undefined),
+    serial: pct((a) => !!a.serial_number),
+  }
+}
 
 async function load() {
   loading.value = true
@@ -77,8 +93,32 @@ async function load() {
   sortKey.value = null
   const { data } = await http.get(`/reports/${selected.value}`)
   rows.value = data
+  if (selected.value === 'data-completeness') await loadCompletenessStats()
   loading.value = false
 }
+
+// "Assets by location" bar breakdown — mirrors the report-deck mockup's
+// horizontal bar list, built from the same data the table already fetches.
+const locationBars = computed(() => {
+  if (selected.value !== 'locations') return []
+  const max = Math.max(1, ...rows.value.map((r) => r.assets_count || 0))
+  return [...rows.value]
+    .sort((a, b) => (b.assets_count || 0) - (a.assets_count || 0))
+    .map((r) => ({ label: r.name, count: r.assets_count || 0, pct: Math.round(((r.assets_count || 0) / max) * 100) }))
+})
+
+// "Data completeness" bar summary — aggregate % of the register with each
+// field recorded, alongside the existing per-asset checklist table below it.
+const completenessBars = computed(() => {
+  const s = completenessStats.value
+  if (!s) return []
+  return [
+    { label: 'Has Asset ID', pct: 100 },
+    { label: 'Has purchase price', pct: s.price },
+    { label: 'Has purchase date', pct: s.date },
+    { label: 'Has serial no.', pct: s.serial },
+  ]
+})
 
 function cell(row, col) {
   return col[2] ? col[2](row) : row[col[0]]
@@ -148,7 +188,7 @@ onMounted(load)
 
 <template>
   <AppLayout>
-    <div class="p-8 max-w-6xl mx-auto space-y-6">
+    <div class="p-8 space-y-6">
       <div class="flex items-center justify-between gap-4">
         <div class="flex items-center gap-3">
           <div class="w-11 h-11 rounded-2xl bg-brand/10 text-brand flex items-center justify-center flex-shrink-0">
@@ -202,53 +242,81 @@ onMounted(load)
         </div>
       </div>
 
-      <div class="table-wrap">
-        <div class="table-toolbar">
-          <template v-if="hasDateField">
-            <div class="flex items-center gap-1 bg-surface-2 rounded-xl p-1">
-              <button
-                v-for="g in ['all', 'day', 'month', 'year']" :key="g"
-                @click="granularity = g"
-                class="px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition"
-                :class="granularity === g ? 'bg-brand text-white' : 'text-muted hover:text-fg'"
-              >
-                {{ g }}
-              </button>
-            </div>
-            <input v-if="granularity === 'day'" v-model="periodValue" type="date" class="filter-select" />
-            <input v-else-if="granularity === 'month'" v-model="periodValue" type="month" class="filter-select" />
-            <select v-else-if="granularity === 'year'" v-model="periodValue" class="filter-select">
-              <option v-for="y in years" :key="y" :value="String(y)">{{ y }}</option>
-            </select>
-          </template>
+      <!-- Assets by location — horizontal bar breakdown, no raw table needed. -->
+      <div v-if="selected === 'locations'" class="card p-5 sm:p-6">
+        <h3 class="font-display text-base font-bold text-fg">Assets by location</h3>
+        <p class="text-xs text-faint mt-0.5 mb-6">{{ locationBars.length }} sites by item count</p>
+        <div v-for="b in locationBars" :key="b.label" class="flex items-center gap-3 mb-3 last:mb-0">
+          <span class="w-36 sm:w-44 flex-shrink-0 text-sm font-semibold text-fg truncate">{{ b.label }}</span>
+          <div class="flex-1 h-2.5 rounded-full bg-surface-2 border border-line overflow-hidden">
+            <div class="h-full rounded-full bg-brand transition-all" :style="{ width: b.pct + '%' }"></div>
+          </div>
+          <span class="w-10 text-right text-sm font-semibold text-fg flex-shrink-0">{{ b.count }}</span>
         </div>
-        <div class="overflow-x-auto">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th v-for="col in columns[selected]" :key="col[0]" class="th-sort" @click="toggleSort(col[0])">
-                  {{ col[1] }}<TableSortIcon :active="sortKey === col[0]" :direction="sortDir" />
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="(row, i) in sortedRows" :key="i">
-                <td v-for="col in columns[selected]" :key="col[0]">
-                  <span v-if="col[0] === 'stock_level'" class="px-2.5 py-1 rounded-full text-xs font-bold capitalize" :class="STOCK_LEVEL_STYLES[cell(row, col)] ?? ''">
-                    {{ cell(row, col) }}
-                  </span>
-                  <template v-else>{{ cell(row, col) }}</template>
-                </td>
-              </tr>
-              <tr v-if="!loading && !sortedRows.length">
-                <td :colspan="columns[selected].length" class="py-10 text-center text-faint">
-                  {{ granularity !== 'all' ? 'No records in this period.' : 'No data for this report.' }}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        <p v-if="!loading && !locationBars.length" class="text-sm text-faint text-center py-6">No data for this report.</p>
       </div>
+
+      <template v-else>
+        <!-- Data completeness — aggregate bar summary above the per-asset checklist. -->
+        <div v-if="selected === 'data-completeness'" class="card p-5 sm:p-6">
+          <h3 class="font-display text-base font-bold text-fg">Data completeness</h3>
+          <p class="text-xs text-faint mt-0.5 mb-6">Fields recorded across {{ completenessStats?.total ?? 0 }} assets</p>
+          <div v-for="b in completenessBars" :key="b.label" class="flex items-center gap-3 mb-3 last:mb-0">
+            <span class="w-36 sm:w-44 flex-shrink-0 text-sm font-semibold text-fg truncate">{{ b.label }}</span>
+            <div class="flex-1 h-2.5 rounded-full bg-surface-2 border border-line overflow-hidden">
+              <div class="h-full rounded-full bg-brand transition-all" :style="{ width: b.pct + '%' }"></div>
+            </div>
+            <span class="w-10 text-right text-sm font-semibold text-fg flex-shrink-0">{{ b.pct }}%</span>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <div class="table-toolbar">
+            <template v-if="hasDateField">
+              <div class="flex items-center gap-1 bg-surface-2 rounded-xl p-1">
+                <button
+                  v-for="g in ['all', 'day', 'month', 'year']" :key="g"
+                  @click="granularity = g"
+                  class="px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition"
+                  :class="granularity === g ? 'bg-brand text-white' : 'text-muted hover:text-fg'"
+                >
+                  {{ g }}
+                </button>
+              </div>
+              <input v-if="granularity === 'day'" v-model="periodValue" type="date" class="filter-select" />
+              <input v-else-if="granularity === 'month'" v-model="periodValue" type="month" class="filter-select" />
+              <FilterPills v-else-if="granularity === 'year'" v-model="periodValue" :options="yearOptions" hide-all />
+            </template>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th v-for="col in columns[selected]" :key="col[0]" class="th-sort" @click="toggleSort(col[0])">
+                    {{ col[1] }}<TableSortIcon :active="sortKey === col[0]" :direction="sortDir" />
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(row, i) in sortedRows" :key="i">
+                  <td v-for="col in columns[selected]" :key="col[0]">
+                    <span v-if="col[0] === 'stock_level'" class="px-2.5 py-1 rounded-full text-xs font-bold capitalize" :class="STOCK_LEVEL_STYLES[cell(row, col)] ?? ''">
+                      {{ cell(row, col) }}
+                    </span>
+                    <span v-else-if="col[0] === 'asset_code'" class="id-chip">{{ cell(row, col) }}</span>
+                    <template v-else>{{ cell(row, col) }}</template>
+                  </td>
+                </tr>
+                <tr v-if="!loading && !sortedRows.length">
+                  <td :colspan="columns[selected].length" class="py-10 text-center text-faint">
+                    {{ granularity !== 'all' ? 'No records in this period.' : 'No data for this report.' }}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </template>
     </div>
   </AppLayout>
 </template>

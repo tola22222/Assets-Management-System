@@ -65,7 +65,7 @@ onMounted(async () => {
 
 <template>
   <AppLayout>
-    <div class="p-6 sm:p-8 max-w-7xl mx-auto space-y-6">
+    <div class="p-6 sm:p-8 space-y-6">
       <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-2">
         <div>
           <h1 class="font-display text-3xl sm:text-4xl font-semibold text-fg tracking-tight">{{ greeting }}, {{ auth.user?.name?.split(' ')[0] || auth.user?.name }}</h1>

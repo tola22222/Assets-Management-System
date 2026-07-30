@@ -10,18 +10,13 @@ import SearchInput from '../../components/ui/SearchInput.vue'
 import TableSortIcon from '../../components/ui/TableSortIcon.vue'
 import { useApiCrud } from '../../composables/useApiCrud'
 import { useTableSearch } from '../../composables/useTableSearch'
-import { useTableFilter } from '../../composables/useTableFilter'
 import { useTableSort } from '../../composables/useTableSort'
 import { useToastStore } from '../../stores/toast'
 
 const { t } = useI18n()
 const { items: users, loading, fetchAll, create, update, destroy } = useApiCrud('/users', { entityName: t('users.entity') })
 const { search, filtered: searched } = useTableSearch(users, ['name', 'email', 'role'])
-const { filters, filtered: matched, hasActiveFilters, clearFilters } = useTableFilter(searched, {
-  role: (row, v) => row.role === v,
-  is_locked: (row, v) => String(!!row.is_locked) === v,
-})
-const { sortKey, sortDir, toggleSort, sorted: filtered } = useTableSort(matched, { defaultKey: 'name' })
+const { sortKey, sortDir, toggleSort, sorted: filtered } = useTableSort(searched, { defaultKey: 'name' })
 const toast = useToastStore()
 
 const staffList = ref([])
@@ -42,6 +37,7 @@ const roleColors = {
   finance_manager: 'bg-teal-100 text-teal-700',
   staff: 'bg-blue-100 text-blue-700',
 }
+
 
 const emptyForm = () => ({ name: '', email: '', password: '', role: 'staff', staff_id: '' })
 const form = reactive(emptyForm())
@@ -114,7 +110,7 @@ onMounted(() => {
 
 <template>
   <AppLayout>
-    <div class="p-8 max-w-5xl mx-auto space-y-6">
+    <div class="p-8 space-y-6">
       <PageHeader :title="t('users.title')" :subtitle="t('users.subtitle')" :buttonText="t('users.new')" @action="openCreate" />
 
       <div class="table-wrap">
@@ -122,19 +118,6 @@ onMounted(() => {
           <div class="w-full sm:max-w-xs">
             <SearchInput v-model="search" :placeholder="t('users.search_placeholder')" />
           </div>
-          <select v-model="filters.role" class="filter-select">
-            <option value="">{{ t('users.role') }}: {{ t('common.all') }}</option>
-            <option value="operations_hr_manager">{{ t('users.role_admin') }}</option>
-            <option value="executive_director">{{ t('users.role_executive_director') }}</option>
-            <option value="finance_manager">{{ t('users.role_finance_manager') }}</option>
-            <option value="staff">{{ t('users.role_staff') }}</option>
-          </select>
-          <select v-model="filters.is_locked" class="filter-select">
-            <option value="">{{ t('common.status') }}: {{ t('common.all') }}</option>
-            <option value="false">{{ t('status.active') }}</option>
-            <option value="true">{{ t('status.locked') }}</option>
-          </select>
-          <button v-if="hasActiveFilters" @click="clearFilters" class="btn-subtle btn-sm">{{ t('common.clear_filters') }}</button>
         </div>
         <div class="overflow-x-auto">
           <table class="data-table">

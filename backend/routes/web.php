@@ -40,7 +40,8 @@ Route::get('/asset/{assetCode}/update-condition', fn ($code) => redirect()->rout
 // In the Docker image frontend/dist is absent, so this falls back to public/app,
 // though in production nginx serves those static files before Laravel is reached.
 Route::get('/app/{path?}', function (string $path = '') {
-    $dist = is_dir(base_path('frontend/dist')) ? base_path('frontend/dist') : public_path('app');
+    $sibling = dirname(base_path()).'/frontend/dist';
+    $dist = is_dir($sibling) ? $sibling : public_path('app');
 
     // Serve a real built asset (js/css/img) with a correct Content-Type.
     if ($path !== '' && is_file($dist.'/'.$path)) {

@@ -9,7 +9,6 @@ import SearchInput from '../../components/ui/SearchInput.vue'
 import TableSortIcon from '../../components/ui/TableSortIcon.vue'
 import { useApiCrud } from '../../composables/useApiCrud'
 import { useTableSearch } from '../../composables/useTableSearch'
-import { useTableFilter } from '../../composables/useTableFilter'
 import { useTableSort } from '../../composables/useTableSort'
 
 const { t } = useI18n()
@@ -17,10 +16,7 @@ const { items: movements, loading, fetchAll, destroy } = useApiCrud('/asset-move
 const deletingId = ref(null)
 
 const { search, filtered: searched } = useTableSearch(movements, [(m) => m.asset?.name, (m) => m.asset?.asset_code, 'reference_no'])
-const { filters, filtered: matched, hasActiveFilters, clearFilters } = useTableFilter(searched, {
-  movement_type: (row, v) => row.movement_type === v,
-})
-const { sortKey, sortDir, toggleSort, sorted: sortedMovements } = useTableSort(matched, {
+const { sortKey, sortDir, toggleSort, sorted: sortedMovements } = useTableSort(searched, {
   defaultKey: 'created_at', defaultDir: 'desc',
   paths: { asset: 'asset.name', from: 'from_location.name', to: 'to_location.name' },
 })
@@ -39,7 +35,7 @@ onMounted(fetchAll)
 
 <template>
   <AppLayout>
-    <div class="p-8 max-w-6xl mx-auto space-y-6">
+    <div class="p-8 space-y-6">
       <PageHeader :title="t('asset_movements.title')" :subtitle="t('asset_movements.subtitle')" />
 
       <div class="table-wrap">
@@ -47,12 +43,6 @@ onMounted(fetchAll)
           <div class="w-full sm:max-w-xs">
             <SearchInput v-model="search" :placeholder="t('common.search')" />
           </div>
-          <select v-model="filters.movement_type" class="filter-select">
-            <option value="">{{ t('asset_movements.type') }}: {{ t('common.all') }}</option>
-            <option value="stock_in">{{ t('status.stock_in') }}</option>
-            <option value="transfer">{{ t('status.transfer') }}</option>
-          </select>
-          <button v-if="hasActiveFilters" @click="clearFilters" class="btn-subtle btn-sm">{{ t('common.clear_filters') }}</button>
         </div>
         <div class="overflow-x-auto">
           <table class="data-table">
