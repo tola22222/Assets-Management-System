@@ -17,7 +17,7 @@ class AssetController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Asset::with(['category', 'location']);
+        $query = Asset::with(['category', 'location', 'assignments' => fn ($q) => $q->where('status', 'active')->latest('assigned_date')]);
 
         // Staff only ever see their own site's assets; every other role sees all sites.
         if ($request->user()->isStaff()) {

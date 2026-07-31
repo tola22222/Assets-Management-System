@@ -3,14 +3,15 @@ import { ref, computed, onMounted, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
 import http from '../../api/http'
 import AppLayout from '../../layouts/AppLayout.vue'
-import PageHeader from '../../components/ui/PageHeader.vue'
 import Modal from '../../components/ui/Modal.vue'
 import ConfirmDialog from '../../components/ui/ConfirmDialog.vue'
 import SearchInput from '../../components/ui/SearchInput.vue'
+import FilterPills from '../../components/ui/FilterPills.vue'
 import TableSortIcon from '../../components/ui/TableSortIcon.vue'
 import { useApiCrud } from '../../composables/useApiCrud'
 import { useTableSearch } from '../../composables/useTableSearch'
 import { useTableSort } from '../../composables/useTableSort'
+import { useTableFilter } from '../../composables/useTableFilter'
 import { useToastStore } from '../../stores/toast'
 import { useAuthStore } from '../../stores/auth'
 
@@ -47,16 +48,67 @@ const { sortKey, sortDir, toggleSort, sorted: filtered } = useTableSort(searched
   defaultKey: 'name',
   paths: { category: 'category.name', location: 'location.name', price: 'purchase_price', code: 'asset_code' },
 })
+// Category filter pills, layered on top of the search+sort pipeline.
+const { filters: catFilters, filtered: visible } = useTableFilter(filtered, {
+  category: (row, val) => String(row.category_id) === String(val),
+})
+const categoryOptions = computed(() => categories.value.map((c) => ({ value: c.id, label: c.name })))
 
 function money(v) {
   return v ? '$' + Number(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'
 }
 
-// Condition as an at-a-glance status pill (good = in use, fair/broken = needs
-// attention, lost = most severe) rather than plain capitalized text.
-const CONDITION_BADGE = { good: 'badge-success', fair: 'badge-warning', broken: 'badge-warning', lost: 'badge-danger' }
-function conditionBadge(condition) {
-  return CONDITION_BADGE[condition] || 'badge-neutral'
+// Condition + lifecycle status collapsed into a single at-a-glance pill
+// (mirrors the "In use / Needs repair / Retiring" states from the report-deck
+// mockup) rather than two separate condition/status columns.
+function assetState(asset) {
+  if (asset.status === 'disposed') return { label: t('assets.state_retiring'), cls: 'badge-danger' }
+  if (asset.condition === 'lost') return { label: t('assets.state_lost'), cls: 'badge-danger' }
+  if (asset.condition === 'fair' || asset.condition === 'broken') return { label: t('assets.state_needs_repair'), cls: 'badge-warning' }
+  return { label: t('assets.state_in_use'), cls: 'badge-success' }
+}
+
+function assetNote(asset) {
+  return asset.description || [asset.brand, asset.model].filter(Boolean).join(' ')
+}
+
+function assignedTo(asset) {
+  return asset.assignments?.[0]?.recipient_name || t('assets.unassigned')
+}
+
+function exportCsv() {
+  const cols = [
+    ['asset_code', t('assets.id_col')],
+    ['name', t('common.name')],
+    ['description', t('common.description')],
+    ['category', t('assets.category')],
+    ['location', t('assets.location_col')],
+    ['assigned_to', t('assets.assigned_to')],
+    ['status', t('common.status')],
+    ['value', t('assets.value_col')],
+  ]
+  const row = (a) => ({
+    asset_code: a.asset_code,
+    name: a.name,
+    description: a.description || '',
+    category: a.category?.name || '',
+    location: a.location?.name || '',
+    assigned_to: assignedTo(a),
+    status: assetState(a).label,
+    value: a.purchase_price ?? '',
+  })
+  const lines = [cols.map(([, label]) => label).join(',')]
+  visible.value.forEach((a) => {
+    const r = row(a)
+    lines.push(cols.map(([key]) => `"${String(r[key] ?? '').replace(/"/g, '""')}"`).join(','))
+  })
+  const blob = new Blob([lines.join('\n')], { type: 'text/csv' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `asset-register-${new Date().toISOString().slice(0, 10)}.csv`
+  link.click()
+  URL.revokeObjectURL(url)
 }
 
 async function loadCategories() {
@@ -187,55 +239,67 @@ onMounted(() => {
 <template>
   <AppLayout>
     <div class="p-6 sm:p-8 space-y-6">
-      <PageHeader :title="t('assets.title')" :subtitle="t('assets.subtitle')" :buttonText="isOpm ? t('assets.register') : null" @action="openCreate" />
-
-      <div class="table-wrap">
-        <div class="table-toolbar">
-          <div class="w-full sm:max-w-xs">
-            <SearchInput v-model="search" :placeholder="t('assets.search_placeholder')" />
+      <div class="card p-6 sm:p-8">
+        <!-- Header -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+          <div>
+            <h1 class="font-display text-3xl font-bold text-fg tracking-tight">{{ t('assets.title') }}</h1>
+            <p class="text-muted text-sm mt-1">{{ t('assets.subtitle') }}</p>
           </div>
-          <div class="flex items-center gap-3 sm:ml-auto">
-            <p class="text-sm text-faint">{{ t('assets.count_of', { filtered: filtered.length, total: assetsList.length }) }}</p>
+          <div class="flex items-center gap-2 flex-shrink-0">
+            <button @click="exportCsv" class="btn-ghost btn-sm">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M7.5 12L12 16.5m0 0l4.5-4.5M12 16.5V3" /></svg>
+              {{ t('assets.export_csv') }}
+            </button>
             <RouterLink to="/assets/import" class="btn-ghost btn-sm">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
               {{ t('assets.import') }}
             </RouterLink>
+            <button v-if="isOpm" @click="openCreate" class="btn-primary btn-sm">
+              <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+              {{ t('assets.register') }}
+            </button>
           </div>
         </div>
+
+        <!-- Search & category filter pills -->
+        <div class="flex flex-wrap items-center gap-3 mb-6">
+          <div class="flex-1 min-w-[260px]">
+            <SearchInput v-model="search" :placeholder="t('assets.search_placeholder')" />
+          </div>
+          <FilterPills v-model="catFilters.category" :options="categoryOptions" />
+        </div>
+
+        <div class="flex items-center justify-between gap-3 mb-2">
+          <p class="text-sm text-faint">{{ t('assets.count_of', { filtered: visible.length, total: assetsList.length }) }}</p>
+        </div>
+
         <div class="overflow-x-auto">
           <table class="data-table">
             <thead>
               <tr>
-                <th class="th-sort" @click="toggleSort('name')">{{ t('assets.asset_col') }}<TableSortIcon :active="sortKey === 'name'" :direction="sortDir" /></th>
-                <th class="th-sort" @click="toggleSort('code')">{{ t('assets.code') }}<TableSortIcon :active="sortKey === 'code'" :direction="sortDir" /></th>
-                <th class="th-sort" @click="toggleSort('category')">{{ t('assets.category') }}<TableSortIcon :active="sortKey === 'category'" :direction="sortDir" /></th>
+                <th class="th-sort" @click="toggleSort('code')">{{ t('assets.id_col') }}<TableSortIcon :active="sortKey === 'code'" :direction="sortDir" /></th>
+                <th class="th-sort" @click="toggleSort('name')">{{ t('assets.description_col') }}<TableSortIcon :active="sortKey === 'name'" :direction="sortDir" /></th>
+                <th class="th-sort text-center" @click="toggleSort('category')">{{ t('assets.category') }}<TableSortIcon :active="sortKey === 'category'" :direction="sortDir" /></th>
                 <th class="th-sort" @click="toggleSort('location')">{{ t('assets.location_col') }}<TableSortIcon :active="sortKey === 'location'" :direction="sortDir" /></th>
-                <th class="th-sort" @click="toggleSort('condition')">{{ t('assets.condition') }}<TableSortIcon :active="sortKey === 'condition'" :direction="sortDir" /></th>
-                <th class="th-sort" @click="toggleSort('status')">{{ t('common.status') }}<TableSortIcon :active="sortKey === 'status'" :direction="sortDir" /></th>
-                <th class="th-sort text-right" @click="toggleSort('price')">{{ t('common.price') }}<TableSortIcon :active="sortKey === 'price'" :direction="sortDir" /></th>
+                <th>{{ t('assets.assigned_to') }}</th>
+                <th class="th-sort text-center" @click="toggleSort('status')">{{ t('common.status') }}<TableSortIcon :active="sortKey === 'status'" :direction="sortDir" /></th>
+                <th class="th-sort text-right" @click="toggleSort('price')">{{ t('assets.value_col') }}<TableSortIcon :active="sortKey === 'price'" :direction="sortDir" /></th>
                 <th class="text-right">{{ t('common.actions') }}</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="asset in filtered" :key="asset.id">
+              <tr v-for="asset in visible" :key="asset.id">
+                <td class="whitespace-nowrap"><span class="id-chip">{{ asset.asset_code }}</span></td>
                 <td>
-                  <div class="flex items-center gap-3">
-                    <img v-if="asset.image_url" :src="asset.image_url" class="w-9 h-9 rounded-lg object-cover border border-line flex-shrink-0" alt="" />
-                    <span v-else class="w-9 h-9 rounded-lg bg-surface-3 border border-line flex items-center justify-center text-faint text-[10px] flex-shrink-0">No</span>
-                    <div class="min-w-0">
-                      <p class="font-medium text-fg truncate">{{ asset.name }}</p>
-                      <p v-if="asset.brand || asset.model" class="text-xs text-faint truncate">{{ [asset.brand, asset.model].filter(Boolean).join(' ') }}</p>
-                    </div>
-                  </div>
+                  <p class="font-semibold text-fg truncate">{{ asset.name }}</p>
+                  <p v-if="assetNote(asset)" class="text-xs text-faint truncate mt-0.5">{{ assetNote(asset) }}</p>
                 </td>
-                <td><span class="id-chip">{{ asset.asset_code }}</span></td>
-                <td><span class="tag">{{ asset.category?.name || '—' }}</span></td>
-                <td>{{ asset.location?.name || '—' }}</td>
-                <td>
-                  <span class="badge capitalize" :class="conditionBadge(asset.condition)">{{ asset.condition }}</span>
-                </td>
-                <td>
-                  <span class="badge" :class="asset.status === 'active' ? 'badge-success' : 'badge-neutral'">{{ t(`status.${asset.status}`) }}</span>
+                <td class="text-center"><span class="tag">{{ asset.category?.name || '—' }}</span></td>
+                <td class="font-medium text-fg">{{ asset.location?.name || '—' }}</td>
+                <td class="text-muted">{{ assignedTo(asset) }}</td>
+                <td class="text-center">
+                  <span class="badge" :class="assetState(asset).cls">{{ assetState(asset).label }}</span>
                 </td>
                 <td class="font-medium text-fg text-right">{{ money(asset.purchase_price) }}</td>
                 <td>
@@ -252,12 +316,12 @@ onMounted(() => {
                   </div>
                 </td>
               </tr>
-              <tr v-if="!loading && !filtered.length">
+              <tr v-if="!loading && !visible.length">
                 <td colspan="8" class="py-12 text-center">
                   <div class="flex flex-col items-center gap-2">
                     <svg class="w-10 h-10 text-line-strong" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
-                    <p class="text-muted text-sm font-medium">{{ search ? t('assets.empty_search') : t('assets.empty') }}</p>
-                    <p class="text-xs text-faint">{{ search ? t('assets.empty_search_hint') : t('assets.empty_hint') }}</p>
+                    <p class="text-muted text-sm font-medium">{{ (search || catFilters.category) ? t('assets.empty_search') : t('assets.empty') }}</p>
+                    <p class="text-xs text-faint">{{ (search || catFilters.category) ? t('assets.empty_search_hint') : t('assets.empty_hint') }}</p>
                   </div>
                 </td>
               </tr>

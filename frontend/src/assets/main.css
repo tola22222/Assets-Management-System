@@ -5,27 +5,33 @@
 
 @theme {
   /* Kantumruy Pro covers both Latin and Khmer glyphs, so the same family is
-     used app-wide (body + headings) instead of separate Latin/Khmer fonts. */
+     used app-wide for body text instead of separate Latin/Khmer fonts. */
   --font-sans: 'Kantumruy Pro', ui-sans-serif, system-ui, -apple-system, 'Khmer OS', 'Segoe UI', sans-serif;
-  --font-display: 'Kantumruy Pro', ui-sans-serif, system-ui, -apple-system, 'Khmer OS', 'Segoe UI', sans-serif;
+  /* Serif display face for page/section titles (Asset Register mockup uses
+     font-serif headings) — generic serif stack needs no extra font load, and
+     Kantumruy Pro stays as fallback so Khmer titles still render (per-glyph
+     font fallback: Georgia/Cambria/Times have no Khmer glyphs, so Khmer runs
+     fall through to Kantumruy Pro automatically while Latin stays serif). */
+  --font-display: ui-serif, Georgia, Cambria, 'Times New Roman', Times, 'Kantumruy Pro', serif;
   /* IBM Plex Mono for asset codes / tabular data only — the "physical tag" look. */
   --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  /* ---- Brand: deep teal (full scale) — 600-900 pinned to the report-deck
-     mockup's exact teal-600..teal-900, 50-500 interpolated in the same hue. ---- */
-  --color-brand-50: #eef5f2;
-  --color-brand-100: #d7e8e1;
-  --color-brand-200: #b0d0c3;
-  --color-brand-300: #82b09f;
-  --color-brand-400: #56897a;
-  --color-brand-500: #396a5c;
-  --color-brand-600: #356458;
-  --color-brand-700: #295148;
-  --color-brand-800: #1f3d36;
-  --color-brand-900: #152f29;
-  --color-brand: #1f3d36;
-  --color-brand-dark: #152f29;
-  --color-brand-light: #295148;
+  /* ---- Brand: deep green-black — pinned to the Asset Register mockup's
+     exact #1c2e26 (headings/buttons) and #12201a hover, 50-700 interpolated
+     in the same hue. ---- */
+  --color-brand-50: #eef2f0;
+  --color-brand-100: #d7e2dd;
+  --color-brand-200: #b0c5bc;
+  --color-brand-300: #82a396;
+  --color-brand-400: #567d6d;
+  --color-brand-500: #395f51;
+  --color-brand-600: #33554a;
+  --color-brand-700: #24443a;
+  --color-brand-800: #1c2e26;
+  --color-brand-900: #12201a;
+  --color-brand: #1c2e26;
+  --color-brand-dark: #12201a;
+  --color-brand-light: #24443a;
 
   /* ---- Accent: gold — pinned to the mockup's exact gold ---- */
   --color-accent-50: #fbf6ea;
@@ -39,24 +45,25 @@
   /* ---- Semantic surface/text tokens (LIGHT defaults) ----
      These are overridden under .dark below, so every utility built on them
      (bg-surface, text-fg, border-line, …) flips automatically.
-     Warm paper cream, not gray — matches the printed-report look of the mockup. */
-  --color-canvas: #f7f3e9;
-  --color-surface: #fbf9f3;
-  --color-surface-2: #f6f3ec;
-  --color-surface-3: #efeadd;
-  --color-line: #e7e0cf;
-  --color-line-strong: #d3ccb8;
-  --color-fg: #211f18;
-  --color-muted: #6b6656;
-  --color-faint: #9c9683;
+     Pinned to the Asset Register mockup: cream page canvas, white card
+     surface, and the mockup's exact border/text hexes. */
+  --color-canvas: #f5f3ef;
+  --color-surface: #ffffff;
+  --color-surface-2: #f7f6f2;
+  --color-surface-3: #fcfbf9;
+  --color-line: #e8e5de;
+  --color-line-strong: #e0ded8;
+  --color-fg: #1c2e26;
+  --color-muted: #6b7280;
+  --color-faint: #9ca3af;
 
   /* Legacy aliases kept so any un-migrated reference still resolves + flips */
-  --color-cream: #f7f3e9;
-  --color-card: #fbf9f3;
-  --color-ink: #211f18;
+  --color-cream: #f5f3ef;
+  --color-card: #ffffff;
+  --color-ink: #1c2e26;
 
-  --shadow-card: 0 1px 2px rgb(35 30 15 / 0.03), 0 1px 2px rgb(35 30 15 / 0.04);
-  --shadow-pop: 0 10px 30px -12px rgb(35 30 15 / 0.22);
+  --shadow-card: 0 1px 2px rgb(28 46 38 / 0.03), 0 1px 2px rgb(28 46 38 / 0.04);
+  --shadow-pop: 0 10px 30px -12px rgb(28 46 38 / 0.22);
 }
 
 /* ---- Dark theme: only the semantic tokens change ---- */
@@ -197,7 +204,7 @@
   .input,
   .select,
   .textarea {
-    @apply w-full bg-surface text-fg border border-line rounded-xl px-3.5 py-2.5 text-sm
+    @apply w-full bg-surface-2 text-fg border border-line rounded-xl px-3.5 py-2.5 text-sm
            placeholder:text-faint transition
            focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/15;
   }
@@ -208,7 +215,8 @@
     background-size: 1.1rem;
   }
 
-  /* Badges */
+  /* Badges — soft pastel pills, colors pinned to the Asset Register mockup's
+     status badges (In use / Needs repair / Retiring). */
   .badge,
   .badge-brand,
   .badge-success,
@@ -216,19 +224,19 @@
   .badge-info,
   .badge-danger,
   .badge-neutral {
-    @apply inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold;
+    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-medium;
   }
   .badge-brand   { @apply bg-brand-50 text-brand-700; }
-  .badge-success { @apply bg-emerald-100 text-emerald-700; }
-  .badge-warning { @apply bg-amber-100 text-amber-700; }
-  .badge-info    { @apply bg-blue-100 text-blue-700; }
-  .badge-danger  { @apply bg-red-100 text-red-700; }
+  .badge-success { @apply bg-[#e2f0e8] text-[#236b43]; }
+  .badge-warning { @apply bg-[#faecd9] text-[#915a1a]; }
+  .badge-info    { @apply bg-[#e3ecf7] text-[#2b5a8c]; }
+  .badge-danger  { @apply bg-[#fcebeb] text-[#a13b3b]; }
   .badge-neutral { @apply bg-surface-3 text-muted; }
 
   /* Outlined category/type chip — a lighter-weight sibling of .badge-* for
      cells that just need a neutral label, not a status signal. */
   .tag {
-    @apply inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold border border-line bg-surface text-muted;
+    @apply inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold border border-line bg-surface-3 text-muted;
   }
 
   /* Pill-style quick filters (e.g. category tabs above a data table) —
@@ -278,7 +286,7 @@
   }
   /* Compact filter <select> used above data tables, next to search */
   .filter-select {
-    @apply bg-surface border border-line rounded-xl px-3 py-2 text-sm text-fg
+    @apply bg-surface-2 border border-line rounded-xl px-3 py-2 text-sm text-fg
            focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/15 transition;
   }
   .data-table tbody td {
