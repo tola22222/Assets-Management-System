@@ -244,7 +244,16 @@
     "view_register": "View Asset Register",
     "import_another": "Import another file",
     "success_message": "{created} added, {updated} updated.",
-    "failed": "Import failed. Check the file and try again."
+    "failed": "Import failed. Check the file and try again.",
+    "images_title": "Photos (optional)",
+    "images_hint": "Name each image file after the asset code (e.g. PEY-SR-COM-0212.jpg) or serial number, and it'll be attached to the matching row automatically.",
+    "images_drop_hint": "Drag photos here, or choose files below",
+    "choose_images": "Choose images",
+    "images_file_hint": "JPG or PNG · matched by filename",
+    "images_selected": "{count} image(s) selected",
+    "clear_images": "Clear photos",
+    "images_attached_message": "{count} photo(s) attached to matching assets.",
+    "images_unmatched": "Photos that didn't match any row"
   },
   "categories": {
     "title": "Asset Categories",

@@ -13,10 +13,16 @@ class AssetImportController extends Controller
     {
         $request->validate([
             'file' => 'required|file|mimes:xlsx,xls,csv,txt|max:10240',
+            'images' => 'nullable|array',
+            'images.*' => 'image|mimes:jpeg,png,jpg|max:5120',
         ]);
 
         try {
-            $result = $service->import($request->file('file'), $request->boolean('generate_qr', true));
+            $result = $service->import(
+                $request->file('file'),
+                $request->boolean('generate_qr', true),
+                $request->file('images', [])
+            );
         } catch (\Throwable $e) {
             return response()->json(['message' => $e->getMessage()], 422);
         }
@@ -26,6 +32,7 @@ class AssetImportController extends Controller
             'action' => 'Import',
             'description' => "Imported asset register: {$result['created']} added, {$result['updated']} updated"
                 . ($result['skipped'] ? ", {$result['skipped']} skipped" : '')
+                . ($result['images_attached'] ? ", {$result['images_attached']} photo(s) attached" : '')
                 . (count($result['errors']) ? ', ' . count($result['errors']) . ' error(s)' : ''),
         ]);
 

@@ -6,6 +6,7 @@ use App\Models\Asset;
 use App\Models\AssetCategory;
 use App\Models\Location;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 
 /**
@@ -22,6 +23,12 @@ use PhpOffice\PhpSpreadsheet\IOFactory;
  *
  * Re-importing is safe: rows are upserted by asset code, so the same file can be
  * loaded twice without creating duplicates.
+ *
+ * Optionally accepts a batch of photo files alongside the sheet. Each photo is
+ * matched to a row by its filename (without extension) against that row's
+ * asset code first, then its serial number — e.g. "PEY-SR-COM-0212.jpg" or
+ * "SN123456.png" — so a bulk photo upload doesn't require any extra column in
+ * the spreadsheet itself.
  */
 class AssetImportService
 {
@@ -38,9 +45,26 @@ class AssetImportService
 
     private array $locationCache = [];
 
-    public function import(UploadedFile $file, bool $generateQr = true): array
+    /**
+     * @param  UploadedFile[]  $images  Optional photo files, matched to rows by filename.
+     */
+    public function import(UploadedFile $file, bool $generateQr = true, array $images = []): array
     {
         @set_time_limit(0);
+
+        // Filename (without extension) → uploaded photo, for the optional bulk
+        // photo attach. Whitespace-stripped/uppercased so "PEY-SR-COM-0212.jpg"
+        // matches asset code "PEY-SR-COM-0212" and "sn 123456.png" matches
+        // serial "SN123456".
+        $imagesByKey = [];
+        foreach ($images as $imageFile) {
+            $key = $this->normalizeKey(pathinfo($imageFile->getClientOriginalName(), PATHINFO_FILENAME));
+            if ($key !== '') {
+                $imagesByKey[$key] = $imageFile;
+            }
+        }
+        $usedImageKeys = [];
+        $imagesAttached = 0;
 
         try {
             $rows = $this->readRows($file);
@@ -141,18 +165,49 @@ class AssetImportService
                     : ($get('description') ?: null),
             ];
 
+            // Match a bulk-uploaded photo to this row: asset code first (only
+            // meaningful for the PEPY layout, where it's known before the row
+            // is even created), then serial number (available in both layouts).
+            $imageFile = null;
+            $imageKey = null;
+            if ($code !== '' && isset($imagesByKey[$this->normalizeKey($code)])) {
+                $imageKey = $this->normalizeKey($code);
+                $imageFile = $imagesByKey[$imageKey];
+            } elseif ($payload['serial_number'] && isset($imagesByKey[$this->normalizeKey($payload['serial_number'])])) {
+                $imageKey = $this->normalizeKey($payload['serial_number']);
+                $imageFile = $imagesByKey[$imageKey];
+            }
+
             if ($preserveCodes) {
                 $this->bumpSequenceFromCode($code);
 
                 $existing = Asset::where('asset_code', $code)->first();
                 if ($existing) {
+                    if ($imageFile) {
+                        if ($existing->image_path) {
+                            Storage::disk('public')->delete($existing->image_path);
+                        }
+                        $payload['image_path'] = $imageFile->store('assets', 'public');
+                        $usedImageKeys[$imageKey] = true;
+                        $imagesAttached++;
+                    }
                     $existing->update($payload);
                     $updated++;
 
                     continue;
                 }
+                if ($imageFile) {
+                    $payload['image_path'] = $imageFile->store('assets', 'public');
+                    $usedImageKeys[$imageKey] = true;
+                    $imagesAttached++;
+                }
                 $asset = Asset::create($payload + ['asset_code' => $code]);
             } else {
+                if ($imageFile) {
+                    $payload['image_path'] = $imageFile->store('assets', 'public');
+                    $usedImageKeys[$imageKey] = true;
+                    $imagesAttached++;
+                }
                 $asset = Asset::create($payload + ['asset_code' => AssetCodeService::nextCode($location->id, $category->id)]);
             }
 
@@ -172,7 +227,18 @@ class AssetImportService
             'skipped' => $skipped,
             'errors' => $errors,
             'total_rows' => count($rows) - $headerIndex - 1,
+            'images_attached' => $imagesAttached,
+            'images_unmatched' => array_values(array_diff_key(
+                array_map(fn (UploadedFile $f) => $f->getClientOriginalName(), $imagesByKey),
+                $usedImageKeys
+            )),
         ];
+    }
+
+    /** Whitespace-stripped, uppercased key used to match a photo filename against an asset code or serial number. */
+    private function normalizeKey(string $s): string
+    {
+        return strtoupper(preg_replace('/\s+/', '', trim($s)));
     }
 
     /** Read the first worksheet into a 0-indexed array of rows, values formatted as displayed. */

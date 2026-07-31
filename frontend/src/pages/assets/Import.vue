@@ -16,6 +16,12 @@ const importing = ref(false)
 const dragging = ref(false)
 const result = ref(null)
 
+// Optional bulk photo attach: each image is matched server-side to a row by
+// filename (asset code or serial number), so no extra spreadsheet column is needed.
+const images = ref([])
+const imagesInput = ref(null)
+const imagesDragging = ref(false)
+
 function pick(e) {
   file.value = e.target.files[0] || null
   result.value = null
@@ -29,6 +35,26 @@ function openFileDialog() {
   fileInput.value?.click()
 }
 
+function pickImages(e) {
+  images.value = [...images.value, ...Array.from(e.target.files || [])]
+  e.target.value = ''
+  result.value = null
+}
+function onDropImages(e) {
+  imagesDragging.value = false
+  images.value = [...images.value, ...Array.from(e.dataTransfer.files || []).filter((f) => f.type.startsWith('image/'))]
+  result.value = null
+}
+function openImagesDialog() {
+  imagesInput.value?.click()
+}
+function removeImage(index) {
+  images.value = images.value.filter((_, i) => i !== index)
+}
+function clearImages() {
+  images.value = []
+}
+
 async function submit() {
   if (!file.value) return
   importing.value = true
@@ -37,6 +63,7 @@ async function submit() {
     const fd = new FormData()
     fd.append('file', file.value)
     fd.append('generate_qr', generateQr.value ? '1' : '0')
+    images.value.forEach((img) => fd.append('images[]', img))
     const { data } = await http.post('/assets/import', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
     result.value = data
     toast.success(t('import.success_message', { created: data.created, updated: data.updated }))
@@ -59,6 +86,7 @@ async function downloadTemplate() {
 
 function reset() {
   file.value = null
+  images.value = []
   result.value = null
 }
 </script>
@@ -118,6 +146,42 @@ function reset() {
         <p v-if="importing && generateQr" class="text-xs text-faint">{{ t('import.qr_wait_hint') }}</p>
       </div>
 
+      <!-- Optional bulk photo attach -->
+      <div class="card p-5 space-y-4">
+        <div>
+          <h3 class="font-bold text-fg">{{ t('import.images_title') }}</h3>
+          <p class="text-xs text-faint mt-0.5">{{ t('import.images_hint') }}</p>
+        </div>
+
+        <div
+          class="border-2 border-dashed rounded-xl p-8 text-center transition-colors"
+          :class="imagesDragging ? 'border-brand bg-surface-2' : 'border-line hover:border-brand/50'"
+          @dragover.prevent="imagesDragging = true"
+          @dragleave.prevent="imagesDragging = false"
+          @drop.prevent="onDropImages"
+        >
+          <input ref="imagesInput" type="file" accept="image/jpeg,image/png" multiple class="hidden" @change="pickImages" />
+          <svg class="w-10 h-10 mx-auto text-faint" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3 4.5h18M3.75 4.5v15A2.25 2.25 0 006 21.75h12a2.25 2.25 0 002.25-2.25v-15" /></svg>
+          <p class="mt-2 text-sm font-semibold text-fg">
+            {{ images.length ? t('import.images_selected', { count: images.length }) : t('import.images_drop_hint') }}
+          </p>
+          <p class="text-xs text-faint mt-0.5">{{ t('import.images_file_hint') }}</p>
+          <button type="button" @click="openImagesDialog" class="btn-ghost btn-sm mt-4">{{ t('import.choose_images') }}</button>
+        </div>
+
+        <div v-if="images.length" class="space-y-1.5">
+          <div class="max-h-40 overflow-y-auto rounded-xl border border-line divide-y divide-line">
+            <div v-for="(img, i) in images" :key="i" class="flex items-center justify-between gap-2 px-3 py-1.5 text-xs text-muted">
+              <span class="truncate">{{ img.name }}</span>
+              <button type="button" @click="removeImage(i)" class="text-faint hover:text-red-500 flex-shrink-0" :title="t('common.delete')">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+          </div>
+          <button type="button" @click="clearImages" class="btn-ghost btn-sm">{{ t('import.clear_images') }}</button>
+        </div>
+      </div>
+
       <!-- Result -->
       <div v-if="result" class="card p-5 space-y-4">
         <h3 class="font-bold text-fg">{{ t('import.complete') }}</h3>
@@ -137,6 +201,17 @@ function reset() {
           <div class="rounded-xl p-3 text-center" :class="result.errors.length ? 'bg-red-50 dark:bg-red-500/10' : 'bg-surface-2'">
             <p class="font-display text-2xl font-bold" :class="result.errors.length ? 'text-red-700 dark:text-red-300' : 'text-fg'">{{ result.errors.length }}</p>
             <p class="text-xs text-muted mt-0.5">{{ t('import.errors') }}</p>
+          </div>
+        </div>
+
+        <p v-if="result.images_attached" class="text-sm text-muted">
+          {{ t('import.images_attached_message', { count: result.images_attached }) }}
+        </p>
+
+        <div v-if="result.images_unmatched?.length" class="space-y-1.5">
+          <p class="text-sm font-semibold text-fg">{{ t('import.images_unmatched') }}</p>
+          <div class="max-h-48 overflow-y-auto rounded-xl border border-line divide-y divide-line">
+            <p v-for="(name, i) in result.images_unmatched" :key="i" class="px-3 py-2 text-xs text-muted truncate">{{ name }}</p>
           </div>
         </div>
 
