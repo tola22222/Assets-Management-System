@@ -34,6 +34,11 @@ const showModal = ref(false)
 const returningId = ref(null)
 const returnCondition = ref('good')
 const returnRemark = ref('')
+const returnImageFile = ref(null)
+
+function handleReturnFileChange(e) {
+  returnImageFile.value = e.target.files[0] || null
+}
 
 const form = reactive({ asset_id: '', assigned_to_type: 'staff', assigned_to_id: '', location_id: '', quantity: 1, assigned_date: '', due_date: '' })
 
@@ -73,6 +78,7 @@ async function submitReturn() {
   const fd = new FormData()
   fd.append('condition', returnCondition.value)
   fd.append('remark', returnRemark.value)
+  if (returnImageFile.value) fd.append('image', returnImageFile.value)
   await http.post(`/asset-assignments/${returningId.value}/return`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })
   toast.success(t('asset_assignments.returned_successfully'))
   returningId.value = null
@@ -104,6 +110,7 @@ onMounted(() => {
                 <th class="th-sort" @click="toggleSort('recipient_name')">{{ t('asset_assignments.recipient') }}<TableSortIcon :active="sortKey === 'recipient_name'" :direction="sortDir" /></th>
                 <th class="th-sort" @click="toggleSort('location')">{{ t('common.location') }}<TableSortIcon :active="sortKey === 'location'" :direction="sortDir" /></th>
                 <th class="th-sort" @click="toggleSort('quantity')">{{ t('asset_assignments.qty') }}<TableSortIcon :active="sortKey === 'quantity'" :direction="sortDir" /></th>
+                <th>{{ t('asset_assignments.photo') }}</th>
                 <th class="th-sort" @click="toggleSort('status')">{{ t('common.status') }}<TableSortIcon :active="sortKey === 'status'" :direction="sortDir" /></th>
                 <th class="text-right">{{ t('common.actions') }}</th>
               </tr>
@@ -114,11 +121,15 @@ onMounted(() => {
                 <td>{{ a.recipient_name }}</td>
                 <td>{{ a.location?.name || t('common.n_a') }}</td>
                 <td>{{ a.quantity }}</td>
+                <td>
+                  <a v-if="a.image_url" :href="a.image_url" target="_blank"><img :src="a.image_url" class="w-9 h-9 rounded-lg object-cover border border-line" alt="" /></a>
+                  <span v-else class="text-faint">—</span>
+                </td>
                 <td><StatusBadge :status="a.status" /></td>
                 <td class="text-right whitespace-nowrap">
                   <template v-if="a.status !== 'returned' && isOpm">
                     <div class="flex items-center justify-end gap-1.5">
-                      <button @click="returningId = a.id; returnCondition = 'good'; returnRemark = ''" :title="t('common.return')" class="w-7 h-7 rounded-lg bg-brand text-white flex items-center justify-center hover:bg-brand-dark transition">
+                      <button @click="returningId = a.id; returnCondition = 'good'; returnRemark = ''; returnImageFile = null" :title="t('common.return')" class="w-7 h-7 rounded-lg bg-brand text-white flex items-center justify-center hover:bg-brand-dark transition">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" /></svg>
                       </button>
                       <button @click="cancelAssignment(a.id)" :title="t('common.cancel')" class="w-7 h-7 rounded-lg bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition">
@@ -129,7 +140,7 @@ onMounted(() => {
                 </td>
               </tr>
               <tr v-if="!loading && !sortedAssignments.length">
-                <td colspan="6" class="py-10 text-center text-faint">{{ t('asset_assignments.empty') }}</td>
+                <td colspan="7" class="py-10 text-center text-faint">{{ t('asset_assignments.empty') }}</td>
               </tr>
             </tbody>
           </table>
@@ -212,6 +223,10 @@ onMounted(() => {
           <div class="space-y-1.5">
             <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_assignments.remark') }}</label>
             <textarea v-model="returnRemark" rows="2" class="input"></textarea>
+          </div>
+          <div class="space-y-1.5">
+            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_assignments.photo_reference') }}</label>
+            <input type="file" accept="image/jpeg,image/png" @change="handleReturnFileChange" class="w-full text-sm" />
           </div>
         </div>
         <div class="flex items-center gap-3 border-t border-line px-6 py-4">

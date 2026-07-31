@@ -49,23 +49,23 @@ function reset() {
   <AppLayout>
     <div class="p-8 max-w-2xl mx-auto space-y-6">
       <div>
-        <h1 class="text-xl font-bold text-fg tracking-tight">QR Scanner</h1>
+        <h1 class="font-display text-xl font-bold text-fg tracking-tight">QR Scanner</h1>
         <p class="text-muted text-sm mt-0.5">Enter or scan an asset code to look it up</p>
       </div>
 
-      <form v-if="!asset" @submit.prevent="handleScan" class="bg-surface rounded-2xl border border-line p-6 flex gap-3">
+      <form v-if="!asset" @submit.prevent="handleScan" class="card p-6 flex gap-3">
         <input v-model="assetCode" placeholder="Enter asset code, e.g. IT-2026-000001" autofocus
-          class="flex-1 border border-line rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-brand" />
+          class="input flex-1" />
         <button type="submit" :disabled="loading" class="btn-primary">
           {{ loading ? 'Searching…' : 'Look Up' }}
         </button>
       </form>
 
       <div v-else class="space-y-6">
-        <div class="bg-surface rounded-2xl border border-line p-6">
+        <div class="card p-6">
           <div class="flex items-start justify-between">
             <div>
-              <h2 class="font-bold text-fg text-lg">{{ asset.name }}</h2>
+              <h2 class="font-display font-bold text-fg text-lg">{{ asset.name }}</h2>
               <p class="text-muted text-sm">{{ asset.asset_code }} — {{ asset.category?.name || 'Uncategorized' }}</p>
             </div>
             <button @click="reset" class="text-sm text-faint hover:text-muted">Scan Another</button>
@@ -76,8 +76,8 @@ function reset() {
           </div>
         </div>
 
-        <div class="bg-surface rounded-2xl border border-line p-6">
-          <h3 class="font-bold text-fg mb-4">Record Verification</h3>
+        <div class="card p-6">
+          <h3 class="font-display font-bold text-fg mb-4">Record Verification</h3>
           <form @submit.prevent="submitVerification" class="space-y-4">
             <div class="space-y-1.5">
               <label class="text-xs font-semibold text-muted tracking-wide">Location *</label>

@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import http from '../../api/http'
 import AppLayout from '../../layouts/AppLayout.vue'
+import SearchInput from '../../components/ui/SearchInput.vue'
 import { useToastStore } from '../../stores/toast'
 
 const toast = useToastStore()
@@ -37,8 +38,15 @@ async function search() {
 <template>
   <AppLayout>
     <div class="p-8 max-w-3xl mx-auto space-y-6">
+      <div>
+        <h1 class="font-display text-xl font-bold text-fg tracking-tight">Search</h1>
+        <p class="text-muted text-sm mt-0.5">Look up assets, staff, and other records across the system</p>
+      </div>
+
       <form @submit.prevent="search" class="flex gap-3">
-        <input v-model="q" placeholder="Search…" class="flex-1 border border-line rounded-xl px-3.5 py-2.5 text-sm bg-surface focus:outline-none focus:border-brand" />
+        <div class="flex-1">
+          <SearchInput v-model="q" placeholder="Search…" />
+        </div>
         <button type="submit" :disabled="loading" class="btn-primary">Search</button>
       </form>
 
@@ -46,7 +54,7 @@ async function search() {
         <div v-for="(items, type) in results" :key="type">
           <template v-if="items.length">
             <p class="text-xs font-semibold text-faint uppercase tracking-wide mb-2">{{ labels[type] || type }}</p>
-            <div class="bg-surface rounded-2xl border border-line divide-y divide-line">
+            <div class="card divide-y divide-line">
               <div v-for="item in items" :key="item.id" class="p-4 text-sm text-fg">{{ displayName(type, item) }}</div>
             </div>
           </template>

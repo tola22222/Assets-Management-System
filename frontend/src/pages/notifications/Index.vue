@@ -34,13 +34,13 @@ onMounted(load)
     <div class="p-8 max-w-3xl mx-auto space-y-6">
       <div class="flex items-center justify-between">
         <div>
-          <h1 class="text-xl font-bold text-fg tracking-tight">Notifications</h1>
+          <h1 class="font-display text-xl font-bold text-fg tracking-tight">Notifications</h1>
           <p class="text-muted text-sm mt-0.5">Recent activity relevant to you</p>
         </div>
         <button @click="markAllRead" class="text-sm font-semibold text-brand-600 dark:text-brand-300 hover:underline">Mark all as read</button>
       </div>
 
-      <div class="bg-surface rounded-2xl border border-line divide-y divide-line">
+      <div class="card divide-y divide-line">
         <div v-for="n in notifications" :key="n.id" class="p-4 flex items-start justify-between gap-4" :class="!n.is_read && 'bg-brand-50/40'">
           <div>
             <p class="text-sm text-fg" :class="!n.is_read && 'font-semibold'">{{ n.message }}</p>

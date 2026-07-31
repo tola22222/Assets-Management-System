@@ -4,6 +4,9 @@ import http from '../../api/http'
 import AppLayout from '../../layouts/AppLayout.vue'
 import TableSortIcon from '../../components/ui/TableSortIcon.vue'
 import FilterPills from '../../components/ui/FilterPills.vue'
+import StatCard from '../../components/ui/StatCard.vue'
+import DonutChart from '../../components/ui/DonutChart.vue'
+import LocationPillCards from '../../components/ui/LocationPillCards.vue'
 
 const reportTypes = [
   { key: 'inventory', label: 'Inventory' },
@@ -86,6 +89,94 @@ async function loadCompletenessStats() {
     serial: pct((a) => !!a.serial_number),
   }
 }
+
+// ---------------------------------------------------------------------------
+// Reports overview — a dashboard-style summary (KPI tiles + DonutChart/
+// LocationPillCards, same components and visual language as the main
+// Dashboard page) shown above the existing report browser below. Fetched
+// once on mount, independent of whatever report type/tab is selected in the
+// browser, so it always reflects the live register.
+// ---------------------------------------------------------------------------
+const overviewLoading = ref(true)
+const overviewLocationsRaw = ref([])
+const overviewInventory = ref([])
+const overviewCategoriesRaw = ref([])
+
+async function loadOverview() {
+  overviewLoading.value = true
+  try {
+    const [locRes, invRes, catRes] = await Promise.all([
+      http.get('/reports/locations'),
+      http.get('/reports/inventory'),
+      http.get('/categories'),
+    ])
+    overviewLocationsRaw.value = locRes.data
+    overviewInventory.value = invRes.data
+    overviewCategoriesRaw.value = catRes.data
+    if (!completenessStats.value) await loadCompletenessStats()
+  } finally {
+    overviewLoading.value = false
+  }
+}
+
+// Mirrors Dashboard.vue's own currency formatting so the KPI tiles read consistently across both pages.
+function formatCurrency(value) {
+  if (value >= 1000) return `$${Math.round(value / 1000)}K`
+  return `$${Math.round(value || 0)}`
+}
+function money(v) {
+  return '$' + Number(v || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })
+}
+
+const overviewLocationsList = computed(() => overviewLocationsRaw.value.map((r) => ({ location: r.name, total: r.assets_count || 0 })))
+
+// [{ category, count, percentage }] — the exact shape DonutChart already expects (same as Dashboard's assets_by_category).
+function toSegments(counts) {
+  const total = Object.values(counts).reduce((s, c) => s + c, 0) || 1
+  return Object.entries(counts)
+    .sort((a, b) => b[1] - a[1])
+    .map(([category, count]) => ({ category, count, percentage: Math.round((count / total) * 100) }))
+}
+
+const overviewCategorySegments = computed(() => {
+  const counts = {}
+  overviewInventory.value.forEach((a) => {
+    const name = a.category?.name || 'Uncategorized'
+    counts[name] = (counts[name] || 0) + 1
+  })
+  return toSegments(counts)
+})
+
+// Same in-use / needs-repair / lost / retiring buckets as the Asset Register page's
+// status pill, so "Asset status" here reads consistently with the rest of the app.
+function assetBucket(a) {
+  if (a.status === 'disposed') return 'retiring'
+  if (a.condition === 'lost') return 'lost'
+  if (a.condition === 'fair' || a.condition === 'broken') return 'needs_repair'
+  return 'in_use'
+}
+const STATUS_LABELS = { in_use: 'In use', needs_repair: 'Needs repair', lost: 'Lost', retiring: 'Retiring' }
+const overviewStatusSegments = computed(() => {
+  const counts = { in_use: 0, needs_repair: 0, lost: 0, retiring: 0 }
+  overviewInventory.value.forEach((a) => { counts[assetBucket(a)]++ })
+  const relabeled = {}
+  Object.entries(counts).forEach(([key, count]) => { relabeled[STATUS_LABELS[key]] = count })
+  return toSegments(relabeled)
+})
+
+const overviewTotalValue = computed(() => overviewInventory.value.reduce((sum, a) => sum + (Number(a.purchase_price) || 0), 0))
+const overviewValueSegments = computed(() => {
+  const sums = {}
+  overviewInventory.value.forEach((a) => {
+    if (!a.purchase_price) return
+    const name = a.category?.name || 'Uncategorized'
+    sums[name] = (sums[name] || 0) + Number(a.purchase_price)
+  })
+  return toSegments(sums)
+})
+
+const pricedCount = computed(() => overviewInventory.value.filter((a) => a.purchase_price !== null && a.purchase_price !== undefined).length)
+const pricedPercentage = computed(() => (overviewInventory.value.length ? Math.round((pricedCount.value / overviewInventory.value.length) * 100) : 0))
 
 async function load() {
   loading.value = true
@@ -183,84 +274,87 @@ function exportCsv() {
   URL.revokeObjectURL(url)
 }
 
-onMounted(load)
+onMounted(() => {
+  load()
+  loadOverview()
+})
 </script>
 
 <template>
   <AppLayout>
-    <div class="p-8 space-y-6">
-      <div class="flex items-center justify-between gap-4">
-        <div class="flex items-center gap-3">
-          <div class="w-11 h-11 rounded-2xl bg-brand/10 text-brand flex items-center justify-center flex-shrink-0">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" /></svg>
-          </div>
-          <div>
-            <h1 class="font-display text-xl font-bold text-fg tracking-tight">Reports</h1>
-            <p class="text-muted text-sm mt-0.5">Export and review asset data</p>
-          </div>
+    <div class="p-6 sm:p-8 space-y-6">
+
+      <!-- Page heading — same layout as Dashboard.vue's own header -->
+      <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+        <div>
+          <h1 class="font-display text-3xl sm:text-4xl font-semibold text-fg tracking-tight">Reports</h1>
+          <p class="text-muted text-sm mt-2">Live roll-ups across the asset register</p>
         </div>
-        <button @click="exportCsv" class="btn-ghost btn-sm">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
+        <button @click="exportCsv" class="btn-ghost flex-shrink-0 mt-1 sm:mt-0">
+          <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
           Export CSV
         </button>
       </div>
 
-      <div class="border-b border-line overflow-x-auto">
-        <div class="flex gap-6 min-w-max">
-          <button v-for="t in reportTypes" :key="t.key" @click="selected = t.key"
-            class="px-0.5 py-3 text-sm font-medium whitespace-nowrap border-b-2 -mb-px transition"
-            :class="selected === t.key ? 'border-brand text-brand font-semibold' : 'border-transparent text-muted hover:text-fg'">
-            {{ t.label }}
-          </button>
-        </div>
-      </div>
-
-      <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div class="card p-4 flex items-center gap-3">
-          <div class="w-10 h-10 rounded-xl bg-brand/10 text-brand flex items-center justify-center flex-shrink-0">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" /></svg>
-          </div>
-          <div>
-            <p class="font-display text-2xl font-bold text-fg leading-none">{{ rows.length }}</p>
-            <p class="text-xs text-muted mt-1">Total records</p>
-          </div>
-        </div>
-        <div class="card p-4 flex items-center gap-3">
-          <div class="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center flex-shrink-0">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-          </div>
-          <div>
-            <p class="font-display text-2xl font-bold text-fg leading-none">{{ sortedRows.length }}</p>
-            <p class="text-xs text-muted mt-1">{{ granularity === 'all' ? 'Showing' : 'Matching period' }}</p>
-          </div>
-        </div>
-        <div class="card p-4 col-span-2 flex items-center gap-3">
-          <div class="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center flex-shrink-0">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" /></svg>
-          </div>
-          <p class="text-sm text-muted">{{ reportTypes.find((t) => t.key === selected)?.label }}{{ granularity !== 'all' && periodValue ? ` — ${periodValue}` : '' }}</p>
-        </div>
-      </div>
-
-      <!-- Assets by location — horizontal bar breakdown, no raw table needed. -->
-      <div v-if="selected === 'locations'" class="card p-5 sm:p-6">
-        <h3 class="font-display text-base font-bold text-fg">Assets by location</h3>
-        <p class="text-xs text-faint mt-0.5 mb-6">{{ locationBars.length }} sites by item count</p>
-        <div v-for="b in locationBars" :key="b.label" class="flex items-center gap-3 mb-3 last:mb-0">
-          <span class="w-36 sm:w-44 flex-shrink-0 text-sm font-semibold text-fg truncate">{{ b.label }}</span>
-          <div class="flex-1 h-2.5 rounded-full bg-surface-2 border border-line overflow-hidden">
-            <div class="h-full rounded-full bg-brand transition-all" :style="{ width: b.pct + '%' }"></div>
-          </div>
-          <span class="w-10 text-right text-sm font-semibold text-fg flex-shrink-0">{{ b.count }}</span>
-        </div>
-        <p v-if="!loading && !locationBars.length" class="text-sm text-faint text-center py-6">No data for this report.</p>
+      <div v-if="overviewLoading" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div v-for="i in 4" :key="i" class="card p-5 h-24 animate-pulse"></div>
       </div>
 
       <template v-else>
-        <!-- Data completeness — aggregate bar summary above the per-asset checklist. -->
-        <div v-if="selected === 'data-completeness'" class="card p-5 sm:p-6">
-          <h3 class="font-display text-base font-bold text-fg">Data completeness</h3>
-          <p class="text-xs text-faint mt-0.5 mb-6">Fields recorded across {{ completenessStats?.total ?? 0 }} assets</p>
+        <!-- KPI row — StatCard, identical component to the Dashboard page -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatCard :value="overviewInventory.length" label="Total assets" />
+          <StatCard :value="overviewCategoriesRaw.length" label="Categories" />
+          <StatCard :value="overviewLocationsRaw.length" label="Sites" />
+          <StatCard
+            :value="formatCurrency(overviewTotalValue)"
+            :label="pricedCount < overviewInventory.length ? `Recorded value (${overviewInventory.length - pricedCount} unpriced)` : 'Recorded value'"
+            :badge="`${pricedPercentage}% priced`"
+          />
+        </div>
+
+        <!-- Asset categories + Asset status — DonutChart, same component as Dashboard's "by category" card -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div class="card p-6">
+            <h2 class="font-display text-lg font-bold text-fg">Assets by category</h2>
+            <p class="text-sm text-faint mb-6">Breakdown of what PEPY owns</p>
+            <DonutChart v-if="overviewCategorySegments.length" :segments="overviewCategorySegments" :total="overviewInventory.length" />
+            <p v-else class="text-sm text-faint">No assets yet.</p>
+          </div>
+
+          <div class="card p-6">
+            <h2 class="font-display text-lg font-bold text-fg">Asset status</h2>
+            <p class="text-sm text-faint mb-6">Condition &amp; lifecycle at a glance</p>
+            <DonutChart v-if="overviewInventory.length" :segments="overviewStatusSegments" :total="overviewInventory.length" total-label="assets" />
+            <p v-else class="text-sm text-faint">No assets yet.</p>
+          </div>
+        </div>
+
+        <!-- Assets by location — LocationPillCards, same component as Dashboard's "by location" card -->
+        <div class="card p-6">
+          <h2 class="font-display text-lg font-bold text-fg">Assets by location</h2>
+          <p class="text-sm text-faint mb-6">Office &amp; Learning Center holds the largest share; each school carries its own working set</p>
+          <LocationPillCards :locations="overviewLocationsList" />
+        </div>
+
+        <!-- Asset value by category — a third DonutChart, currency-formatted -->
+        <div class="card p-6">
+          <h2 class="font-display text-lg font-bold text-fg">Asset value by category</h2>
+          <p class="text-sm text-faint mb-6">{{ money(overviewTotalValue) }} recorded across {{ overviewInventory.length }} assets</p>
+          <DonutChart
+            v-if="overviewValueSegments.length"
+            :segments="overviewValueSegments"
+            :total="overviewTotalValue"
+            total-label="total value"
+            :format-value="money"
+          />
+          <p v-else class="text-sm text-faint">No priced assets yet.</p>
+        </div>
+
+        <!-- Data completeness — plain progress bars, same treatment as the browser's own version below -->
+        <div class="card p-6">
+          <h2 class="font-display text-lg font-bold text-fg">Data completeness</h2>
+          <p class="text-sm text-faint mb-6">Fields recorded across {{ completenessStats?.total ?? 0 }} assets</p>
           <div v-for="b in completenessBars" :key="b.label" class="flex items-center gap-3 mb-3 last:mb-0">
             <span class="w-36 sm:w-44 flex-shrink-0 text-sm font-semibold text-fg truncate">{{ b.label }}</span>
             <div class="flex-1 h-2.5 rounded-full bg-surface-2 border border-line overflow-hidden">
@@ -269,54 +363,123 @@ onMounted(load)
             <span class="w-10 text-right text-sm font-semibold text-fg flex-shrink-0">{{ b.pct }}%</span>
           </div>
         </div>
+      </template>
 
-        <div class="table-wrap">
-          <div class="table-toolbar">
-            <template v-if="hasDateField">
-              <div class="flex items-center gap-1 bg-surface-2 rounded-xl p-1">
-                <button
-                  v-for="g in ['all', 'day', 'month', 'year']" :key="g"
-                  @click="granularity = g"
-                  class="px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition"
-                  :class="granularity === g ? 'bg-brand text-white' : 'text-muted hover:text-fg'"
-                >
-                  {{ g }}
-                </button>
-              </div>
-              <input v-if="granularity === 'day'" v-model="periodValue" type="date" class="filter-select" />
-              <input v-else-if="granularity === 'month'" v-model="periodValue" type="month" class="filter-select" />
-              <FilterPills v-else-if="granularity === 'year'" v-model="periodValue" :options="yearOptions" hide-all />
-            </template>
+      <!-- Detailed report browser (unchanged functionality — tabs, sort, date filter, CSV export) -->
+      <div class="card p-6 space-y-6">
+        <h2 class="font-display text-lg font-bold text-fg">Detailed reports</h2>
+
+        <div class="flex items-center gap-2 overflow-x-auto pb-1">
+          <button v-for="t in reportTypes" :key="t.key" @click="selected = t.key"
+            class="filter-pill flex-shrink-0" :class="{ 'filter-pill-active': selected === t.key }">
+            {{ t.label }}
+          </button>
+        </div>
+
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div class="card p-4 flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-brand/10 text-brand flex items-center justify-center flex-shrink-0">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" /></svg>
+            </div>
+            <div>
+              <p class="font-display text-2xl font-bold text-fg leading-none">{{ rows.length }}</p>
+              <p class="text-xs text-muted mt-1">Total records</p>
+            </div>
           </div>
-          <div class="overflow-x-auto">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th v-for="col in columns[selected]" :key="col[0]" class="th-sort" @click="toggleSort(col[0])">
-                    {{ col[1] }}<TableSortIcon :active="sortKey === col[0]" :direction="sortDir" />
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="(row, i) in sortedRows" :key="i">
-                  <td v-for="col in columns[selected]" :key="col[0]">
-                    <span v-if="col[0] === 'stock_level'" class="px-2.5 py-1 rounded-full text-xs font-bold capitalize" :class="STOCK_LEVEL_STYLES[cell(row, col)] ?? ''">
-                      {{ cell(row, col) }}
-                    </span>
-                    <span v-else-if="col[0] === 'asset_code'" class="id-chip">{{ cell(row, col) }}</span>
-                    <template v-else>{{ cell(row, col) }}</template>
-                  </td>
-                </tr>
-                <tr v-if="!loading && !sortedRows.length">
-                  <td :colspan="columns[selected].length" class="py-10 text-center text-faint">
-                    {{ granularity !== 'all' ? 'No records in this period.' : 'No data for this report.' }}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+          <div class="card p-4 flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center flex-shrink-0">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            </div>
+            <div>
+              <p class="font-display text-2xl font-bold text-fg leading-none">{{ sortedRows.length }}</p>
+              <p class="text-xs text-muted mt-1">{{ granularity === 'all' ? 'Showing' : 'Matching period' }}</p>
+            </div>
+          </div>
+          <div class="card p-4 col-span-2 flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center flex-shrink-0">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" /></svg>
+            </div>
+            <p class="text-sm text-muted">{{ reportTypes.find((t) => t.key === selected)?.label }}{{ granularity !== 'all' && periodValue ? ` — ${periodValue}` : '' }}</p>
           </div>
         </div>
-      </template>
+
+        <!-- Assets by location — horizontal bar breakdown, no raw table needed. -->
+        <div v-if="selected === 'locations'" class="card p-5 sm:p-6">
+          <h3 class="font-display text-base font-bold text-fg">Assets by location</h3>
+          <p class="text-xs text-faint mt-0.5 mb-6">{{ locationBars.length }} sites by item count</p>
+          <div v-for="b in locationBars" :key="b.label" class="flex items-center gap-3 mb-3 last:mb-0">
+            <span class="w-36 sm:w-44 flex-shrink-0 text-sm font-semibold text-fg truncate">{{ b.label }}</span>
+            <div class="flex-1 h-2.5 rounded-full bg-surface-2 border border-line overflow-hidden">
+              <div class="h-full rounded-full bg-brand transition-all" :style="{ width: b.pct + '%' }"></div>
+            </div>
+            <span class="w-10 text-right text-sm font-semibold text-fg flex-shrink-0">{{ b.count }}</span>
+          </div>
+          <p v-if="!loading && !locationBars.length" class="text-sm text-faint text-center py-6">No data for this report.</p>
+        </div>
+
+        <template v-else>
+          <!-- Data completeness — aggregate bar summary above the per-asset checklist. -->
+          <div v-if="selected === 'data-completeness'" class="card p-5 sm:p-6">
+            <h3 class="font-display text-base font-bold text-fg">Data completeness</h3>
+            <p class="text-xs text-faint mt-0.5 mb-6">Fields recorded across {{ completenessStats?.total ?? 0 }} assets</p>
+            <div v-for="b in completenessBars" :key="b.label" class="flex items-center gap-3 mb-3 last:mb-0">
+              <span class="w-36 sm:w-44 flex-shrink-0 text-sm font-semibold text-fg truncate">{{ b.label }}</span>
+              <div class="flex-1 h-2.5 rounded-full bg-surface-2 border border-line overflow-hidden">
+                <div class="h-full rounded-full bg-brand transition-all" :style="{ width: b.pct + '%' }"></div>
+              </div>
+              <span class="w-10 text-right text-sm font-semibold text-fg flex-shrink-0">{{ b.pct }}%</span>
+            </div>
+          </div>
+
+          <div class="table-wrap">
+            <div class="table-toolbar">
+              <template v-if="hasDateField">
+                <div class="flex items-center gap-1 bg-surface-2 rounded-xl p-1">
+                  <button
+                    v-for="g in ['all', 'day', 'month', 'year']" :key="g"
+                    @click="granularity = g"
+                    class="px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition"
+                    :class="granularity === g ? 'bg-brand text-white' : 'text-muted hover:text-fg'"
+                  >
+                    {{ g }}
+                  </button>
+                </div>
+                <input v-if="granularity === 'day'" v-model="periodValue" type="date" class="filter-select" />
+                <input v-else-if="granularity === 'month'" v-model="periodValue" type="month" class="filter-select" />
+                <FilterPills v-else-if="granularity === 'year'" v-model="periodValue" :options="yearOptions" hide-all />
+              </template>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th v-for="col in columns[selected]" :key="col[0]" class="th-sort" @click="toggleSort(col[0])">
+                      {{ col[1] }}<TableSortIcon :active="sortKey === col[0]" :direction="sortDir" />
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(row, i) in sortedRows" :key="i">
+                    <td v-for="col in columns[selected]" :key="col[0]">
+                      <span v-if="col[0] === 'stock_level'" class="px-2.5 py-1 rounded-full text-xs font-bold capitalize" :class="STOCK_LEVEL_STYLES[cell(row, col)] ?? ''">
+                        {{ cell(row, col) }}
+                      </span>
+                      <span v-else-if="col[0] === 'asset_code'" class="id-chip">{{ cell(row, col) }}</span>
+                      <template v-else>{{ cell(row, col) }}</template>
+                    </td>
+                  </tr>
+                  <tr v-if="!loading && !sortedRows.length">
+                    <td :colspan="columns[selected].length" class="py-10 text-center text-faint">
+                      {{ granularity !== 'all' ? 'No records in this period.' : 'No data for this report.' }}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </template>
+      </div>
+
     </div>
   </AppLayout>
 </template>

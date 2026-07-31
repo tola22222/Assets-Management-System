@@ -18,6 +18,13 @@ class AssetReturn extends Model
         'return_date' => 'date',
     ];
 
+    protected $appends = ['image_url'];
+
+    public function getImageUrlAttribute()
+    {
+        return $this->image_path ? asset('storage/' . $this->image_path) : null;
+    }
+
     public function assignment()
     {
         return $this->belongsTo(AssetAssignment::class, 'assignment_id');

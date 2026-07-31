@@ -27,6 +27,7 @@ const { sortKey, sortDir, toggleSort, sorted: sortedReturns } = useTableSort(sea
 
 const assignments = ref([])
 const showModal = ref(false)
+const imageFile = ref(null)
 const form = reactive({ assignment_id: '', asset_id: '', condition: 'good', damage_notes: '', return_date: '' })
 
 async function loadOptions() {
@@ -36,6 +37,7 @@ async function loadOptions() {
 
 function openCreate() {
   Object.assign(form, { assignment_id: '', asset_id: '', condition: 'good', damage_notes: '', return_date: new Date().toISOString().slice(0, 10) })
+  imageFile.value = null
   showModal.value = true
 }
 
@@ -44,9 +46,17 @@ function onAssignmentChange() {
   form.asset_id = assignment?.asset_id || ''
 }
 
+function handleFileChange(e) {
+  imageFile.value = e.target.files[0] || null
+}
+
 async function handleSubmit() {
+  const fd = new FormData()
+  Object.entries(form).forEach(([k, v]) => fd.append(k, v))
+  if (imageFile.value) fd.append('image', imageFile.value)
+
   try {
-    await http.post('/asset-returns', form)
+    await http.post('/asset-returns', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
     toast.success(t('asset_returns.submitted'))
     showModal.value = false
     await fetchAll()
@@ -90,6 +100,7 @@ onMounted(() => {
               <tr>
                 <th class="th-sort" @click="toggleSort('asset')">{{ t('common.asset') }}<TableSortIcon :active="sortKey === 'asset'" :direction="sortDir" /></th>
                 <th class="th-sort" @click="toggleSort('condition')">{{ t('asset_returns.condition') }}<TableSortIcon :active="sortKey === 'condition'" :direction="sortDir" /></th>
+                <th>{{ t('asset_returns.photo') }}</th>
                 <th class="th-sort" @click="toggleSort('returned_by')">{{ t('asset_returns.returned_by') }}<TableSortIcon :active="sortKey === 'returned_by'" :direction="sortDir" /></th>
                 <th class="th-sort" @click="toggleSort('status')">{{ t('common.status') }}<TableSortIcon :active="sortKey === 'status'" :direction="sortDir" /></th>
                 <th class="text-right">{{ t('common.actions') }}</th>
@@ -99,6 +110,10 @@ onMounted(() => {
               <tr v-for="r in sortedReturns" :key="r.id">
                 <td class="font-medium text-fg">{{ r.asset?.name || t('common.n_a') }}</td>
                 <td class="capitalize">{{ r.condition }}</td>
+                <td>
+                  <a v-if="r.image_url" :href="r.image_url" target="_blank"><img :src="r.image_url" class="w-9 h-9 rounded-lg object-cover border border-line" alt="" /></a>
+                  <span v-else class="text-faint">—</span>
+                </td>
                 <td>{{ r.returned_by?.name || t('common.n_a') }}</td>
                 <td><StatusBadge :status="r.status" /></td>
                 <td class="text-right whitespace-nowrap">
@@ -115,7 +130,7 @@ onMounted(() => {
                 </td>
               </tr>
               <tr v-if="!loading && !sortedReturns.length">
-                <td colspan="5" class="py-10 text-center text-faint">{{ t('asset_returns.empty') }}</td>
+                <td colspan="6" class="py-10 text-center text-faint">{{ t('asset_returns.empty') }}</td>
               </tr>
             </tbody>
           </table>
@@ -149,6 +164,10 @@ onMounted(() => {
           <div class="space-y-1.5">
             <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_returns.damage_notes') }}</label>
             <textarea v-model="form.damage_notes" rows="2" class="input"></textarea>
+          </div>
+          <div class="space-y-1.5">
+            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_returns.photo_reference') }}</label>
+            <input type="file" accept="image/jpeg,image/png" @change="handleFileChange" class="w-full text-sm" />
           </div>
         </div>
         <div class="flex items-center gap-3 border-t border-line px-6 py-4">

@@ -34,7 +34,6 @@ const isAdmin = computed(() => auth.user?.role === 'operations_hr_manager')
 
 const I = {
   home: 'M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75',
-  qr: 'M6.75 4.5H4.5v2.25M17.25 4.5h2.25v2.25M6.75 19.5H4.5v-2.25M17.25 19.5h2.25v-2.25M8.25 8.25h3v3h-3v-3zM3.75 12h16.5',
   assets: 'M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z',
   tag: 'M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3zM6 6h.008v.008H6V6z',
   pin: 'M15 10.5a3 3 0 11-6 0 3 3 0 016 0zM19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z',
@@ -51,12 +50,13 @@ const I = {
   cog: 'M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.281zM15 12a3 3 0 11-6 0 3 3 0 016 0z',
   setup: 'M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75',
   activity: 'M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5M9 11.25v1.5M12 9v3.75m3-6v6',
+  search: 'M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z',
 }
 
-// Top-level (ungrouped) links
+// Top-level (ungrouped) links — quick-access tools, always visible regardless of role.
 const topLinks = computed(() => [
   { to: '/', label: t('nav.dashboard'), icon: I.home, exact: true },
-  { to: '/qr-scan', label: t('nav.qr_scanner'), icon: I.qr },
+  { to: '/search', label: t('nav.search'), icon: I.search },
 ])
 
 // Non-admin flat "My Assets" section (replaces the Asset Management group)
@@ -87,7 +87,7 @@ const peopleGroup = computed(() => ({
   ],
 }))
 const systemSetupGroup = computed(() => ({
-  key: 'settings', title: t('nav.system_setup'), icon: I.setup,
+  key: 'asset-setup', title: t('nav.system_setup'), icon: I.setup,
   items: [
     { to: '/categories', label: t('nav.categories') },
     { to: '/locations', label: t('nav.locations') },
@@ -134,7 +134,6 @@ const breadcrumbMap = computed(() => {
 
   topLinks.value.forEach((item) => add(item.to, item.label))
   add('/reports', t('nav.reports'))
-  add('/search', t('nav.search'))
   add('/profile', 'My Profile')
   add('/notifications', 'Notifications')
   add('/assets/import', t('import.title'), t('nav.asset_management'))
@@ -189,7 +188,8 @@ function initials(name) {
 
           <!-- Scrollable nav -->
           <nav class="flex-1 overflow-y-auto px-3 py-3 space-y-0.5">
-            <!-- Top-level links -->
+            <!-- Overview: quick-access tools, same for every role -->
+            <p class="nav-section-label">{{ t('nav.overview') }}</p>
             <RouterLink
               v-for="item in topLinks"
               :key="item.to"
@@ -203,9 +203,12 @@ function initials(name) {
               <span class="truncate">{{ item.label }}</span>
             </RouterLink>
 
+            <!-- Manage: everything that changes register data — grouped by domain -->
+            <p class="nav-section-label pt-3">{{ t('nav.manage') }}</p>
+
             <!-- Non-admin flat My Assets -->
-            <div v-if="!isAdmin" class="pt-2">
-              <p class="nav-section-label">{{ t('nav.my_assets') }}</p>
+            <div v-if="!isAdmin">
+              <p class="nav-section-label pl-3 !text-white/30">{{ t('nav.my_assets') }}</p>
               <RouterLink
                 v-for="item in myAssets"
                 :key="item.to"
@@ -245,7 +248,8 @@ function initials(name) {
               </div>
             </div>
 
-            <!-- Reports (top-level) -->
+            <!-- Insight: reporting/analytics -->
+            <p class="nav-section-label pt-3">{{ t('nav.insight') }}</p>
             <RouterLink to="/reports" class="nav-link" active-class="nav-link-active" @click="mobileOpen = false">
               <svg class="w-[18px] h-[18px] flex-shrink-0" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :d="I.chart" /></svg>
               <span class="truncate">{{ t('nav.reports') }}</span>

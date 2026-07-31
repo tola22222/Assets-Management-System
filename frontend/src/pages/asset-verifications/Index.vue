@@ -30,6 +30,7 @@ const { sortKey, sortDir, toggleSort, sorted: sortedVerifications } = useTableSo
 const assets = ref([])
 const locations = ref([])
 const showModal = ref(false)
+const imageFile = ref(null)
 const form = reactive({ asset_id: '', location_id: '', quantity_verified: 1, condition: 'good', remark: '' })
 
 async function loadOptions() {
@@ -40,12 +41,21 @@ async function loadOptions() {
 
 function openCreate() {
   Object.assign(form, { asset_id: '', location_id: '', quantity_verified: 1, condition: 'good', remark: '' })
+  imageFile.value = null
   showModal.value = true
 }
 
+function handleFileChange(e) {
+  imageFile.value = e.target.files[0] || null
+}
+
 async function handleSubmit() {
+  const fd = new FormData()
+  Object.entries(form).forEach(([k, v]) => fd.append(k, v))
+  if (imageFile.value) fd.append('image', imageFile.value)
+
   try {
-    await http.post('/asset-verifications', form)
+    await http.post('/asset-verifications', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
     toast.success(t('asset_verifications.recorded'))
     showModal.value = false
     await fetchAll()
@@ -85,6 +95,7 @@ onMounted(() => {
                 <th class="th-sort" @click="toggleSort('location')">{{ t('common.location') }}<TableSortIcon :active="sortKey === 'location'" :direction="sortDir" /></th>
                 <th class="th-sort" @click="toggleSort('condition')">{{ t('asset_returns.condition') }}<TableSortIcon :active="sortKey === 'condition'" :direction="sortDir" /></th>
                 <th class="th-sort" @click="toggleSort('verified_by')">{{ t('asset_verifications.verified_by') }}<TableSortIcon :active="sortKey === 'verified_by'" :direction="sortDir" /></th>
+                <th>{{ t('asset_verifications.photo') }}</th>
                 <th>{{ t('common.status') }}</th>
                 <th class="text-right">{{ t('common.actions') }}</th>
               </tr>
@@ -95,6 +106,10 @@ onMounted(() => {
                 <td>{{ v.location?.name || t('common.n_a') }}</td>
                 <td class="capitalize">{{ v.condition }}</td>
                 <td>{{ v.verified_by?.name || t('common.n_a') }}</td>
+                <td>
+                  <a v-if="v.image_url" :href="v.image_url" target="_blank"><img :src="v.image_url" class="w-9 h-9 rounded-lg object-cover border border-line" alt="" /></a>
+                  <span v-else class="text-faint">—</span>
+                </td>
                 <td>
                   <span class="px-2.5 py-1 rounded-lg text-xs font-bold" :class="v.verified_at ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'">
                     {{ v.verified_at ? t('asset_verifications.complete') : t('asset_verifications.pending') }}
@@ -107,7 +122,7 @@ onMounted(() => {
                 </td>
               </tr>
               <tr v-if="!loading && !sortedVerifications.length">
-                <td colspan="6" class="py-10 text-center text-faint">{{ t('asset_verifications.empty') }}</td>
+                <td colspan="7" class="py-10 text-center text-faint">{{ t('asset_verifications.empty') }}</td>
               </tr>
             </tbody>
           </table>
@@ -150,6 +165,10 @@ onMounted(() => {
           <div class="space-y-1.5">
             <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_verifications.remark') }}</label>
             <textarea v-model="form.remark" rows="2" class="input"></textarea>
+          </div>
+          <div class="space-y-1.5">
+            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_verifications.photo_reference') }}</label>
+            <input type="file" accept="image/jpeg,image/png" @change="handleFileChange" class="w-full text-sm" />
           </div>
         </div>
         <div class="flex items-center gap-3 border-t border-line px-6 py-4">

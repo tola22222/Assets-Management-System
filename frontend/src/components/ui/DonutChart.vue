@@ -9,6 +9,9 @@ const props = defineProps({
   segments: { type: Array, required: true }, // [{ category, count, percentage }]
   total: { type: [String, Number], required: true },
   totalLabel: { type: String, default: 'total items' },
+  // Lets a segment's raw count render as e.g. currency ($1,234) instead of a
+  // plain number — defaults to identity so existing callers (Dashboard) are unaffected.
+  formatValue: { type: Function, default: (v) => v },
 })
 
 // Brand-derived categorical palette (teal/gold/rust, extended with brand-
@@ -41,7 +44,7 @@ const chartOptions = {
     <div class="relative w-32 h-32 flex-shrink-0">
       <Doughnut :data="chartData" :options="chartOptions" />
       <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-        <span class="font-display text-xl font-bold text-fg leading-none">{{ total }}</span>
+        <span class="font-display text-xl font-bold text-fg leading-none">{{ typeof total === 'number' ? formatValue(total) : total }}</span>
         <span class="text-[11px] text-faint mt-1">{{ totalLabel }}</span>
       </div>
     </div>
@@ -52,7 +55,7 @@ const chartOptions = {
           <span class="font-semibold text-fg truncate">{{ segment.category }}</span>
         </div>
         <div class="flex items-center gap-3 flex-shrink-0">
-          <span class="font-semibold text-fg">{{ segment.count }}</span>
+          <span class="font-semibold text-fg">{{ formatValue(segment.count) }}</span>
           <span class="w-9 text-right text-faint">{{ segment.percentage }}%</span>
         </div>
       </div>

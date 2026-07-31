@@ -41,7 +41,7 @@ onMounted(() => loadPage(1))
   <AppLayout>
     <div class="p-8 space-y-6">
       <div>
-        <h1 class="text-xl font-bold text-fg tracking-tight">Activity Logs</h1>
+        <h1 class="font-display text-xl font-bold text-fg tracking-tight">Activity Logs</h1>
         <p class="text-muted text-sm mt-0.5">Full audit trail of actions taken in the system</p>
       </div>
 

@@ -5,14 +5,10 @@
 
 @theme {
   /* Kantumruy Pro covers both Latin and Khmer glyphs, so the same family is
-     used app-wide for body text instead of separate Latin/Khmer fonts. */
+     used app-wide — body text AND headings/stat values — at Medium (500)
+     weight by default (see body{} in @layer base below). */
   --font-sans: 'Kantumruy Pro', ui-sans-serif, system-ui, -apple-system, 'Khmer OS', 'Segoe UI', sans-serif;
-  /* Serif display face for page/section titles (Asset Register mockup uses
-     font-serif headings) — generic serif stack needs no extra font load, and
-     Kantumruy Pro stays as fallback so Khmer titles still render (per-glyph
-     font fallback: Georgia/Cambria/Times have no Khmer glyphs, so Khmer runs
-     fall through to Kantumruy Pro automatically while Latin stays serif). */
-  --font-display: ui-serif, Georgia, Cambria, 'Times New Roman', Times, 'Kantumruy Pro', serif;
+  --font-display: 'Kantumruy Pro', ui-sans-serif, system-ui, -apple-system, 'Khmer OS', 'Segoe UI', sans-serif;
   /* IBM Plex Mono for asset codes / tabular data only — the "physical tag" look. */
   --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 
@@ -100,7 +96,7 @@
     background-color: var(--color-canvas);
     color: var(--color-fg);
     font-family: var(--font-sans);
-    font-weight: 300;
+    font-weight: 500;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
     position: relative;

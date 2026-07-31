@@ -32,8 +32,9 @@ Assets-Management-System/
 - `php artisan serve` — API/backend only on `http://127.0.0.1:8000` (what the SPA proxies to).
 - `composer test` or `php artisan test` — runs the PHPUnit suite (clears config first). Tests use **sqlite `:memory:`** (see `backend/phpunit.xml`), not the MySQL dev DB.
 - Run one test: `php artisan test --filter=SomeTest` or `php artisan test tests/Feature/SomeTest.php`.
-- `./vendor/bin/pint` — code style (Laravel Pint). CI style config is `.styleci.yml` at the repo root.
+- `./vendor/bin/pint` — code style (Laravel Pint). CI style config is `backend/.styleci.yml`.
 - `php artisan migrate` / `php artisan db:seed` — schema and seed data. Local dev DB defaults to **sqlite** (`backend/database/database.sqlite`, per `.env.example`'s `DB_CONNECTION=sqlite`) — not MySQL as you might expect from the deployment setup; production (`docker-compose.yml`, written inline by the deploy workflow) runs MySQL 8. Check `backend/.env`'s actual `DB_CONNECTION` before assuming either.
+- `php artisan storage:link` — **required once per local checkout**, not part of `composer install`/migrate. Asset photos, QR codes, and profile photos are all served via `asset('storage/'.$path)` (see `Asset`/`Staff`/`User` model accessors), which resolves correctly to whatever host:port served the request — but every one of those URLs 404s until `public/storage` is symlinked to `storage/app/public`. Symptom: broken `<img>` icons everywhere despite the frontend code being correct. The deploy workflow already runs this (`storage:link || true`) on every deploy, so production isn't affected — it's purely a fresh-local-checkout gap.
 
 ### Vue SPA (run from `frontend/`)
 - `npm run dev` — Vite dev server on `:5173` with HMR, proxies `/api` → `http://127.0.0.1:8000` (see `frontend/vite.config.js`). Run `php artisan serve` (from `backend/`) alongside it. Use this while actively developing the SPA.
