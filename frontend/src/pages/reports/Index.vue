@@ -77,19 +77,6 @@ function defaultPeriodValue(g) {
 watch(granularity, (g) => { periodValue.value = defaultPeriodValue(g) })
 watch(selected, load)
 
-const completenessStats = ref(null)
-async function loadCompletenessStats() {
-  const { data } = await http.get('/reports/inventory')
-  const total = data.length
-  const pct = (pred) => (total ? Math.round((data.filter(pred).length / total) * 100) : 0)
-  completenessStats.value = {
-    total,
-    price: pct((a) => a.purchase_price !== null && a.purchase_price !== undefined),
-    date: pct((a) => a.purchase_date !== null && a.purchase_date !== undefined),
-    serial: pct((a) => !!a.serial_number),
-  }
-}
-
 // ---------------------------------------------------------------------------
 // Reports overview — a dashboard-style summary (KPI tiles + DonutChart/
 // LocationPillCards, same components and visual language as the main
@@ -102,6 +89,20 @@ const overviewLocationsRaw = ref([])
 const overviewInventory = ref([])
 const overviewCategoriesRaw = ref([])
 
+// Derived from overviewInventory (already fetched below) rather than a
+// separate /reports/inventory call, so the KPI tiles and this stay coherent
+// with each other and mount doesn't triple-fetch the same endpoint.
+const completenessStats = computed(() => {
+  const total = overviewInventory.value.length
+  const pct = (pred) => (total ? Math.round((overviewInventory.value.filter(pred).length / total) * 100) : 0)
+  return {
+    total,
+    price: pct((a) => a.purchase_price !== null && a.purchase_price !== undefined),
+    date: pct((a) => a.purchase_date !== null && a.purchase_date !== undefined),
+    serial: pct((a) => !!a.serial_number),
+  }
+})
+
 async function loadOverview() {
   overviewLoading.value = true
   try {
@@ -113,7 +114,6 @@ async function loadOverview() {
     overviewLocationsRaw.value = locRes.data
     overviewInventory.value = invRes.data
     overviewCategoriesRaw.value = catRes.data
-    if (!completenessStats.value) await loadCompletenessStats()
   } finally {
     overviewLoading.value = false
   }
@@ -160,7 +160,7 @@ const overviewStatusSegments = computed(() => {
   const counts = { in_use: 0, needs_repair: 0, lost: 0, retiring: 0 }
   overviewInventory.value.forEach((a) => { counts[assetBucket(a)]++ })
   const relabeled = {}
-  Object.entries(counts).forEach(([key, count]) => { relabeled[STATUS_LABELS[key]] = count })
+  Object.entries(counts).forEach(([key, count]) => { if (count > 0) relabeled[STATUS_LABELS[key]] = count })
   return toSegments(relabeled)
 })
 
@@ -184,7 +184,6 @@ async function load() {
   sortKey.value = null
   const { data } = await http.get(`/reports/${selected.value}`)
   rows.value = data
-  if (selected.value === 'data-completeness') await loadCompletenessStats()
   loading.value = false
 }
 
@@ -365,48 +364,46 @@ onMounted(() => {
         </div>
       </template>
 
-      <!-- Detailed report browser (unchanged functionality — tabs, sort, date filter, CSV export) -->
-      <div class="card p-6 space-y-6">
-        <h2 class="font-display text-lg font-bold text-fg">Detailed reports</h2>
-
-        <div class="flex items-center gap-2 overflow-x-auto pb-1">
-          <button v-for="t in reportTypes" :key="t.key" @click="selected = t.key"
-            class="filter-pill flex-shrink-0" :class="{ 'filter-pill-active': selected === t.key }">
-            {{ t.label }}
+      <!-- Detailed report browser -->
+      <div class="card p-6 sm:p-8">
+        <!-- Date filter + export -->
+        <div class="flex flex-wrap items-center gap-3 mb-6">
+          <template v-if="hasDateField">
+            <div class="flex items-center gap-1 bg-surface-2 rounded-xl p-1">
+              <button
+                v-for="g in ['all', 'day', 'month', 'year']" :key="g"
+                @click="granularity = g"
+                class="px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition"
+                :class="granularity === g ? 'bg-brand text-white' : 'text-muted hover:text-fg'"
+              >
+                {{ g }}
+              </button>
+            </div>
+            <input v-if="granularity === 'day'" v-model="periodValue" type="date" class="filter-select" />
+            <input v-else-if="granularity === 'month'" v-model="periodValue" type="month" class="filter-select" />
+            <FilterPills v-else-if="granularity === 'year'" v-model="periodValue" :options="yearOptions" hide-all />
+          </template>
+          <button @click="exportCsv" class="btn-ghost btn-sm sm:ml-auto flex-shrink-0">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
+            Export CSV
           </button>
         </div>
 
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <div class="card p-4 flex items-center gap-3">
-            <div class="w-10 h-10 rounded-xl bg-brand/10 text-brand flex items-center justify-center flex-shrink-0">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" /></svg>
-            </div>
-            <div>
-              <p class="font-display text-2xl font-bold text-fg leading-none">{{ rows.length }}</p>
-              <p class="text-xs text-muted mt-1">Total records</p>
-            </div>
+        <!-- Inline record count summary -->
+        <div class="flex flex-wrap items-center gap-x-8 gap-y-3 mb-6 pb-6 border-b border-line">
+          <div>
+            <p class="font-display text-2xl font-bold text-fg leading-none">{{ rows.length }}</p>
+            <p class="text-xs text-muted mt-1">Total records</p>
           </div>
-          <div class="card p-4 flex items-center gap-3">
-            <div class="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center flex-shrink-0">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-            </div>
-            <div>
-              <p class="font-display text-2xl font-bold text-fg leading-none">{{ sortedRows.length }}</p>
-              <p class="text-xs text-muted mt-1">{{ granularity === 'all' ? 'Showing' : 'Matching period' }}</p>
-            </div>
+          <div>
+            <p class="font-display text-2xl font-bold text-fg leading-none">{{ sortedRows.length }}</p>
+            <p class="text-xs text-muted mt-1">{{ granularity === 'all' ? 'Showing' : 'Matching period' }}</p>
           </div>
-          <div class="card p-4 col-span-2 flex items-center gap-3">
-            <div class="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center flex-shrink-0">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" /></svg>
-            </div>
-            <p class="text-sm text-muted">{{ reportTypes.find((t) => t.key === selected)?.label }}{{ granularity !== 'all' && periodValue ? ` — ${periodValue}` : '' }}</p>
-          </div>
+          <p class="sm:ml-auto text-sm text-muted">{{ reportTypes.find((t) => t.key === selected)?.label }}{{ granularity !== 'all' && periodValue ? ` — ${periodValue}` : '' }}</p>
         </div>
 
         <!-- Assets by location — horizontal bar breakdown, no raw table needed. -->
-        <div v-if="selected === 'locations'" class="card p-5 sm:p-6">
-          <h3 class="font-display text-base font-bold text-fg">Assets by location</h3>
-          <p class="text-xs text-faint mt-0.5 mb-6">{{ locationBars.length }} sites by item count</p>
+        <div v-if="selected === 'locations'">
           <div v-for="b in locationBars" :key="b.label" class="flex items-center gap-3 mb-3 last:mb-0">
             <span class="w-36 sm:w-44 flex-shrink-0 text-sm font-semibold text-fg truncate">{{ b.label }}</span>
             <div class="flex-1 h-2.5 rounded-full bg-surface-2 border border-line overflow-hidden">
@@ -419,9 +416,8 @@ onMounted(() => {
 
         <template v-else>
           <!-- Data completeness — aggregate bar summary above the per-asset checklist. -->
-          <div v-if="selected === 'data-completeness'" class="card p-5 sm:p-6">
-            <h3 class="font-display text-base font-bold text-fg">Data completeness</h3>
-            <p class="text-xs text-faint mt-0.5 mb-6">Fields recorded across {{ completenessStats?.total ?? 0 }} assets</p>
+          <div v-if="selected === 'data-completeness'" class="mb-6 pb-6 border-b border-line">
+            <p class="text-xs font-semibold text-faint uppercase tracking-wide mb-3">Fields recorded across {{ completenessStats.total }} assets</p>
             <div v-for="b in completenessBars" :key="b.label" class="flex items-center gap-3 mb-3 last:mb-0">
               <span class="w-36 sm:w-44 flex-shrink-0 text-sm font-semibold text-fg truncate">{{ b.label }}</span>
               <div class="flex-1 h-2.5 rounded-full bg-surface-2 border border-line overflow-hidden">
@@ -431,51 +427,32 @@ onMounted(() => {
             </div>
           </div>
 
-          <div class="table-wrap">
-            <div class="table-toolbar">
-              <template v-if="hasDateField">
-                <div class="flex items-center gap-1 bg-surface-2 rounded-xl p-1">
-                  <button
-                    v-for="g in ['all', 'day', 'month', 'year']" :key="g"
-                    @click="granularity = g"
-                    class="px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition"
-                    :class="granularity === g ? 'bg-brand text-white' : 'text-muted hover:text-fg'"
-                  >
-                    {{ g }}
-                  </button>
-                </div>
-                <input v-if="granularity === 'day'" v-model="periodValue" type="date" class="filter-select" />
-                <input v-else-if="granularity === 'month'" v-model="periodValue" type="month" class="filter-select" />
-                <FilterPills v-else-if="granularity === 'year'" v-model="periodValue" :options="yearOptions" hide-all />
-              </template>
-            </div>
-            <div class="overflow-x-auto">
-              <table class="data-table">
-                <thead>
-                  <tr>
-                    <th v-for="col in columns[selected]" :key="col[0]" class="th-sort" @click="toggleSort(col[0])">
-                      {{ col[1] }}<TableSortIcon :active="sortKey === col[0]" :direction="sortDir" />
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="(row, i) in sortedRows" :key="i">
-                    <td v-for="col in columns[selected]" :key="col[0]">
-                      <span v-if="col[0] === 'stock_level'" class="px-2.5 py-1 rounded-full text-xs font-bold capitalize" :class="STOCK_LEVEL_STYLES[cell(row, col)] ?? ''">
-                        {{ cell(row, col) }}
-                      </span>
-                      <span v-else-if="col[0] === 'asset_code'" class="id-chip">{{ cell(row, col) }}</span>
-                      <template v-else>{{ cell(row, col) }}</template>
-                    </td>
-                  </tr>
-                  <tr v-if="!loading && !sortedRows.length">
-                    <td :colspan="columns[selected].length" class="py-10 text-center text-faint">
-                      {{ granularity !== 'all' ? 'No records in this period.' : 'No data for this report.' }}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+          <div class="overflow-x-auto">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th v-for="col in columns[selected]" :key="col[0]" class="th-sort" @click="toggleSort(col[0])">
+                    {{ col[1] }}<TableSortIcon :active="sortKey === col[0]" :direction="sortDir" />
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(row, i) in sortedRows" :key="i">
+                  <td v-for="col in columns[selected]" :key="col[0]">
+                    <span v-if="col[0] === 'stock_level'" class="px-2.5 py-1 rounded-full text-xs font-bold capitalize" :class="STOCK_LEVEL_STYLES[cell(row, col)] ?? ''">
+                      {{ cell(row, col) }}
+                    </span>
+                    <span v-else-if="col[0] === 'asset_code'" class="id-chip">{{ cell(row, col) }}</span>
+                    <template v-else>{{ cell(row, col) }}</template>
+                  </td>
+                </tr>
+                <tr v-if="!loading && !sortedRows.length">
+                  <td :colspan="columns[selected].length" class="py-10 text-center text-faint">
+                    {{ granularity !== 'all' ? 'No records in this period.' : 'No data for this report.' }}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </template>
       </div>

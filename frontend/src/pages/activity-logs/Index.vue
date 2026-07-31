@@ -39,13 +39,13 @@ onMounted(() => loadPage(1))
 
 <template>
   <AppLayout>
-    <div class="p-8 space-y-6">
-      <div>
-        <h1 class="font-display text-xl font-bold text-fg tracking-tight">Activity Logs</h1>
-        <p class="text-muted text-sm mt-0.5">Full audit trail of actions taken in the system</p>
-      </div>
+    <div class="p-6 sm:p-8 space-y-6">
+      <div class="card p-6 sm:p-8">
+        <div class="mb-6">
+          <h1 class="font-display text-3xl font-bold text-fg tracking-tight">Activity Logs</h1>
+          <p class="text-muted text-sm mt-1">Full audit trail of actions taken in the system</p>
+        </div>
 
-      <div class="table-wrap">
         <div class="overflow-x-auto">
           <table class="data-table">
             <thead>

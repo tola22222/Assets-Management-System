@@ -2,7 +2,6 @@
 import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '../../layouts/AppLayout.vue'
-import PageHeader from '../../components/ui/PageHeader.vue'
 import StatusBadge from '../../components/ui/StatusBadge.vue'
 import ConfirmDialog from '../../components/ui/ConfirmDialog.vue'
 import SearchInput from '../../components/ui/SearchInput.vue'
@@ -35,15 +34,19 @@ onMounted(fetchAll)
 
 <template>
   <AppLayout>
-    <div class="p-8 space-y-6">
-      <PageHeader :title="t('asset_movements.title')" :subtitle="t('asset_movements.subtitle')" />
+    <div class="p-6 sm:p-8 space-y-6">
+      <div class="card p-6 sm:p-8">
+        <div class="mb-6">
+          <h1 class="font-display text-3xl font-bold text-fg tracking-tight">{{ t('asset_movements.title') }}</h1>
+          <p class="text-muted text-sm mt-1">{{ t('asset_movements.subtitle') }}</p>
+        </div>
 
-      <div class="table-wrap">
-        <div class="table-toolbar">
-          <div class="w-full sm:max-w-xs">
+        <div class="flex flex-wrap items-center gap-3 mb-6">
+          <div class="flex-1 min-w-[260px]">
             <SearchInput v-model="search" :placeholder="t('common.search')" />
           </div>
         </div>
+
         <div class="overflow-x-auto">
           <table class="data-table">
             <thead>

@@ -2,7 +2,6 @@
 import { ref, computed, onMounted, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '../../layouts/AppLayout.vue'
-import PageHeader from '../../components/ui/PageHeader.vue'
 import Modal from '../../components/ui/Modal.vue'
 import ConfirmDialog from '../../components/ui/ConfirmDialog.vue'
 import SearchInput from '../../components/ui/SearchInput.vue'
@@ -52,15 +51,25 @@ onMounted(fetchAll)
 
 <template>
   <AppLayout>
-    <div class="p-8 space-y-6">
-      <PageHeader :title="t('suppliers.title')" :subtitle="t('suppliers.subtitle')" :buttonText="canManage ? t('suppliers.new') : null" @action="openCreate" />
+    <div class="p-6 sm:p-8 space-y-6">
+      <div class="card p-6 sm:p-8">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+          <div>
+            <h1 class="font-display text-3xl font-bold text-fg tracking-tight">{{ t('suppliers.title') }}</h1>
+            <p class="text-muted text-sm mt-1">{{ t('suppliers.subtitle') }}</p>
+          </div>
+          <button v-if="canManage" @click="openCreate" class="btn-primary btn-sm flex-shrink-0">
+            <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+            {{ t('suppliers.new') }}
+          </button>
+        </div>
 
-      <div class="table-wrap">
-        <div class="table-toolbar">
-          <div class="w-full sm:max-w-xs">
+        <div class="flex flex-wrap items-center gap-3 mb-6">
+          <div class="flex-1 min-w-[260px]">
             <SearchInput v-model="search" :placeholder="t('suppliers.search_placeholder')" />
           </div>
         </div>
+
         <div class="overflow-x-auto">
           <table class="data-table">
             <thead>
