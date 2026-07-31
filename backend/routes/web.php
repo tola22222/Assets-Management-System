@@ -40,7 +40,8 @@ Route::get('/asset/{assetCode}/update-condition', fn ($code) => redirect()->rout
 // In the Docker image frontend/dist is absent, so this falls back to public/app,
 // though in production nginx serves those static files before Laravel is reached.
 Route::get('/app/{path?}', function (string $path = '') {
-    $dist = is_dir(base_path('frontend/dist')) ? base_path('frontend/dist') : public_path('app');
+    $sibling = dirname(base_path()).'/frontend/dist';
+    $dist = is_dir($sibling) ? $sibling : public_path('app');
 
     // Serve a real built asset (js/css/img) with a correct Content-Type.
     if ($path !== '' && is_file($dist.'/'.$path)) {
@@ -152,10 +153,15 @@ Route::middleware('auth')->group(function () {
     });
 
     // Asset Verifications
-    Route::resource('asset-verifications', AssetVerificationController::class)->only(['index', 'store', 'show']);
+    Route::resource('asset-verifications', AssetVerificationController::class)->only(['index', 'show']);
     Route::post('/asset-verifications/{assetVerification}/complete', [AssetVerificationController::class, 'complete'])
         ->middleware('role:operations_hr_manager')
         ->name('asset-verifications.complete');
+    // Staff submit condition reports only through the QR scan flow (qr-scan.verify above),
+    // never this direct endpoint — it would let them bypass the own-site restriction.
+    Route::middleware('role:operations_hr_manager,finance_manager')->group(function () {
+        Route::resource('asset-verifications', AssetVerificationController::class)->only(['store']);
+    });
     Route::middleware('role:operations_hr_manager')->group(function () {
         Route::resource('asset-verifications', AssetVerificationController::class)->only(['destroy']);
     });

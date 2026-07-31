@@ -15,7 +15,7 @@ const props = defineProps({
 // fixed hex colors rather than live-reading CSS custom properties.
 const AXIS_INK = '#8a8a78'
 const GRID_INK = 'rgba(138, 138, 120, 0.15)'
-const BAR_FILL = '#35634c'
+const BAR_FILL = '#356458'
 
 function formatLabel(label) {
   if (props.period === 'day') {

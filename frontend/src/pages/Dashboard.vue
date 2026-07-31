@@ -9,9 +9,11 @@ import DonutChart from '../components/ui/DonutChart.vue'
 import TrendChart from '../components/ui/TrendChart.vue'
 import NeedsAttentionList from '../components/ui/NeedsAttentionList.vue'
 import LocationPillCards from '../components/ui/LocationPillCards.vue'
+import StatusBadge from '../components/ui/StatusBadge.vue'
 
 const { t } = useI18n()
 const auth = useAuthStore()
+const isStaff = computed(() => auth.user?.role === 'staff')
 const stats = ref(null)
 const loading = ref(true)
 const error = ref('')
@@ -55,7 +57,7 @@ onMounted(async () => {
   }
 
   // Trend data is an admin-only concept (mirrors the admin vs. staff dashboard split).
-  if (stats.value?.assets_by_category !== undefined) {
+  if (!isStaff.value) {
     loadTrend()
   }
 })
@@ -63,7 +65,7 @@ onMounted(async () => {
 
 <template>
   <AppLayout>
-    <div class="p-6 sm:p-8 max-w-7xl mx-auto space-y-6">
+    <div class="p-6 sm:p-8 space-y-6">
       <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-2">
         <div>
           <h1 class="font-display text-3xl sm:text-4xl font-semibold text-fg tracking-tight">{{ greeting }}, {{ auth.user?.name?.split(' ')[0] || auth.user?.name }}</h1>
@@ -79,6 +81,47 @@ onMounted(async () => {
         <div v-for="i in 4" :key="i" class="card p-5 h-24 animate-pulse"></div>
       </div>
       <div v-else-if="error" class="card p-4 text-red-600 dark:text-red-400 text-sm">{{ error }}</div>
+
+      <template v-else-if="stats && isStaff">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <StatCard :value="stats.my_assignments.length" :label="t('dashboard.my_assignments')" />
+          <StatCard :value="stats.pending_returns" :label="t('dashboard.pending_returns')" />
+          <StatCard :value="stats.upcoming_verifications" :label="t('dashboard.upcoming_verifications')" />
+        </div>
+
+        <div class="card p-6">
+          <h2 class="font-display text-lg font-bold text-fg">{{ t('dashboard.my_assignments') }}</h2>
+          <p class="text-sm text-faint mb-6">{{ t('dashboard.my_assignments_subtitle') }}</p>
+          <div v-if="stats.my_assignments.length" class="overflow-x-auto">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>{{ t('common.asset') }}</th>
+                  <th>{{ t('asset_assignments.qty') }}</th>
+                  <th>{{ t('common.status') }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="a in stats.my_assignments" :key="a.id">
+                  <td class="font-medium text-fg">{{ a.asset?.name || t('common.n_a') }}</td>
+                  <td>{{ a.quantity }}</td>
+                  <td><StatusBadge :status="a.status" /></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p v-else class="text-sm text-faint">{{ t('dashboard.no_assignments') }}</p>
+        </div>
+
+        <div class="card p-6">
+          <h2 class="font-display text-lg font-bold text-fg">{{ t('dashboard.recent_scans') }}</h2>
+          <p class="text-sm text-faint mb-6">{{ t('dashboard.recent_scans_subtitle') }}</p>
+          <ul v-if="stats.recent_scans.length" class="divide-y divide-border">
+            <li v-for="n in stats.recent_scans" :key="n.id" class="py-3 text-sm text-fg">{{ n.message }}</li>
+          </ul>
+          <p v-else class="text-sm text-faint">{{ t('dashboard.no_scans') }}</p>
+        </div>
+      </template>
 
       <template v-else-if="stats">
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -117,7 +160,7 @@ onMounted(async () => {
           <LocationPillCards :locations="stats.assets_by_location" />
         </div>
 
-        <div v-if="stats.assets_by_category !== undefined" class="card p-6">
+        <div class="card p-6">
           <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-2">
             <div>
               <h2 class="font-display text-lg font-bold text-fg">{{ t('dashboard.registered_over_time') }}</h2>

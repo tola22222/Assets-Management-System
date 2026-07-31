@@ -10,17 +10,13 @@ import SearchInput from '../../components/ui/SearchInput.vue'
 import TableSortIcon from '../../components/ui/TableSortIcon.vue'
 import { useApiCrud } from '../../composables/useApiCrud'
 import { useTableSearch } from '../../composables/useTableSearch'
-import { useTableFilter } from '../../composables/useTableFilter'
 import { useTableSort } from '../../composables/useTableSort'
 import { useToastStore } from '../../stores/toast'
 
 const { t } = useI18n()
 const { items: staffList, loading, fetchAll, destroy } = useApiCrud('/staff', { entityName: t('staff.entity') })
 const { search, filtered: searched } = useTableSearch(staffList, ['full_name', 'position', 'phone', 'email'])
-const { filters, filtered: matched, hasActiveFilters, clearFilters } = useTableFilter(searched, {
-  status: (row, v) => row.status === v,
-})
-const { sortKey, sortDir, toggleSort, sorted: filtered } = useTableSort(matched, { defaultKey: 'full_name' })
+const { sortKey, sortDir, toggleSort, sorted: filtered } = useTableSort(searched, { defaultKey: 'full_name' })
 const toast = useToastStore()
 
 const showModal = ref(false)
@@ -92,7 +88,7 @@ onMounted(() => {
 
 <template>
   <AppLayout>
-    <div class="p-8 w-full space-y-6">
+    <div class="p-8 space-y-6">
       <PageHeader :title="t('staff.title')" :subtitle="t('staff.subtitle')" :buttonText="t('staff.new')" @action="openCreate" />
 
       <div class="table-wrap">
@@ -100,12 +96,6 @@ onMounted(() => {
           <div class="w-full sm:max-w-xs">
             <SearchInput v-model="search" :placeholder="t('staff.search_placeholder')" />
           </div>
-          <select v-model="filters.status" class="filter-select">
-            <option value="">{{ t('common.status') }}: {{ t('common.all') }}</option>
-            <option value="active">{{ t('staff.status_active') }}</option>
-            <option value="inactive">{{ t('staff.status_inactive') }}</option>
-          </select>
-          <button v-if="hasActiveFilters" @click="clearFilters" class="btn-subtle btn-sm">{{ t('common.clear_filters') }}</button>
         </div>
         <div class="overflow-x-auto">
           <table class="data-table">

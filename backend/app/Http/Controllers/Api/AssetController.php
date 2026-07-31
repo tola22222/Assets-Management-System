@@ -15,13 +15,22 @@ use Illuminate\Support\Facades\Storage;
 
 class AssetController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        return response()->json(Asset::with(['category', 'location'])->latest()->get());
+        $query = Asset::with(['category', 'location']);
+
+        // Staff only ever see their own site's assets; every other role sees all sites.
+        if ($request->user()->isStaff()) {
+            $query->where('location_id', $request->user()->staff?->location_id);
+        }
+
+        return response()->json($query->latest()->get());
     }
 
-    public function show(Asset $asset)
+    public function show(Request $request, Asset $asset)
     {
+        abort_if($request->user()->isStaff() && $asset->location_id !== $request->user()->staff?->location_id, 404);
+
         return response()->json($asset->load([
             'category',
             'location',

@@ -8,48 +8,51 @@
      used app-wide (body + headings) instead of separate Latin/Khmer fonts. */
   --font-sans: 'Kantumruy Pro', ui-sans-serif, system-ui, -apple-system, 'Khmer OS', 'Segoe UI', sans-serif;
   --font-display: 'Kantumruy Pro', ui-sans-serif, system-ui, -apple-system, 'Khmer OS', 'Segoe UI', sans-serif;
+  /* IBM Plex Mono for asset codes / tabular data only — the "physical tag" look. */
+  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  /* ---- Brand: PEPY deep green (full scale) ---- */
-  --color-brand-50: #eef4f0;
-  --color-brand-100: #d6e5dc;
-  --color-brand-200: #aecabb;
-  --color-brand-300: #7fa992;
-  --color-brand-400: #52846a;
-  --color-brand-500: #35634c;
-  --color-brand-600: #274c3a;
-  --color-brand-700: #1f3d2e;
-  --color-brand-800: #16281e;
-  --color-brand-900: #0e1b14;
-  --color-brand: #1f3d2e;
-  --color-brand-dark: #16281e;
-  --color-brand-light: #2c5342;
+  /* ---- Brand: deep teal (full scale) — 600-900 pinned to the report-deck
+     mockup's exact teal-600..teal-900, 50-500 interpolated in the same hue. ---- */
+  --color-brand-50: #eef5f2;
+  --color-brand-100: #d7e8e1;
+  --color-brand-200: #b0d0c3;
+  --color-brand-300: #82b09f;
+  --color-brand-400: #56897a;
+  --color-brand-500: #396a5c;
+  --color-brand-600: #356458;
+  --color-brand-700: #295148;
+  --color-brand-800: #1f3d36;
+  --color-brand-900: #152f29;
+  --color-brand: #1f3d36;
+  --color-brand-dark: #152f29;
+  --color-brand-light: #295148;
 
-  /* ---- Accent: gold ---- */
+  /* ---- Accent: gold — pinned to the mockup's exact gold ---- */
   --color-accent-50: #fbf6ea;
   --color-accent-100: #f3e6c4;
   --color-accent-200: #e3c988;
   --color-accent-300: #d4b263;
-  --color-accent: #c9a24b;
+  --color-accent: #c99a3e;
   --color-accent-light: #e3c988;
-  --color-accent-dark: #a9822f;
+  --color-accent-dark: #a67a2f;
 
   /* ---- Semantic surface/text tokens (LIGHT defaults) ----
      These are overridden under .dark below, so every utility built on them
      (bg-surface, text-fg, border-line, …) flips automatically.
      Warm paper cream, not gray — matches the printed-report look of the mockup. */
-  --color-canvas: #f5f2ea;
-  --color-surface: #fdfcf9;
+  --color-canvas: #f7f3e9;
+  --color-surface: #fbf9f3;
   --color-surface-2: #f6f3ec;
   --color-surface-3: #efeadd;
-  --color-line: #e5e0d1;
+  --color-line: #e7e0cf;
   --color-line-strong: #d3ccb8;
   --color-fg: #211f18;
   --color-muted: #6b6656;
   --color-faint: #9c9683;
 
   /* Legacy aliases kept so any un-migrated reference still resolves + flips */
-  --color-cream: #f5f2ea;
-  --color-card: #fdfcf9;
+  --color-cream: #f7f3e9;
+  --color-card: #fbf9f3;
   --color-ink: #211f18;
 
   --shadow-card: 0 1px 2px rgb(35 30 15 / 0.03), 0 1px 2px rgb(35 30 15 / 0.04);
@@ -221,6 +224,33 @@
   .badge-info    { @apply bg-blue-100 text-blue-700; }
   .badge-danger  { @apply bg-red-100 text-red-700; }
   .badge-neutral { @apply bg-surface-3 text-muted; }
+
+  /* Outlined category/type chip — a lighter-weight sibling of .badge-* for
+     cells that just need a neutral label, not a status signal. */
+  .tag {
+    @apply inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold border border-line bg-surface text-muted;
+  }
+
+  /* Pill-style quick filters (e.g. category tabs above a data table) —
+     solid brand fill when active, outlined otherwise. */
+  .filter-pill {
+    @apply inline-flex items-center px-4 py-2 rounded-full text-xs font-semibold border border-line
+           bg-surface text-muted hover:bg-surface-2 hover:text-fg transition-colors whitespace-nowrap;
+  }
+  .filter-pill-active {
+    @apply bg-brand text-white border-brand hover:bg-brand hover:text-white;
+  }
+
+  /* Physical-tag-style chip for asset codes (PEY-SR-FAF-0928) — a nod to the
+     printed tags already on every item. */
+  .id-chip {
+    @apply inline-flex items-center gap-1.5 font-mono text-[11px] font-semibold
+           bg-brand text-white px-2 py-1 rounded-md tracking-wide;
+  }
+  .id-chip::before {
+    content: '';
+    @apply w-1 h-1 rounded-full bg-accent flex-shrink-0;
+  }
 
   /* Data table */
   .table-wrap {

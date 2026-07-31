@@ -11,7 +11,11 @@ const props = defineProps({
   totalLabel: { type: String, default: 'total items' },
 })
 
-const palette = ['#3f7a5f', '#c9a24b', '#5b9bd5', '#e07a5f', '#8a7bb8', '#4bbf9a']
+// Brand-derived categorical palette (teal/gold/rust, extended with brand-
+// adjacent hues for >3 categories) — validated with the dataviz skill's
+// checker; the segment rows below are the "relief" for the contrast WARN
+// (each color dot sits next to a direct text label, never color alone).
+const palette = ['#1f8f76', '#c99a3e', '#c1502e', '#9c4f8f', '#5c7a2e', '#1f6ea8']
 
 const chartData = computed(() => ({
   labels: props.segments.map((s) => s.category),

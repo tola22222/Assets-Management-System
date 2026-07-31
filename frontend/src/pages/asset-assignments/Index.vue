@@ -10,7 +10,6 @@ import SearchInput from '../../components/ui/SearchInput.vue'
 import TableSortIcon from '../../components/ui/TableSortIcon.vue'
 import { useApiCrud } from '../../composables/useApiCrud'
 import { useTableSearch } from '../../composables/useTableSearch'
-import { useTableFilter } from '../../composables/useTableFilter'
 import { useTableSort } from '../../composables/useTableSort'
 import { useToastStore } from '../../stores/toast'
 import { useAuthStore } from '../../stores/auth'
@@ -22,10 +21,7 @@ const auth = useAuthStore()
 const isOpm = computed(() => auth.user?.role === 'operations_hr_manager')
 
 const { search, filtered: searched } = useTableSearch(assignments, [(a) => a.asset?.name, (a) => a.asset?.asset_code, 'recipient_name'])
-const { filters, filtered: matched, hasActiveFilters, clearFilters } = useTableFilter(searched, {
-  status: (row, v) => row.status === v,
-})
-const { sortKey, sortDir, toggleSort, sorted: sortedAssignments } = useTableSort(matched, {
+const { sortKey, sortDir, toggleSort, sorted: sortedAssignments } = useTableSort(searched, {
   defaultKey: 'assigned_date', defaultDir: 'desc',
   paths: { asset: 'asset.name', location: 'location.name' },
 })
@@ -91,7 +87,7 @@ onMounted(() => {
 
 <template>
   <AppLayout>
-    <div class="p-8 w-full space-y-6">
+    <div class="p-8 space-y-6">
       <PageHeader :title="t('asset_assignments.title')" :subtitle="t('asset_assignments.subtitle')" :buttonText="isOpm ? t('asset_assignments.new') : null" @action="openCreate" />
 
       <div class="table-wrap">
@@ -99,14 +95,6 @@ onMounted(() => {
           <div class="w-full sm:max-w-xs">
             <SearchInput v-model="search" :placeholder="t('common.search')" />
           </div>
-          <select v-model="filters.status" class="filter-select">
-            <option value="">{{ t('common.status') }}: {{ t('common.all') }}</option>
-            <option value="assigned">{{ t('status.assigned') }}</option>
-            <option value="active">{{ t('status.active') }}</option>
-            <option value="returned">{{ t('status.returned') }}</option>
-            <option value="overdue">{{ t('status.overdue') }}</option>
-          </select>
-          <button v-if="hasActiveFilters" @click="clearFilters" class="btn-subtle btn-sm">{{ t('common.clear_filters') }}</button>
         </div>
         <div class="overflow-x-auto">
           <table class="data-table">

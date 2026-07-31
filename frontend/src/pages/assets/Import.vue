@@ -10,6 +10,7 @@ const { t } = useI18n()
 const toast = useToastStore()
 
 const file = ref(null)
+const fileInput = ref(null)
 const generateQr = ref(true)
 const importing = ref(false)
 const dragging = ref(false)
@@ -23,6 +24,9 @@ function onDrop(e) {
   dragging.value = false
   file.value = e.dataTransfer.files[0] || null
   result.value = null
+}
+function openFileDialog() {
+  fileInput.value?.click()
 }
 
 async function submit() {
@@ -84,18 +88,19 @@ function reset() {
 
       <!-- Uploader -->
       <div class="card p-5 space-y-4">
-        <label
-          class="block border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors"
+        <div
+          class="border-2 border-dashed rounded-xl p-8 text-center transition-colors"
           :class="dragging ? 'border-brand bg-surface-2' : 'border-line hover:border-brand/50'"
           @dragover.prevent="dragging = true"
           @dragleave.prevent="dragging = false"
           @drop.prevent="onDrop"
         >
-          <input type="file" accept=".xlsx,.xls,.csv,.txt" class="hidden" @change="pick" />
+          <input ref="fileInput" type="file" accept=".xlsx,.xls,.csv,.txt" class="hidden" @change="pick" />
           <svg class="w-10 h-10 mx-auto text-faint" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" /></svg>
-          <p class="mt-2 text-sm font-semibold text-fg">{{ file ? file.name : t('import.choose_file') }}</p>
+          <p class="mt-2 text-sm font-semibold text-fg">{{ file ? file.name : t('import.drop_hint') }}</p>
           <p class="text-xs text-faint mt-0.5">{{ file ? (file.size / 1024).toFixed(0) + ' KB' : t('import.file_hint') }}</p>
-        </label>
+          <button type="button" @click="openFileDialog" class="btn-ghost btn-sm mt-4">{{ file ? t('import.choose_different_file') : t('import.choose_file') }}</button>
+        </div>
 
         <label class="flex items-center gap-2.5 text-sm text-muted">
           <input type="checkbox" v-model="generateQr" class="rounded border-line text-brand focus:ring-brand" />

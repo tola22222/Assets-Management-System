@@ -379,4 +379,56 @@ class RolePermissionMatrixTest extends TestCase
         $this->actingAs($staffUser)->getJson('/api/asset-verifications')->assertStatus(200)
             ->assertJsonCount(1);
     }
+
+    public function test_staff_only_sees_assets_at_their_own_site_in_the_register(): void
+    {
+        $ownSite = $this->location();
+        $otherSite = Location::where('code', '!=', 'SR')->firstOrFail();
+
+        $staffMember = \App\Models\Staff::create(['full_name' => 'Site Staff', 'location_id' => $ownSite->id]);
+        $staffUser = User::factory()->create(['role' => 'staff', 'staff_id' => $staffMember->id]);
+
+        $ownAsset = $this->makeAsset('PEY-SR-FAF-0020');
+        $otherAsset = Asset::create([
+            'asset_code' => 'PEY-OT-FAF-0021',
+            'name' => 'Other Site Chair',
+            'category_id' => $this->category()->id,
+            'location_id' => $otherSite->id,
+            'status' => 'active',
+            'condition' => 'good',
+        ]);
+
+        $index = $this->actingAs($staffUser)->getJson('/api/assets');
+        $index->assertStatus(200);
+        $ids = collect($index->json())->pluck('id');
+        $this->assertTrue($ids->contains($ownAsset->id));
+        $this->assertFalse($ids->contains($otherAsset->id));
+
+        $this->actingAs($staffUser)->getJson("/api/assets/{$ownAsset->id}")->assertStatus(200);
+        $this->actingAs($staffUser)->getJson("/api/assets/{$otherAsset->id}")->assertStatus(404);
+
+        $opm = User::factory()->create(['role' => 'operations_hr_manager']);
+        $this->actingAs($opm)->getJson("/api/assets/{$otherAsset->id}")->assertStatus(200);
+    }
+
+    public function test_verification_records_can_only_be_submitted_directly_by_opm_or_finance(): void
+    {
+        $asset = $this->makeAsset();
+
+        $payload = [
+            'asset_id' => $asset->id,
+            'location_id' => $asset->location_id,
+            'quantity_verified' => 1,
+            'condition' => 'good',
+        ];
+
+        foreach (['staff', 'executive_director'] as $role) {
+            $user = User::factory()->create(['role' => $role]);
+            $this->actingAs($user)->postJson('/api/asset-verifications', $payload)->assertStatus(403);
+        }
+        $this->assertDatabaseCount('asset_verifications', 0);
+
+        $finance = User::factory()->create(['role' => 'finance_manager']);
+        $this->actingAs($finance)->postJson('/api/asset-verifications', $payload)->assertStatus(201);
+    }
 }
