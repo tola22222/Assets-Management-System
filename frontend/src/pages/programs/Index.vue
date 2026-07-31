@@ -63,7 +63,7 @@ onMounted(fetchAll)
 
 <template>
   <AppLayout>
-    <div class="p-8 max-w-4xl mx-auto space-y-6">
+    <div class="p-8 w-full space-y-6">
       <PageHeader :title="t('programs.title')" :subtitle="t('programs.subtitle')" :buttonText="isOpm ? t('programs.new') : null" @action="openCreate" />
 
       <div class="table-wrap">

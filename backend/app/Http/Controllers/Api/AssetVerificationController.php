@@ -16,11 +16,14 @@ class AssetVerificationController extends Controller
     {
         $user = $request->user();
 
-        // Staff only ever see verifications for their own site — everyone else (OPM,
-        // Finance, ED) sees the full register, matching the manual's roles table where
-        // only Staff is site-restricted.
-        if ($user->isStaff()) {
-            $verifications = AssetVerification::where('location_id', $user->staff?->location_id)
+        // Staff only ever see verifications for their own site once one is assigned —
+        // everyone else (OPM, Finance, ED) sees the full register. `staff.location_id`
+        // is unpopulated for most existing staff, so this must fail OPEN (show
+        // everything) rather than closed when it's unset, or staff lose all visibility
+        // until someone backfills their site.
+        $staffLocationId = $user->staff?->location_id;
+        if ($user->isStaff() && $staffLocationId !== null) {
+            $verifications = AssetVerification::where('location_id', $staffLocationId)
                 ->with(['asset', 'location', 'verifiedBy'])
                 ->latest()
                 ->get();

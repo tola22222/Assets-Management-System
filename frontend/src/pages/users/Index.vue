@@ -114,7 +114,7 @@ onMounted(() => {
 
 <template>
   <AppLayout>
-    <div class="p-8 max-w-5xl mx-auto space-y-6">
+    <div class="p-8 w-full space-y-6">
       <PageHeader :title="t('users.title')" :subtitle="t('users.subtitle')" :buttonText="t('users.new')" @action="openCreate" />
 
       <div class="table-wrap">

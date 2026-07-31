@@ -76,7 +76,7 @@ onMounted(() => {
 
 <template>
   <AppLayout>
-    <div class="p-8 max-w-6xl mx-auto space-y-6">
+    <div class="p-8 w-full space-y-6">
       <PageHeader :title="t('asset_transfers.title')" :subtitle="t('asset_transfers.subtitle')" :buttonText="t('asset_transfers.new')" @action="openCreate" />
 
       <div class="table-wrap">

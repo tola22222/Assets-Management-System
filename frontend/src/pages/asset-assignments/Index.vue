@@ -91,7 +91,7 @@ onMounted(() => {
 
 <template>
   <AppLayout>
-    <div class="p-8 max-w-6xl mx-auto space-y-6">
+    <div class="p-8 w-full space-y-6">
       <PageHeader :title="t('asset_assignments.title')" :subtitle="t('asset_assignments.subtitle')" :buttonText="isOpm ? t('asset_assignments.new') : null" @action="openCreate" />
 
       <div class="table-wrap">

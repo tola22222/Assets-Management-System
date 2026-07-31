@@ -15,8 +15,9 @@ class AssetVerificationController extends Controller
     public function index()
     {
         $user = Auth::user();
-        if ($user->isStaff()) {
-            $verifications = AssetVerification::where('location_id', $user->staff?->location_id)
+        $staffLocationId = $user->staff?->location_id;
+        if ($user->isStaff() && $staffLocationId !== null) {
+            $verifications = AssetVerification::where('location_id', $staffLocationId)
                 ->with(['asset', 'location', 'verifiedBy'])
                 ->latest()
                 ->get();

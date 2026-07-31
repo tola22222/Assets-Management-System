@@ -353,4 +353,30 @@ class RolePermissionMatrixTest extends TestCase
         ])->assertStatus(404);
         $this->assertDatabaseMissing('asset_verifications', ['asset_id' => $otherAsset->id]);
     }
+
+    public function test_staff_with_no_site_assigned_yet_can_still_scan_and_verify_any_asset(): void
+    {
+        // staff.location_id is a new nullable column, unpopulated for most existing
+        // staff — until someone backfills it, scanning must fail OPEN, not closed.
+        $staffMember = \App\Models\Staff::create(['full_name' => 'Unassigned Staff']);
+        $staffUser = User::factory()->create(['role' => 'staff', 'staff_id' => $staffMember->id]);
+        $otherSite = Location::where('code', '!=', 'SR')->firstOrFail();
+        $asset = Asset::create([
+            'asset_code' => 'PEY-OT-FAF-0012',
+            'name' => 'Some Chair',
+            'category_id' => $this->category()->id,
+            'location_id' => $otherSite->id,
+            'status' => 'active',
+            'condition' => 'good',
+        ]);
+
+        $this->actingAs($staffUser)->getJson('/api/qr-scan/'.$asset->asset_code)->assertStatus(200);
+        $this->actingAs($staffUser)->postJson("/api/qr-scan/{$asset->asset_code}/verify", [
+            'location_id' => $otherSite->id,
+            'condition' => 'good',
+        ])->assertStatus(200);
+
+        $this->actingAs($staffUser)->getJson('/api/asset-verifications')->assertStatus(200)
+            ->assertJsonCount(1);
+    }
 }

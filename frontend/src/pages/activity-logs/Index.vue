@@ -39,7 +39,7 @@ onMounted(() => loadPage(1))
 
 <template>
   <AppLayout>
-    <div class="p-8 max-w-5xl mx-auto space-y-6">
+    <div class="p-8 w-full space-y-6">
       <div>
         <h1 class="text-xl font-bold text-fg tracking-tight">Activity Logs</h1>
         <p class="text-muted text-sm mt-0.5">Full audit trail of actions taken in the system</p>

@@ -68,7 +68,7 @@ onMounted(() => {
 
 <template>
   <AppLayout>
-    <div class="p-8 max-w-6xl mx-auto space-y-6">
+    <div class="p-8 w-full space-y-6">
       <PageHeader :title="t('asset_verifications.title')" :subtitle="t('asset_verifications.subtitle')" :buttonText="t('asset_verifications.new')" @action="openCreate" />
 
       <div class="table-wrap">

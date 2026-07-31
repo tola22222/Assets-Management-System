@@ -82,9 +82,16 @@ class QrScanController extends Controller
         return response()->json($verification->fresh(['asset', 'location']));
     }
 
-    /** Staff can only view/verify assets at their own site; every other role is unrestricted. */
+    /**
+     * Staff are scoped to their own site once one is assigned. `staff.location_id` is
+     * nullable and unpopulated for most existing staff, so this must fail OPEN (no
+     * restriction) rather than closed when it's unset — otherwise every staff user
+     * loses QR scan/verify access entirely until someone backfills their site.
+     */
     private function outsideStaffSite($user, Asset $asset): bool
     {
-        return $user->isStaff() && $asset->location_id !== $user->staff?->location_id;
+        $staffLocationId = $user->staff?->location_id;
+
+        return $user->isStaff() && $staffLocationId !== null && $asset->location_id !== $staffLocationId;
     }
 }
