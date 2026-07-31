@@ -57,7 +57,18 @@ class AssetImportService
         // matches asset code "PEY-SR-COM-0212" and "sn 123456.png" matches
         // serial "SN123456".
         $imagesByKey = [];
+        $rejectedImages = [];
         foreach ($images as $imageFile) {
+            // Checked per-file (not via the request validator) so one bad photo
+            // in a bulk batch — wrong type, corrupted, oversized — is skipped
+            // and reported instead of aborting the whole import.
+            if (! $imageFile->isValid()
+                || ! in_array(strtolower($imageFile->getClientOriginalExtension()), ['jpg', 'jpeg', 'png'], true)
+                || $imageFile->getSize() > 8 * 1024 * 1024) {
+                $rejectedImages[] = $imageFile->getClientOriginalName();
+
+                continue;
+            }
             $key = $this->normalizeKey(pathinfo($imageFile->getClientOriginalName(), PATHINFO_FILENAME));
             if ($key !== '') {
                 $imagesByKey[$key] = $imageFile;
@@ -228,10 +239,10 @@ class AssetImportService
             'errors' => $errors,
             'total_rows' => count($rows) - $headerIndex - 1,
             'images_attached' => $imagesAttached,
-            'images_unmatched' => array_values(array_diff_key(
+            'images_unmatched' => array_values(array_merge($rejectedImages, array_diff_key(
                 array_map(fn (UploadedFile $f) => $f->getClientOriginalName(), $imagesByKey),
                 $usedImageKeys
-            )),
+            ))),
         ];
     }
 

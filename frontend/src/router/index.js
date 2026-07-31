@@ -27,7 +27,7 @@ const routes = [
   { path: '/login', name: 'login', component: Login, meta: { guest: true } },
   { path: '/', name: 'dashboard', component: Dashboard, meta: { requiresAuth: true } },
   { path: '/assets', name: 'assets', component: AssetsIndex, meta: { requiresAuth: true } },
-  { path: '/assets/import', name: 'assets-import', component: AssetsImport, meta: { requiresAuth: true } },
+  { path: '/assets/import', name: 'assets-import', component: AssetsImport, meta: { requiresAuth: true, adminOnly: true } },
   { path: '/categories', name: 'categories', component: CategoriesIndex, meta: { requiresAuth: true } },
   { path: '/locations', name: 'locations', component: LocationsIndex, meta: { requiresAuth: true } },
   { path: '/asset-movements', name: 'asset-movements', component: AssetMovementsIndex, meta: { requiresAuth: true } },

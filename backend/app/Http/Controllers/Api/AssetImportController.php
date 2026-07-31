@@ -11,10 +11,15 @@ class AssetImportController extends Controller
 {
     public function store(Request $request, AssetImportService $service)
     {
+        // Images are intentionally NOT validated as `image|mimes:...` here: a
+        // single bad/oversized/misnamed photo in a bulk batch would otherwise
+        // 422 the entire request before the spreadsheet is even read. Instead
+        // each photo is checked individually in the import service, so one bad
+        // file is skipped (and reported) without blocking everything else.
         $request->validate([
             'file' => 'required|file|mimes:xlsx,xls,csv,txt|max:10240',
             'images' => 'nullable|array',
-            'images.*' => 'image|mimes:jpeg,png,jpg|max:5120',
+            'images.*' => 'file|max:8192',
         ]);
 
         try {
