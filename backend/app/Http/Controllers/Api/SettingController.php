@@ -28,6 +28,7 @@ class SettingController extends Controller
             'qr_size' => 'nullable|integer|min:100|max:1000',
             'locale' => 'nullable|in:en,km',
             'report_interval_months' => 'nullable|integer|min:1|max:24',
+            'report_recipient_email' => 'nullable|email',
             'logo' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
         ]);
 

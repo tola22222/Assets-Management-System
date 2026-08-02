@@ -38,6 +38,7 @@ class SendScheduledAssetReport extends Command
 
         $periodLabel = now()->format('F Y');
         $recipients = User::whereIn('role', ['finance_manager', 'executive_director', 'operations_hr_manager'])->get();
+        $emailedTo = [];
 
         foreach ($recipients as $recipient) {
             Notification::create([
@@ -50,15 +51,29 @@ class SendScheduledAssetReport extends Command
             if ($recipient->email) {
                 try {
                     Mail::to($recipient->email)->send(new ScheduledAssetReportMail($summary, $periodLabel));
+                    $emailedTo[] = strtolower($recipient->email);
                 } catch (\Throwable $e) {
                     Log::warning('Scheduled asset report email failed for ' . $recipient->email . ': ' . $e->getMessage());
                 }
             }
         }
 
+        // An extra recipient configured on the Settings page, alongside the
+        // role-based ones above — lets an admin route the report to an inbox
+        // that isn't necessarily any user's own account email.
+        $extraEmail = Setting::where('key', 'report_recipient_email')->value('value');
+        if ($extraEmail && !in_array(strtolower($extraEmail), $emailedTo, true)) {
+            try {
+                Mail::to($extraEmail)->send(new ScheduledAssetReportMail($summary, $periodLabel));
+                $emailedTo[] = strtolower($extraEmail);
+            } catch (\Throwable $e) {
+                Log::warning('Scheduled asset report email failed for ' . $extraEmail . ': ' . $e->getMessage());
+            }
+        }
+
         Setting::updateOrCreate(['key' => 'last_scheduled_report_at'], ['value' => now()->toDateTimeString()]);
 
-        $this->info('Scheduled asset report sent to ' . $recipients->count() . ' recipient(s).');
+        $this->info('Scheduled asset report sent to ' . count($emailedTo) . ' recipient(s).');
         return self::SUCCESS;
     }
 }

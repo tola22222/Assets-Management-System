@@ -45,5 +45,13 @@ export function useApiCrud(endpoint, { entityName = 'Item' } = {}) {
     await fetchAll()
   }
 
-  return { items, loading, fetchAll, create, update, destroy }
+  // Bulk counterpart to destroy() — fires the same per-row DELETE request for
+  // each id, but refetches and toasts once at the end instead of per row.
+  async function destroyMany(ids) {
+    await Promise.all(ids.map((id) => http.delete(`${endpoint}/${id}`)))
+    toast.success(t('common.deleted_successfully', { entity: entityName }))
+    await fetchAll()
+  }
+
+  return { items, loading, fetchAll, create, update, destroy, destroyMany }
 }

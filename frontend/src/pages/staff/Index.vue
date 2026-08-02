@@ -10,12 +10,15 @@ import TableSortIcon from '../../components/ui/TableSortIcon.vue'
 import { useApiCrud } from '../../composables/useApiCrud'
 import { useTableSearch } from '../../composables/useTableSearch'
 import { useTableSort } from '../../composables/useTableSort'
+import { useBulkSelect } from '../../composables/useBulkSelect'
 import { useToastStore } from '../../stores/toast'
 
 const { t } = useI18n()
-const { items: staffList, loading, fetchAll, destroy } = useApiCrud('/staff', { entityName: t('staff.entity') })
+const { items: staffList, loading, fetchAll, destroy, destroyMany } = useApiCrud('/staff', { entityName: t('staff.entity') })
 const { search, filtered: searched } = useTableSearch(staffList, ['full_name', 'position', 'phone', 'email'])
 const { sortKey, sortDir, toggleSort, sorted: filtered } = useTableSort(searched, { defaultKey: 'full_name' })
+const { selectedIds, allSelected, toggleSelectAll, toggleSelect, clearSelection } = useBulkSelect(filtered)
+const confirmingBulkDelete = ref(false)
 const toast = useToastStore()
 
 const showModal = ref(false)
@@ -79,6 +82,12 @@ async function confirmDelete() {
   deletingId.value = null
 }
 
+async function confirmBulkDelete() {
+  confirmingBulkDelete.value = false
+  await destroyMany(selectedIds.value)
+  clearSelection()
+}
+
 onMounted(() => {
   fetchAll()
   loadLocations()
@@ -94,10 +103,16 @@ onMounted(() => {
             <h1 class="font-display text-3xl font-bold text-fg tracking-tight">{{ t('staff.title') }}</h1>
             <p class="text-muted text-sm mt-1">{{ t('staff.subtitle') }}</p>
           </div>
-          <button @click="openCreate" class="btn-primary btn-sm flex-shrink-0">
-            <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
-            {{ t('staff.new') }}
-          </button>
+          <div class="flex items-center gap-2 flex-shrink-0">
+            <button v-if="selectedIds.length" @click="confirmingBulkDelete = true" class="btn-danger btn-sm">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9 9m9.968-3.21c.342.052.682.107 1.022.166M18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
+              Delete Selected ({{ selectedIds.length }})
+            </button>
+            <button @click="openCreate" class="btn-primary btn-sm">
+              <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+              {{ t('staff.new') }}
+            </button>
+          </div>
         </div>
 
         <div class="flex flex-wrap items-center gap-3 mb-6">
@@ -110,6 +125,9 @@ onMounted(() => {
           <table class="data-table">
             <thead>
               <tr>
+                <th class="w-10">
+                  <input type="checkbox" :checked="allSelected" @change="toggleSelectAll" class="rounded border-line text-brand focus:ring-brand/30" />
+                </th>
                 <th class="th-sort" @click="toggleSort('full_name')">{{ t('common.name') }}<TableSortIcon :active="sortKey === 'full_name'" :direction="sortDir" /></th>
                 <th class="th-sort" @click="toggleSort('position')">{{ t('staff.position') }}<TableSortIcon :active="sortKey === 'position'" :direction="sortDir" /></th>
                 <th>{{ t('common.phone') }}</th>
@@ -119,6 +137,9 @@ onMounted(() => {
             </thead>
             <tbody>
               <tr v-for="s in filtered" :key="s.id">
+                <td>
+                  <input type="checkbox" :checked="selectedIds.includes(s.id)" @change="toggleSelect(s.id)" class="rounded border-line text-brand focus:ring-brand/30" />
+                </td>
                 <td>
                   <div class="flex items-center gap-3">
                     <img v-if="s.photo_path_url" :src="s.photo_path_url" class="w-8 h-8 rounded-full object-cover flex-shrink-0" alt="" />
@@ -143,7 +164,7 @@ onMounted(() => {
                 </td>
               </tr>
               <tr v-if="!loading && !filtered.length">
-                <td colspan="5" class="py-10 text-center text-faint">{{ search ? t('staff.empty_search') : t('staff.empty') }}</td>
+                <td colspan="6" class="py-10 text-center text-faint">{{ search ? t('staff.empty_search') : t('staff.empty') }}</td>
               </tr>
             </tbody>
           </table>
@@ -208,5 +229,12 @@ onMounted(() => {
     </Modal>
 
     <ConfirmDialog v-if="deletingId" @confirm="confirmDelete" @cancel="deletingId = null" />
+    <ConfirmDialog
+      v-if="confirmingBulkDelete"
+      :title="`Delete ${selectedIds.length} staff member${selectedIds.length === 1 ? '' : 's'}?`"
+      message="This cannot be undone."
+      @confirm="confirmBulkDelete"
+      @cancel="confirmingBulkDelete = false"
+    />
   </AppLayout>
 </template>

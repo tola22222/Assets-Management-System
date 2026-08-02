@@ -15,7 +15,7 @@ const toast = useToastStore()
 const loading = ref(true)
 const form = reactive({
   organization_name: '', system_name: '', theme_color: '#128a43', email: '', phone: '',
-  address: '', qr_size: 300, locale: 'en', report_interval_months: 6,
+  address: '', qr_size: 300, locale: 'en', report_interval_months: 6, report_recipient_email: '',
 })
 
 async function loadSettings() {
@@ -164,10 +164,17 @@ onMounted(() => {
             <input v-model="form.theme_color" @input="onThemeColorChange" type="color" class="w-full h-11 border border-line rounded-xl cursor-pointer p-1" />
           </div>
         </div>
-        <div class="space-y-1.5">
-          <label class="text-xs font-semibold text-muted tracking-wide">{{ t('settings.report_interval') }}</label>
-          <input v-model.number="form.report_interval_months" type="number" min="1" max="24" class="input" />
+        <div class="grid grid-cols-2 gap-4">
+          <div class="space-y-1.5">
+            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('settings.report_interval') }}</label>
+            <input v-model.number="form.report_interval_months" type="number" min="1" max="24" class="input" />
+          </div>
+          <div class="space-y-1.5">
+            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('settings.report_recipient_email') }}</label>
+            <input v-model="form.report_recipient_email" type="email" placeholder="reports@example.com" class="input" />
+          </div>
         </div>
+        <p class="text-xs text-faint -mt-2">{{ t('settings.report_recipient_email_hint') }}</p>
         <div class="pt-2">
           <button type="submit" class="btn-primary">{{ t('settings.save') }}</button>
         </div>

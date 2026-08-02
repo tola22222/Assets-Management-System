@@ -391,6 +391,8 @@
     "qr_size": "QR Code Size",
     "theme_color": "Theme Color",
     "report_interval": "Asset Count Report Interval (months)",
+    "report_recipient_email": "Send Report To (email)",
+    "report_recipient_email_hint": "Optional — also emails the scheduled report here, alongside Finance Manager/Executive Director/Operations-HR Manager accounts.",
     "save": "Save Settings",
     "updated": "Settings updated successfully.",
     "update_failed": "Could not save settings.",

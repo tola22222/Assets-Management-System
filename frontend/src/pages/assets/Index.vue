@@ -12,11 +12,12 @@ import { useApiCrud } from '../../composables/useApiCrud'
 import { useTableSearch } from '../../composables/useTableSearch'
 import { useTableSort } from '../../composables/useTableSort'
 import { useTableFilter } from '../../composables/useTableFilter'
+import { useBulkSelect } from '../../composables/useBulkSelect'
 import { useToastStore } from '../../stores/toast'
 import { useAuthStore } from '../../stores/auth'
 
 const { t } = useI18n()
-const { items: assetsList, loading, fetchAll, destroy } = useApiCrud('/assets', { entityName: t('assets.entity') })
+const { items: assetsList, loading, fetchAll, destroy, destroyMany } = useApiCrud('/assets', { entityName: t('assets.entity') })
 const toast = useToastStore()
 const auth = useAuthStore()
 const isOpm = computed(() => auth.user?.role === 'operations_hr_manager')
@@ -53,6 +54,8 @@ const { filters: catFilters, filtered: visible } = useTableFilter(filtered, {
   category: (row, val) => String(row.category_id) === String(val),
 })
 const categoryOptions = computed(() => categories.value.map((c) => ({ value: c.id, label: c.name })))
+const { selectedIds, allSelected, toggleSelectAll, toggleSelect, clearSelection } = useBulkSelect(visible)
+const confirmingBulkDelete = ref(false)
 
 function money(v) {
   return v ? '$' + Number(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'
@@ -180,6 +183,12 @@ async function confirmDelete() {
   deletingId.value = null
 }
 
+async function confirmBulkDelete() {
+  confirmingBulkDelete.value = false
+  await destroyMany(selectedIds.value)
+  clearSelection()
+}
+
 async function regenerateQr(asset) {
   await http.post(`/assets/${asset.id}/regenerate-qr`)
   toast.success(t('assets.qr_regenerated'))
@@ -247,6 +256,10 @@ onMounted(() => {
             <p class="text-muted text-sm mt-1">{{ t('assets.subtitle') }}</p>
           </div>
           <div class="flex items-center gap-2 flex-shrink-0">
+            <button v-if="isOpm && selectedIds.length" @click="confirmingBulkDelete = true" class="btn-danger btn-sm">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9 9m9.968-3.21c.342.052.682.107 1.022.166M18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
+              Delete Selected ({{ selectedIds.length }})
+            </button>
             <button @click="exportCsv" class="btn-ghost btn-sm">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M7.5 12L12 16.5m0 0l4.5-4.5M12 16.5V3" /></svg>
               {{ t('assets.export_csv') }}
@@ -278,6 +291,9 @@ onMounted(() => {
           <table class="data-table">
             <thead>
               <tr>
+                <th v-if="isOpm" class="w-10">
+                  <input type="checkbox" :checked="allSelected" @change="toggleSelectAll" class="rounded border-line text-brand focus:ring-brand/30" />
+                </th>
                 <th class="th-sort" @click="toggleSort('code')">{{ t('assets.id_col') }}<TableSortIcon :active="sortKey === 'code'" :direction="sortDir" /></th>
                 <th class="th-sort" @click="toggleSort('name')">{{ t('assets.description_col') }}<TableSortIcon :active="sortKey === 'name'" :direction="sortDir" /></th>
                 <th class="th-sort text-center" @click="toggleSort('category')">{{ t('assets.category') }}<TableSortIcon :active="sortKey === 'category'" :direction="sortDir" /></th>
@@ -290,6 +306,9 @@ onMounted(() => {
             </thead>
             <tbody>
               <tr v-for="asset in visible" :key="asset.id">
+                <td v-if="isOpm">
+                  <input type="checkbox" :checked="selectedIds.includes(asset.id)" @change="toggleSelect(asset.id)" class="rounded border-line text-brand focus:ring-brand/30" />
+                </td>
                 <td class="whitespace-nowrap"><span class="id-chip">{{ asset.asset_code }}</span></td>
                 <td>
                   <p class="font-semibold text-fg truncate">{{ asset.name }}</p>
@@ -317,7 +336,7 @@ onMounted(() => {
                 </td>
               </tr>
               <tr v-if="!loading && !visible.length">
-                <td colspan="8" class="py-12 text-center">
+                <td :colspan="isOpm ? 9 : 8" class="py-12 text-center">
                   <div class="flex flex-col items-center gap-2">
                     <svg class="w-10 h-10 text-line-strong" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
                     <p class="text-muted text-sm font-medium">{{ (search || catFilters.category) ? t('assets.empty_search') : t('assets.empty') }}</p>
@@ -480,5 +499,12 @@ onMounted(() => {
     </Modal>
 
     <ConfirmDialog v-if="deletingId" @confirm="confirmDelete" @cancel="deletingId = null" />
+    <ConfirmDialog
+      v-if="confirmingBulkDelete"
+      :title="`Delete ${selectedIds.length} asset${selectedIds.length === 1 ? '' : 's'}?`"
+      message="This cannot be undone."
+      @confirm="confirmBulkDelete"
+      @cancel="confirmingBulkDelete = false"
+    />
   </AppLayout>
 </template>
