@@ -24,11 +24,13 @@ use PhpOffice\PhpSpreadsheet\IOFactory;
  * Re-importing is safe: rows are upserted by asset code, so the same file can be
  * loaded twice without creating duplicates.
  *
- * Optionally accepts a batch of photo files alongside the sheet. Each photo is
- * matched to a row by its filename (without extension) against that row's
- * asset code first, then its serial number — e.g. "PEY-SR-COM-0212.jpg" or
- * "SN123456.png" — so a bulk photo upload doesn't require any extra column in
- * the spreadsheet itself.
+ * Optionally accepts a batch of photo files alongside the sheet. With exactly
+ * one photo, it's applied to every row in the import — no renaming needed,
+ * useful for a quick placeholder photo across a whole batch. With more than
+ * one photo, each is instead matched to a row by its filename (without
+ * extension) against that row's asset code first, then its serial number —
+ * e.g. "PEY-SR-COM-0212.jpg" or "SN123456.png" — so a bulk per-asset photo
+ * upload doesn't require any extra column in the spreadsheet itself.
  */
 class AssetImportService
 {
@@ -52,16 +54,12 @@ class AssetImportService
     {
         @set_time_limit(0);
 
-        // Filename (without extension) → uploaded photo, for the optional bulk
-        // photo attach. Whitespace-stripped/uppercased so "PEY-SR-COM-0212.jpg"
-        // matches asset code "PEY-SR-COM-0212" and "sn 123456.png" matches
-        // serial "SN123456".
-        $imagesByKey = [];
+        // Checked per-file (not via the request validator) so one bad photo in
+        // a bulk batch — wrong type, corrupted, oversized — is skipped and
+        // reported instead of aborting the whole import.
+        $validImages = [];
         $rejectedImages = [];
         foreach ($images as $imageFile) {
-            // Checked per-file (not via the request validator) so one bad photo
-            // in a bulk batch — wrong type, corrupted, oversized — is skipped
-            // and reported instead of aborting the whole import.
             if (! $imageFile->isValid()
                 || ! in_array(strtolower($imageFile->getClientOriginalExtension()), ['jpg', 'jpeg', 'png'], true)
                 || $imageFile->getSize() > 8 * 1024 * 1024) {
@@ -69,9 +67,25 @@ class AssetImportService
 
                 continue;
             }
-            $key = $this->normalizeKey(pathinfo($imageFile->getClientOriginalName(), PATHINFO_FILENAME));
-            if ($key !== '') {
-                $imagesByKey[$key] = $imageFile;
+            $validImages[] = $imageFile;
+        }
+
+        // A single photo is applied to every row in this import — no renaming
+        // needed. Filename-based per-row matching only kicks in once there's
+        // more than one photo to tell apart.
+        $sharedImage = count($validImages) === 1 ? $validImages[0] : null;
+
+        // Filename (without extension) → uploaded photo, for the multi-photo
+        // case. Whitespace-stripped/uppercased so "PEY-SR-COM-0212.jpg"
+        // matches asset code "PEY-SR-COM-0212" and "sn 123456.png" matches
+        // serial "SN123456".
+        $imagesByKey = [];
+        if ($sharedImage === null) {
+            foreach ($validImages as $imageFile) {
+                $key = $this->normalizeKey(pathinfo($imageFile->getClientOriginalName(), PATHINFO_FILENAME));
+                if ($key !== '') {
+                    $imagesByKey[$key] = $imageFile;
+                }
             }
         }
         $usedImageKeys = [];
@@ -176,12 +190,15 @@ class AssetImportService
                     : ($get('description') ?: null),
             ];
 
-            // Match a bulk-uploaded photo to this row: asset code first (only
+            // A single uploaded photo applies to every row. Otherwise match a
+            // bulk-uploaded photo to this row: asset code first (only
             // meaningful for the PEPY layout, where it's known before the row
             // is even created), then serial number (available in both layouts).
             $imageFile = null;
             $imageKey = null;
-            if ($code !== '' && isset($imagesByKey[$this->normalizeKey($code)])) {
+            if ($sharedImage !== null) {
+                $imageFile = $sharedImage;
+            } elseif ($code !== '' && isset($imagesByKey[$this->normalizeKey($code)])) {
                 $imageKey = $this->normalizeKey($code);
                 $imageFile = $imagesByKey[$imageKey];
             } elseif ($payload['serial_number'] && isset($imagesByKey[$this->normalizeKey($payload['serial_number'])])) {
@@ -199,7 +216,9 @@ class AssetImportService
                             Storage::disk('public')->delete($existing->image_path);
                         }
                         $payload['image_path'] = $imageFile->store('assets', 'public');
-                        $usedImageKeys[$imageKey] = true;
+                        if ($imageKey !== null) {
+                            $usedImageKeys[$imageKey] = true;
+                        }
                         $imagesAttached++;
                     }
                     $existing->update($payload);
@@ -209,14 +228,18 @@ class AssetImportService
                 }
                 if ($imageFile) {
                     $payload['image_path'] = $imageFile->store('assets', 'public');
-                    $usedImageKeys[$imageKey] = true;
+                    if ($imageKey !== null) {
+                        $usedImageKeys[$imageKey] = true;
+                    }
                     $imagesAttached++;
                 }
                 $asset = Asset::create($payload + ['asset_code' => $code]);
             } else {
                 if ($imageFile) {
                     $payload['image_path'] = $imageFile->store('assets', 'public');
-                    $usedImageKeys[$imageKey] = true;
+                    if ($imageKey !== null) {
+                        $usedImageKeys[$imageKey] = true;
+                    }
                     $imagesAttached++;
                 }
                 $asset = Asset::create($payload + ['asset_code' => AssetCodeService::nextCode($location->id, $category->id)]);

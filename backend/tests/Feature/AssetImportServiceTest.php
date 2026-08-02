@@ -90,6 +90,57 @@ class AssetImportServiceTest extends TestCase
         ]);
     }
 
+    public function test_a_single_uploaded_photo_attaches_to_every_row(): void
+    {
+        $user = User::factory()->create(['role' => 'operations_hr_manager']);
+        Location::where('code', 'SR')->firstOrFail();
+        AssetCategory::create(['name' => 'Computer Equipment', 'short_name' => 'COM']);
+
+        $csv = "name,category,location,serial_number\n"
+            ."Laptop One,Computer Equipment,PEPY Office,SN-AAA\n"
+            ."Laptop Two,Computer Equipment,PEPY Office,SN-BBB\n";
+        $file = UploadedFile::fake()->createWithContent('register.csv', $csv);
+        // Filename deliberately doesn't match either row's serial number —
+        // with only one photo uploaded, filename matching is skipped entirely.
+        $image = UploadedFile::fake()->image('random-placeholder-name.jpg', 50, 50);
+
+        $response = $this->actingAs($user)->post('/api/assets/import', [
+            'file' => $file,
+            'generate_qr' => '0',
+            'images' => [$image],
+        ]);
+
+        $response->assertStatus(200);
+        $response->assertJson(['created' => 2, 'images_attached' => 2, 'images_unmatched' => []]);
+        $this->assertDatabaseCount('assets', 2);
+        $this->assertSame(0, \App\Models\Asset::whereNull('image_path')->count());
+    }
+
+    public function test_multiple_uploaded_photos_still_match_by_filename(): void
+    {
+        $user = User::factory()->create(['role' => 'operations_hr_manager']);
+        Location::where('code', 'SR')->firstOrFail();
+        AssetCategory::create(['name' => 'Computer Equipment', 'short_name' => 'COM']);
+
+        $csv = "name,category,location,serial_number\n"
+            ."Laptop One,Computer Equipment,PEPY Office,SN-AAA\n"
+            ."Laptop Two,Computer Equipment,PEPY Office,SN-BBB\n";
+        $file = UploadedFile::fake()->createWithContent('register.csv', $csv);
+        $imageA = UploadedFile::fake()->image('SN-AAA.jpg', 50, 50);
+        $imageOther = UploadedFile::fake()->image('unrelated-name.jpg', 50, 50);
+
+        $response = $this->actingAs($user)->post('/api/assets/import', [
+            'file' => $file,
+            'generate_qr' => '0',
+            'images' => [$imageA, $imageOther],
+        ]);
+
+        $response->assertStatus(200);
+        $response->assertJson(['created' => 2, 'images_attached' => 1, 'images_unmatched' => ['unrelated-name.jpg']]);
+        $this->assertNotNull(\App\Models\Asset::where('serial_number', 'SN-AAA')->first()->image_path);
+        $this->assertNull(\App\Models\Asset::where('serial_number', 'SN-BBB')->first()->image_path);
+    }
+
     public function test_the_template_layout_requires_a_recognized_location(): void
     {
         $user = User::factory()->create(['role' => 'operations_hr_manager']);
