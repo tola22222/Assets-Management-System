@@ -11,6 +11,7 @@ import AssetTransfersIndex from '../pages/asset-transfers/Index.vue'
 import AssetReturnsIndex from '../pages/asset-returns/Index.vue'
 import AssetVerificationsIndex from '../pages/asset-verifications/Index.vue'
 import AssetDisposalsIndex from '../pages/asset-disposals/Index.vue'
+import StockIndex from '../pages/stock/Index.vue'
 import ProgramsIndex from '../pages/programs/Index.vue'
 import StaffIndex from '../pages/staff/Index.vue'
 import SuppliersIndex from '../pages/suppliers/Index.vue'
@@ -36,6 +37,7 @@ const routes = [
   { path: '/asset-returns', name: 'asset-returns', component: AssetReturnsIndex, meta: { requiresAuth: true } },
   { path: '/asset-verifications', name: 'asset-verifications', component: AssetVerificationsIndex, meta: { requiresAuth: true } },
   { path: '/asset-disposals', name: 'asset-disposals', component: AssetDisposalsIndex, meta: { requiresAuth: true } },
+  { path: '/stock', name: 'stock', component: StockIndex, meta: { requiresAuth: true } },
   { path: '/programs', name: 'programs', component: ProgramsIndex, meta: { requiresAuth: true } },
   { path: '/staff', name: 'staff', component: StaffIndex, meta: { requiresAuth: true } },
   { path: '/suppliers', name: 'suppliers', component: SuppliersIndex, meta: { requiresAuth: true } },

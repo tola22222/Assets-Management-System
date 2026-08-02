@@ -57,18 +57,24 @@ const topLinks = computed(() => [
   { to: '/', label: t('nav.dashboard'), icon: I.home, exact: true },
 ])
 
-// Non-admin flat "My Assets" section (replaces the Asset Management group)
-const myAssets = computed(() => [
-  { to: '/asset-assignments', label: t('nav.my_assets'), icon: I.clipboard },
-  { to: '/asset-returns', label: t('nav.return_requests'), icon: I.uturn },
-  { to: '/asset-transfers', label: t('nav.transfer_requests'), icon: I.swap },
-  { to: '/asset-verifications', label: t('nav.verification'), icon: I.shield },
-])
+// Non-admin collapsible "My Assets" group (replaces the Asset Management
+// group) — same accordion mechanism as the admin groups below, not a
+// special-cased flat list.
+const myAssetsGroup = computed(() => ({
+  key: 'my-assets', title: t('nav.my_assets'), icon: I.clipboard,
+  items: [
+    { to: '/asset-assignments', label: t('nav.assignments') },
+    { to: '/asset-returns', label: t('nav.return_requests') },
+    { to: '/asset-transfers', label: t('nav.transfer_requests') },
+    { to: '/asset-verifications', label: t('nav.verification') },
+  ],
+}))
 
 const inventoryGroup = computed(() => ({
   key: 'inventory', title: t('nav.asset_management'), icon: I.assets,
   items: [
     { to: '/assets', label: t('nav.asset_register') },
+    { to: '/stock', label: 'Stock' },
     { to: '/asset-movements', label: t('nav.stock_movements') },
     { to: '/asset-assignments', label: t('nav.assignments') },
     { to: '/asset-transfers', label: t('nav.transfers') },
@@ -103,15 +109,22 @@ const settingGroup = computed(() => ({
 
 // Groups rendered in the scrollable area (order matches the old sidebar)
 const mainGroups = computed(() =>
-  isAdmin.value ? [inventoryGroup.value, peopleGroup.value, systemSetupGroup.value] : [peopleGroup.value, systemSetupGroup.value]
+  isAdmin.value
+    ? [inventoryGroup.value, peopleGroup.value, systemSetupGroup.value]
+    : [myAssetsGroup.value, peopleGroup.value, systemSetupGroup.value]
 )
 
 function isActive(to) {
   return route.path === to || route.path.startsWith(to + '/')
 }
 
-// Single-open accordion that follows the active route.
-const allGroups = computed(() => [inventoryGroup.value, peopleGroup.value, systemSetupGroup.value, settingGroup.value])
+// Single-open accordion that follows the active route. Mirrors mainGroups'
+// admin/non-admin split so inventoryGroup and myAssetsGroup — which share
+// several routes — never both map the same breadcrumb entry at once.
+const allGroups = computed(() => [
+  ...(isAdmin.value ? [inventoryGroup.value] : [myAssetsGroup.value]),
+  peopleGroup.value, systemSetupGroup.value, settingGroup.value,
+])
 const activeGroupKey = computed(() => {
   for (const g of allGroups.value) {
     if (g.items.some((it) => isActive(it.to))) return g.key
@@ -137,8 +150,7 @@ const breadcrumbMap = computed(() => {
   add('/notifications', 'Notifications')
   add('/assets/import', t('import.title'), t('nav.asset_management'))
 
-  myAssets.value.forEach((item) => add(item.to, item.label, t('nav.my_assets')))
-  ;[inventoryGroup.value, peopleGroup.value, systemSetupGroup.value, settingGroup.value].forEach((group) => {
+  allGroups.value.forEach((group) => {
     group.items.forEach((item) => add(item.to, item.label, group.title))
   })
 
@@ -205,21 +217,6 @@ function initials(name) {
             <!-- Manage: everything that changes register data — grouped by domain -->
             <p class="nav-section-label pt-3">{{ t('nav.manage') }}</p>
 
-            <!-- Non-admin flat My Assets -->
-            <div v-if="!isAdmin">
-              <p class="nav-section-label pl-3 !text-white/30">{{ t('nav.my_assets') }}</p>
-              <RouterLink
-                v-for="item in myAssets"
-                :key="item.to"
-                :to="item.to"
-                class="nav-link pl-9"
-                active-class="nav-link-active"
-                @click="mobileOpen = false"
-              >
-                <span class="truncate">{{ item.label }}</span>
-              </RouterLink>
-            </div>
-
             <!-- Accordion groups -->
             <div v-for="group in mainGroups" :key="group.key">
               <button
@@ -282,6 +279,11 @@ function initials(name) {
                 </RouterLink>
               </div>
             </div>
+
+            <RouterLink v-if="!isAdmin" to="/profile" class="nav-link" active-class="nav-link-active" @click="mobileOpen = false">
+              <svg class="w-[18px] h-[18px] flex-shrink-0" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :d="I.cog" /></svg>
+              <span class="truncate">{{ t('nav.setting') }}</span>
+            </RouterLink>
 
             <button @click="handleLogout" class="nav-link w-full text-red-200 hover:bg-red-500/20 hover:text-white">
               <svg class="w-[18px] h-[18px] flex-shrink-0" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" /></svg>

@@ -16,6 +16,7 @@ const loading = ref(true)
 const form = reactive({
   organization_name: '', system_name: '', theme_color: '#128a43', email: '', phone: '',
   address: '', qr_size: 300, locale: 'en', report_interval_months: 6, report_recipient_email: '',
+  include_staff_in_reports: false,
 })
 
 async function loadSettings() {
@@ -23,6 +24,10 @@ async function loadSettings() {
   Object.keys(form).forEach((key) => {
     if (data[key] !== undefined) form[key] = data[key]
   })
+  // Stored as the string '1'/'0' like every other setting — coerce to a
+  // real boolean or the checkbox would render "checked" for both values
+  // (a non-empty string is always truthy in JS, '0' included).
+  form.include_staff_in_reports = data.include_staff_in_reports === '1'
   if (data.locale) setLocale(data.locale)
   if (data.theme_color) applyThemeColor(data.theme_color)
   loading.value = false
@@ -175,6 +180,18 @@ onMounted(() => {
           </div>
         </div>
         <p class="text-xs text-faint -mt-2">{{ t('settings.report_recipient_email_hint') }}</p>
+
+        <div class="border-t border-line pt-4 space-y-3">
+          <h3 class="text-xs font-semibold text-muted tracking-wide uppercase">Staff Role</h3>
+          <label class="flex items-start gap-2.5 text-sm text-muted select-none cursor-pointer">
+            <input type="checkbox" v-model="form.include_staff_in_reports" class="mt-0.5 rounded border-line text-brand focus:ring-brand/30" />
+            <span>
+              Include Staff in scheduled email reports
+              <span class="block text-xs text-faint mt-0.5">Off by default — Staff normally can't pull reports themselves either. Turning this on adds every Staff account's email to the automatic report recipients.</span>
+            </span>
+          </label>
+        </div>
+
         <div class="pt-2">
           <button type="submit" class="btn-primary">{{ t('settings.save') }}</button>
         </div>

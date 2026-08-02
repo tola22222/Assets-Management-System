@@ -38,6 +38,16 @@ class SendScheduledAssetReport extends Command
 
         $periodLabel = now()->format('F Y');
         $recipients = User::whereIn('role', ['finance_manager', 'executive_director', 'operations_hr_manager'])->get();
+
+        // Off by default — staff aren't normally part of the counting-cycle
+        // report audience (they can't even pull reports themselves), but an
+        // admin can opt the whole role in from Settings. Even then, each
+        // staff member can personally opt back out from their own Profile —
+        // unlike the three roles above, which have no opt-out.
+        if (Setting::where('key', 'include_staff_in_reports')->value('value') === '1') {
+            $recipients = $recipients->merge(User::where('role', 'staff')->where('receive_reports', true)->get());
+        }
+
         $emailedTo = [];
 
         foreach ($recipients as $recipient) {

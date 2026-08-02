@@ -20,6 +20,7 @@ use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\SearchController;
 use App\Http\Controllers\Api\SettingController;
 use App\Http\Controllers\Api\StaffController;
+use App\Http\Controllers\Api\StockItemController;
 use App\Http\Controllers\Api\SupplierController;
 use App\Http\Controllers\Api\UserController;
 use Illuminate\Support\Facades\Route;
@@ -107,6 +108,15 @@ Route::name('api.')->group(function () {
         });
         Route::middleware('role:operations_hr_manager,finance_manager')->group(function () {
             Route::apiResource('suppliers', SupplierController::class)->only(['store', 'update', 'destroy']);
+        });
+
+        // Stock (consumables) — every role can view the grid/dashboard; only
+        // OPM/Finance can receive, issue, or delete, mirroring suppliers above.
+        Route::apiResource('stock-items', StockItemController::class)->only(['index', 'show']);
+        Route::middleware('role:operations_hr_manager,finance_manager')->group(function () {
+            Route::post('/stock-items/receive', [StockItemController::class, 'receive']);
+            Route::post('/stock-items/{stock_item}/issue', [StockItemController::class, 'issue']);
+            Route::delete('/stock-items/{stock_item}', [StockItemController::class, 'destroy']);
         });
 
         // Staff cannot pull reports — matches the manual's counting process, which is

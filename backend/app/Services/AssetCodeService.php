@@ -18,7 +18,9 @@ use InvalidArgumentException;
  * the Asset Checking & Counting Manual. The numeric sequence is global per
  * category (not per site, not per year), never resets, and is never reused
  * — it always increments from the highest number ever issued for that
- * category, tracked in the `asset_code_sequences` table.
+ * category, tracked in the `asset_code_sequences` table. Also generates
+ * PEY-STK-#### stock (consumable) IDs via the same table/mechanism —
+ * see nextStockCode().
  */
 class AssetCodeService
 {
@@ -77,6 +79,38 @@ class AssetCodeService
                 ->update(['last_sequence' => $next, 'updated_at' => now()]);
 
             return "PEY-{$siteCode}-{$categoryCode}-".str_pad((string) $next, 4, '0', STR_PAD_LEFT);
+        });
+    }
+
+    /**
+     * Stock (consumables) IDs: PEY-STK-####. Reuses the exact same
+     * asset_code_sequences table/locking pattern as nextCode() — a "STK"
+     * row alongside the asset category rows — so it's global, never reused,
+     * and safe under concurrent Receive Stock requests for the same reason
+     * asset codes are.
+     */
+    public static function nextStockCode(): string
+    {
+        return DB::transaction(function () {
+            DB::table('asset_code_sequences')->insertOrIgnore([
+                'category_code' => 'STK',
+                'last_sequence' => 0,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            $sequence = DB::table('asset_code_sequences')
+                ->where('category_code', 'STK')
+                ->lockForUpdate()
+                ->first();
+
+            $next = $sequence->last_sequence + 1;
+
+            DB::table('asset_code_sequences')
+                ->where('category_code', 'STK')
+                ->update(['last_sequence' => $next, 'updated_at' => now()]);
+
+            return 'PEY-STK-'.str_pad((string) $next, 4, '0', STR_PAD_LEFT);
         });
     }
 

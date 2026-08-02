@@ -12,6 +12,7 @@ use App\Services\AssetNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 
 class AssetController extends Controller
 {
@@ -41,7 +42,7 @@ class AssetController extends Controller
 
     public function store(Request $request)
     {
-        $validated = $this->validateAsset($request);
+        $validated = $this->validateAsset($request, null);
 
         if ($request->hasFile('image')) {
             $validated['image_path'] = $request->file('image')->store('assets', 'public');
@@ -70,7 +71,7 @@ class AssetController extends Controller
 
     public function update(Request $request, Asset $asset)
     {
-        $validated = $this->validateAsset($request);
+        $validated = $this->validateAsset($request, $asset);
 
         if ($request->hasFile('image')) {
             if ($asset->image_path) {
@@ -168,7 +169,7 @@ class AssetController extends Controller
         return response()->json($asset->fresh());
     }
 
-    private function validateAsset(Request $request): array
+    private function validateAsset(Request $request, ?Asset $asset): array
     {
         return $request->validate([
             'name' => 'required|string|max:255',
@@ -180,9 +181,11 @@ class AssetController extends Controller
             'description' => 'nullable|string',
             'model' => 'nullable|string',
             'brand' => 'nullable|string',
-            'serial_number' => 'nullable|string',
+            'serial_number' => ['nullable', 'string', Rule::unique('assets', 'serial_number')->ignore($asset?->id)],
             'condition' => 'nullable|string',
             'image' => 'nullable|image|mimes:jpeg,png,jpg|max:5120',
+        ], [
+            'serial_number.unique' => 'This serial number is already registered to another asset.',
         ]);
     }
 }

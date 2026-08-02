@@ -22,6 +22,7 @@ class User extends Authenticatable
         'is_active',
         'is_locked',
         'last_login_at',
+        'receive_reports',
     ];
 
     protected $hidden = [
@@ -38,6 +39,7 @@ class User extends Authenticatable
             'password' => 'hashed',
             'is_active' => 'boolean',
             'is_locked' => 'boolean',
+            'receive_reports' => 'boolean',
             'last_login_at' => 'datetime',
         ];
     }

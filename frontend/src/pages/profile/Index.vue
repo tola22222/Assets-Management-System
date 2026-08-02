@@ -4,9 +4,13 @@ import http from '../../api/http'
 import { useAuthStore } from '../../stores/auth'
 import AppLayout from '../../layouts/AppLayout.vue'
 import { useToastStore } from '../../stores/toast'
+import { useLocale } from '../../composables/useLocale'
+import { useTheme } from '../../composables/useTheme'
 
 const auth = useAuthStore()
 const toast = useToastStore()
+const { locale, setLocale } = useLocale()
+const { isDark, setDark, setLight } = useTheme()
 
 const form = reactive({
   name: auth.user?.name || '',
@@ -39,6 +43,26 @@ async function saveProfile() {
     toast.error(e.response?.data?.message || 'Could not update profile.')
   } finally {
     savingProfile.value = false
+  }
+}
+
+const receiveReports = ref(auth.user?.receive_reports ?? true)
+const savingPreferences = ref(false)
+
+async function savePreferences() {
+  savingPreferences.value = true
+  try {
+    const fd = new FormData()
+    fd.append('name', auth.user?.name || '')
+    fd.append('phone', auth.user?.phone || '')
+    fd.append('receive_reports', receiveReports.value ? '1' : '0')
+    const { data } = await http.post('/profile', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+    auth.setUser(data)
+    toast.success('Preference saved.')
+  } catch (e) {
+    toast.error(e.response?.data?.message || 'Could not save preference.')
+  } finally {
+    savingPreferences.value = false
   }
 }
 
@@ -104,6 +128,39 @@ async function changePassword() {
           {{ savingProfile ? 'Saving…' : 'Save Changes' }}
         </button>
       </form>
+
+      <div class="card p-6 space-y-5">
+        <h2 class="font-bold text-fg">Preferences</h2>
+
+        <div class="space-y-1.5">
+          <label class="label">Color Theme</label>
+          <div class="flex items-center gap-1 bg-surface-2 rounded-xl p-1 w-fit">
+            <button type="button" @click="setLight()" class="px-4 py-1.5 rounded-lg text-xs font-semibold transition" :class="!isDark ? 'bg-brand text-white' : 'text-muted hover:text-fg'">Light</button>
+            <button type="button" @click="setDark()" class="px-4 py-1.5 rounded-lg text-xs font-semibold transition" :class="isDark ? 'bg-brand text-white' : 'text-muted hover:text-fg'">Dark</button>
+          </div>
+        </div>
+
+        <div class="space-y-1.5">
+          <label class="label">Language</label>
+          <select :value="locale" @change="setLocale($event.target.value)" class="select">
+            <option value="en">English</option>
+            <option value="km">ខ្មែរ</option>
+          </select>
+        </div>
+
+        <form v-if="auth.user?.role === 'staff'" @submit.prevent="savePreferences" class="space-y-3 pt-2 border-t border-line">
+          <label class="flex items-start gap-2.5 text-sm text-muted select-none cursor-pointer">
+            <input type="checkbox" v-model="receiveReports" class="mt-0.5 rounded border-line text-brand focus:ring-brand/30" />
+            <span>
+              Receive scheduled report emails
+              <span class="block text-xs text-faint mt-0.5">Only matters once an admin turns on "Include Staff in scheduled email reports" in Settings — this lets you personally opt out even when that's on.</span>
+            </span>
+          </label>
+          <button type="submit" :disabled="savingPreferences" class="btn-primary btn-sm">
+            {{ savingPreferences ? 'Saving…' : 'Save Preference' }}
+          </button>
+        </form>
+      </div>
 
       <form @submit.prevent="changePassword" class="card p-6 space-y-5">
         <h2 class="font-bold text-fg">Change Password</h2>

@@ -86,12 +86,20 @@ class AuthController extends Controller
             'name' => 'required|string|max:255',
             'phone' => 'nullable|string|max:20',
             'photo' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
+            'receive_reports' => 'nullable|boolean',
         ]);
 
         $data = [
             'name' => $request->name,
             'phone' => $request->phone,
         ];
+
+        // Personal opt-out of the scheduled report email — only meaningful
+        // for staff (see SendScheduledAssetReport), but harmless to store
+        // for any role.
+        if ($request->has('receive_reports')) {
+            $data['receive_reports'] = $request->boolean('receive_reports');
+        }
 
         if ($request->hasFile('photo')) {
             if ($user->photo_path) {

@@ -11,6 +11,7 @@ use App\Services\AssetCodeService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 
 class AssetController extends Controller
 {
@@ -50,9 +51,11 @@ class AssetController extends Controller
             'description' => 'nullable|string',
             'model' => 'nullable|string',
             'brand' => 'nullable|string',
-            'serial_number' => 'nullable|string',
+            'serial_number' => ['nullable', 'string', Rule::unique('assets', 'serial_number')],
             'condition' => 'nullable|string',
             'image' => 'nullable|image|mimes:jpeg,png,jpg|max:5120',
+        ], [
+            'serial_number.unique' => 'This serial number is already registered to another asset.',
         ]);
 
         if ($request->hasFile('image')) {
@@ -117,9 +120,11 @@ class AssetController extends Controller
             'description' => 'nullable|string',
             'model' => 'nullable|string',
             'brand' => 'nullable|string',
-            'serial_number' => 'nullable|string',
+            'serial_number' => ['nullable', 'string', Rule::unique('assets', 'serial_number')->ignore($asset->id)],
             'condition' => 'nullable|string',
             'image' => 'nullable|image|mimes:jpeg,png,jpg|max:5120',
+        ], [
+            'serial_number.unique' => 'This serial number is already registered to another asset.',
         ]);
 
         if ($request->hasFile('image')) {

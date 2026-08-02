@@ -29,8 +29,13 @@ class SettingController extends Controller
             'locale' => 'nullable|in:en,km',
             'report_interval_months' => 'nullable|integer|min:1|max:24',
             'report_recipient_email' => 'nullable|email',
+            'include_staff_in_reports' => 'nullable|boolean',
             'logo' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
         ]);
+
+        if ($request->has('include_staff_in_reports')) {
+            $validated['include_staff_in_reports'] = $request->boolean('include_staff_in_reports') ? '1' : '0';
+        }
 
         if ($request->hasFile('logo')) {
             $path = $request->file('logo')->store('settings', 'public');
