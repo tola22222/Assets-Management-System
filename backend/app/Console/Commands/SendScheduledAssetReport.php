@@ -3,11 +3,6 @@
 namespace App\Console\Commands;
 
 use App\Mail\ScheduledAssetReportMail;
-use App\Models\Asset;
-use App\Models\AssetDisposal;
-use App\Models\AssetReturn;
-use App\Models\AssetTransfer;
-use App\Models\AssetVerification;
 use App\Models\Notification;
 use App\Models\Setting;
 use App\Models\User;
@@ -39,17 +34,7 @@ class SendScheduledAssetReport extends Command
             return self::SUCCESS;
         }
 
-        $summary = [
-            'total_assets' => Asset::count(),
-            'active_assets' => Asset::where('status', 'active')->count(),
-            'disposed_assets' => Asset::where('status', 'disposed')->count(),
-            'lost_assets' => Asset::where('condition', 'lost')->count(),
-            'broken_assets' => Asset::where('condition', 'broken')->count(),
-            'pending_disposals' => AssetDisposal::pending()->count(),
-            'pending_transfers' => AssetTransfer::where('status', 'pending')->count(),
-            'pending_returns' => AssetReturn::where('status', 'pending')->count(),
-            'verifications_since_last' => AssetVerification::where('verified_at', '>=', $lastSentAt)->count(),
-        ];
+        $summary = ScheduledAssetReportMail::buildSummary($lastSentAt);
 
         $periodLabel = now()->format('F Y');
         $recipients = User::whereIn('role', ['finance_manager', 'executive_director', 'operations_hr_manager'])->get();

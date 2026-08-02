@@ -2,11 +2,39 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import http from '../../api/http'
 import AppLayout from '../../layouts/AppLayout.vue'
+import Modal from '../../components/ui/Modal.vue'
 import TableSortIcon from '../../components/ui/TableSortIcon.vue'
 import FilterPills from '../../components/ui/FilterPills.vue'
 import StatCard from '../../components/ui/StatCard.vue'
 import DonutChart from '../../components/ui/DonutChart.vue'
 import LocationPillCards from '../../components/ui/LocationPillCards.vue'
+import { useToastStore } from '../../stores/toast'
+import { useAuthStore } from '../../stores/auth'
+
+const toast = useToastStore()
+const auth = useAuthStore()
+
+const showEmailModal = ref(false)
+const emailAddress = ref('')
+const emailSending = ref(false)
+
+function openEmailModal() {
+  emailAddress.value = auth.user?.email || ''
+  showEmailModal.value = true
+}
+
+async function sendReportEmail() {
+  emailSending.value = true
+  try {
+    await http.post('/reports/email', { email: emailAddress.value })
+    toast.success(`Report emailed to ${emailAddress.value}.`)
+    showEmailModal.value = false
+  } catch (e) {
+    toast.error(e.response?.data?.message || 'Could not send the email. Try again.')
+  } finally {
+    emailSending.value = false
+  }
+}
 
 const reportTypes = [
   { key: 'inventory', label: 'Inventory' },
@@ -289,10 +317,16 @@ onMounted(() => {
           <h1 class="font-display text-3xl sm:text-4xl font-semibold text-fg tracking-tight">Reports</h1>
           <p class="text-muted text-sm mt-2">Live roll-ups across the asset register</p>
         </div>
-        <button @click="exportCsv" class="btn-ghost flex-shrink-0 mt-1 sm:mt-0">
-          <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
-          Export CSV
-        </button>
+        <div class="flex items-center gap-2 flex-shrink-0 mt-1 sm:mt-0">
+          <button @click="openEmailModal" class="btn-ghost">
+            <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" /></svg>
+            Email Report
+          </button>
+          <button @click="exportCsv" class="btn-ghost">
+            <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
+            Export CSV
+          </button>
+        </div>
       </div>
 
       <div v-if="overviewLoading" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -458,5 +492,25 @@ onMounted(() => {
       </div>
 
     </div>
+
+    <Modal v-if="showEmailModal" title="Email Report" @close="showEmailModal = false">
+      <form @submit.prevent="sendReportEmail">
+        <div class="p-6 space-y-4">
+          <p class="text-sm text-muted">
+            Sends a summary of the register (total assets, disposals, pending workflows, etc.) to the address below.
+          </p>
+          <div class="space-y-1.5">
+            <label class="text-xs font-semibold text-muted tracking-wide">Recipient email</label>
+            <input v-model="emailAddress" type="email" required placeholder="name@example.com" class="input" />
+          </div>
+        </div>
+        <div class="flex items-center gap-3 border-t border-line px-6 py-4">
+          <button type="submit" :disabled="emailSending" class="btn-primary">
+            {{ emailSending ? 'Sending…' : 'Send' }}
+          </button>
+          <button type="button" class="btn-ghost" @click="showEmailModal = false">Cancel</button>
+        </div>
+      </form>
+    </Modal>
   </AppLayout>
 </template>

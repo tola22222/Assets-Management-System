@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Mail\ScheduledAssetReportMail;
+use App\Models\ActivityLog;
 use App\Models\Asset;
 use App\Models\AssetAssignment;
 use App\Models\AssetReturn;
@@ -12,9 +14,38 @@ use App\Models\Location;
 use App\Models\Notification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 
 class ReportController extends Controller
 {
+    /**
+     * Manual "email this report" action from the Reports page — sends the
+     * same summary the automated `app:send-scheduled-asset-report` command
+     * sends, immediately, to whatever address the user provides, regardless
+     * of that command's own once-per-interval throttle.
+     */
+    public function email(Request $request)
+    {
+        $request->validate(['email' => 'required|email']);
+
+        $summary = ScheduledAssetReportMail::buildSummary();
+        $periodLabel = now()->format('F Y');
+
+        try {
+            Mail::to($request->email)->send(new ScheduledAssetReportMail($summary, $periodLabel));
+        } catch (\Throwable $e) {
+            return response()->json(['message' => 'Could not send the email — check the mail server configuration.'], 422);
+        }
+
+        ActivityLog::create([
+            'user_id' => $request->user()->id,
+            'action' => 'Email Report',
+            'description' => $request->user()->name." emailed the asset report to {$request->email}.",
+        ]);
+
+        return response()->json(['message' => 'Report emailed to '.$request->email.'.']);
+    }
+
     /**
      * Grouped "count by model" view: each Asset row stays an individually
      * tracked unit with its own tag, but this rolls same-name units up into

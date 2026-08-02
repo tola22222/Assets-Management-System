@@ -123,6 +123,7 @@ Route::name('api.')->group(function () {
             Route::get('/reports/locations', [ReportController::class, 'locations']);
             Route::get('/reports/qr-scans', [ReportController::class, 'qrScans']);
             Route::get('/reports/data-completeness', [ReportController::class, 'dataCompleteness']);
+            Route::post('/reports/email', [ReportController::class, 'email']);
         });
 
         Route::middleware('role:operations_hr_manager')->group(function () {
