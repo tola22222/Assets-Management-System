@@ -5,7 +5,6 @@ use App\Http\Controllers\AssetCategoryController;
 use App\Http\Controllers\AssetController;
 use App\Http\Controllers\AssetDisposalController;
 use App\Http\Controllers\AssetImportController;
-use App\Http\Controllers\AssetMovementController;
 use App\Http\Controllers\AssetReturnController;
 use App\Http\Controllers\AssetTransferController;
 use App\Http\Controllers\AssetVerificationController;
@@ -174,9 +173,6 @@ Route::middleware('auth')->group(function () {
         Route::post('/asset-disposals/{assetDisposal}/approve', [AssetDisposalController::class, 'approve'])->name('asset-disposals.approve');
         Route::post('/asset-disposals/{assetDisposal}/reject', [AssetDisposalController::class, 'reject'])->name('asset-disposals.reject');
     });
-
-    // Asset Movements
-    Route::resource('asset-movements', AssetMovementController::class)->except(['create', 'store', 'show', 'edit', 'update', 'destroy']);
 
     // People & Programs
     Route::resource('programs', ProgramController::class)->only(['index']);

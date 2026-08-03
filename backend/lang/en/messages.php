@@ -10,7 +10,6 @@ return [
     // Sidebar - Asset Management
     'asset_management' => 'Asset Management',
     'asset_register' => 'Asset Register',
-    'stock_movements' => 'Stock Movements',
     'assignments' => 'Assignments',
     'transfers' => 'Transfers',
     'returns' => 'Returns',

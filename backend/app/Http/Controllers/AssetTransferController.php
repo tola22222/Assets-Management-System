@@ -4,14 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Models\Asset;
 use App\Models\AssetTransfer;
-use App\Models\AssetMovement;
 use App\Models\Location;
 use App\Models\ActivityLog;
 use App\Models\Notification;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 
 class AssetTransferController extends Controller
 {
@@ -106,21 +104,6 @@ class AssetTransferController extends Controller
 
     private function processTransfer(AssetTransfer $transfer)
     {
-        DB::transaction(function () use ($transfer) {
-            AssetMovement::create([
-                'asset_id' => $transfer->asset_id,
-                'from_location_id' => $transfer->from_location_id,
-                'to_location_id' => $transfer->to_location_id,
-                'movement_type' => 'transfer',
-                'quantity' => 1,
-                'reference_no' => 'TRF-' . $transfer->id,
-                'created_by' => Auth::id(),
-            ]);
-
-            // The AssetMovement row above is only an audit trail — without this,
-            // the asset's actual location_id never changes, so the register
-            // silently disagrees with the approved transfer forever.
-            $transfer->asset()->update(['location_id' => $transfer->to_location_id]);
-        });
+        $transfer->asset()->update(['location_id' => $transfer->to_location_id]);
     }
 }

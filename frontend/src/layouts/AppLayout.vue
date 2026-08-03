@@ -75,7 +75,6 @@ const inventoryGroup = computed(() => ({
   items: [
     { to: '/assets', label: t('nav.asset_register') },
     { to: '/stock', label: 'Stock' },
-    { to: '/asset-movements', label: t('nav.stock_movements') },
     { to: '/asset-assignments', label: t('nav.assignments') },
     { to: '/asset-transfers', label: t('nav.transfers') },
     { to: '/asset-returns', label: t('nav.returns') },

@@ -7,7 +7,6 @@ use App\Models\AssetAssignment;
 use App\Models\AssetTransfer;
 use App\Models\AssetVerification;
 use App\Models\AssetReturn;
-use App\Models\AssetMovement;
 use App\Models\Location;
 use App\Models\Notification;
 use Illuminate\Http\Request;

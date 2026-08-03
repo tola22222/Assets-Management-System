@@ -8,7 +8,6 @@ use App\Models\AssetCategory;
 use App\Models\AssetVerification;
 use App\Models\Location;
 use App\Models\Staff;
-use App\Models\AssetMovement;
 use App\Models\Notification;
 use App\Models\AssetReturn;
 use App\Models\AssetTransfer;
@@ -42,7 +41,6 @@ class DashboardController extends Controller
                 })->count(),
             'assets_lost' => Asset::where('condition', 'lost')->count(),
             'recent_assets' => Asset::with('category')->latest()->take(5)->get(),
-            'recent_movements' => AssetMovement::with('asset')->latest()->take(5)->get(),
             'recent_scans' => Notification::where('type', 'qr_scan')->latest()->take(5)->get(),
             'pending_verifications' => AssetVerification::whereNull('verified_at')->count(),
             'pending_returns' => AssetReturn::where('status', 'pending')->count(),

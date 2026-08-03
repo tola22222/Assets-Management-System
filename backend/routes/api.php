@@ -6,7 +6,6 @@ use App\Http\Controllers\Api\AssetCategoryController;
 use App\Http\Controllers\Api\AssetController;
 use App\Http\Controllers\Api\AssetDisposalController;
 use App\Http\Controllers\Api\AssetImportController;
-use App\Http\Controllers\Api\AssetMovementController;
 use App\Http\Controllers\Api\AssetReturnController;
 use App\Http\Controllers\Api\AssetTransferController;
 use App\Http\Controllers\Api\AssetVerificationController;
@@ -52,7 +51,6 @@ Route::name('api.')->group(function () {
             Route::post('/assets/import', [AssetImportController::class, 'store']);
             Route::apiResource('assets', AssetController::class)->only(['store', 'destroy']);
             Route::apiResource('locations', LocationController::class)->only(['store', 'update', 'destroy']);
-            Route::apiResource('asset-movements', AssetMovementController::class)->only(['destroy']);
         });
         Route::middleware('role:operations_hr_manager,finance_manager')->group(function () {
             Route::apiResource('assets', AssetController::class)->only(['update']);
@@ -97,8 +95,6 @@ Route::name('api.')->group(function () {
         Route::post('/asset-disposals/{asset_disposal}/approve', [AssetDisposalController::class, 'approve'])->middleware('role:operations_hr_manager,executive_director');
         Route::post('/asset-disposals/{asset_disposal}/reject', [AssetDisposalController::class, 'reject'])->middleware('role:operations_hr_manager,executive_director');
         Route::apiResource('asset-disposals', AssetDisposalController::class)->only(['index', 'store', 'destroy']);
-
-        Route::apiResource('asset-movements', AssetMovementController::class)->only(['index']);
 
         Route::apiResource('programs', ProgramController::class)->only(['index']);
         Route::apiResource('suppliers', SupplierController::class)->only(['index']);
