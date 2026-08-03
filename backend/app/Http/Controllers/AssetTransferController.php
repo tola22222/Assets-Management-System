@@ -34,32 +34,35 @@ class AssetTransferController extends Controller
         ]);
 
         $validated['requested_by'] = Auth::id();
-        $validated['status'] = Auth::user()->isOperationsHrManager() ? 'approved' : 'pending';
+        $validated['status'] = 'pending';
 
         $transfer = AssetTransfer::create($validated);
 
-        if ($transfer->status === 'approved') {
-            $this->processTransfer($transfer);
-        } else {
-            Notification::create([
-                'user_id' => User::where('role', 'operations_hr_manager')->first()->id,
-                'type' => 'transfer_request',
-                'message' => 'New asset transfer request for ' . ($transfer->asset->name ?? 'Asset'),
-                'url' => route('asset-transfers.index'),
-            ]);
-        }
+        User::where('role', 'operations_hr_manager')
+            ->where('id', '!=', Auth::id())
+            ->get()
+            ->each(function (User $admin) use ($transfer) {
+                Notification::create([
+                    'user_id' => $admin->id,
+                    'type' => 'transfer_request',
+                    'message' => 'New asset transfer request for ' . ($transfer->asset->name ?? 'Asset'),
+                    'url' => route('asset-transfers.index'),
+                ]);
+            });
 
         ActivityLog::create([
             'user_id' => Auth::id(),
             'action' => 'Create',
-            'description' => ($transfer->status === 'approved' ? 'Transferred' : 'Requested transfer of') . ' asset',
+            'description' => 'Requested transfer of asset',
         ]);
 
-        return redirect()->route('asset-transfers.index')->with('success', 'Transfer ' . ($transfer->status === 'approved' ? 'completed' : 'requested') . ' successfully.');
+        return redirect()->route('asset-transfers.index')->with('success', 'Transfer requested successfully.');
     }
 
     public function approve(AssetTransfer $transfer)
     {
+        abort_if($transfer->requested_by === Auth::id(), 403, 'You cannot approve your own transfer request.');
+
         $transfer->update([
             'status' => 'approved',
             'approved_by' => Auth::id(),

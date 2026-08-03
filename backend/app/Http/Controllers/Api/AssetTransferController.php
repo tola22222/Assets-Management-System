@@ -30,28 +30,26 @@ class AssetTransferController extends Controller
         ]);
 
         $validated['requested_by'] = Auth::id();
-        $validated['status'] = Auth::user()->isOperationsHrManager() ? 'approved' : 'pending';
+        $validated['status'] = 'pending';
 
         $transfer = AssetTransfer::create($validated);
 
-        if ($transfer->status === 'approved') {
-            $this->processTransfer($transfer);
-        } else {
-            $admin = User::where('role', 'operations_hr_manager')->first();
-            if ($admin) {
+        User::where('role', 'operations_hr_manager')
+            ->where('id', '!=', Auth::id())
+            ->get()
+            ->each(function (User $admin) use ($transfer) {
                 Notification::create([
                     'user_id' => $admin->id,
                     'type' => 'transfer_request',
                     'message' => 'New asset transfer request for ' . ($transfer->asset->name ?? 'Asset'),
                     'url' => null,
                 ]);
-            }
-        }
+            });
 
         ActivityLog::create([
             'user_id' => Auth::id(),
             'action' => 'Create',
-            'description' => ($transfer->status === 'approved' ? 'Transferred' : 'Requested transfer of') . ' asset',
+            'description' => 'Requested transfer of asset',
         ]);
 
         return response()->json($transfer->fresh(['asset', 'fromLocation', 'toLocation', 'requester']), 201);
@@ -59,6 +57,8 @@ class AssetTransferController extends Controller
 
     public function approve(AssetTransfer $asset_transfer)
     {
+        abort_if($asset_transfer->requested_by === Auth::id(), 403, 'You cannot approve your own transfer request.');
+
         $asset_transfer->update([
             'status' => 'approved',
             'approved_by' => Auth::id(),

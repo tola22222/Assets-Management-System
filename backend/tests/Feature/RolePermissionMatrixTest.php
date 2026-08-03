@@ -171,6 +171,31 @@ class RolePermissionMatrixTest extends TestCase
         $this->assertDatabaseHas('asset_transfers', ['id' => $transfer->id, 'status' => 'approved']);
     }
 
+    public function test_opm_created_transfer_is_pending_and_opm_cannot_approve_their_own_request(): void
+    {
+        $asset = $this->makeAsset();
+        $otherLocation = Location::where('code', '!=', 'SR')->firstOrFail();
+        $opm = User::factory()->create(['role' => 'operations_hr_manager']);
+
+        $response = $this->actingAs($opm)->postJson('/api/asset-transfers', [
+            'asset_id' => $asset->id,
+            'from_location_id' => $asset->location_id,
+            'to_location_id' => $otherLocation->id,
+            'transfer_date' => now()->toDateString(),
+        ]);
+
+        $response->assertStatus(201);
+        $transferId = $response->json('id');
+        $this->assertDatabaseHas('asset_transfers', ['id' => $transferId, 'status' => 'pending']);
+
+        $this->actingAs($opm)->postJson("/api/asset-transfers/{$transferId}/approve")->assertStatus(403);
+        $this->assertDatabaseHas('asset_transfers', ['id' => $transferId, 'status' => 'pending']);
+
+        $otherOpm = User::factory()->create(['role' => 'operations_hr_manager']);
+        $this->actingAs($otherOpm)->postJson("/api/asset-transfers/{$transferId}/approve")->assertStatus(200);
+        $this->assertDatabaseHas('asset_transfers', ['id' => $transferId, 'status' => 'approved']);
+    }
+
     public function test_only_opm_can_approve_or_reject_a_return(): void
     {
         $asset = $this->makeAsset();

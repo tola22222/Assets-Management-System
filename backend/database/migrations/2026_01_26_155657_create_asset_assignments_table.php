@@ -19,8 +19,8 @@ return new class extends Migration
             $table->foreignId('location_id')->constrained('locations')->onDelete('cascade');
             $table->integer('quantity')->default(1);
             $table->date('assigned_date');
-            $table->date('due_date')->nullable(); // ADD THIS LINE
-            $table->enum('status', ['assigned', 'active', 'returned', 'overdue'])->default('assigned'); // Updated status options
+            $table->date('due_date')->nullable();
+            $table->enum('status', ['assigned', 'active', 'returned', 'overdue'])->default('assigned');
             $table->timestamps();
             
             // Add index for better performance
