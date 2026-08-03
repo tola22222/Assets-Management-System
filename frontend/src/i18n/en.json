@@ -362,6 +362,8 @@
     "delete_failed": "Could not delete user.",
     "unlocked": "User unlocked.",
     "locked_msg": "User locked.",
+    "lock_failed": "Could not update lock status.",
+    "cannot_lock_self": "You cannot lock your own account.",
     "password_reset": "Password reset successfully.",
     "reset_failed": "Could not reset password."
   },

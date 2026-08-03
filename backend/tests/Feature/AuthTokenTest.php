@@ -60,4 +60,13 @@ class AuthTokenTest extends TestCase
 
         $this->assertDatabaseCount('personal_access_tokens', 0);
     }
+
+    public function test_a_user_cannot_lock_their_own_account(): void
+    {
+        $opm = User::factory()->create(['role' => 'operations_hr_manager', 'is_locked' => false]);
+
+        $this->actingAs($opm)->postJson("/api/users/{$opm->id}/lock")->assertStatus(422);
+
+        $this->assertFalse($opm->fresh()->is_locked);
+    }
 }

@@ -69,6 +69,10 @@ class UserController extends Controller
 
     public function lock(User $user)
     {
+        if ($user->id === Auth::id()) {
+            return redirect()->route('users.index')->with('error', 'You cannot lock your own account.');
+        }
+
         $user->update(['is_locked' => ! $user->is_locked]);
 
         if ($user->is_locked) {

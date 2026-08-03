@@ -12,8 +12,10 @@ import { useTableSearch } from '../../composables/useTableSearch'
 import { useTableSort } from '../../composables/useTableSort'
 import { useBulkSelect } from '../../composables/useBulkSelect'
 import { useToastStore } from '../../stores/toast'
+import { useAuthStore } from '../../stores/auth'
 
 const { t } = useI18n()
+const auth = useAuthStore()
 const { items: users, loading, fetchAll, create, update, destroy, destroyMany } = useApiCrud('/users', { entityName: t('users.entity') })
 const { search, filtered: searched } = useTableSearch(users, ['name', 'email', 'role'])
 const { sortKey, sortDir, toggleSort, sorted: filtered } = useTableSort(searched, { defaultKey: 'name' })
@@ -76,9 +78,13 @@ async function handleSubmit() {
 }
 
 async function toggleLock(user) {
-  await http.post(`/users/${user.id}/lock`)
-  toast.success(user.is_locked ? t('users.unlocked') : t('users.locked_msg'))
-  await fetchAll()
+  try {
+    await http.post(`/users/${user.id}/lock`)
+    toast.success(user.is_locked ? t('users.unlocked') : t('users.locked_msg'))
+    await fetchAll()
+  } catch (e) {
+    toast.error(e.response?.data?.message || t('users.lock_failed'))
+  }
 }
 
 async function submitPasswordReset() {
@@ -180,7 +186,12 @@ onMounted(() => {
                     <button @click="openEdit(u)" title="Edit" class="w-7 h-7 rounded-lg bg-brand text-white flex items-center justify-center hover:bg-brand-dark transition">
                       <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487z" /></svg>
                     </button>
-                    <button @click="toggleLock(u)" :title="u.is_locked ? t('common.unlock') : t('common.lock')" class="w-7 h-7 rounded-lg bg-accent text-brand-800 flex items-center justify-center hover:bg-accent-dark hover:text-white transition">
+                    <button
+                      @click="toggleLock(u)"
+                      :disabled="u.id === auth.user?.id"
+                      :title="u.id === auth.user?.id ? t('users.cannot_lock_self') : (u.is_locked ? t('common.unlock') : t('common.lock'))"
+                      class="w-7 h-7 rounded-lg bg-accent text-brand-800 flex items-center justify-center hover:bg-accent-dark hover:text-white transition disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-accent disabled:hover:text-brand-800"
+                    >
                       <svg v-if="u.is_locked" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 10.5V6.75a4.5 4.5 0 119 0v3.75M3.75 21.75h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H3.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" /></svg>
                       <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" /></svg>
                     </button>
