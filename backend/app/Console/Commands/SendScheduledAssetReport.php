@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\Mail;
 
 class SendScheduledAssetReport extends Command
 {
-    protected $signature = 'app:send-scheduled-asset-report';
+    protected $signature = 'app:send-scheduled-asset-report {--force : Send immediately, ignoring the baseline/interval throttle — for verifying mail delivery on demand}';
 
     protected $description = 'Notify Finance Manager/Executive Director/Admin when the asset counting cycle is due';
 
@@ -21,18 +21,26 @@ class SendScheduledAssetReport extends Command
     {
         $intervalMonths = (int) (Setting::where('key', 'report_interval_months')->value('value') ?? 6);
         $lastSentAt = Setting::where('key', 'last_scheduled_report_at')->value('value');
+        $force = (bool) $this->option('force');
 
-        if (!$lastSentAt) {
+        if (!$lastSentAt && !$force) {
             Setting::updateOrCreate(['key' => 'last_scheduled_report_at'], ['value' => now()->toDateTimeString()]);
-            $this->info('No prior report on record — baseline set to now. First report will send in ' . $intervalMonths . ' month(s).');
+            $this->info('No prior report on record — baseline set to now. First report will send in ' . $intervalMonths . ' month(s). Use --force to send immediately instead.');
             return self::SUCCESS;
         }
 
-        $lastSentAt = Carbon::parse($lastSentAt);
-        if (now()->lessThan($lastSentAt->copy()->addMonths($intervalMonths))) {
-            $this->info('Not due yet. Next due: ' . $lastSentAt->copy()->addMonths($intervalMonths)->toDateString());
-            return self::SUCCESS;
+        if ($lastSentAt && !$force) {
+            $lastSentAt = Carbon::parse($lastSentAt);
+            if (now()->lessThan($lastSentAt->copy()->addMonths($intervalMonths))) {
+                $this->info('Not due yet. Next due: ' . $lastSentAt->copy()->addMonths($intervalMonths)->toDateString() . '. Use --force to send immediately instead.');
+                return self::SUCCESS;
+            }
         }
+
+        // --force on a database with no prior report has no real "since" date
+        // to summarize from — fall back to one interval ago so the summary
+        // still covers a sensible window instead of "everything ever".
+        $lastSentAt = $lastSentAt ? Carbon::parse($lastSentAt) : now()->copy()->subMonths($intervalMonths);
 
         $summary = ScheduledAssetReportMail::buildSummary($lastSentAt);
 

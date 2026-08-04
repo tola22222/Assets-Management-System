@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Asset;
 use App\Models\AssetCategory;
 use App\Models\Location;
+use App\Models\Setting;
 use Endroid\QrCode\Builder\Builder;
 use Endroid\QrCode\Encoding\Encoding;
 use Endroid\QrCode\ErrorCorrectionLevel;
@@ -150,12 +151,14 @@ class AssetCodeService
     {
         $url = route('asset.public.show', $asset->asset_code);
 
+        $qrSize = (int) (Setting::where('key', 'qr_size')->value('value') ?? 300);
+
         $result = (new Builder(
             writer: new PngWriter,
             data: $url,
             encoding: new Encoding('UTF-8'),
             errorCorrectionLevel: ErrorCorrectionLevel::High,
-            size: 300,
+            size: $qrSize,
             margin: 10,
         ))->build();
 

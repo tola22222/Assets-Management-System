@@ -253,10 +253,10 @@ onMounted(() => {
       </div>
 
       <!-- Assets by Category -->
-      <div>
+      <!-- <div>
         <h2 class="font-display text-base font-bold text-fg">Assets by Category</h2>
         <p class="text-xs text-muted mt-0.5">Live count of tagged assets on the Asset Register, grouped by category — updates automatically as assets are registered, imported, transferred, or disposed. Separate from the bulk-consumables grid below.</p>
-      </div>
+      </div> -->
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <!-- Low -->
         <div class="card p-5">
