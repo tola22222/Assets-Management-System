@@ -81,13 +81,6 @@ const locationFilterLabel = computed(() => {
   return loc?.name
 })
 
-// ---- Dashboard cards --------------------------------------------------
-const lowItems = computed(() =>
-  items.value.filter((i) => i.status === 'low').sort((a, b) => (a.balance - (a.min_threshold ?? 0)) - (b.balance - (b.min_threshold ?? 0)))
-)
-const normalCount = computed(() => items.value.filter((i) => i.status === 'normal').length)
-const highItems = computed(() => items.value.filter((i) => i.status === 'high'))
-
 // ---- Receive Stock ------------------------------------------------------
 const showReceiveModal = ref(false)
 const receiving = ref(false)
@@ -251,58 +244,6 @@ onMounted(() => {
             <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
             Receive Stock
           </button>
-        </div>
-      </div>
-
-      <!-- Dashboard cards -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        <!-- Low Stock -->
-        <div class="card p-5">
-          <div class="flex items-center justify-between mb-3">
-            <h2 class="font-display text-base font-bold text-fg">Low Stock</h2>
-            <span class="badge badge-danger">{{ lowItems.length }}</span>
-          </div>
-          <div v-if="lowItems.length" class="space-y-1 max-h-56 overflow-y-auto">
-            <button v-for="i in lowItems" :key="i.id" @click="canManage && openReceive(i)"
-              class="w-full text-left px-2.5 py-2 rounded-lg hover:bg-surface-2 transition flex items-center justify-between gap-2">
-              <div class="min-w-0">
-                <p class="text-sm font-semibold text-fg truncate">{{ i.name }}</p>
-                <p class="text-xs text-faint truncate">{{ i.location?.name }}</p>
-              </div>
-              <div class="text-right flex-shrink-0">
-                <p class="text-sm font-bold text-red-600 dark:text-red-400">{{ i.balance }} {{ i.unit }}</p>
-                <p class="text-[11px] text-faint">min {{ i.min_threshold }}</p>
-              </div>
-            </button>
-          </div>
-          <p v-else class="text-sm text-faint">Nothing running low.</p>
-        </div>
-
-        <!-- Normal -->
-        <div class="card p-5">
-          <div class="flex items-center justify-between">
-            <h2 class="font-display text-base font-bold text-fg">Normal</h2>
-            <span class="badge badge-success">{{ normalCount }}</span>
-          </div>
-          <p class="text-sm text-muted mt-2">Items within their configured range.</p>
-        </div>
-
-        <!-- Overstock -->
-        <div class="card p-5">
-          <div class="flex items-center justify-between mb-3">
-            <h2 class="font-display text-base font-bold text-fg">Hight</h2>
-            <span class="badge badge-warning">{{ highItems.length }}</span>
-          </div>
-          <div v-if="highItems.length" class="space-y-1 max-h-56 overflow-y-auto">
-            <div v-for="i in highItems" :key="i.id" class="px-2.5 py-2 rounded-lg flex items-center justify-between gap-2">
-              <div class="min-w-0">
-                <p class="text-sm font-semibold text-fg truncate">{{ i.name }}</p>
-                <p class="text-xs text-faint truncate">{{ i.location?.name }}</p>
-              </div>
-              <p class="text-sm font-bold text-amber-600 dark:text-amber-400 flex-shrink-0">{{ i.balance }} {{ i.unit }}</p>
-            </div>
-          </div>
-          <p v-else class="text-sm text-faint">Nothing over its max.</p>
         </div>
       </div>
 

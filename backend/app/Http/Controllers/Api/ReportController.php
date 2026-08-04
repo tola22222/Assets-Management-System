@@ -14,6 +14,7 @@ use App\Models\Location;
 use App\Models\Notification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
 class ReportController extends Controller
@@ -34,6 +35,8 @@ class ReportController extends Controller
         try {
             Mail::to($request->email)->send(new ScheduledAssetReportMail($summary, $periodLabel));
         } catch (\Throwable $e) {
+            Log::error('Manual report email failed for ' . $request->email . ': ' . $e->getMessage());
+
             return response()->json(['message' => 'Could not send the email — check the mail server configuration.'], 422);
         }
 
