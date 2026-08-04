@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Models\Asset;
+use App\Models\AssetCategory;
 use App\Models\Location;
 use App\Models\StockItem;
 use App\Models\StockTransaction;
@@ -248,5 +250,24 @@ class StockServiceTest extends TestCase
 
         $response->assertStatus(422);
         $this->assertDatabaseHas('stock_items', ['id' => $item->id]);
+    }
+
+    public function test_by_category_returns_a_live_count_of_registered_assets_excluding_disposed(): void
+    {
+        $staff = User::factory()->create(['role' => 'staff']);
+        $category = AssetCategory::create(['name' => 'Furniture & Fixture', 'short_name' => 'FAF']);
+        $location = $this->location();
+
+        Asset::create(['asset_code' => 'PEY-SR-FAF-0001', 'name' => 'Chair', 'category_id' => $category->id, 'location_id' => $location->id, 'status' => 'active', 'condition' => 'good']);
+        Asset::create(['asset_code' => 'PEY-SR-FAF-0002', 'name' => 'Desk', 'category_id' => $category->id, 'location_id' => $location->id, 'status' => 'active', 'condition' => 'good']);
+        Asset::create(['asset_code' => 'PEY-SR-FAF-0003', 'name' => 'Old Desk', 'category_id' => $category->id, 'location_id' => $location->id, 'status' => 'disposed', 'condition' => 'broken']);
+
+        $response = $this->actingAs($staff)->getJson('/api/stock-items/by-category');
+
+        $response->assertStatus(200);
+        $row = collect($response->json())->firstWhere('category_id', $category->id);
+        $this->assertNotNull($row);
+        $this->assertSame(2, $row['total']);
+        $this->assertSame('Furniture & Fixture', $row['category']['name']);
     }
 }

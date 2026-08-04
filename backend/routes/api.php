@@ -108,6 +108,7 @@ Route::name('api.')->group(function () {
 
         // Stock (consumables) — every role can view the grid/dashboard; only
         // OPM/Finance can receive, issue, or delete, mirroring suppliers above.
+        Route::get('/stock-items/by-category', [StockItemController::class, 'byCategory']);
         Route::apiResource('stock-items', StockItemController::class)->only(['index', 'show']);
         Route::middleware('role:operations_hr_manager,finance_manager')->group(function () {
             Route::post('/stock-items/receive', [StockItemController::class, 'receive']);

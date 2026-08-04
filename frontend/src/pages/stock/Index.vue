@@ -23,6 +23,7 @@ const canManage = computed(() => ['operations_hr_manager', 'finance_manager'].in
 const items = ref([])
 const locations = ref([])
 const categories = ref([])
+const categoryStats = ref([])
 const loading = ref(true)
 
 async function fetchAll() {
@@ -38,6 +39,10 @@ async function loadLocations() {
 async function loadCategories() {
   const { data } = await http.get('/categories')
   categories.value = data
+}
+async function loadCategoryStats() {
+  const { data } = await http.get('/stock-items/by-category')
+  categoryStats.value = data
 }
 
 // Unique existing item names, for the Receive Stock "pick an existing item" dropdown.
@@ -219,6 +224,7 @@ onMounted(() => {
   fetchAll()
   loadLocations()
   loadCategories()
+  loadCategoryStats()
 })
 </script>
 
@@ -297,6 +303,39 @@ onMounted(() => {
             </div>
           </div>
           <p v-else class="text-sm text-faint">Nothing over its max.</p>
+        </div>
+      </div>
+
+      <!-- Assets by Category -->
+      <div class="card p-6 sm:p-8">
+        <div class="mb-4">
+          <h2 class="font-display text-base font-bold text-fg">Assets by Category</h2>
+          <p class="text-xs text-muted mt-0.5">Live count of tagged assets on the Asset Register, grouped by category — updates automatically as assets are registered, imported, transferred, or disposed. Separate from the bulk-consumables grid below.</p>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Category</th>
+                <th class="text-right">Total Assets</th>
+                <th class="text-center">Level</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in categoryStats" :key="row.category_id ?? 'uncategorized'">
+                <td class="font-medium text-fg">{{ row.category?.name || 'Uncategorized' }}</td>
+                <td class="text-right">{{ row.total }}</td>
+                <td class="text-center">
+                  <span class="badge" :class="{ 'badge-danger': row.stock_level === 'low', 'badge-warning': row.stock_level === 'medium', 'badge-success': row.stock_level === 'high' }">
+                    {{ row.stock_level }}
+                  </span>
+                </td>
+              </tr>
+              <tr v-if="!categoryStats.length">
+                <td colspan="3" class="py-8 text-center text-faint">No assets registered yet.</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
 

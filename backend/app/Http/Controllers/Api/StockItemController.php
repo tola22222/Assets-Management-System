@@ -4,10 +4,12 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
+use App\Models\Asset;
 use App\Models\StockItem;
 use App\Services\StockService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
 class StockItemController extends Controller
@@ -15,6 +17,30 @@ class StockItemController extends Controller
     public function index()
     {
         return response()->json(StockItem::with('location')->orderBy('name')->get());
+    }
+
+    /**
+     * Live tally of the Asset Register grouped by category — not a stored
+     * balance, so it can never drift: it's a straight count of assets as
+     * they're registered/imported, always exactly matching the register
+     * (disposals, deletes, and transfers all show up automatically).
+     */
+    public function byCategory()
+    {
+        $rows = Asset::select('category_id', DB::raw('count(*) as total'))
+            ->where('status', '!=', 'disposed')
+            ->groupBy('category_id')
+            ->with('category:id,name,short_name')
+            ->get()
+            ->map(function ($row) {
+                $row->stock_level = Asset::stockLevelFor($row->total);
+
+                return $row;
+            })
+            ->sortByDesc('total')
+            ->values();
+
+        return response()->json($rows);
     }
 
     public function show(StockItem $stock_item)
