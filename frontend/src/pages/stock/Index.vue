@@ -45,6 +45,11 @@ async function loadCategoryStats() {
   categoryStats.value = data
 }
 
+// ---- Assets by Category cards ------------------------------------------
+const lowCategories = computed(() => categoryStats.value.filter((c) => c.stock_level === 'low').sort((a, b) => a.total - b.total))
+const normalCategories = computed(() => categoryStats.value.filter((c) => c.stock_level === 'medium'))
+const highCategories = computed(() => categoryStats.value.filter((c) => c.stock_level === 'high').sort((a, b) => b.total - a.total))
+
 // Unique existing item names, for the Receive Stock "pick an existing item" dropdown.
 const uniqueItemNames = computed(() => [...new Set(items.value.map((i) => i.name))].sort((a, b) => a.localeCompare(b)))
 
@@ -248,35 +253,54 @@ onMounted(() => {
       </div>
 
       <!-- Assets by Category -->
-      <div class="card p-6 sm:p-8">
-        <div class="mb-4">
-          <h2 class="font-display text-base font-bold text-fg">Assets by Category</h2>
-          <p class="text-xs text-muted mt-0.5">Live count of tagged assets on the Asset Register, grouped by category — updates automatically as assets are registered, imported, transferred, or disposed. Separate from the bulk-consumables grid below.</p>
+      <div>
+        <h2 class="font-display text-base font-bold text-fg">Assets by Category</h2>
+        <p class="text-xs text-muted mt-0.5">Live count of tagged assets on the Asset Register, grouped by category — updates automatically as assets are registered, imported, transferred, or disposed. Separate from the bulk-consumables grid below.</p>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <!-- Low -->
+        <div class="card p-5">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="font-display text-base font-bold text-fg">Low</h3>
+            <span class="badge badge-danger">{{ lowCategories.length }}</span>
+          </div>
+          <div v-if="lowCategories.length" class="space-y-1 max-h-56 overflow-y-auto">
+            <div v-for="c in lowCategories" :key="c.category_id ?? 'uncategorized'" class="px-2.5 py-2 rounded-lg flex items-center justify-between gap-2">
+              <p class="text-sm font-semibold text-fg truncate">{{ c.category?.name || 'Uncategorized' }}</p>
+              <p class="text-sm font-bold text-red-600 dark:text-red-400 flex-shrink-0">{{ c.total }}</p>
+            </div>
+          </div>
+          <p v-else class="text-sm text-faint">Nothing running low.</p>
         </div>
-        <div class="overflow-x-auto">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>Category</th>
-                <th class="text-right">Total Assets</th>
-                <th class="text-center">Level</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="row in categoryStats" :key="row.category_id ?? 'uncategorized'">
-                <td class="font-medium text-fg">{{ row.category?.name || 'Uncategorized' }}</td>
-                <td class="text-right">{{ row.total }}</td>
-                <td class="text-center">
-                  <span class="badge" :class="{ 'badge-danger': row.stock_level === 'low', 'badge-warning': row.stock_level === 'medium', 'badge-success': row.stock_level === 'high' }">
-                    {{ row.stock_level }}
-                  </span>
-                </td>
-              </tr>
-              <tr v-if="!categoryStats.length">
-                <td colspan="3" class="py-8 text-center text-faint">No assets registered yet.</td>
-              </tr>
-            </tbody>
-          </table>
+
+        <!-- Normal -->
+        <div class="card p-5">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="font-display text-base font-bold text-fg">Normal</h3>
+            <span class="badge badge-success">{{ normalCategories.length }}</span>
+          </div>
+          <div v-if="normalCategories.length" class="space-y-1 max-h-56 overflow-y-auto">
+            <div v-for="c in normalCategories" :key="c.category_id ?? 'uncategorized'" class="px-2.5 py-2 rounded-lg flex items-center justify-between gap-2">
+              <p class="text-sm font-semibold text-fg truncate">{{ c.category?.name || 'Uncategorized' }}</p>
+              <p class="text-sm font-bold text-fg flex-shrink-0">{{ c.total }}</p>
+            </div>
+          </div>
+          <p v-else class="text-sm text-faint">Items within their configured range.</p>
+        </div>
+
+        <!-- Hight -->
+        <div class="card p-5">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="font-display text-base font-bold text-fg">Hight</h3>
+            <span class="badge badge-warning">{{ highCategories.length }}</span>
+          </div>
+          <div v-if="highCategories.length" class="space-y-1 max-h-56 overflow-y-auto">
+            <div v-for="c in highCategories" :key="c.category_id ?? 'uncategorized'" class="px-2.5 py-2 rounded-lg flex items-center justify-between gap-2">
+              <p class="text-sm font-semibold text-fg truncate">{{ c.category?.name || 'Uncategorized' }}</p>
+              <p class="text-sm font-bold text-amber-600 dark:text-amber-400 flex-shrink-0">{{ c.total }}</p>
+            </div>
+          </div>
+          <p v-else class="text-sm text-faint">Nothing over its max.</p>
         </div>
       </div>
 
