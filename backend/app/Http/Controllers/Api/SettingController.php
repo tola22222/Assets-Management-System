@@ -17,6 +17,13 @@ class SettingController extends Controller
         return response()->json(Setting::pluck('value', 'key'));
     }
 
+    public function branding()
+    {
+        return response()->json(
+            Setting::whereIn('key', ['organization_name', 'system_name'])->pluck('value', 'key')
+        );
+    }
+
     public function update(Request $request)
     {
         $validated = $request->validate([

@@ -4,6 +4,7 @@ import App from './App.vue'
 import router from './router'
 import i18n from './i18n'
 import './composables/useThemeColor' // applies the persisted brand color before mount
+import { useBranding } from './composables/useBranding'
 import './assets/main.css'
 
 const app = createApp(App)
@@ -13,3 +14,5 @@ app.use(router)
 app.use(i18n)
 
 app.mount('#app')
+
+useBranding().loadBranding()

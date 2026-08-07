@@ -1,6 +1,11 @@
 <script setup>
+import { useI18n } from 'vue-i18n'
 import ThemeToggle from '../components/ui/ThemeToggle.vue'
 import logoUrl from '../assets/logo/Official PEPY Logo_Green.png'
+import { useBranding } from '../composables/useBranding'
+
+const { t } = useI18n()
+const { systemName, organizationName } = useBranding()
 </script>
 
 <template>
@@ -15,8 +20,8 @@ import logoUrl from '../assets/logo/Official PEPY Logo_Green.png'
           <img :src="logoUrl" alt="PEPY" class="w-full h-full object-contain" />
         </div>
         <div>
-          <p class="font-display font-bold text-lg leading-tight">PEPY Assets</p>
-          <p class="text-white/50 text-xs">Empowering Youth · Siem Reap</p>
+          <p class="font-display font-bold text-lg leading-tight">{{ systemName || t('app_name') }}</p>
+          <p class="text-white/50 text-xs">{{ organizationName || 'Empowering Youth · Siem Reap' }}</p>
         </div>
       </div>
 
@@ -42,8 +47,8 @@ import logoUrl from '../assets/logo/Official PEPY Logo_Green.png'
             <img :src="logoUrl" alt="PEPY" class="w-full h-full object-contain" />
           </div>
           <div>
-            <p class="font-display font-bold text-brand-600 dark:text-brand-300 text-lg leading-tight">PEPY Assets</p>
-            <p class="text-faint text-xs">Empowering Youth</p>
+            <p class="font-display font-bold text-brand-600 dark:text-brand-300 text-lg leading-tight">{{ systemName || t('app_name') }}</p>
+            <p class="text-faint text-xs">{{ organizationName || 'Empowering Youth' }}</p>
           </div>
         </div>
         <slot />

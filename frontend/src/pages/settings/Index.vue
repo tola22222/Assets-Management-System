@@ -7,10 +7,12 @@ import ConfirmDialog from '../../components/ui/ConfirmDialog.vue'
 import { useToastStore } from '../../stores/toast'
 import { useLocale } from '../../composables/useLocale'
 import { useThemeColor } from '../../composables/useThemeColor'
+import { useBranding } from '../../composables/useBranding'
 
 const { t } = useI18n()
 const { setLocale } = useLocale()
 const { applyThemeColor } = useThemeColor()
+const { systemName, organizationName } = useBranding()
 const toast = useToastStore()
 const loading = ref(true)
 const form = reactive({
@@ -46,6 +48,9 @@ async function handleSubmit() {
     await http.post('/settings', form)
     setLocale(form.locale)
     applyThemeColor(form.theme_color)
+    systemName.value = form.system_name
+    organizationName.value = form.organization_name
+    document.title = form.system_name || t('app_name')
     toast.success(t('settings.updated'))
   } catch (e) {
     toast.error(e.response?.data?.message || t('settings.update_failed'))

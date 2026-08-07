@@ -7,8 +7,10 @@ import NotificationBell from '../components/ui/NotificationBell.vue'
 import ThemeToggle from '../components/ui/ThemeToggle.vue'
 import Breadcrumbs from '../components/ui/Breadcrumbs.vue'
 import logoUrl from '../assets/logo/Official PEPY Logo_Green.png'
+import { useBranding } from '../composables/useBranding'
 
 const { t } = useI18n()
+const { systemName, organizationName } = useBranding()
 const auth = useAuthStore()
 const route = useRoute()
 const router = useRouter()
@@ -188,8 +190,8 @@ function initials(name) {
               <img :src="logoUrl" alt="PEPY" class="w-full h-full object-contain" />
             </div>
             <div class="min-w-0 flex-1">
-              <p class="font-display font-bold leading-tight truncate">{{ t('app_name') }}</p>
-              <p class="text-white/45 text-xs truncate">{{ t('app_subtitle') }} · {{ t('app_location') }}</p>
+              <p class="font-display font-bold leading-tight truncate">{{ systemName || t('app_name') }}</p>
+              <p class="text-white/45 text-xs truncate">{{ organizationName || `${t('app_subtitle')} · ${t('app_location')}` }}</p>
             </div>
             <button class="lg:hidden text-white/60 hover:text-white p-1" @click="mobileOpen = false">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 18L18 6M6 6l12 12" /></svg>

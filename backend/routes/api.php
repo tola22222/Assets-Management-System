@@ -30,6 +30,11 @@ use Illuminate\Support\Facades\Route;
 Route::name('api.')->group(function () {
     Route::post('/login', [AuthController::class, 'login']);
 
+    // Public: the login screen (no token yet) and every authenticated layout
+    // need the org/system name for branding, but the full settings payload
+    // (email, report recipient, etc.) stays behind the OPM-only /settings route.
+    Route::get('/branding', [SettingController::class, 'branding']);
+
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('/logout', [AuthController::class, 'logout']);
         Route::get('/me', [AuthController::class, 'me']);
