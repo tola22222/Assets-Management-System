@@ -174,9 +174,11 @@ jobs:
 
             cd $APP_DIR
 
-            if [ ! -f .env ]; then
-              echo "${{ secrets.APP_ENV }}" > .env
-            fi
+            # Rewritten on every deploy (not just the first) so config changes
+            # to the APP_ENV secret — e.g. a rotated MAIL_PASSWORD — actually
+            # reach the server instead of silently persisting whatever the
+            # very first deploy happened to write.
+            echo "${{ secrets.APP_ENV }}" > .env
 
             # Only pull app/nginx here so the pinned mysql image never changes
             # underneath a running db container on a routine deploy.
