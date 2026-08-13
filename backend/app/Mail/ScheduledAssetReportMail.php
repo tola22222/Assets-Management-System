@@ -18,9 +18,7 @@ class ScheduledAssetReportMail extends Mailable
 {
     use Queueable, SerializesModels;
 
-    public function __construct(public array $summary, public string $periodLabel)
-    {
-    }
+    public function __construct(public array $summary, public string $periodLabel) {}
 
     /**
      * Shared by the scheduled `app:send-scheduled-asset-report` command and
@@ -47,7 +45,7 @@ class ScheduledAssetReportMail extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: "Asset Count Report Due — {$this->periodLabel}",
+            subject: "Asset Summary Report — {$this->periodLabel}",
         );
     }
 

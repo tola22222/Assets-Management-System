@@ -5,8 +5,8 @@
 </head>
 <body style="font-family: Arial, sans-serif; color: #1f2937; margin: 0; padding: 24px; background: #f9fafb;">
     <div style="max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 12px; padding: 32px; border: 1px solid #e5e7eb;">
-        <h2 style="color: #128a43; margin-top: 0;">Asset Count &amp; Reconciliation Due</h2>
-        <p>The {{ $periodLabel }} asset counting cycle is due, per the Asset Checking &amp; Counting Manual Guideline. Please schedule the physical count and reconciliation with the Operations &amp; HR team.</p>
+        <h2 style="color: #128a43; margin-top: 0;">Periodic Asset Summary Report</h2>
+        <p>Here is the {{ $periodLabel }} snapshot of the asset register and its in-flight workflows. This is an informational summary, separate from the Asset Checking &amp; Counting Manual's Feb/Aug count reminder — check the register below for anything that needs follow-up.</p>
 
         <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
             <tr>
@@ -47,7 +47,7 @@
             </tr>
         </table>
 
-        <p style="margin-bottom: 0;">Log in to review the full inventory and record the physical count.</p>
+        <p style="margin-bottom: 0;">Log in to review the full inventory and any pending workflow items.</p>
     </div>
 </body>
 </html>

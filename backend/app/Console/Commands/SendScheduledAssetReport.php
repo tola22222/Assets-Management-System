@@ -15,7 +15,7 @@ class SendScheduledAssetReport extends Command
 {
     protected $signature = 'app:send-scheduled-asset-report {--force : Send immediately, ignoring the baseline/interval throttle — for verifying mail delivery on demand}';
 
-    protected $description = 'Notify Finance Manager/Executive Director/Admin when the asset counting cycle is due';
+    protected $description = 'Email Finance Manager/Executive Director/Operations-HR Manager a periodic asset register summary';
 
     public function handle(): int
     {
@@ -23,16 +23,18 @@ class SendScheduledAssetReport extends Command
         $lastSentAt = Setting::where('key', 'last_scheduled_report_at')->value('value');
         $force = (bool) $this->option('force');
 
-        if (!$lastSentAt && !$force) {
+        if (! $lastSentAt && ! $force) {
             Setting::updateOrCreate(['key' => 'last_scheduled_report_at'], ['value' => now()->toDateTimeString()]);
-            $this->info('No prior report on record — baseline set to now. First report will send in ' . $intervalMonths . ' month(s). Use --force to send immediately instead.');
+            $this->info('No prior report on record — baseline set to now. First report will send in '.$intervalMonths.' month(s). Use --force to send immediately instead.');
+
             return self::SUCCESS;
         }
 
-        if ($lastSentAt && !$force) {
+        if ($lastSentAt && ! $force) {
             $lastSentAt = Carbon::parse($lastSentAt);
             if (now()->lessThan($lastSentAt->copy()->addMonths($intervalMonths))) {
-                $this->info('Not due yet. Next due: ' . $lastSentAt->copy()->addMonths($intervalMonths)->toDateString() . '. Use --force to send immediately instead.');
+                $this->info('Not due yet. Next due: '.$lastSentAt->copy()->addMonths($intervalMonths)->toDateString().'. Use --force to send immediately instead.');
+
                 return self::SUCCESS;
             }
         }
@@ -62,7 +64,7 @@ class SendScheduledAssetReport extends Command
             Notification::create([
                 'user_id' => $recipient->id,
                 'type' => 'scheduled_report',
-                'message' => "The {$periodLabel} asset counting cycle is due. {$summary['total_assets']} assets on register.",
+                'message' => "Your {$periodLabel} asset summary report is ready — {$summary['total_assets']} assets on register.",
                 'url' => route('reports.index'),
             ]);
 
@@ -71,7 +73,7 @@ class SendScheduledAssetReport extends Command
                     Mail::to($recipient->email)->send(new ScheduledAssetReportMail($summary, $periodLabel));
                     $emailedTo[] = strtolower($recipient->email);
                 } catch (\Throwable $e) {
-                    Log::warning('Scheduled asset report email failed for ' . $recipient->email . ': ' . $e->getMessage());
+                    Log::warning('Scheduled asset report email failed for '.$recipient->email.': '.$e->getMessage());
                 }
             }
         }
@@ -80,18 +82,19 @@ class SendScheduledAssetReport extends Command
         // role-based ones above — lets an admin route the report to an inbox
         // that isn't necessarily any user's own account email.
         $extraEmail = Setting::where('key', 'report_recipient_email')->value('value');
-        if ($extraEmail && !in_array(strtolower($extraEmail), $emailedTo, true)) {
+        if ($extraEmail && ! in_array(strtolower($extraEmail), $emailedTo, true)) {
             try {
                 Mail::to($extraEmail)->send(new ScheduledAssetReportMail($summary, $periodLabel));
                 $emailedTo[] = strtolower($extraEmail);
             } catch (\Throwable $e) {
-                Log::warning('Scheduled asset report email failed for ' . $extraEmail . ': ' . $e->getMessage());
+                Log::warning('Scheduled asset report email failed for '.$extraEmail.': '.$e->getMessage());
             }
         }
 
         Setting::updateOrCreate(['key' => 'last_scheduled_report_at'], ['value' => now()->toDateTimeString()]);
 
-        $this->info('Scheduled asset report sent to ' . count($emailedTo) . ' recipient(s).');
+        $this->info('Scheduled asset report sent to '.count($emailedTo).' recipient(s).');
+
         return self::SUCCESS;
     }
 }

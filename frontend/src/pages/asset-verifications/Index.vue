@@ -16,9 +16,10 @@ const { t } = useI18n()
 const { items: verifications, loading, fetchAll } = useApiCrud('/asset-verifications', { entityName: t('asset_verifications.entity') })
 const toast = useToastStore()
 const auth = useAuthStore()
-// Staff submit condition reports only via the QR scan flow — the backend
-// now rejects a direct POST here, so don't offer a button that would 403.
-const canCreate = computed(() => auth.user?.role !== 'staff')
+// Only OPM/Finance can submit a verification directly (role:operations_hr_manager,finance_manager
+// on the store route) — staff submit condition reports via the QR scan flow instead, and ED has no
+// direct-submit access either. Don't offer a button that would 403.
+const canCreate = computed(() => ['operations_hr_manager', 'finance_manager'].includes(auth.user?.role))
 
 const { search, filtered: searched } = useTableSearch(verifications, [(v) => v.asset?.name, (v) => v.asset?.asset_code, (v) => v.location?.name])
 const { sortKey, sortDir, toggleSort, sorted: sortedVerifications } = useTableSort(searched, {

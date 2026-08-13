@@ -17,7 +17,7 @@ const { t } = useI18n()
 const { items: assignments, loading, fetchAll } = useApiCrud('/asset-assignments', { entityName: t('asset_assignments.entity') })
 const toast = useToastStore()
 const auth = useAuthStore()
-const isOpm = computed(() => auth.user?.role === 'operations_hr_manager')
+const canManage = computed(() => ['operations_hr_manager', 'finance_manager'].includes(auth.user?.role))
 
 const { search, filtered: searched } = useTableSearch(assignments, [(a) => a.asset?.name, (a) => a.asset?.asset_code, 'recipient_name'])
 const { sortKey, sortDir, toggleSort, sorted: sortedAssignments } = useTableSort(searched, {
@@ -99,7 +99,7 @@ onMounted(() => {
             <h1 class="font-display text-3xl font-bold text-fg tracking-tight">{{ t('asset_assignments.title') }}</h1>
             <p class="text-muted text-sm mt-1">{{ t('asset_assignments.subtitle') }}</p>
           </div>
-          <button v-if="isOpm" @click="openCreate" class="btn-primary btn-sm flex-shrink-0">
+          <button v-if="canManage" @click="openCreate" class="btn-primary btn-sm flex-shrink-0">
             <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
             {{ t('asset_assignments.new') }}
           </button>
@@ -136,7 +136,7 @@ onMounted(() => {
                 </td>
                 <td><StatusBadge :status="a.status" /></td>
                 <td class="text-right whitespace-nowrap">
-                  <template v-if="a.status !== 'returned' && isOpm">
+                  <template v-if="a.status !== 'returned' && canManage">
                     <div class="flex items-center justify-end gap-1.5">
                       <button @click="returningId = a.id; returnCondition = 'good'; returnRemark = ''; returnImageFile = null" :title="t('common.return')" class="w-7 h-7 rounded-lg bg-brand text-white flex items-center justify-center hover:bg-brand-dark transition">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" /></svg>

@@ -5,7 +5,6 @@ use App\Http\Controllers\AssetCategoryController;
 use App\Http\Controllers\AssetController;
 use App\Http\Controllers\AssetDisposalController;
 use App\Http\Controllers\AssetImportController;
-use App\Http\Controllers\AssetReturnController;
 use App\Http\Controllers\AssetTransferController;
 use App\Http\Controllers\AssetVerificationController;
 use App\Http\Controllers\AuthController;
@@ -139,16 +138,6 @@ Route::middleware('auth')->group(function () {
     Route::middleware('role:operations_hr_manager')->group(function () {
         Route::post('/asset-transfers/{transfer}/approve', [AssetTransferController::class, 'approve'])->name('asset-transfers.approve');
         Route::post('/asset-transfers/{transfer}/reject', [AssetTransferController::class, 'reject'])->name('asset-transfers.reject');
-    });
-
-    // Asset Returns
-    Route::get('/asset-returns/create', function () {
-        return redirect()->route('asset-returns.index');
-    })->name('asset-returns.create');
-    Route::resource('asset-returns', AssetReturnController::class)->except(['create', 'edit', 'update', 'destroy']);
-    Route::middleware('role:operations_hr_manager')->group(function () {
-        Route::post('/asset-returns/{return}/approve', [AssetReturnController::class, 'approve'])->name('asset-returns.approve');
-        Route::put('/asset-returns/{return}/reject', [AssetReturnController::class, 'reject'])->name('asset-returns.reject');
     });
 
     // Asset Verifications

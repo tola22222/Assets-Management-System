@@ -2,7 +2,7 @@
     $user = Auth::user();
     $isAdmin = $user && $user->isOperationsHrManager();
     $groups = [
-        'inventory' => ['assets.*', 'asset-assignments.*', 'asset-verifications.*', 'asset-transfers.*', 'asset-returns.*', 'asset-disposals.*'],
+        'inventory' => ['assets.*', 'asset-assignments.*', 'asset-verifications.*', 'asset-transfers.*', 'asset-disposals.*'],
         'people'    => ['staff.*', 'programs.*'],
         'settings'  => ['categories.*', 'assets-locations.*', 'suppliers.*'],
         'setting'   => ['users.*', 'settings.*'],
@@ -65,8 +65,6 @@
                         class="{{ $subClass }} {{ request()->routeIs('asset-assignments.*') ? $subActive : $subInactive }}">{{ __('messages.assignments') }}</a>
                     <a href="{{ route('asset-transfers.index') }}"
                         class="{{ $subClass }} {{ request()->routeIs('asset-transfers.*') ? $subActive : $subInactive }}">{{ __('messages.transfers') }}</a>
-                    <a href="{{ route('asset-returns.index') }}"
-                        class="{{ $subClass }} {{ request()->routeIs('asset-returns.*') ? $subActive : $subInactive }}">{{ __('messages.returns') }}</a>
                     <a href="{{ route('asset-verifications.index') }}"
                         class="{{ $subClass }} {{ request()->routeIs('asset-verifications.*') ? $subActive : $subInactive }}">{{ __('messages.verification') }}</a>
                     <a href="{{ route('asset-disposals.index') }}"
@@ -78,8 +76,6 @@
                 <p class="px-3 pb-1 text-xs font-semibold text-gray-400 uppercase tracking-wider">{{ __('messages.my_assets') }}</p>
                 <a href="{{ route('asset-assignments.index') }}"
                     class="{{ $subClass }} {{ request()->routeIs('asset-assignments.*') ? $subActive : $subInactive }}">{{ __('messages.my_assets') }}</a>
-                <a href="{{ route('asset-returns.index') }}"
-                    class="{{ $subClass }} {{ request()->routeIs('asset-returns.*') ? $subActive : $subInactive }}">{{ __('messages.return_requests') }}</a>
                 <a href="{{ route('asset-transfers.index') }}"
                     class="{{ $subClass }} {{ request()->routeIs('asset-transfers.*') ? $subActive : $subInactive }}">{{ __('messages.transfer_requests') }}</a>
                 <a href="{{ route('asset-verifications.index') }}"

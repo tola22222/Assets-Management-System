@@ -11,3 +11,4 @@ Artisan::command('inspire', function () {
 Schedule::command('app:send-scheduled-asset-report')->daily();
 Schedule::command('notifications:missing-fields')->weeklyOn(1, '08:00');
 Schedule::command('notifications:count-reminder')->daily();
+Schedule::command('notifications:count-discrepancy')->weeklyOn(1, '08:00');

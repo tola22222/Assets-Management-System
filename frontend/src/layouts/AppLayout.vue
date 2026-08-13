@@ -66,7 +66,6 @@ const myAssetsGroup = computed(() => ({
   key: 'my-assets', title: t('nav.my_assets'), icon: I.clipboard,
   items: [
     { to: '/asset-assignments', label: t('nav.assignments') },
-    { to: '/asset-returns', label: t('nav.return_requests') },
     { to: '/asset-transfers', label: t('nav.transfer_requests') },
     { to: '/asset-verifications', label: t('nav.verification') },
   ],
@@ -79,7 +78,6 @@ const inventoryGroup = computed(() => ({
     { to: '/stock', label: 'Stock' },
     { to: '/asset-assignments', label: t('nav.assignments') },
     { to: '/asset-transfers', label: t('nav.transfers') },
-    { to: '/asset-returns', label: t('nav.returns') },
     { to: '/asset-verifications', label: t('nav.verification') },
     { to: '/asset-disposals', label: t('nav.disposals') },
   ],

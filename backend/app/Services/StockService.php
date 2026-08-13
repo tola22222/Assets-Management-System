@@ -67,7 +67,7 @@ class StockService
      */
     public function issue(StockItem $item, array $data): StockItem
     {
-        return DB::transaction(function () use ($item, $data) {
+        $result = DB::transaction(function () use ($item, $data) {
             $locked = StockItem::where('id', $item->id)->lockForUpdate()->first();
 
             if ($data['quantity'] > $locked->balance) {
@@ -75,6 +75,8 @@ class StockService
                     "Cannot issue {$data['quantity']} {$locked->unit} of \"{$locked->name}\" — only {$locked->balance} {$locked->unit} in stock."
                 );
             }
+
+            $wasLow = $locked->status === 'low';
 
             StockTransaction::create([
                 'stock_item_id' => $locked->id,
@@ -86,8 +88,29 @@ class StockService
             ]);
 
             $locked->decrement('balance', $data['quantity']);
+            $fresh = $locked->fresh();
 
-            return $locked->fresh();
+            return [$fresh, ! $wasLow && $fresh->status === 'low'];
         });
+
+        [$fresh, $justWentLow] = $result;
+
+        // Notify only on the crossing (normal/high -> low), not on every
+        // subsequent issue while it stays low, so OPM isn't re-alerted for
+        // every single unit issued out of an already-known-short item.
+        if ($justWentLow) {
+            (new AssetNotificationService)->send('LOW_STOCK', [
+                'description' => $fresh->name,
+                'location' => $fresh->location->name ?? null,
+                'note' => "\"{$fresh->name}\" ({$fresh->stock_code}) dropped to {$fresh->balance} {$fresh->unit}, at or below the minimum threshold of {$fresh->min_threshold} {$fresh->unit}.",
+                'url' => url('/app/stock'),
+                'extraData' => [
+                    'balance' => $fresh->balance,
+                    'unit' => $fresh->unit,
+                ],
+            ]);
+        }
+
+        return $fresh;
     }
 }

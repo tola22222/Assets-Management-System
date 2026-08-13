@@ -84,18 +84,12 @@
     </div>
 
     {{-- Quick Actions --}}
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <a href="{{ route('qr-scan.index') }}" class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-5 hover:shadow-md transition-all group flex items-center gap-4">
             <div class="w-11 h-11 flex items-center justify-center rounded-xl bg-brand-50 text-brand group-hover:scale-110 transition-transform">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"/></svg>
             </div>
             <div><p class="font-bold text-gray-900 dark:text-white text-sm">Scan QR</p><p class="text-xs text-gray-500 dark:text-gray-400">View asset details</p></div>
-        </a>
-        <a href="{{ route('asset-returns.index') }}" class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-5 hover:shadow-md transition-all group flex items-center gap-4">
-            <div class="w-11 h-11 flex items-center justify-center rounded-xl bg-amber-50 text-amber-500 dark:bg-amber-900/30 dark:text-amber-400 group-hover:scale-110 transition-transform">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-            </div>
-            <div><p class="font-bold text-gray-900 dark:text-white text-sm">Return</p><p class="text-xs text-gray-500 dark:text-gray-400">Request return</p></div>
         </a>
         <a href="{{ route('profile.show') }}" class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-5 hover:shadow-md transition-all group flex items-center gap-4">
             <div class="w-11 h-11 flex items-center justify-center rounded-xl bg-brand-50 text-brand group-hover:scale-110 transition-transform">

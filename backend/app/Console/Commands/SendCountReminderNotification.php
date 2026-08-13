@@ -14,12 +14,12 @@ use Illuminate\Support\Carbon;
  * on the count date itself. Idempotent per-day via a Setting row so running
  * the daily schedule twice never double-sends.
  *
- * NOTE: this overlaps in purpose with the pre-existing
- * `app:send-scheduled-asset-report` command, which reminds on a rolling
- * `report_interval_months` interval since the last count rather than a fixed
- * Feb/Aug calendar. Both are wired into the schedule for now — pick one as
- * the canonical reminder before this ships to avoid HR getting two different
- * "count is due" emails.
+ * This is the single canonical "count is due" reminder. `app:send-scheduled-
+ * asset-report` also runs on its own rolling `report_interval_months`
+ * interval, but it's a distinct, informational periodic summary (register
+ * totals, pending workflows) — its subject/copy were reworded so it no
+ * longer claims a count is "due", specifically to avoid HR getting two
+ * different due-date emails. Don't reintroduce due-date language there.
  */
 class SendCountReminderNotification extends Command
 {

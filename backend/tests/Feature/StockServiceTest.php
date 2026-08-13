@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Mail\AssetEventMail;
 use App\Models\Asset;
 use App\Models\AssetCategory;
 use App\Models\Location;
@@ -11,6 +12,7 @@ use App\Models\User;
 use App\Services\AssetCodeService;
 use App\Services\StockService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
 
 class StockServiceTest extends TestCase
@@ -192,6 +194,49 @@ class StockServiceTest extends TestCase
         $item = $service->issue($item, ['quantity' => 6]);
 
         $this->assertSame('low', $item->status);
+    }
+
+    // ---- Low-stock notification -------------------------------------------
+
+    public function test_issuing_stock_that_crosses_the_min_threshold_emails_opm(): void
+    {
+        Mail::fake();
+        $opm = User::factory()->create(['role' => 'operations_hr_manager']);
+        $service = new StockService;
+        $item = $service->receive([
+            'name' => 'Paper', 'unit' => 'box', 'quantity' => 10, 'min_threshold' => 5, 'location_id' => $this->location()->id,
+        ]);
+
+        $service->issue($item, ['quantity' => 6]);
+
+        Mail::assertSent(AssetEventMail::class, fn ($mail) => $mail->hasTo($opm->email) && $mail->eventType === 'LOW_STOCK');
+    }
+
+    public function test_issuing_stock_that_stays_low_does_not_re_notify(): void
+    {
+        Mail::fake();
+        User::factory()->create(['role' => 'operations_hr_manager']);
+        $service = new StockService;
+        $item = $service->receive([
+            'name' => 'Paper', 'unit' => 'box', 'quantity' => 10, 'min_threshold' => 5, 'location_id' => $this->location()->id,
+        ]);
+
+        $item = $service->issue($item, ['quantity' => 6]); // crosses into low, notifies once
+        $service->issue($item, ['quantity' => 1]); // still low, must not notify again
+
+        Mail::assertSent(AssetEventMail::class, fn ($mail) => $mail->eventType === 'LOW_STOCK', 1);
+    }
+
+    public function test_issuing_stock_with_no_min_threshold_never_notifies(): void
+    {
+        Mail::fake();
+        User::factory()->create(['role' => 'operations_hr_manager']);
+        $service = new StockService;
+        $item = $service->receive(['name' => 'Paper', 'unit' => 'box', 'quantity' => 10, 'location_id' => $this->location()->id]);
+
+        $service->issue($item, ['quantity' => 10]);
+
+        Mail::assertNotSent(AssetEventMail::class, fn ($mail) => $mail->eventType === 'LOW_STOCK');
     }
 
     // ---- API / role permissions ------------------------------------------

@@ -29,7 +29,10 @@ const showModal = ref(false)
 const imageFile = ref(null)
 const form = reactive({ asset_id: '', recommended_action: 'disposal', reason: '' })
 
-const canApprove = () => ['operations_hr_manager', 'executive_director'].includes(auth.user?.role)
+// canApproveDisposal() on the backend is ED-only, not "OPM or ED" — the manual requires
+// OPM to submit a disposal report to the ED for independent review, so OPM approving its
+// own submission would defeat that check. Don't offer buttons that would 403.
+const canApprove = () => auth.user?.role === 'executive_director'
 
 async function loadAssets() {
   const { data } = await http.get('/assets')

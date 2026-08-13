@@ -4,11 +4,14 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  /* Kantumruy Pro covers both Latin and Khmer glyphs, so the same family is
-     used app-wide — body text AND headings/stat values — at Medium (500)
-     weight by default (see body{} in @layer base below). */
-  --font-sans: 'Kantumruy Pro', ui-sans-serif, system-ui, -apple-system, 'Khmer OS', 'Segoe UI', sans-serif;
-  --font-display: 'Kantumruy Pro', ui-sans-serif, system-ui, -apple-system, 'Khmer OS', 'Segoe UI', sans-serif;
+  /* Inter renders English (Latin) text app-wide — body text AND headings/stat
+     values — at Medium (500) weight by default (see body{} in @layer base
+     below). Inter has no Khmer glyphs, so Kantumruy Pro stays as the fallback:
+     the browser resolves each character against the first font in the stack
+     that actually has a glyph for it, so Khmer text still renders correctly
+     without any locale-conditional CSS. */
+  --font-sans: 'Inter', 'Kantumruy Pro', ui-sans-serif, system-ui, -apple-system, 'Khmer OS', 'Segoe UI', sans-serif;
+  --font-display: 'Inter', 'Kantumruy Pro', ui-sans-serif, system-ui, -apple-system, 'Khmer OS', 'Segoe UI', sans-serif;
   /* IBM Plex Mono for asset codes / tabular data only — the "physical tag" look. */
   --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 
