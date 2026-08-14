@@ -51,6 +51,20 @@ jobs:
                 restart: always
                 env_file:
                   - .env
+                environment:
+                  # Overrides whatever DB_* the APP_ENV secret's .env carries —
+                  # these must always match the db service below verbatim, so
+                  # they're pinned here instead of relying on the secret to
+                  # stay in sync with it (a drift here previously caused the
+                  # app to try a local socket connection instead of reaching
+                  # the db container: "SQLSTATE[HY000] [2002] No such file or
+                  # directory").
+                  DB_CONNECTION: mysql
+                  DB_HOST: db
+                  DB_PORT: "3306"
+                  DB_DATABASE: asset_management_db
+                  DB_USERNAME: asset_management_user
+                  DB_PASSWORD: asset_management_pass
                 volumes:
                   - storage_data:/var/www/storage
                   - app_public:/var/www/public
