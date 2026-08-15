@@ -22,21 +22,6 @@ const trendPeriod = ref('month')
 const trendData = ref([])
 const trendLoading = ref(false)
 
-const stockItems = ref([])
-const stockLoading = ref(true)
-async function loadStock() {
-  stockLoading.value = true
-  try {
-    const { data } = await http.get('/stock-items')
-    stockItems.value = data
-  } finally {
-    stockLoading.value = false
-  }
-}
-const stockLow = computed(() => stockItems.value.filter((i) => i.status === 'low'))
-const stockNormalCount = computed(() => stockItems.value.filter((i) => i.status === 'normal').length)
-const stockHigh = computed(() => stockItems.value.filter((i) => i.status === 'high'))
-
 async function loadTrend() {
   trendLoading.value = true
   try {
@@ -74,7 +59,6 @@ onMounted(async () => {
   // Trend data is an admin-only concept (mirrors the admin vs. staff dashboard split).
   if (!isStaff.value) {
     loadTrend()
-    loadStock()
   }
 })
 </script>
@@ -174,57 +158,6 @@ onMounted(async () => {
           <h2 class="font-display text-lg font-bold text-fg">{{ t('dashboard.by_location') }}</h2>
           <p class="text-sm text-faint mb-6">{{ t('dashboard.by_location_subtitle') }}</p>
           <LocationPillCards :locations="stats.assets_by_location" />
-        </div>
-
-        <div class="card p-6">
-          <div class="flex items-center justify-between mb-1">
-            <h2 class="font-display text-lg font-bold text-fg">Stock</h2>
-            <RouterLink to="/stock" class="text-xs font-semibold text-brand-600 dark:text-brand-300 hover:underline flex-shrink-0">View Stock →</RouterLink>
-          </div>
-          <p class="text-sm text-faint mb-6">Bulk consumables — toner, paper, cables, and other items with no individual tag</p>
-
-          <div v-if="stockLoading" class="h-20 flex items-center justify-center text-sm text-faint">{{ t('common.loading') }}</div>
-          <template v-else>
-            <div class="grid grid-cols-3 gap-4 mb-4">
-              <RouterLink to="/stock?status=low" class="rounded-xl border border-line p-4 text-center hover:bg-surface-2 transition">
-                <p class="font-display text-2xl font-bold text-red-600 dark:text-red-400">{{ stockLow.length }}</p>
-                <p class="text-xs text-muted mt-1">Low Stock</p>
-              </RouterLink>
-              <RouterLink to="/stock?status=normal" class="rounded-xl border border-line p-4 text-center hover:bg-surface-2 transition">
-                <p class="font-display text-2xl font-bold text-emerald-600 dark:text-emerald-400">{{ stockNormalCount }}</p>
-                <p class="text-xs text-muted mt-1">Normal</p>
-              </RouterLink>
-              <RouterLink to="/stock?status=high" class="rounded-xl border border-line p-4 text-center hover:bg-surface-2 transition">
-                <p class="font-display text-2xl font-bold text-amber-600 dark:text-amber-400">{{ stockHigh.length }}</p>
-                <p class="text-xs text-muted mt-1">High</p>
-              </RouterLink>
-            </div>
-
-            <div v-if="stockLow.length" class="space-y-1">
-              <RouterLink v-for="i in stockLow.slice(0, 4)" :key="i.id" to="/stock?status=low"
-                class="flex items-center justify-between gap-2 px-2.5 py-2 rounded-lg hover:bg-surface-2 transition">
-                <div class="min-w-0">
-                  <p class="text-sm font-semibold text-fg truncate">{{ i.name }}</p>
-                  <p class="text-xs text-faint truncate">{{ i.location?.name }}</p>
-                </div>
-                <p class="text-sm font-bold text-red-600 dark:text-red-400 flex-shrink-0">{{ i.balance }} {{ i.unit }}</p>
-              </RouterLink>
-            </div>
-            <p v-else class="text-sm text-faint">Nothing running low.</p>
-
-            <p class="text-xs font-semibold text-faint uppercase tracking-wide mt-5 mb-2">Overstock</p>
-            <div v-if="stockHigh.length" class="space-y-1">
-              <RouterLink v-for="i in stockHigh.slice(0, 4)" :key="i.id" to="/stock?status=high"
-                class="flex items-center justify-between gap-2 px-2.5 py-2 rounded-lg hover:bg-surface-2 transition">
-                <div class="min-w-0">
-                  <p class="text-sm font-semibold text-fg truncate">{{ i.name }}</p>
-                  <p class="text-xs text-faint truncate">{{ i.location?.name }}</p>
-                </div>
-                <p class="text-sm font-bold text-amber-600 dark:text-amber-400 flex-shrink-0">{{ i.balance }} {{ i.unit }}</p>
-              </RouterLink>
-            </div>
-            <p v-else class="text-sm text-faint">Nothing over its max.</p>
-          </template>
         </div>
 
         <div class="card p-6">
