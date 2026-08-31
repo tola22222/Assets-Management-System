@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import http from '../../api/http'
 import AppLayout from '../../layouts/AppLayout.vue'
 import Modal from '../../components/ui/Modal.vue'
@@ -11,6 +12,7 @@ import LocationPillCards from '../../components/ui/LocationPillCards.vue'
 import { useToastStore } from '../../stores/toast'
 import { useAuthStore } from '../../stores/auth'
 
+const { t } = useI18n()
 const toast = useToastStore()
 const auth = useAuthStore()
 
@@ -27,46 +29,49 @@ async function sendReportEmail() {
   emailSending.value = true
   try {
     await http.post('/reports/email', { email: emailAddress.value })
-    toast.success(`Report emailed to ${emailAddress.value}.`)
+    toast.success(t('reports.email_sent', { email: emailAddress.value }))
     showEmailModal.value = false
   } catch (e) {
-    toast.error(e.response?.data?.message || 'Could not send the email. Try again.')
+    toast.error(e.response?.data?.message || t('reports.email_send_failed'))
   } finally {
     emailSending.value = false
   }
 }
 
-const reportTypes = [
-  { key: 'inventory', label: 'Inventory' },
-  { key: 'by-model', label: 'Assets by Model' },
-  { key: 'assignments', label: 'Assignments' },
-  { key: 'transfers', label: 'Transfers' },
-  { key: 'verifications', label: 'Verifications' },
-  { key: 'returns', label: 'Returns' },
-  { key: 'disposed', label: 'Disposed Assets' },
-  { key: 'lost', label: 'Lost Assets' },
-  { key: 'locations', label: 'Locations' },
-  { key: 'qr-scans', label: 'QR Scans' },
-  { key: 'data-completeness', label: 'Data Completeness' },
-]
+// computed, not a plain array: the Settings language picker swaps the locale
+// live, and a t() call baked into a module-scope constant is evaluated once at
+// setup — the labels would stay in the previous language until a page reload.
+const reportTypes = computed(() => [
+  { key: 'inventory', label: t('reports.type_inventory') },
+  { key: 'by-model', label: t('reports.type_by_model') },
+  { key: 'assignments', label: t('reports.type_assignments') },
+  { key: 'transfers', label: t('reports.type_transfers') },
+  { key: 'verifications', label: t('reports.type_verifications') },
+  { key: 'returns', label: t('reports.type_returns') },
+  { key: 'disposed', label: t('reports.type_disposed') },
+  { key: 'lost', label: t('reports.type_lost') },
+  { key: 'locations', label: t('reports.type_locations') },
+  { key: 'qr-scans', label: t('reports.type_qr_scans') },
+  { key: 'data-completeness', label: t('reports.type_data_completeness') },
+])
 
 const selected = ref('inventory')
 const rows = ref([])
 const loading = ref(false)
 
-const columns = {
-  inventory: [['asset_code', 'Code'], ['name', 'Name'], ['condition', 'Condition'], ['status', 'Status']],
-  assignments: [['asset', 'Asset', (r) => r.asset?.name], ['recipient_name', 'Recipient'], ['status', 'Status']],
-  transfers: [['asset', 'Asset', (r) => r.asset?.name], ['status', 'Status'], ['transfer_date', 'Date']],
-  verifications: [['asset', 'Asset', (r) => r.asset?.name], ['condition', 'Condition'], ['verified_at', 'Verified At']],
-  returns: [['asset', 'Asset', (r) => r.asset?.name], ['condition', 'Condition'], ['status', 'Status']],
-  disposed: [['asset_code', 'Code'], ['name', 'Name'], ['condition', 'Condition']],
-  lost: [['asset_code', 'Code'], ['name', 'Name'], ['updated_at', 'Last Updated']],
-  locations: [['name', 'Name'], ['type', 'Type'], ['assets_count', 'Assets']],
-  'qr-scans': [['message', 'Scan'], ['created_at', 'Date']],
-  'data-completeness': [['asset_code', 'Code'], ['name', 'Name'], ['category', 'Category', (r) => r.category?.name], ['missing_fields', 'Missing Fields']],
-  'by-model': [['name', 'Model'], ['category', 'Category', (r) => r.category?.name], ['total', 'Total Units'], ['stock_level', 'Stock Level']],
-}
+const columns = computed(() => ({
+  inventory: [['asset_code', t('reports.col_code')], ['name', t('reports.col_name')], ['condition', t('reports.col_condition')], ['status', t('common.status')]],
+  assignments: [['asset', t('common.asset'), (r) => r.asset?.name], ['recipient_name', t('reports.col_recipient')], ['status', t('common.status')]],
+  transfers: [['asset', t('common.asset'), (r) => r.asset?.name], ['status', t('common.status')], ['transfer_date', t('common.date')]],
+  verifications: [['asset', t('common.asset'), (r) => r.asset?.name], ['condition', t('reports.col_condition')], ['verified_at', t('reports.col_verified_at')]],
+  returns: [['asset', t('common.asset'), (r) => r.asset?.name], ['condition', t('reports.col_condition')], ['status', t('common.status')]],
+  disposed: [['asset_code', t('reports.col_code')], ['name', t('reports.col_name')], ['condition', t('reports.col_condition')]],
+  lost: [['asset_code', t('reports.col_code')], ['name', t('reports.col_name')], ['updated_at', t('reports.col_last_updated')]],
+  locations: [['name', t('reports.col_name')], ['type', t('reports.col_type')], ['assets_count', t('reports.col_assets')]],
+  'qr-scans': [['message', t('reports.col_scan')], ['created_at', t('common.date')]],
+  'data-completeness': [['asset_code', t('reports.col_code')], ['name', t('reports.col_name')], ['category', t('reports.col_category'), (r) => r.category?.name], ['missing_fields', t('reports.col_missing_fields')]],
+  'by-model': [['name', t('reports.col_model')], ['category', t('reports.col_category'), (r) => r.category?.name], ['total', t('reports.col_total_units')], ['stock_level', t('reports.col_stock_level')]],
+}))
 
 // Which field represents "when" for each report — drives the Day/Month/Year
 // filter below. Reports with no natural date (aggregate/summary reports)
@@ -160,6 +165,13 @@ async function loadOverview() {
     overviewLocationsRaw.value = locRes.data
     overviewInventory.value = invRes.data
     overviewCategoriesRaw.value = catRes.data
+  } catch (e) {
+    // Previously try/finally with no catch: the cards silently rendered zeros
+    // and empty charts, which reads as "you own nothing" rather than "this failed".
+    overviewLocationsRaw.value = []
+    overviewInventory.value = []
+    overviewCategoriesRaw.value = []
+    toast.error(e.response?.data?.message || t('reports.load_failed'))
   } finally {
     overviewLoading.value = false
   }
@@ -187,7 +199,7 @@ function toSegments(counts) {
 const overviewCategorySegments = computed(() => {
   const counts = {}
   overviewInventory.value.forEach((a) => {
-    const name = a.category?.name || 'Uncategorized'
+    const name = a.category?.name || t('reports.uncategorized')
     counts[name] = (counts[name] || 0) + 1
   })
   return toSegments(counts)
@@ -201,12 +213,13 @@ function assetBucket(a) {
   if (a.condition === 'fair' || a.condition === 'broken') return 'needs_repair'
   return 'in_use'
 }
-const STATUS_LABELS = { in_use: 'In use', needs_repair: 'Needs repair', lost: 'Lost', retiring: 'Retiring' }
+// computed so the chart legend re-labels when the locale changes (see reportTypes above).
+const STATUS_LABELS = computed(() => ({ in_use: t('reports.status_in_use'), needs_repair: t('reports.status_needs_repair'), lost: t('reports.status_lost'), retiring: t('reports.status_retiring') }))
 const overviewStatusSegments = computed(() => {
   const counts = { in_use: 0, needs_repair: 0, lost: 0, retiring: 0 }
   overviewInventory.value.forEach((a) => { counts[assetBucket(a)]++ })
   const relabeled = {}
-  Object.entries(counts).forEach(([key, count]) => { if (count > 0) relabeled[STATUS_LABELS[key]] = count })
+  Object.entries(counts).forEach(([key, count]) => { if (count > 0) relabeled[STATUS_LABELS.value[key]] = count })
   return toSegments(relabeled)
 })
 
@@ -215,7 +228,7 @@ const overviewValueSegments = computed(() => {
   const sums = {}
   overviewInventory.value.forEach((a) => {
     if (!a.purchase_price) return
-    const name = a.category?.name || 'Uncategorized'
+    const name = a.category?.name || t('reports.uncategorized')
     sums[name] = (sums[name] || 0) + Number(a.purchase_price)
   })
   return toSegments(sums)
@@ -228,9 +241,17 @@ async function load() {
   loading.value = true
   granularity.value = 'all'
   sortKey.value = null
-  const { data } = await http.get(`/reports/${selected.value}`)
-  rows.value = data
-  loading.value = false
+  try {
+    const { data } = await http.get(`/reports/${selected.value}`)
+    rows.value = data
+  } catch (e) {
+    // Without this catch the thrown request left `loading` stuck true forever,
+    // so a permission failure showed an endless spinner instead of a message.
+    rows.value = []
+    toast.error(e.response?.data?.message || t('reports.load_failed'))
+  } finally {
+    loading.value = false
+  }
 }
 
 // "Assets by location" bar breakdown — mirrors the report-deck mockup's
@@ -249,10 +270,10 @@ const completenessBars = computed(() => {
   const s = completenessStats.value
   if (!s) return []
   return [
-    { label: 'Has Asset ID', pct: 100 },
-    { label: 'Has purchase price', pct: s.price },
-    { label: 'Has purchase date', pct: s.date },
-    { label: 'Has serial no.', pct: s.serial },
+    { label: t('reports.field_has_asset_id'), pct: 100 },
+    { label: t('reports.field_has_purchase_price'), pct: s.price },
+    { label: t('reports.field_has_purchase_date'), pct: s.date },
+    { label: t('reports.field_has_serial_no'), pct: s.serial },
   ]
 })
 
@@ -289,7 +310,7 @@ function toggleSort(colKey) {
 
 const sortedRows = computed(() => {
   if (!sortKey.value) return filteredRows.value
-  const col = columns[selected.value].find((c) => c[0] === sortKey.value)
+  const col = columns.value[selected.value].find((c) => c[0] === sortKey.value)
   if (!col) return filteredRows.value
 
   return [...filteredRows.value].sort((a, b) => {
@@ -304,7 +325,7 @@ const sortedRows = computed(() => {
 })
 
 function exportCsv() {
-  const cols = columns[selected.value]
+  const cols = columns.value[selected.value]
   const lines = [cols.map((c) => c[1]).join(',')]
   sortedRows.value.forEach((row) => {
     lines.push(cols.map((c) => `"${String(cell(row, c) ?? '').replace(/"/g, '""')}"`).join(','))
@@ -333,17 +354,17 @@ onMounted(() => {
       <!-- Page heading — same layout as Dashboard.vue's own header -->
       <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
         <div>
-          <h1 class="font-display text-3xl sm:text-4xl font-semibold text-fg tracking-tight">Reports</h1>
-          <p class="text-muted text-sm mt-2">Live roll-ups across the asset register</p>
+          <h1 class="font-display text-3xl sm:text-4xl font-semibold text-fg tracking-tight">{{ t('reports.title') }}</h1>
+          <p class="text-muted text-sm mt-2">{{ t('reports.subtitle') }}</p>
         </div>
         <div class="flex items-center gap-2 flex-shrink-0 mt-1 sm:mt-0">
           <button @click="openEmailModal" class="btn-ghost">
             <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" /></svg>
-            Email Report
+            {{ t('reports.email_report') }}
           </button>
           <button @click="exportCsv" class="btn-ghost">
             <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
-            Export CSV
+            {{ t('reports.export_csv') }}
           </button>
         </div>
       </div>
@@ -355,58 +376,58 @@ onMounted(() => {
       <template v-else>
         <!-- KPI row — StatCard, identical component to the Dashboard page -->
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard :value="overviewInventory.length" label="Total assets" />
-          <StatCard :value="overviewCategoriesRaw.length" label="Categories" />
-          <StatCard :value="overviewLocationsRaw.length" label="Sites" />
+          <StatCard :value="overviewInventory.length" :label="t('reports.total_assets')" />
+          <StatCard :value="overviewCategoriesRaw.length" :label="t('reports.categories')" />
+          <StatCard :value="overviewLocationsRaw.length" :label="t('reports.sites')" />
           <StatCard
             :value="formatCurrency(overviewTotalValue)"
-            :label="pricedCount < overviewInventory.length ? `Recorded value (${overviewInventory.length - pricedCount} unpriced)` : 'Recorded value'"
-            :badge="`${pricedPercentage}% priced`"
+            :label="pricedCount < overviewInventory.length ? t('reports.recorded_value_unpriced', { count: overviewInventory.length - pricedCount }) : t('reports.recorded_value')"
+            :badge="t('reports.priced_badge', { percent: pricedPercentage })"
           />
         </div>
 
         <!-- Asset categories + Asset status — DonutChart, same component as Dashboard's "by category" card -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <div class="card p-6">
-            <h2 class="font-display text-lg font-bold text-fg">Assets by category</h2>
-            <p class="text-sm text-faint mb-6">Breakdown of what PEPY owns</p>
+            <h2 class="font-display text-lg font-bold text-fg">{{ t('reports.by_category') }}</h2>
+            <p class="text-sm text-faint mb-6">{{ t('reports.by_category_subtitle') }}</p>
             <DonutChart v-if="overviewCategorySegments.length" :segments="overviewCategorySegments" :total="overviewInventory.length" />
-            <p v-else class="text-sm text-faint">No assets yet.</p>
+            <p v-else class="text-sm text-faint">{{ t('reports.no_assets_yet') }}</p>
           </div>
 
           <div class="card p-6">
-            <h2 class="font-display text-lg font-bold text-fg">Asset status</h2>
-            <p class="text-sm text-faint mb-6">Condition &amp; lifecycle at a glance</p>
-            <DonutChart v-if="overviewInventory.length" :segments="overviewStatusSegments" :total="overviewInventory.length" total-label="assets" />
-            <p v-else class="text-sm text-faint">No assets yet.</p>
+            <h2 class="font-display text-lg font-bold text-fg">{{ t('reports.asset_status') }}</h2>
+            <p class="text-sm text-faint mb-6">{{ t('reports.asset_status_subtitle') }}</p>
+            <DonutChart v-if="overviewInventory.length" :segments="overviewStatusSegments" :total="overviewInventory.length" :total-label="t('reports.total_label_assets')" />
+            <p v-else class="text-sm text-faint">{{ t('reports.no_assets_yet') }}</p>
           </div>
         </div>
 
         <!-- Assets by location — LocationPillCards, same component as Dashboard's "by location" card -->
         <div class="card p-6">
-          <h2 class="font-display text-lg font-bold text-fg">Assets by location</h2>
-          <p class="text-sm text-faint mb-6">Office &amp; Learning Center holds the largest share; each school carries its own working set</p>
+          <h2 class="font-display text-lg font-bold text-fg">{{ t('reports.by_location') }}</h2>
+          <p class="text-sm text-faint mb-6">{{ t('reports.by_location_subtitle') }}</p>
           <LocationPillCards :locations="overviewLocationsList" />
         </div>
 
         <!-- Asset value by category — a third DonutChart, currency-formatted -->
         <div class="card p-6">
-          <h2 class="font-display text-lg font-bold text-fg">Asset value by category</h2>
-          <p class="text-sm text-faint mb-6">{{ money(overviewTotalValue) }} recorded across {{ overviewInventory.length }} assets</p>
+          <h2 class="font-display text-lg font-bold text-fg">{{ t('reports.value_by_category') }}</h2>
+          <p class="text-sm text-faint mb-6">{{ t('reports.value_recorded_across', { amount: money(overviewTotalValue), count: overviewInventory.length }) }}</p>
           <DonutChart
             v-if="overviewValueSegments.length"
             :segments="overviewValueSegments"
             :total="overviewTotalValue"
-            total-label="total value"
+            :total-label="t('reports.total_label_value')"
             :format-value="money"
           />
-          <p v-else class="text-sm text-faint">No priced assets yet.</p>
+          <p v-else class="text-sm text-faint">{{ t('reports.no_priced_assets') }}</p>
         </div>
 
         <!-- Data completeness — plain progress bars, same treatment as the browser's own version below -->
         <div class="card p-6">
-          <h2 class="font-display text-lg font-bold text-fg">Data completeness</h2>
-          <p class="text-sm text-faint mb-6">Fields recorded across {{ completenessStats?.total ?? 0 }} assets</p>
+          <h2 class="font-display text-lg font-bold text-fg">{{ t('reports.data_completeness') }}</h2>
+          <p class="text-sm text-faint mb-6">{{ t('reports.fields_recorded_across', { count: completenessStats?.total ?? 0 }) }}</p>
           <div v-for="b in completenessBars" :key="b.label" class="flex items-center gap-3 mb-3 last:mb-0">
             <span class="w-36 sm:w-44 flex-shrink-0 text-sm font-semibold text-fg truncate">{{ b.label }}</span>
             <div class="flex-1 h-2.5 rounded-full bg-surface-2 border border-line overflow-hidden">
@@ -419,25 +440,25 @@ onMounted(() => {
         <!-- Stock (consumables) — same card as it was on Dashboard.vue, just relocated here -->
         <div class="card p-6">
           <div class="flex items-center justify-between mb-1">
-            <h2 class="font-display text-lg font-bold text-fg">Stock</h2>
-            <RouterLink to="/stock" class="text-xs font-semibold text-brand-600 dark:text-brand-300 hover:underline flex-shrink-0">View Stock →</RouterLink>
+            <h2 class="font-display text-lg font-bold text-fg">{{ t('reports.stock') }}</h2>
+            <RouterLink to="/stock" class="text-xs font-semibold text-brand-600 dark:text-brand-300 hover:underline flex-shrink-0">{{ t('reports.view_stock') }}</RouterLink>
           </div>
-          <p class="text-sm text-faint mb-6">Bulk consumables — toner, paper, cables, and other items with no individual tag</p>
+          <p class="text-sm text-faint mb-6">{{ t('reports.stock_subtitle') }}</p>
 
-          <div v-if="stockLoading" class="h-20 flex items-center justify-center text-sm text-faint">Loading…</div>
+          <div v-if="stockLoading" class="h-20 flex items-center justify-center text-sm text-faint">{{ t('common.loading') }}</div>
           <template v-else>
             <div class="grid grid-cols-3 gap-4 mb-4">
               <RouterLink to="/stock?status=low" class="rounded-xl border border-line p-4 text-center hover:bg-surface-2 transition">
                 <p class="font-display text-2xl font-bold text-red-600 dark:text-red-400">{{ stockLow.length }}</p>
-                <p class="text-xs text-muted mt-1">Low Stock</p>
+                <p class="text-xs text-muted mt-1">{{ t('reports.low_stock') }}</p>
               </RouterLink>
               <RouterLink to="/stock?status=normal" class="rounded-xl border border-line p-4 text-center hover:bg-surface-2 transition">
                 <p class="font-display text-2xl font-bold text-emerald-600 dark:text-emerald-400">{{ stockNormalCount }}</p>
-                <p class="text-xs text-muted mt-1">Normal</p>
+                <p class="text-xs text-muted mt-1">{{ t('reports.normal') }}</p>
               </RouterLink>
               <RouterLink to="/stock?status=high" class="rounded-xl border border-line p-4 text-center hover:bg-surface-2 transition">
                 <p class="font-display text-2xl font-bold text-amber-600 dark:text-amber-400">{{ stockHigh.length }}</p>
-                <p class="text-xs text-muted mt-1">High</p>
+                <p class="text-xs text-muted mt-1">{{ t('reports.high') }}</p>
               </RouterLink>
             </div>
 
@@ -451,9 +472,9 @@ onMounted(() => {
                 <p class="text-sm font-bold text-red-600 dark:text-red-400 flex-shrink-0">{{ i.balance }} {{ i.unit }}</p>
               </RouterLink>
             </div>
-            <p v-else class="text-sm text-faint">Nothing running low.</p>
+            <p v-else class="text-sm text-faint">{{ t('reports.nothing_running_low') }}</p>
 
-            <p class="text-xs font-semibold text-faint uppercase tracking-wide mt-5 mb-2">Overstock</p>
+            <p class="text-xs font-semibold text-faint uppercase tracking-wide mt-5 mb-2">{{ t('reports.overstock') }}</p>
             <div v-if="stockHigh.length" class="space-y-1">
               <RouterLink v-for="i in stockHigh.slice(0, 4)" :key="i.id" to="/stock?status=high"
                 class="flex items-center justify-between gap-2 px-2.5 py-2 rounded-lg hover:bg-surface-2 transition">
@@ -464,7 +485,7 @@ onMounted(() => {
                 <p class="text-sm font-bold text-amber-600 dark:text-amber-400 flex-shrink-0">{{ i.balance }} {{ i.unit }}</p>
               </RouterLink>
             </div>
-            <p v-else class="text-sm text-faint">Nothing over its max.</p>
+            <p v-else class="text-sm text-faint">{{ t('reports.nothing_over_max') }}</p>
           </template>
         </div>
       </template>
@@ -481,7 +502,7 @@ onMounted(() => {
                 class="px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition"
                 :class="granularity === g ? 'bg-brand text-white' : 'text-muted hover:text-fg'"
               >
-                {{ g }}
+                {{ t(`reports.granularity_${g}`) }}
               </button>
             </div>
             <input v-if="granularity === 'day'" v-model="periodValue" type="date" class="filter-select" />
@@ -490,7 +511,7 @@ onMounted(() => {
           </template>
           <button @click="exportCsv" class="btn-ghost btn-sm sm:ml-auto flex-shrink-0">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
-            Export CSV
+            {{ t('reports.export_csv') }}
           </button>
         </div>
 
@@ -498,13 +519,13 @@ onMounted(() => {
         <div class="flex flex-wrap items-center gap-x-8 gap-y-3 mb-6 pb-6 border-b border-line">
           <div>
             <p class="font-display text-2xl font-bold text-fg leading-none">{{ rows.length }}</p>
-            <p class="text-xs text-muted mt-1">Total records</p>
+            <p class="text-xs text-muted mt-1">{{ t('reports.total_records') }}</p>
           </div>
           <div>
             <p class="font-display text-2xl font-bold text-fg leading-none">{{ sortedRows.length }}</p>
-            <p class="text-xs text-muted mt-1">{{ granularity === 'all' ? 'Showing' : 'Matching period' }}</p>
+            <p class="text-xs text-muted mt-1">{{ granularity === 'all' ? t('reports.showing') : t('reports.matching_period') }}</p>
           </div>
-          <p class="sm:ml-auto text-sm text-muted">{{ reportTypes.find((t) => t.key === selected)?.label }}{{ granularity !== 'all' && periodValue ? ` — ${periodValue}` : '' }}</p>
+          <p class="sm:ml-auto text-sm text-muted">{{ reportTypes.find((rt) => rt.key === selected)?.label }}{{ granularity !== 'all' && periodValue ? ` — ${periodValue}` : '' }}</p>
         </div>
 
         <!-- Assets by location — horizontal bar breakdown, no raw table needed. -->
@@ -516,13 +537,13 @@ onMounted(() => {
             </div>
             <span class="w-10 text-right text-sm font-semibold text-fg flex-shrink-0">{{ b.count }}</span>
           </div>
-          <p v-if="!loading && !locationBars.length" class="text-sm text-faint text-center py-6">No data for this report.</p>
+          <p v-if="!loading && !locationBars.length" class="text-sm text-faint text-center py-6">{{ t('reports.no_data_for_report') }}</p>
         </div>
 
         <template v-else>
           <!-- Data completeness — aggregate bar summary above the per-asset checklist. -->
           <div v-if="selected === 'data-completeness'" class="mb-6 pb-6 border-b border-line">
-            <p class="text-xs font-semibold text-faint uppercase tracking-wide mb-3">Fields recorded across {{ completenessStats.total }} assets</p>
+            <p class="text-xs font-semibold text-faint uppercase tracking-wide mb-3">{{ t('reports.fields_recorded_across', { count: completenessStats.total }) }}</p>
             <div v-for="b in completenessBars" :key="b.label" class="flex items-center gap-3 mb-3 last:mb-0">
               <span class="w-36 sm:w-44 flex-shrink-0 text-sm font-semibold text-fg truncate">{{ b.label }}</span>
               <div class="flex-1 h-2.5 rounded-full bg-surface-2 border border-line overflow-hidden">
@@ -553,7 +574,7 @@ onMounted(() => {
                 </tr>
                 <tr v-if="!loading && !sortedRows.length">
                   <td :colspan="columns[selected].length" class="py-10 text-center text-faint">
-                    {{ granularity !== 'all' ? 'No records in this period.' : 'No data for this report.' }}
+                    {{ granularity !== 'all' ? t('reports.no_records_in_period') : t('reports.no_data_for_report') }}
                   </td>
                 </tr>
               </tbody>
@@ -564,22 +585,22 @@ onMounted(() => {
 
     </div>
 
-    <Modal v-if="showEmailModal" title="Email Report" @close="showEmailModal = false">
+    <Modal v-if="showEmailModal" :title="t('reports.email_report')" @close="showEmailModal = false">
       <form @submit.prevent="sendReportEmail">
         <div class="p-6 space-y-4">
           <p class="text-sm text-muted">
-            Sends a summary of the register (total assets, disposals, pending workflows, etc.) to the address below.
+            {{ t('reports.email_body_hint') }}
           </p>
           <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-muted tracking-wide">Recipient email</label>
+            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('reports.recipient_email') }}</label>
             <input v-model="emailAddress" type="email" required placeholder="name@example.com" class="input" />
           </div>
         </div>
         <div class="flex items-center gap-3 border-t border-line px-6 py-4">
           <button type="submit" :disabled="emailSending" class="btn-primary">
-            {{ emailSending ? 'Sending…' : 'Send' }}
+            {{ emailSending ? t('reports.sending') : t('reports.send') }}
           </button>
-          <button type="button" class="btn-ghost" @click="showEmailModal = false">Cancel</button>
+          <button type="button" class="btn-ghost" @click="showEmailModal = false">{{ t('common.cancel') }}</button>
         </div>
       </form>
     </Modal>

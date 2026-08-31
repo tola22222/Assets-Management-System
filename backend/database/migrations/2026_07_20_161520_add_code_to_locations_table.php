@@ -8,10 +8,17 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
-     * The 13 real PEPY sites (office + 12 partner high schools) and the site
-     * codes used in the asset tag scheme (PEY-[SITE]-[CATEGORY]-[####]), per
-     * the Asset Checking & Counting Manual and the existing fixed-asset
-     * register (asset codes like PEY-SR-FAF-0928 already use these codes).
+     * 12 of the 13 real PEPY sites (office + 11 of the 12 partner high schools)
+     * and the site codes used in the asset tag scheme
+     * (PEY-[SITE]-[CATEGORY]-[####]), per the Asset Checking & Counting Manual
+     * and the existing fixed-asset register (codes like PEY-SR-FAF-0928 already
+     * use these).
+     *
+     * NOTE: this list is one school short. The register tags assets at BOTH
+     * "Sna Techo 317 HS" and "Spean Thnort HS" as PEY-ST-…, so Spean Thnort was
+     * lost behind the shared code. It is added with its own code (SP) by
+     * 2026_08_31_120000_add_spean_thnort_site. Do not re-add it here — this
+     * migration has already run in production and will not run again.
      */
     private const SITES = [
         'SR' => ['name' => 'PEPY Office', 'type' => 'office'],

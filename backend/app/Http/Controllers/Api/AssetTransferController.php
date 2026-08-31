@@ -41,7 +41,7 @@ class AssetTransferController extends Controller
                 Notification::create([
                     'user_id' => $admin->id,
                     'type' => 'transfer_request',
-                    'message' => 'New asset transfer request for ' . ($transfer->asset->name ?? 'Asset'),
+                    'message' => 'New asset transfer request for '.($transfer->asset->name ?? 'Asset'),
                     'url' => null,
                 ]);
             });
@@ -84,6 +84,12 @@ class AssetTransferController extends Controller
 
     public function reject(AssetTransfer $asset_transfer)
     {
+        // Mirrors approve(): deciding your own request is the thing the
+        // independent-review rule exists to prevent, and rejecting is a
+        // decision too. The UI already hides both buttons on your own request,
+        // so this closes the gap for direct API calls.
+        abort_if($asset_transfer->requested_by === Auth::id(), 403, 'You cannot reject your own transfer request.');
+
         $asset_transfer->update([
             'status' => 'rejected',
             'approved_by' => Auth::id(),
@@ -98,6 +104,7 @@ class AssetTransferController extends Controller
             return response()->json(['message' => 'Cannot delete an approved transfer.'], 422);
         }
         $asset_transfer->delete();
+
         return response()->json(['message' => 'Transfer deleted.']);
     }
 

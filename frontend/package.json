@@ -4,8 +4,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
-    "build:local": "vite build --mode artisan",
+    "build": "npm run check:i18n && vite build",
+    "build:local": "npm run check:i18n && vite build --mode artisan",
+    "check:i18n": "node scripts/check-i18n.cjs",
     "preview": "vite preview"
   },
   "dependencies": {

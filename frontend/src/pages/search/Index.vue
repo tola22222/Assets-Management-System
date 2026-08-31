@@ -1,19 +1,22 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import http from '../../api/http'
 import AppLayout from '../../layouts/AppLayout.vue'
 import SearchInput from '../../components/ui/SearchInput.vue'
 import { useToastStore } from '../../stores/toast'
 
+const { t } = useI18n()
 const toast = useToastStore()
 const q = ref('')
 const results = ref(null)
 const loading = ref(false)
 
-const labels = {
-  assets: 'Assets', staff: 'Staff', categories: 'Categories',
-  suppliers: 'Suppliers', locations: 'Locations', programs: 'Programs', users: 'Users',
-}
+const labels = computed(() => ({
+  assets: t('search.type_assets'), staff: t('search.type_staff'), categories: t('search.type_categories'),
+  suppliers: t('search.type_suppliers'), locations: t('search.type_locations'),
+  programs: t('search.type_programs'), users: t('search.type_users'),
+}))
 
 function displayName(type, item) {
   if (type === 'staff') return item.full_name
@@ -22,7 +25,7 @@ function displayName(type, item) {
 
 async function search() {
   if (q.value.length < 2) {
-    toast.error('Please enter at least 2 characters.')
+    toast.error(t('search.min_length'))
     return
   }
   loading.value = true
@@ -39,15 +42,15 @@ async function search() {
   <AppLayout>
     <div class="p-8 max-w-3xl mx-auto space-y-6">
       <div>
-        <h1 class="font-display text-xl font-bold text-fg tracking-tight">Search</h1>
-        <p class="text-muted text-sm mt-0.5">Look up assets, staff, and other records across the system</p>
+        <h1 class="font-display text-xl font-bold text-fg tracking-tight">{{ t('search.title') }}</h1>
+        <p class="text-muted text-sm mt-0.5">{{ t('search.subtitle') }}</p>
       </div>
 
       <form @submit.prevent="search" class="flex gap-3">
         <div class="flex-1">
-          <SearchInput v-model="q" placeholder="Search…" />
+          <SearchInput v-model="q" :placeholder="t('common.search_placeholder')" />
         </div>
-        <button type="submit" :disabled="loading" class="btn-primary">Search</button>
+        <button type="submit" :disabled="loading" class="btn-primary">{{ t('search.submit') }}</button>
       </form>
 
       <div v-if="results" class="space-y-4">
@@ -59,7 +62,7 @@ async function search() {
             </div>
           </template>
         </div>
-        <p v-if="Object.values(results).every((v) => !v.length)" class="text-faint text-sm text-center py-8">No results found.</p>
+        <p v-if="Object.values(results).every((v) => !v.length)" class="text-faint text-sm text-center py-8">{{ t('common.no_results') }}</p>
       </div>
     </div>
   </AppLayout>

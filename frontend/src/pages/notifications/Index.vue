@@ -1,9 +1,11 @@
 <script setup>
 import { ref, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import http from '../../api/http'
 import AppLayout from '../../layouts/AppLayout.vue'
 import { useToastStore } from '../../stores/toast'
 
+const { t } = useI18n()
 const toast = useToastStore()
 const notifications = ref([])
 const loading = ref(true)
@@ -22,7 +24,7 @@ async function markRead(n) {
 
 async function markAllRead() {
   await http.post('/notifications/mark-all-read')
-  toast.success('All notifications marked as read.')
+  toast.success(t('notifications.marked_all_read'))
   await load()
 }
 
@@ -34,10 +36,10 @@ onMounted(load)
     <div class="p-8 max-w-3xl mx-auto space-y-6">
       <div class="flex items-center justify-between">
         <div>
-          <h1 class="font-display text-xl font-bold text-fg tracking-tight">Notifications</h1>
-          <p class="text-muted text-sm mt-0.5">Recent activity relevant to you</p>
+          <h1 class="font-display text-xl font-bold text-fg tracking-tight">{{ t('notifications.title') }}</h1>
+          <p class="text-muted text-sm mt-0.5">{{ t('notifications.subtitle') }}</p>
         </div>
-        <button @click="markAllRead" class="text-sm font-semibold text-brand-600 dark:text-brand-300 hover:underline">Mark all as read</button>
+        <button @click="markAllRead" class="text-sm font-semibold text-brand-600 dark:text-brand-300 hover:underline">{{ t('common.mark_all_read') }}</button>
       </div>
 
       <div class="card divide-y divide-line">
@@ -46,11 +48,11 @@ onMounted(load)
             <p class="text-sm text-fg" :class="!n.is_read && 'font-semibold'">{{ n.message }}</p>
             <p class="text-xs text-faint mt-0.5">{{ new Date(n.created_at).toLocaleString() }}</p>
           </div>
-          <button v-if="!n.is_read" @click="markRead(n)" title="Mark read" class="w-7 h-7 rounded-lg bg-brand text-white flex items-center justify-center hover:bg-brand-dark transition flex-shrink-0">
+          <button v-if="!n.is_read" @click="markRead(n)" :title="t('common.mark_read')" class="w-7 h-7 rounded-lg bg-brand text-white flex items-center justify-center hover:bg-brand-dark transition flex-shrink-0">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
           </button>
         </div>
-        <p v-if="!loading && !notifications.length" class="p-8 text-center text-faint text-sm">No notifications yet.</p>
+        <p v-if="!loading && !notifications.length" class="p-8 text-center text-faint text-sm">{{ t('notifications.empty') }}</p>
       </div>
     </div>
   </AppLayout>

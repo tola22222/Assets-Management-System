@@ -10,7 +10,9 @@ import logoUrl from '../assets/logo/Official PEPY Logo_Green.png'
 import { useBranding } from '../composables/useBranding'
 
 const { t } = useI18n()
-const { systemName, organizationName } = useBranding()
+const { systemName, organizationName, logoUrl: brandLogoUrl } = useBranding()
+// An admin-uploaded logo wins; otherwise the bundled PEPY mark.
+const displayLogo = computed(() => brandLogoUrl.value || logoUrl)
 const auth = useAuthStore()
 const route = useRoute()
 const router = useRouter()
@@ -33,6 +35,10 @@ async function handleLogout() {
 }
 
 const isAdmin = computed(() => auth.user?.role === 'operations_hr_manager')
+// Staff are the one role the API refuses every /reports endpoint to
+// (backend/routes/api.php: "Staff cannot pull reports"), so the link is hidden
+// rather than leading them to a page that can only 403.
+const isStaff = computed(() => auth.user?.role === 'staff')
 
 const I = {
   home: 'M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75',
@@ -57,6 +63,12 @@ const I = {
 // Top-level (ungrouped) links — quick-access tools, always visible regardless of role.
 const topLinks = computed(() => [
   { to: '/', label: t('nav.dashboard'), icon: I.home, exact: true },
+  // Both of these are working, routed pages that previously had no link
+  // anywhere in the app — reachable only by typing the URL. The QR scanner in
+  // particular is a core workflow tool, and /search backs the breadcrumb label
+  // registered below.
+  { to: '/qr-scan', label: t('nav.qr_scanner'), icon: I.tag },
+  { to: '/search', label: t('nav.search'), icon: I.pin },
 ])
 
 // Non-admin collapsible "My Assets" group (replaces the Asset Management
@@ -68,6 +80,12 @@ const myAssetsGroup = computed(() => ({
     { to: '/asset-assignments', label: t('nav.assignments') },
     { to: '/asset-transfers', label: t('nav.transfer_requests') },
     { to: '/asset-verifications', label: t('nav.verification') },
+    // The Executive Director is the ONLY role that can approve a disposal, but
+    // the disposals page lived solely in the admin-only inventory group — the
+    // sole approver had no way to reach the approval screen. The API's
+    // asset-disposals index is open to every authenticated role, so this is
+    // safe for Finance/Staff too (they see the list; approve/reject stays ED-only).
+    { to: '/asset-disposals', label: t('nav.disposals') },
   ],
 }))
 
@@ -75,7 +93,7 @@ const inventoryGroup = computed(() => ({
   key: 'inventory', title: t('nav.asset_management'), icon: I.assets,
   items: [
     { to: '/assets', label: t('nav.asset_register') },
-    { to: '/stock', label: 'Stock' },
+    { to: '/stock', label: t('nav.stock') },
     { to: '/asset-assignments', label: t('nav.assignments') },
     { to: '/asset-transfers', label: t('nav.transfers') },
     { to: '/asset-verifications', label: t('nav.verification') },
@@ -145,8 +163,8 @@ const breadcrumbMap = computed(() => {
   topLinks.value.forEach((item) => add(item.to, item.label))
   add('/reports', t('nav.reports'))
   add('/search', t('nav.search'))
-  add('/profile', 'My Profile')
-  add('/notifications', 'Notifications')
+  add('/profile', t('nav.my_profile'))
+  add('/notifications', t('nav.notifications'))
   add('/assets/import', t('import.title'), t('nav.asset_management'))
 
   allGroups.value.forEach((group) => {
@@ -185,7 +203,7 @@ function initials(name) {
         <div class="w-64 flex flex-col h-full">
           <div class="flex items-center gap-3 px-5 py-5 border-b border-white/10">
             <div class="w-9 h-9 flex items-center justify-center flex-shrink-0">
-              <img :src="logoUrl" alt="PEPY" class="w-full h-full object-contain" />
+              <img :src="displayLogo" :alt="organizationName || 'PEPY'" class="w-full h-full object-contain" />
             </div>
             <div class="min-w-0 flex-1">
               <p class="font-display font-bold leading-tight truncate">{{ systemName || t('app_name') }}</p>
@@ -244,8 +262,8 @@ function initials(name) {
             </div>
 
             <!-- Insight: reporting/analytics -->
-            <p class="nav-section-label pt-3">{{ t('nav.insight') }}</p>
-            <RouterLink to="/reports" class="nav-link" active-class="nav-link-active" @click="mobileOpen = false">
+            <p v-if="!isStaff" class="nav-section-label pt-3">{{ t('nav.insight') }}</p>
+            <RouterLink v-if="!isStaff" to="/reports" class="nav-link" active-class="nav-link-active" @click="mobileOpen = false">
               <svg class="w-[18px] h-[18px] flex-shrink-0" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :d="I.chart" /></svg>
               <span class="truncate">{{ t('nav.reports') }}</span>
             </RouterLink>

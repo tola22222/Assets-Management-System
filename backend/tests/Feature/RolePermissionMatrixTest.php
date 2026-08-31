@@ -196,6 +196,31 @@ class RolePermissionMatrixTest extends TestCase
         $this->assertDatabaseHas('asset_transfers', ['id' => $transferId, 'status' => 'approved']);
     }
 
+    public function test_opm_cannot_reject_their_own_transfer_request(): void
+    {
+        // reject() previously had no self-request guard while approve() did, so
+        // the same person could decide their own request by rejecting it.
+        $asset = $this->makeAsset();
+        $otherLocation = Location::where('code', '!=', 'SR')->firstOrFail();
+        $opm = User::factory()->create(['role' => 'operations_hr_manager']);
+
+        $transfer = \App\Models\AssetTransfer::create([
+            'asset_id' => $asset->id,
+            'from_location_id' => $asset->location_id,
+            'to_location_id' => $otherLocation->id,
+            'requested_by' => $opm->id,
+            'transfer_date' => now(),
+            'status' => 'pending',
+        ]);
+
+        $this->actingAs($opm)->postJson("/api/asset-transfers/{$transfer->id}/reject")->assertStatus(403);
+        $this->assertDatabaseHas('asset_transfers', ['id' => $transfer->id, 'status' => 'pending']);
+
+        $otherOpm = User::factory()->create(['role' => 'operations_hr_manager']);
+        $this->actingAs($otherOpm)->postJson("/api/asset-transfers/{$transfer->id}/reject")->assertStatus(200);
+        $this->assertDatabaseHas('asset_transfers', ['id' => $transfer->id, 'status' => 'rejected']);
+    }
+
     public function test_only_opm_can_approve_or_reject_a_return(): void
     {
         $asset = $this->makeAsset();

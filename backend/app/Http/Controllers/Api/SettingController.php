@@ -30,9 +30,19 @@ class SettingController extends Controller
 
     public function branding()
     {
-        return response()->json(
-            Setting::whereIn('key', ['organization_name', 'system_name'])->pluck('value', 'key')
-        );
+        $branding = Setting::whereIn('key', ['organization_name', 'system_name', 'logo'])
+            ->pluck('value', 'key');
+
+        // The logo has to be served from here rather than from index(): index()
+        // is OPM-only, but every role's sidebar and the logged-out login screen
+        // need to render the logo. Stored as a relative disk path; the client
+        // needs a resolvable URL.
+        $branding['logo_url'] = filled($branding['logo'] ?? null)
+            ? asset('storage/'.$branding['logo'])
+            : null;
+        unset($branding['logo']);
+
+        return response()->json($branding);
     }
 
     public function update(Request $request)

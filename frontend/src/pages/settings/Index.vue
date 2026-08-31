@@ -12,7 +12,25 @@ import { useBranding } from '../../composables/useBranding'
 const { t } = useI18n()
 const { setLocale } = useLocale()
 const { applyThemeColor } = useThemeColor()
-const { systemName, organizationName } = useBranding()
+const { systemName, organizationName, logoUrl, refreshBranding } = useBranding()
+
+// Logo upload. The backend has always accepted this (SettingController::update
+// validates and stores a `logo`), but no control existed to send one.
+const logoFile = ref(null)
+const logoPreview = ref('')
+
+function onLogoChange(event) {
+  const file = event.target.files?.[0]
+  if (!file) return
+  logoFile.value = file
+  logoPreview.value = URL.createObjectURL(file)
+}
+
+function clearLogoSelection() {
+  logoFile.value = null
+  if (logoPreview.value) URL.revokeObjectURL(logoPreview.value)
+  logoPreview.value = ''
+}
 const toast = useToastStore()
 const loading = ref(true)
 const form = reactive({
@@ -53,7 +71,21 @@ function onThemeColorChange() {
 
 async function handleSubmit() {
   try {
-    await http.post('/settings', form)
+    // A file can't ride along in a JSON body, so switch to multipart only when
+    // one is actually selected — keeps the common no-logo save unchanged.
+    if (logoFile.value) {
+      const payload = new FormData()
+      Object.entries(form).forEach(([key, value]) => {
+        if (value === null || value === undefined) return
+        payload.append(key, typeof value === 'boolean' ? (value ? '1' : '0') : value)
+      })
+      payload.append('logo', logoFile.value)
+      await http.post('/settings', payload)
+      clearLogoSelection()
+      await refreshBranding()
+    } else {
+      await http.post('/settings', form)
+    }
     setLocale(form.locale)
     applyThemeColor(form.theme_color)
     systemName.value = form.system_name
@@ -171,6 +203,22 @@ onMounted(() => {
         <div class="space-y-1.5">
           <label class="text-xs font-semibold text-muted tracking-wide">{{ t('settings.system_name') }}</label>
           <input v-model="form.system_name" class="input" />
+        </div>
+        <div class="space-y-1.5">
+          <label class="text-xs font-semibold text-muted tracking-wide">{{ t('settings.logo') }}</label>
+          <div class="flex items-center gap-4">
+            <div class="w-14 h-14 rounded-xl border border-line bg-bg flex items-center justify-center overflow-hidden flex-shrink-0">
+              <img v-if="logoPreview || logoUrl" :src="logoPreview || logoUrl" alt="" class="w-full h-full object-contain" />
+              <span v-else class="text-[10px] text-faint text-center px-1">{{ t('settings.logo_default') }}</span>
+            </div>
+            <div class="flex-1 min-w-0">
+              <input type="file" accept="image/png,image/jpeg" @change="onLogoChange" class="block w-full text-sm text-muted file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-brand file:text-white hover:file:bg-brand-dark file:cursor-pointer" />
+              <p class="text-xs text-faint mt-1">{{ t('settings.logo_hint') }}</p>
+            </div>
+            <button v-if="logoFile" type="button" @click="clearLogoSelection" class="btn-ghost btn-sm flex-shrink-0">
+              {{ t('common.cancel') }}
+            </button>
+          </div>
         </div>
         <div class="grid grid-cols-2 gap-4">
           <div class="space-y-1.5">

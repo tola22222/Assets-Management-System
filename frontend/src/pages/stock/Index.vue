@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, onMounted, reactive, watch } from 'vue'
 import { useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import http from '../../api/http'
 import AppLayout from '../../layouts/AppLayout.vue'
 import Modal from '../../components/ui/Modal.vue'
@@ -15,6 +16,7 @@ import { useBulkSelect } from '../../composables/useBulkSelect'
 import { useToastStore } from '../../stores/toast'
 import { useAuthStore } from '../../stores/auth'
 
+const { t } = useI18n()
 const toast = useToastStore()
 const auth = useAuthStore()
 const route = useRoute()
@@ -67,11 +69,11 @@ const { filters, filtered: visible } = useTableFilter(sortedItems, {
   status: (row, val) => row.status === val,
   location: (row, val) => String(row.location_id) === String(val),
 })
-const statusOptions = [
-  { value: 'low', label: 'Low' },
-  { value: 'normal', label: 'Normal' },
-  { value: 'high', label: 'High' },
-]
+const statusOptions = computed(() => [
+  { value: 'low', label: t('stock.low') },
+  { value: 'normal', label: t('stock.normal') },
+  { value: 'high', label: t('stock.high') },
+])
 
 // Sidebar sub-links (Low Stock / Normal / High) land here as /stock?status=X —
 // keep the filter pill in sync with that, including when clicking between
@@ -122,11 +124,11 @@ async function submitReceive() {
   receiving.value = true
   try {
     await http.post('/stock-items/receive', receiveForm)
-    toast.success(`${receiveForm.quantity} ${receiveForm.unit} of "${receiveForm.name}" received.`)
+    toast.success(t('stock.received_message', { quantity: receiveForm.quantity, unit: receiveForm.unit, name: receiveForm.name }))
     showReceiveModal.value = false
     await fetchAll()
   } catch (e) {
-    toast.error(e.response?.data?.message || 'Could not receive stock.')
+    toast.error(e.response?.data?.message || t('stock.receive_failed'))
   } finally {
     receiving.value = false
   }
@@ -146,11 +148,11 @@ async function submitIssue() {
   issueSubmitting.value = true
   try {
     await http.post(`/stock-items/${issuing.value.id}/issue`, issueForm)
-    toast.success(`${issueForm.quantity} ${issuing.value.unit} of "${issuing.value.name}" issued.`)
+    toast.success(t('stock.issued_message', { quantity: issueForm.quantity, unit: issuing.value.unit, name: issuing.value.name }))
     issuing.value = null
     await fetchAll()
   } catch (e) {
-    toast.error(e.response?.data?.message || 'Could not issue stock.')
+    toast.error(e.response?.data?.message || t('stock.issue_failed'))
   } finally {
     issueSubmitting.value = false
   }
@@ -168,10 +170,10 @@ const deletingId = ref(null)
 async function confirmDelete() {
   try {
     await http.delete(`/stock-items/${deletingId.value}`)
-    toast.success('Stock item deleted.')
+    toast.success(t('stock.item_deleted'))
     await fetchAll()
   } catch (e) {
-    toast.error(e.response?.data?.message || 'Could not delete this stock item.')
+    toast.error(e.response?.data?.message || t('stock.delete_failed'))
   } finally {
     deletingId.value = null
   }
@@ -182,8 +184,8 @@ async function confirmBulkDelete() {
   const ids = selectedIds.value
   const results = await Promise.allSettled(ids.map((id) => http.delete(`/stock-items/${id}`)))
   const failed = results.filter((r) => r.status === 'rejected').length
-  if (failed) toast.error(`${failed} item(s) couldn't be deleted (already have transaction history).`)
-  toast.success(`${ids.length - failed} stock item(s) deleted.`)
+  if (failed) toast.error(t('stock.bulk_delete_partial_failed', { count: failed }))
+  toast.success(t('stock.bulk_deleted', { count: ids.length - failed }))
   clearSelection()
   await fetchAll()
 }
@@ -191,9 +193,9 @@ async function confirmBulkDelete() {
 // ---- CSV export -----------------------------------------------------------
 function exportCsv() {
   const cols = [
-    ['stock_code', 'Stock ID'], ['name', 'Item Name'], ['category', 'Category'],
-    ['location', 'Location'], ['balance', 'Balance'], ['unit', 'Unit'],
-    ['status', 'Status'], ['min_threshold', 'Min Threshold'], ['updated_at', 'Last Transaction'],
+    ['stock_code', t('stock.stock_id')], ['name', t('stock.item_name')], ['category', t('stock.category')],
+    ['location', t('common.location')], ['balance', t('stock.balance')], ['unit', t('stock.unit')],
+    ['status', t('common.status')], ['min_threshold', t('stock.min_threshold')], ['updated_at', t('stock.last_transaction')],
   ]
   const row = (i) => ({
     stock_code: i.stock_code, name: i.name, category: i.category || '',
@@ -233,21 +235,21 @@ onMounted(() => {
       <!-- Page heading -->
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 class="font-display text-3xl font-bold text-fg tracking-tight">Stock</h1>
-          <p class="text-muted text-sm mt-1">Bulk consumables — toner, paper, cables, and other items with no individual tag</p>
+          <h1 class="font-display text-3xl font-bold text-fg tracking-tight">{{ t('stock.title') }}</h1>
+          <p class="text-muted text-sm mt-1">{{ t('stock.subtitle') }}</p>
         </div>
         <div class="flex items-center gap-2 flex-shrink-0">
           <button v-if="canManage && selectedIds.length" @click="confirmingBulkDelete = true" class="btn-danger btn-sm">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9 9m9.968-3.21c.342.052.682.107 1.022.166M18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
-            Delete Selected ({{ selectedIds.length }})
+            {{ t('stock.delete_selected', { count: selectedIds.length }) }}
           </button>
           <button @click="exportCsv" class="btn-ghost btn-sm">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M7.5 12L12 16.5m0 0l4.5-4.5M12 16.5V3" /></svg>
-            Export CSV
+            {{ t('stock.export_csv') }}
           </button>
           <button v-if="canManage" @click="openReceive()" class="btn-primary btn-sm">
             <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
-            Receive Stock
+            {{ t('stock.receive_stock') }}
           </button>
         </div>
       </div>
@@ -257,46 +259,46 @@ onMounted(() => {
         <!-- Low -->
         <div class="card p-5">
           <div class="flex items-center justify-between mb-3">
-            <h3 class="font-display text-base font-bold text-fg">Low</h3>
+            <h3 class="font-display text-base font-bold text-fg">{{ t('stock.low') }}</h3>
             <span class="badge badge-danger">{{ lowCategories.length }}</span>
           </div>
           <div v-if="lowCategories.length" class="space-y-1 max-h-56 overflow-y-auto">
             <div v-for="c in lowCategories" :key="c.category_id ?? 'uncategorized'" class="px-2.5 py-2 rounded-lg flex items-center justify-between gap-2">
-              <p class="text-sm font-semibold text-fg truncate">{{ c.category?.name || 'Uncategorized' }}</p>
+              <p class="text-sm font-semibold text-fg truncate">{{ c.category?.name || t('stock.uncategorized') }}</p>
               <p class="text-sm font-bold text-red-600 dark:text-red-400 flex-shrink-0">{{ c.total }}</p>
             </div>
           </div>
-          <p v-else class="text-sm text-faint">Nothing running low.</p>
+          <p v-else class="text-sm text-faint">{{ t('stock.nothing_low') }}</p>
         </div>
 
         <!-- Normal -->
         <div class="card p-5">
           <div class="flex items-center justify-between mb-3">
-            <h3 class="font-display text-base font-bold text-fg">Normal</h3>
+            <h3 class="font-display text-base font-bold text-fg">{{ t('stock.normal') }}</h3>
             <span class="badge badge-success">{{ normalCategories.length }}</span>
           </div>
           <div v-if="normalCategories.length" class="space-y-1 max-h-56 overflow-y-auto">
             <div v-for="c in normalCategories" :key="c.category_id ?? 'uncategorized'" class="px-2.5 py-2 rounded-lg flex items-center justify-between gap-2">
-              <p class="text-sm font-semibold text-fg truncate">{{ c.category?.name || 'Uncategorized' }}</p>
+              <p class="text-sm font-semibold text-fg truncate">{{ c.category?.name || t('stock.uncategorized') }}</p>
               <p class="text-sm font-bold text-fg flex-shrink-0">{{ c.total }}</p>
             </div>
           </div>
-          <p v-else class="text-sm text-faint">Items within their configured range.</p>
+          <p v-else class="text-sm text-faint">{{ t('stock.items_in_range') }}</p>
         </div>
 
         <!-- Hight -->
         <div class="card p-5">
           <div class="flex items-center justify-between mb-3">
-            <h3 class="font-display text-base font-bold text-fg">Hight</h3>
+            <h3 class="font-display text-base font-bold text-fg">{{ t('stock.high') }}</h3>
             <span class="badge badge-warning">{{ highCategories.length }}</span>
           </div>
           <div v-if="highCategories.length" class="space-y-1 max-h-56 overflow-y-auto">
             <div v-for="c in highCategories" :key="c.category_id ?? 'uncategorized'" class="px-2.5 py-2 rounded-lg flex items-center justify-between gap-2">
-              <p class="text-sm font-semibold text-fg truncate">{{ c.category?.name || 'Uncategorized' }}</p>
+              <p class="text-sm font-semibold text-fg truncate">{{ c.category?.name || t('stock.uncategorized') }}</p>
               <p class="text-sm font-bold text-amber-600 dark:text-amber-400 flex-shrink-0">{{ c.total }}</p>
             </div>
           </div>
-          <p v-else class="text-sm text-faint">Nothing over its max.</p>
+          <p v-else class="text-sm text-faint">{{ t('stock.nothing_over_max') }}</p>
         </div>
       </div>
 
@@ -304,10 +306,10 @@ onMounted(() => {
       <div class="card p-6 sm:p-8">
         <div class="flex flex-wrap items-center gap-3 mb-6">
           <div class="flex-1 min-w-[260px]">
-            <SearchInput v-model="search" placeholder="Search by item name or Stock ID…" />
+            <SearchInput v-model="search" :placeholder="t('stock.search_placeholder')" />
           </div>
           <select v-model="filters.location" class="filter-select">
-            <option value="">All locations</option>
+            <option value="">{{ t('stock.all_locations') }}</option>
             <option v-for="l in locations" :key="l.id" :value="l.id">{{ l.name }}</option>
           </select>
           <FilterPills v-model="filters.status" :options="statusOptions" />
@@ -320,16 +322,16 @@ onMounted(() => {
                 <th v-if="canManage" class="w-10">
                   <input type="checkbox" :checked="allSelected" @change="toggleSelectAll" class="rounded border-line text-brand focus:ring-brand/30" />
                 </th>
-                <th>Stock ID</th>
-                <th class="th-sort" @click="toggleSort('name')">Item Name<TableSortIcon :active="sortKey === 'name'" :direction="sortDir" /></th>
-                <th>Category</th>
-                <th class="th-sort" @click="toggleSort('location')">Location<TableSortIcon :active="sortKey === 'location'" :direction="sortDir" /></th>
-                <th class="th-sort text-right" @click="toggleSort('balance')">Balance<TableSortIcon :active="sortKey === 'balance'" :direction="sortDir" /></th>
-                <th>Unit</th>
-                <th class="th-sort text-center" @click="toggleSort('status_rank')">Status<TableSortIcon :active="sortKey === 'status_rank'" :direction="sortDir" /></th>
-                <th class="th-sort text-right" @click="toggleSort('threshold')">Min Threshold<TableSortIcon :active="sortKey === 'threshold'" :direction="sortDir" /></th>
-                <th class="th-sort" @click="toggleSort('updated')">Last Transaction<TableSortIcon :active="sortKey === 'updated'" :direction="sortDir" /></th>
-                <th class="text-right">Actions</th>
+                <th>{{ t('stock.stock_id') }}</th>
+                <th class="th-sort" @click="toggleSort('name')">{{ t('stock.item_name') }}<TableSortIcon :active="sortKey === 'name'" :direction="sortDir" /></th>
+                <th>{{ t('stock.category') }}</th>
+                <th class="th-sort" @click="toggleSort('location')">{{ t('common.location') }}<TableSortIcon :active="sortKey === 'location'" :direction="sortDir" /></th>
+                <th class="th-sort text-right" @click="toggleSort('balance')">{{ t('stock.balance') }}<TableSortIcon :active="sortKey === 'balance'" :direction="sortDir" /></th>
+                <th>{{ t('stock.unit') }}</th>
+                <th class="th-sort text-center" @click="toggleSort('status_rank')">{{ t('common.status') }}<TableSortIcon :active="sortKey === 'status_rank'" :direction="sortDir" /></th>
+                <th class="th-sort text-right" @click="toggleSort('threshold')">{{ t('stock.min_threshold') }}<TableSortIcon :active="sortKey === 'threshold'" :direction="sortDir" /></th>
+                <th class="th-sort" @click="toggleSort('updated')">{{ t('stock.last_transaction') }}<TableSortIcon :active="sortKey === 'updated'" :direction="sortDir" /></th>
+                <th class="text-right">{{ t('common.actions') }}</th>
               </tr>
             </thead>
             <tbody>
@@ -352,10 +354,10 @@ onMounted(() => {
                 <td class="text-muted whitespace-nowrap">{{ formatDate(i.updated_at) }}</td>
                 <td class="text-right" @click.stop>
                   <div v-if="canManage" class="flex items-center justify-end gap-1.5">
-                    <button @click="openIssue(i)" title="Issue" class="w-7 h-7 rounded-lg bg-brand text-white flex items-center justify-center hover:bg-brand-dark transition">
+                    <button @click="openIssue(i)" :title="t('stock.issue')" class="w-7 h-7 rounded-lg bg-brand text-white flex items-center justify-center hover:bg-brand-dark transition">
                       <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" /></svg>
                     </button>
-                    <button @click="deletingId = i.id" title="Delete" class="w-7 h-7 rounded-lg bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition">
+                    <button @click="deletingId = i.id" :title="t('common.delete')" class="w-7 h-7 rounded-lg bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition">
                       <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9 9m9.968-3.21c.342.052.682.107 1.022.166M18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
                     </button>
                   </div>
@@ -364,7 +366,7 @@ onMounted(() => {
               </tr>
               <tr v-if="!loading && !visible.length">
                 <td :colspan="canManage ? 11 : 10" class="py-10 text-center text-faint">
-                  {{ locationFilterLabel ? `No stock items found for ${locationFilterLabel}.` : (search || filters.status ? 'No stock items match your search.' : 'No stock items found.') }}
+                  {{ locationFilterLabel ? t('stock.empty_for_location', { location: locationFilterLabel }) : (search || filters.status ? t('stock.empty_search') : t('stock.empty')) }}
                 </td>
               </tr>
             </tbody>
@@ -374,110 +376,110 @@ onMounted(() => {
     </div>
 
     <!-- Receive Stock -->
-    <Modal v-if="showReceiveModal" title="Receive Stock" @close="showReceiveModal = false">
+    <Modal v-if="showReceiveModal" :title="t('stock.receive_stock')" @close="showReceiveModal = false">
       <form @submit.prevent="submitReceive">
         <div class="p-6 space-y-4">
           <div class="rounded-xl bg-surface-2 border border-line px-3.5 py-2.5 text-xs text-muted flex items-start gap-2">
             <svg class="w-4 h-4 flex-shrink-0 mt-0.5 text-faint" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" /></svg>
-            <span>This is the <strong class="text-fg font-semibold">Stock</strong> list — bulk consumables like toner, paper, and cables tracked only by name and running balance. It's separate from the <strong class="text-fg font-semibold">Asset Register</strong>, so nothing here can be selected from or will affect a tagged asset.</span>
+            <span>{{ t('stock.info_part1') }} <strong class="text-fg font-semibold">{{ t('stock.title') }}</strong> {{ t('stock.info_part2') }} <strong class="text-fg font-semibold">{{ t('assets.title') }}</strong>{{ t('stock.info_part3') }}</span>
           </div>
 
           <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-muted tracking-wide">Stock Item Name <span class="text-red-500">*</span></label>
+            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('stock.stock_item_name') }} <span class="text-red-500">*</span></label>
             <select v-model="receiveNameSelection" required class="select">
-              <option value="" disabled>Select an existing stock item…</option>
+              <option value="" disabled>{{ t('stock.select_existing_item') }}</option>
               <option v-for="n in uniqueItemNames" :key="n" :value="n">{{ n }}</option>
-              <option :value="NEW_ITEM_VALUE">+ Create a new stock item</option>
+              <option :value="NEW_ITEM_VALUE">{{ t('stock.create_new_item') }}</option>
             </select>
-            <input v-if="receiveNameSelection === NEW_ITEM_VALUE" v-model="receiveForm.name" required class="input mt-2" placeholder="e.g. A4 Paper, Toner Cartridge, USB Cable" />
-            <p class="text-xs text-faint">This list is Stock items only — it does not include anything from the Asset Register. Picking an existing name adds to that item's balance at the location below; creating a new one starts a fresh Stock ID at 0.</p>
+            <input v-if="receiveNameSelection === NEW_ITEM_VALUE" v-model="receiveForm.name" required class="input mt-2" :placeholder="t('stock.item_name_placeholder')" />
+            <p class="text-xs text-faint">{{ t('stock.item_name_hint') }}</p>
           </div>
           <div class="grid grid-cols-2 gap-4">
             <div class="space-y-1.5">
-              <label class="text-xs font-semibold text-muted tracking-wide">Category</label>
+              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('stock.category') }}</label>
               <select v-model="receiveForm.category" class="select">
-                <option value="">No category</option>
+                <option value="">{{ t('stock.no_category') }}</option>
                 <option v-for="c in categories" :key="c.id" :value="c.name">{{ c.name }}</option>
               </select>
-              <p class="text-xs text-faint">Reuses the Asset Register's category list for convenience — this is just a label on the stock item, it doesn't link it to any asset.</p>
+              <p class="text-xs text-faint">{{ t('stock.category_hint') }}</p>
             </div>
             <div class="space-y-1.5">
-              <label class="text-xs font-semibold text-muted tracking-wide">Unit <span class="text-red-500">*</span></label>
-              <input v-model="receiveForm.unit" required class="input" placeholder="pcs / box / pack / liter" />
+              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('stock.unit') }} <span class="text-red-500">*</span></label>
+              <input v-model="receiveForm.unit" required class="input" :placeholder="t('stock.unit_placeholder')" />
             </div>
           </div>
           <div class="grid grid-cols-2 gap-4">
             <div class="space-y-1.5">
-              <label class="text-xs font-semibold text-muted tracking-wide">Quantity Received <span class="text-red-500">*</span></label>
+              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('stock.quantity_received') }} <span class="text-red-500">*</span></label>
               <input v-model="receiveForm.quantity" type="number" step="0.01" min="0.01" required class="input" />
             </div>
             <div class="space-y-1.5">
-              <label class="text-xs font-semibold text-muted tracking-wide">Location <span class="text-red-500">*</span></label>
+              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('common.location') }} <span class="text-red-500">*</span></label>
               <select v-model="receiveForm.location_id" required class="select">
-                <option value="">Select location</option>
+                <option value="">{{ t('common.select_location') }}</option>
                 <option v-for="l in locations" :key="l.id" :value="l.id">{{ l.name }}</option>
               </select>
             </div>
           </div>
           <div class="grid grid-cols-2 gap-4">
             <div class="space-y-1.5">
-              <label class="text-xs font-semibold text-muted tracking-wide">Min Threshold</label>
+              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('stock.min_threshold') }}</label>
               <input v-model="receiveForm.min_threshold" type="number" step="0.01" min="0" class="input" />
             </div>
             <div class="space-y-1.5">
-              <label class="text-xs font-semibold text-muted tracking-wide">Max Threshold</label>
+              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('stock.max_threshold') }}</label>
               <input v-model="receiveForm.max_threshold" type="number" step="0.01" min="0" class="input" />
             </div>
           </div>
           <div class="grid grid-cols-2 gap-4">
             <div class="space-y-1.5">
-              <label class="text-xs font-semibold text-muted tracking-wide">Source / Reason</label>
-              <input v-model="receiveForm.reason" class="input" placeholder="Donor, purchase order #…" />
+              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('stock.source_reason') }}</label>
+              <input v-model="receiveForm.reason" class="input" :placeholder="t('stock.reason_placeholder_receive')" />
             </div>
             <div class="space-y-1.5">
-              <label class="text-xs font-semibold text-muted tracking-wide">Date</label>
+              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('common.date') }}</label>
               <input v-model="receiveForm.transaction_date" type="date" class="input" />
             </div>
           </div>
         </div>
         <div class="flex items-center gap-3 border-t border-line px-6 py-4">
           <button type="submit" :disabled="receiving" class="btn-primary">
-            {{ receiving ? 'Saving…' : 'Receive Stock' }}
+            {{ receiving ? t('stock.saving') : t('stock.receive_stock') }}
           </button>
-          <button type="button" class="btn-ghost" @click="showReceiveModal = false">Cancel</button>
+          <button type="button" class="btn-ghost" @click="showReceiveModal = false">{{ t('common.cancel') }}</button>
         </div>
       </form>
     </Modal>
 
     <!-- Issue Stock -->
-    <Modal v-if="issuing" title="Issue Stock" @close="issuing = null">
+    <Modal v-if="issuing" :title="t('stock.issue_stock')" @close="issuing = null">
       <form @submit.prevent="submitIssue">
         <div class="p-6 space-y-4">
-          <p class="text-sm text-muted">{{ issuing.name }} <span class="font-mono text-xs text-faint">({{ issuing.stock_code }})</span> — {{ issuing.balance }} {{ issuing.unit }} on hand</p>
+          <p class="text-sm text-muted">{{ issuing.name }} <span class="font-mono text-xs text-faint">({{ issuing.stock_code }})</span> — {{ t('stock.on_hand', { balance: issuing.balance, unit: issuing.unit }) }}</p>
           <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-muted tracking-wide">Quantity to Issue <span class="text-red-500">*</span></label>
+            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('stock.quantity_to_issue') }} <span class="text-red-500">*</span></label>
             <input v-model="issueForm.quantity" type="number" step="0.01" min="0.01" :max="issuing.balance" required class="input" />
           </div>
           <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-muted tracking-wide">Issued To</label>
-            <input v-model="issueForm.reason" class="input" placeholder="Site, person, or department" />
+            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('stock.issued_to') }}</label>
+            <input v-model="issueForm.reason" class="input" :placeholder="t('stock.issued_to_placeholder')" />
           </div>
           <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-muted tracking-wide">Date</label>
+            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('common.date') }}</label>
             <input v-model="issueForm.transaction_date" type="date" class="input" />
           </div>
         </div>
         <div class="flex items-center gap-3 border-t border-line px-6 py-4">
           <button type="submit" :disabled="issueSubmitting" class="btn-primary">
-            {{ issueSubmitting ? 'Saving…' : 'Issue Stock' }}
+            {{ issueSubmitting ? t('stock.saving') : t('stock.issue_stock') }}
           </button>
-          <button type="button" class="btn-ghost" @click="issuing = null">Cancel</button>
+          <button type="button" class="btn-ghost" @click="issuing = null">{{ t('common.cancel') }}</button>
         </div>
       </form>
     </Modal>
 
     <!-- Detail / transaction history -->
-    <Modal v-if="viewing" title="Transaction History" wide @close="viewing = null">
+    <Modal v-if="viewing" :title="t('stock.transaction_history')" wide @close="viewing = null">
       <div class="p-6 space-y-6">
         <div class="flex items-start justify-between gap-4">
           <div>
@@ -497,25 +499,25 @@ onMounted(() => {
           <table class="data-table">
             <thead>
               <tr>
-                <th>Date</th>
-                <th>Type</th>
-                <th class="text-right">Quantity</th>
-                <th>Source / Reason</th>
-                <th>Recorded By</th>
+                <th>{{ t('common.date') }}</th>
+                <th>{{ t('stock.type') }}</th>
+                <th class="text-right">{{ t('common.quantity') }}</th>
+                <th>{{ t('stock.source_reason') }}</th>
+                <th>{{ t('stock.recorded_by') }}</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="t in viewing.transactions" :key="t.id">
-                <td>{{ t.transaction_date }}</td>
-                <td><span class="badge" :class="t.type === 'in' ? 'badge-success' : 'badge-info'">{{ t.type === 'in' ? 'Stock In' : 'Stock Out' }}</span></td>
-                <td class="text-right font-medium" :class="t.type === 'in' ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'">
-                  {{ t.type === 'in' ? '+' : '-' }}{{ t.quantity }}
+              <tr v-for="tx in viewing.transactions" :key="tx.id">
+                <td>{{ tx.transaction_date }}</td>
+                <td><span class="badge" :class="tx.type === 'in' ? 'badge-success' : 'badge-info'">{{ tx.type === 'in' ? t('stock.stock_in') : t('stock.stock_out') }}</span></td>
+                <td class="text-right font-medium" :class="tx.type === 'in' ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'">
+                  {{ tx.type === 'in' ? '+' : '-' }}{{ tx.quantity }}
                 </td>
-                <td>{{ t.reason || '—' }}</td>
-                <td>{{ t.recorded_by?.name || '—' }}</td>
+                <td>{{ tx.reason || '—' }}</td>
+                <td>{{ tx.recorded_by?.name || '—' }}</td>
               </tr>
               <tr v-if="!viewing.transactions?.length">
-                <td colspan="5" class="py-8 text-center text-faint">No transactions recorded yet.</td>
+                <td colspan="5" class="py-8 text-center text-faint">{{ t('stock.no_transactions') }}</td>
               </tr>
             </tbody>
           </table>
@@ -526,8 +528,8 @@ onMounted(() => {
     <ConfirmDialog v-if="deletingId" @confirm="confirmDelete" @cancel="deletingId = null" />
     <ConfirmDialog
       v-if="confirmingBulkDelete"
-      :title="`Delete ${selectedIds.length} stock item${selectedIds.length === 1 ? '' : 's'}?`"
-      message="Items with transaction history will be skipped."
+      :title="t('stock.confirm_bulk_delete_title', { count: selectedIds.length })"
+      :message="t('stock.items_with_history_skipped')"
       @confirm="confirmBulkDelete"
       @cancel="confirmingBulkDelete = false"
     />
