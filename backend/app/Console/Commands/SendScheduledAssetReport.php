@@ -65,7 +65,7 @@ class SendScheduledAssetReport extends Command
                 'user_id' => $recipient->id,
                 'type' => 'scheduled_report',
                 'message' => "Your {$periodLabel} asset summary report is ready — {$summary['total_assets']} assets on register.",
-                'url' => route('reports.index'),
+                'url' => url('/app/reports'),
             ]);
 
             if ($recipient->email) {

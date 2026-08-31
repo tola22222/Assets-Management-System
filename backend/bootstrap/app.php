@@ -15,6 +15,11 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'role' => \App\Http\Middleware\RoleMiddleware::class,
         ]);
+
+        // There is no server-rendered login page anymore — send unauthenticated
+        // browser traffic to the SPA's login route. API clients send
+        // Accept: application/json and still get a 401 instead of this redirect.
+        $middleware->redirectGuestsTo(fn () => '/app/login');
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

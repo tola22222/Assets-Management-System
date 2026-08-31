@@ -52,7 +52,7 @@ class SendCountDiscrepancyNotification extends Command
 
         $notifications->send('COUNT_DISCREPANCY', [
             'note' => $note,
-            'url' => route('reports.inventory'),
+            'url' => url('/app/reports'),
             'extraData' => ['count' => $discrepancies->count()],
         ]);
 

@@ -42,7 +42,7 @@ class SendCountReminderNotification extends Command
 
                 $notifications->send('COUNT_REMINDER', [
                     'note' => 'Locations to cover: '.Location::orderBy('name')->pluck('name')->implode(', '),
-                    'url' => route('reports.inventory'),
+                    'url' => url('/app/reports'),
                     'extraData' => ['date' => $countDate->toFormattedDateString()],
                 ]);
 

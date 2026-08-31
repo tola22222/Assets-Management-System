@@ -50,7 +50,7 @@ class SendMissingFieldsNotification extends Command
 
         $notifications->send('MISSING_FIELDS', [
             'note' => $note,
-            'url' => route('reports.data-completeness'),
+            'url' => url('/app/reports'),
             'extraData' => ['count' => $assets->count()],
         ]);
 

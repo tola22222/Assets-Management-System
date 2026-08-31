@@ -10,8 +10,8 @@ class RoleMiddleware
 {
     public function handle(Request $request, Closure $next, ...$roles)
     {
-        if (!Auth::check()) {
-            return redirect()->route('login');
+        if (! Auth::check()) {
+            abort(401, 'Unauthenticated.');
         }
 
         $user = Auth::user();
