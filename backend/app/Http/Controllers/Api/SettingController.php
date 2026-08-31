@@ -5,8 +5,11 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\Setting;
+use App\Services\MailConfigService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Response;
 
@@ -14,7 +17,15 @@ class SettingController extends Controller
 {
     public function index()
     {
-        return response()->json(Setting::pluck('value', 'key'));
+        $settings = Setting::pluck('value', 'key');
+
+        // The SMTP password is stored encrypted and must never travel to the
+        // client, not even masked — the UI only needs to know whether one is on
+        // file so it can show "leave blank to keep current".
+        $settings['mail_password_set'] = filled($settings['mail_password'] ?? null);
+        unset($settings['mail_password']);
+
+        return response()->json($settings);
     }
 
     public function branding()
@@ -39,10 +50,28 @@ class SettingController extends Controller
             'report_recipient_email' => 'nullable|email',
             'include_staff_in_reports' => 'nullable|boolean',
             'logo' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
+            'mail_mailer' => 'nullable|in:smtp,log',
+            'mail_host' => 'nullable|string|max:255',
+            'mail_port' => 'nullable|integer|min:1|max:65535',
+            'mail_encryption' => 'nullable|in:tls,ssl,none',
+            'mail_username' => 'nullable|string|max:255',
+            'mail_password' => 'nullable|string|max:255',
+            'mail_from_address' => 'nullable|email',
+            'mail_from_name' => 'nullable|string|max:255',
         ]);
 
         if ($request->has('include_staff_in_reports')) {
             $validated['include_staff_in_reports'] = $request->boolean('include_staff_in_reports') ? '1' : '0';
+        }
+
+        // Encrypt the SMTP password at rest, and treat a blank submission as
+        // "keep what's already stored" — index() never sends the current value
+        // back, so the field arrives empty on every load and would otherwise
+        // wipe a working password every time the form is saved.
+        if (blank($validated['mail_password'] ?? null)) {
+            unset($validated['mail_password']);
+        } else {
+            $validated['mail_password'] = Crypt::encryptString($validated['mail_password']);
         }
 
         if ($request->hasFile('logo')) {
@@ -62,13 +91,61 @@ class SettingController extends Controller
             'description' => 'Updated system settings',
         ]);
 
-        return response()->json(Setting::pluck('value', 'key'));
+        // Rebuild the live mail config so a test send in the very next request
+        // uses what was just saved, without waiting for a restart.
+        MailConfigService::apply(true);
+
+        return $this->index();
+    }
+
+    /**
+     * Send a one-off email using the currently saved settings.
+     *
+     * The whole point of moving SMTP config into the database is that an admin
+     * can fix mail without a redeploy — this is how they confirm it worked,
+     * rather than needing shell access to run `php artisan app:test-mail`.
+     */
+    public function testMail(Request $request)
+    {
+        $validated = $request->validate(['email' => 'required|email']);
+
+        MailConfigService::apply(true);
+
+        if (config('mail.default') === 'log') {
+            return response()->json([
+                'message' => 'Mail driver is set to "log", so nothing is actually delivered. Set an SMTP host and save before testing.',
+            ], 422);
+        }
+
+        try {
+            Mail::raw(
+                "This is a test message from {$this->systemName()}.\n\nIf you received it, outgoing email is configured correctly.",
+                fn ($message) => $message->to($validated['email'])->subject('Test email from '.$this->systemName())
+            );
+        } catch (\Throwable $e) {
+            return response()->json([
+                'message' => 'Send failed: '.$e->getMessage(),
+            ], 422);
+        }
+
+        ActivityLog::create([
+            'user_id' => Auth::id(),
+            'action' => 'Update',
+            'description' => 'Sent a test email to '.$validated['email'],
+        ]);
+
+        return response()->json(['message' => 'Test email sent to '.$validated['email'].'.']);
+    }
+
+    private function systemName(): string
+    {
+        return Setting::where('key', 'system_name')->value('value') ?: config('app.name');
     }
 
     public function backup()
     {
         $backupPath = storage_path('app/backups');
-        if (!is_dir($backupPath)) {
+        if (! is_dir($backupPath)) {
             mkdir($backupPath, 0755, true);
         }
 
@@ -76,15 +153,15 @@ class SettingController extends Controller
 
         if ($connection === 'sqlite') {
             $databasePath = database_path('database.sqlite');
-            if (!file_exists($databasePath)) {
+            if (! file_exists($databasePath)) {
                 return response()->json(['message' => 'Database file not found.'], 422);
             }
 
-            $filename = 'backup-' . date('Y-m-d-His') . '.sqlite';
-            copy($databasePath, $backupPath . '/' . $filename);
+            $filename = 'backup-'.date('Y-m-d-His').'.sqlite';
+            copy($databasePath, $backupPath.'/'.$filename);
         } else {
             $db = config("database.connections.{$connection}");
-            $filename = 'backup-' . date('Y-m-d-His') . '.sql';
+            $filename = 'backup-'.date('Y-m-d-His').'.sql';
 
             $result = Process::timeout(300)
                 ->env(['MYSQL_PWD' => $db['password']])
@@ -93,19 +170,19 @@ class SettingController extends Controller
                     '-h', $db['host'],
                     '-P', (string) $db['port'],
                     '-u', $db['username'],
-                    '--result-file=' . $backupPath . '/' . $filename,
+                    '--result-file='.$backupPath.'/'.$filename,
                     $db['database'],
                 ]);
 
-            if (!$result->successful()) {
-                return response()->json(['message' => 'Backup failed: ' . trim($result->errorOutput())], 500);
+            if (! $result->successful()) {
+                return response()->json(['message' => 'Backup failed: '.trim($result->errorOutput())], 500);
             }
         }
 
         ActivityLog::create([
             'user_id' => Auth::id(),
             'action' => 'Backup',
-            'description' => 'Created database backup: ' . $filename,
+            'description' => 'Created database backup: '.$filename,
         ]);
 
         return response()->json(['message' => 'Database backed up successfully.', 'filename' => $filename]);
@@ -114,15 +191,15 @@ class SettingController extends Controller
     public function listBackups()
     {
         $backupPath = storage_path('app/backups');
-        if (!is_dir($backupPath)) {
+        if (! is_dir($backupPath)) {
             return response()->json([]);
         }
 
         $files = array_map(function ($file) use ($backupPath) {
             return [
                 'name' => $file,
-                'size' => filesize($backupPath . '/' . $file),
-                'date' => date('Y-m-d H:i:s', filemtime($backupPath . '/' . $file)),
+                'size' => filesize($backupPath.'/'.$file),
+                'date' => date('Y-m-d H:i:s', filemtime($backupPath.'/'.$file)),
             ];
         }, array_diff(scandir($backupPath), ['.', '..']));
 
@@ -133,8 +210,8 @@ class SettingController extends Controller
 
     public function downloadBackup(string $filename)
     {
-        $backupPath = storage_path('app/backups/' . basename($filename));
-        if (!file_exists($backupPath)) {
+        $backupPath = storage_path('app/backups/'.basename($filename));
+        if (! file_exists($backupPath)) {
             return response()->json(['message' => 'Backup file not found.'], 404);
         }
 
@@ -143,15 +220,15 @@ class SettingController extends Controller
 
     public function restoreBackup(string $filename)
     {
-        $backupPath = storage_path('app/backups/' . basename($filename));
-        if (!file_exists($backupPath)) {
+        $backupPath = storage_path('app/backups/'.basename($filename));
+        if (! file_exists($backupPath)) {
             return response()->json(['message' => 'Backup file not found.'], 404);
         }
 
         $connection = config('database.default');
 
         if ($connection === 'sqlite') {
-            if (!str_ends_with($filename, '.sqlite')) {
+            if (! str_ends_with($filename, '.sqlite')) {
                 return response()->json(['message' => 'This is a MySQL-format backup, but the app is currently connected to sqlite.'], 422);
             }
 
@@ -168,15 +245,15 @@ class SettingController extends Controller
                 ->input(fopen($backupPath, 'r'))
                 ->run(['mysql', '-h', $db['host'], '-P', (string) $db['port'], '-u', $db['username'], $db['database']]);
 
-            if (!$result->successful()) {
-                return response()->json(['message' => 'Restore failed: ' . trim($result->errorOutput())], 500);
+            if (! $result->successful()) {
+                return response()->json(['message' => 'Restore failed: '.trim($result->errorOutput())], 500);
             }
         }
 
         ActivityLog::create([
             'user_id' => Auth::id(),
             'action' => 'Restore',
-            'description' => 'Restored database from backup: ' . $filename,
+            'description' => 'Restored database from backup: '.$filename,
         ]);
 
         return response()->json(['message' => 'Database restored successfully.']);
@@ -184,8 +261,8 @@ class SettingController extends Controller
 
     public function deleteBackup(string $filename)
     {
-        $backupPath = storage_path('app/backups/' . basename($filename));
-        if (!file_exists($backupPath)) {
+        $backupPath = storage_path('app/backups/'.basename($filename));
+        if (! file_exists($backupPath)) {
             return response()->json(['message' => 'Backup file not found.'], 404);
         }
 
@@ -194,7 +271,7 @@ class SettingController extends Controller
         ActivityLog::create([
             'user_id' => Auth::id(),
             'action' => 'Delete',
-            'description' => 'Deleted database backup: ' . $filename,
+            'description' => 'Deleted database backup: '.$filename,
         ]);
 
         return response()->json(['message' => 'Backup deleted.']);

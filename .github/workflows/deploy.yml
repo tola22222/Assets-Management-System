@@ -192,7 +192,50 @@ jobs:
             # to the APP_ENV secret — e.g. a rotated MAIL_PASSWORD — actually
             # reach the server instead of silently persisting whatever the
             # very first deploy happened to write.
-            echo "${{ secrets.APP_ENV }}" > .env
+            #
+            # Written via a QUOTED heredoc, not `echo "..."`: the secret is
+            # interpolated as literal script text, so with double quotes the
+            # shell would expand any $VAR / backtick / backslash inside a value
+            # (MAIL_PASSWORD and MAIL_FROM_NAME both contain such characters),
+            # and a stray " would terminate the string and swallow later lines.
+            # Remember the key already serving this box before we overwrite the
+            # file, so an incomplete secret can't take the site down (see below).
+            PREV_APP_KEY=$(grep -E '^APP_KEY=base64:.+' .env 2>/dev/null | head -n1 || true)
+
+            cat > .env << 'ENVEOF'
+            ${{ secrets.APP_ENV }}
+            ENVEOF
+
+            # The secret is usually pasted from a Windows file. Compose's
+            # env_file parser does NOT strip \r, so every value would arrive
+            # with a trailing carriage return (a malformed APP_KEY, a password
+            # that silently fails to authenticate, etc.).
+            sed -i 's/\r$//' .env
+
+            # A .env with no APP_KEY makes Laravel throw MissingAppKeyException on
+            # every single request - a total outage - and that has now happened
+            # three times because the secret is empty. Rather than faithfully
+            # reproducing the outage, carry forward the key already on the server
+            # and shout about it. Only abort when there is no key anywhere to use.
+            if ! grep -qE '^APP_KEY=base64:.+' .env; then
+              if [ -n "$PREV_APP_KEY" ]; then
+                echo "::warning::APP_ENV secret has no APP_KEY - reusing the key already on this server. Fix the secret: every other value in it is missing too."
+                echo "$PREV_APP_KEY" >> .env
+              else
+                echo "::error::APP_ENV secret has no valid APP_KEY and this server has no previous key to fall back on - aborting before the deploy breaks production."
+                exit 1
+              fi
+            fi
+
+            # Not fatal, but each of these fails SILENTLY in production rather
+            # than throwing: a missing MAIL_MAILER falls back to the "log"
+            # driver (notification emails get written to laravel.log and never
+            # delivered), and a missing APP_URL makes url()/route() resolve to
+            # http://localhost in scheduled commands and CLI-generated QR codes.
+            # Both went unnoticed in production for weeks.
+            for required in APP_URL MAIL_MAILER MAIL_HOST MAIL_USERNAME MAIL_PASSWORD; do
+              grep -qE "^${required}=.+" .env || echo "::warning::APP_ENV secret is missing ${required} - production will fall back to a framework default."
+            done
 
             # Only pull app/nginx here so the pinned mysql image never changes
             # underneath a running db container on a routine deploy.

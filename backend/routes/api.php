@@ -145,6 +145,7 @@ Route::name('api.')->group(function () {
 
             Route::get('/settings', [SettingController::class, 'index']);
             Route::post('/settings', [SettingController::class, 'update']);
+            Route::post('/settings/test-mail', [SettingController::class, 'testMail']);
             Route::post('/settings/backup', [SettingController::class, 'backup']);
             Route::get('/settings/backups', [SettingController::class, 'listBackups']);
             Route::get('/settings/backups/{filename}/download', [SettingController::class, 'downloadBackup']);

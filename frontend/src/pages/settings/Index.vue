@@ -19,13 +19,21 @@ const form = reactive({
   organization_name: '', system_name: '', theme_color: '#128a43', email: '', phone: '',
   address: '', qr_size: 300, locale: 'en', report_interval_months: 6, report_recipient_email: '',
   include_staff_in_reports: false,
+  mail_mailer: 'smtp', mail_host: '', mail_port: 587, mail_encryption: 'tls',
+  mail_username: '', mail_password: '', mail_from_address: '', mail_from_name: '',
 })
+
+// The saved SMTP password is never sent to the browser — we only learn whether
+// one exists, so the field can say "leave blank to keep the current one".
+const mailPasswordSet = ref(false)
 
 async function loadSettings() {
   const { data } = await http.get('/settings')
   Object.keys(form).forEach((key) => {
     if (data[key] !== undefined) form[key] = data[key]
   })
+  mailPasswordSet.value = data.mail_password_set === true
+  form.mail_password = ''
   // Stored as the string '1'/'0' like every other setting — coerce to a
   // real boolean or the checkbox would render "checked" for both values
   // (a non-empty string is always truthy in JS, '0' included).
@@ -51,9 +59,30 @@ async function handleSubmit() {
     systemName.value = form.system_name
     organizationName.value = form.organization_name
     document.title = form.system_name || t('app_name')
+    // Saved passwords are write-only: clear the field and flip the hint so a
+    // second save doesn't resubmit it (and a blank field doesn't read as "no
+    // password on file").
+    if (form.mail_password) mailPasswordSet.value = true
+    form.mail_password = ''
     toast.success(t('settings.updated'))
   } catch (e) {
     toast.error(e.response?.data?.message || t('settings.update_failed'))
+  }
+}
+
+// Mail test
+const testEmail = ref('')
+const sendingTest = ref(false)
+
+async function sendTestEmail() {
+  sendingTest.value = true
+  try {
+    const { data } = await http.post('/settings/test-mail', { email: testEmail.value })
+    toast.success(data.message || t('settings.mail_test_sent'))
+  } catch (e) {
+    toast.error(e.response?.data?.message || t('settings.mail_test_failed'))
+  } finally {
+    sendingTest.value = false
   }
 }
 
@@ -195,6 +224,86 @@ onMounted(() => {
               <span class="block text-xs text-faint mt-0.5">Off by default — Staff normally can't pull reports themselves either. Turning this on adds every Staff account's email to the automatic report recipients.</span>
             </span>
           </label>
+        </div>
+
+        <div class="border-t border-line pt-4 space-y-3">
+          <div>
+            <h3 class="text-xs font-semibold text-muted tracking-wide uppercase">{{ t('settings.mail_title') }}</h3>
+            <p class="text-xs text-faint mt-1">{{ t('settings.mail_subtitle') }}</p>
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <div class="space-y-1.5">
+              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('settings.mail_mailer') }}</label>
+              <select v-model="form.mail_mailer" class="input">
+                <option value="smtp">SMTP</option>
+                <option value="log">{{ t('settings.mail_mailer_log') }}</option>
+              </select>
+            </div>
+            <div class="space-y-1.5">
+              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('settings.mail_encryption') }}</label>
+              <select v-model="form.mail_encryption" class="input">
+                <option value="tls">TLS</option>
+                <option value="ssl">SSL</option>
+                <option value="none">{{ t('settings.mail_encryption_none') }}</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-3 gap-4">
+            <div class="col-span-2 space-y-1.5">
+              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('settings.mail_host') }}</label>
+              <input v-model="form.mail_host" placeholder="smtp.gmail.com" class="input" />
+            </div>
+            <div class="space-y-1.5">
+              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('settings.mail_port') }}</label>
+              <input v-model.number="form.mail_port" type="number" min="1" max="65535" class="input" />
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <div class="space-y-1.5">
+              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('settings.mail_username') }}</label>
+              <input v-model="form.mail_username" autocomplete="off" class="input" />
+            </div>
+            <div class="space-y-1.5">
+              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('settings.mail_password') }}</label>
+              <input
+                v-model="form.mail_password"
+                type="password"
+                autocomplete="new-password"
+                :placeholder="mailPasswordSet ? t('settings.mail_password_keep') : ''"
+                class="input"
+              />
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <div class="space-y-1.5">
+              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('settings.mail_from_address') }}</label>
+              <input v-model="form.mail_from_address" type="email" class="input" />
+            </div>
+            <div class="space-y-1.5">
+              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('settings.mail_from_name') }}</label>
+              <input v-model="form.mail_from_name" class="input" />
+            </div>
+          </div>
+
+          <div class="rounded-xl bg-bg border border-line p-4 space-y-2">
+            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('settings.mail_test') }}</label>
+            <div class="flex gap-2">
+              <input v-model="testEmail" type="email" :placeholder="t('settings.mail_test_placeholder')" class="input flex-1" />
+              <button
+                type="button"
+                @click="sendTestEmail"
+                :disabled="sendingTest || !testEmail"
+                class="btn-ghost flex-shrink-0 disabled:opacity-50"
+              >
+                {{ sendingTest ? t('settings.mail_test_sending') : t('settings.mail_test_send') }}
+              </button>
+            </div>
+            <p class="text-xs text-faint">{{ t('settings.mail_test_hint') }}</p>
+          </div>
         </div>
 
         <div class="pt-2">
