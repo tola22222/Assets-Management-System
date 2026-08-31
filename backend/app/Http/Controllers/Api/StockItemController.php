@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\Asset;
+use App\Models\Location;
 use App\Models\StockItem;
 use App\Services\StockService;
 use Illuminate\Http\Request;
@@ -20,25 +21,42 @@ class StockItemController extends Controller
     }
 
     /**
-     * Live tally of the Asset Register grouped by category — not a stored
-     * balance, so it can never drift: it's a straight count of assets as
-     * they're registered/imported, always exactly matching the register
-     * (disposals, deletes, and transfers all show up automatically).
+     * Live tally of the Asset Register grouped by site — not a stored balance,
+     * so it can never drift: it's a straight count of assets as they're
+     * registered/imported, always exactly matching the register (disposals,
+     * deletes, and transfers all show up automatically).
+     *
+     * Every location is returned, including ones holding nothing — a site
+     * sitting at 0 is a meaningful reading on this panel ("nothing has been
+     * tagged there yet"), not a row to hide. The null-location bucket is the
+     * exception: it's a data-quality warning, so it's only appended when
+     * there actually are unplaced assets.
      */
-    public function byCategory()
+    public function byLocation()
     {
-        $rows = Asset::select('category_id', DB::raw('count(*) as total'))
+        $counts = Asset::select('location_id', DB::raw('count(*) as total'))
             ->where('status', '!=', 'disposed')
-            ->groupBy('category_id')
-            ->with('category:id,name,short_name')
-            ->get()
-            ->map(function ($row) {
-                $row->stock_level = Asset::stockLevelFor($row->total);
+            ->whereNotNull('location_id')
+            ->groupBy('location_id')
+            ->pluck('total', 'location_id');
 
-                return $row;
-            })
+        $rows = Location::orderBy('name')
+            ->get(['id', 'name', 'code'])
+            ->map(fn ($location) => [
+                'location_id' => $location->id,
+                'name' => $location->name,
+                'code' => $location->code,
+                'total' => (int) ($counts[$location->id] ?? 0),
+            ])
             ->sortByDesc('total')
-            ->values();
+            ->values()
+            ->all();
+
+        $unplaced = Asset::where('status', '!=', 'disposed')->whereNull('location_id')->count();
+
+        if ($unplaced > 0) {
+            $rows[] = ['location_id' => null, 'name' => null, 'code' => null, 'total' => $unplaced];
+        }
 
         return response()->json($rows);
     }
@@ -48,32 +66,6 @@ class StockItemController extends Controller
         return response()->json(
             $stock_item->load(['location', 'transactions' => fn ($q) => $q->with('recordedBy')->latest('transaction_date')->latest('id')])
         );
-    }
-
-    public function receive(Request $request, StockService $service)
-    {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'category' => 'nullable|string|max:255',
-            'unit' => 'required|string|max:50',
-            'quantity' => 'required|numeric|min:0.01',
-            'location_id' => 'required|exists:locations,id',
-            'min_threshold' => 'nullable|numeric|min:0',
-            'max_threshold' => 'nullable|numeric|min:0',
-            'reason' => 'nullable|string|max:255',
-            'transaction_date' => 'nullable|date',
-        ]);
-        $validated['recorded_by'] = Auth::id();
-
-        $item = $service->receive($validated);
-
-        ActivityLog::create([
-            'user_id' => Auth::id(),
-            'action' => 'Stock In',
-            'description' => "Received {$validated['quantity']} {$item->unit} of \"{$item->name}\" ({$item->stock_code}).",
-        ]);
-
-        return response()->json($item->load('location'), 201);
     }
 
     public function issue(Request $request, StockItem $stock_item, StockService $service)

@@ -24,8 +24,7 @@ const canManage = computed(() => ['operations_hr_manager', 'finance_manager'].in
 
 const items = ref([])
 const locations = ref([])
-const categories = ref([])
-const categoryStats = ref([])
+const locationStats = ref([])
 const loading = ref(true)
 
 async function fetchAll() {
@@ -38,22 +37,15 @@ async function loadLocations() {
   const { data } = await http.get('/locations')
   locations.value = data
 }
-async function loadCategories() {
-  const { data } = await http.get('/categories')
-  categories.value = data
-}
-async function loadCategoryStats() {
-  const { data } = await http.get('/stock-items/by-category')
-  categoryStats.value = data
+async function loadLocationStats() {
+  const { data } = await http.get('/stock-items/by-location')
+  locationStats.value = data
 }
 
-// ---- Assets by Category cards ------------------------------------------
-const lowCategories = computed(() => categoryStats.value.filter((c) => c.stock_level === 'low').sort((a, b) => a.total - b.total))
-const normalCategories = computed(() => categoryStats.value.filter((c) => c.stock_level === 'medium'))
-const highCategories = computed(() => categoryStats.value.filter((c) => c.stock_level === 'high').sort((a, b) => b.total - a.total))
-
-// Unique existing item names, for the Receive Stock "pick an existing item" dropdown.
-const uniqueItemNames = computed(() => [...new Set(items.value.map((i) => i.name))].sort((a, b) => a.localeCompare(b)))
+// ---- Total Assets by Location ------------------------------------------
+// A live tally of the Asset Register per site (already sorted busiest-first
+// server-side), not a stored balance — so it always matches the register.
+const totalAssets = computed(() => locationStats.value.reduce((sum, l) => sum + l.total, 0))
 
 // Status is computed server-side per item, but sorting it "LOW first" needs
 // a numeric rank — alphabetical ('high' < 'low' < 'normal') would put High first.
@@ -87,52 +79,6 @@ const locationFilterLabel = computed(() => {
   const loc = locations.value.find((l) => String(l.id) === String(filters.location))
   return loc?.name
 })
-
-// ---- Receive Stock ------------------------------------------------------
-const showReceiveModal = ref(false)
-const receiving = ref(false)
-const emptyReceiveForm = () => ({
-  name: '', category: '', unit: '', quantity: '', location_id: '',
-  min_threshold: '', max_threshold: '', reason: '', transaction_date: new Date().toISOString().slice(0, 10),
-})
-const receiveForm = reactive(emptyReceiveForm())
-
-// Item Name is a strict dropdown of existing items, plus a "+ Add new item"
-// choice that reveals a free-text box — this is the only way to still
-// create a brand-new stock item while keeping the normal case a real select.
-const NEW_ITEM_VALUE = '__new__'
-const receiveNameSelection = ref('')
-watch(receiveNameSelection, (v) => {
-  if (v !== NEW_ITEM_VALUE) receiveForm.name = v
-})
-
-function openReceive(prefill = null) {
-  Object.assign(receiveForm, emptyReceiveForm())
-  if (prefill) {
-    Object.assign(receiveForm, {
-      name: prefill.name, category: prefill.category || '', unit: prefill.unit,
-      location_id: prefill.location_id, min_threshold: prefill.min_threshold ?? '', max_threshold: prefill.max_threshold ?? '',
-    })
-    receiveNameSelection.value = prefill.name
-  } else {
-    receiveNameSelection.value = uniqueItemNames.value.length ? '' : NEW_ITEM_VALUE
-  }
-  showReceiveModal.value = true
-}
-
-async function submitReceive() {
-  receiving.value = true
-  try {
-    await http.post('/stock-items/receive', receiveForm)
-    toast.success(t('stock.received_message', { quantity: receiveForm.quantity, unit: receiveForm.unit, name: receiveForm.name }))
-    showReceiveModal.value = false
-    await fetchAll()
-  } catch (e) {
-    toast.error(e.response?.data?.message || t('stock.receive_failed'))
-  } finally {
-    receiving.value = false
-  }
-}
 
 // ---- Issue Stock --------------------------------------------------------
 const issuing = ref(null) // the stock item being issued
@@ -223,8 +169,7 @@ function formatDate(v) {
 onMounted(() => {
   fetchAll()
   loadLocations()
-  loadCategories()
-  loadCategoryStats()
+  loadLocationStats()
 })
 </script>
 
@@ -247,59 +192,36 @@ onMounted(() => {
             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M7.5 12L12 16.5m0 0l4.5-4.5M12 16.5V3" /></svg>
             {{ t('stock.export_csv') }}
           </button>
-          <button v-if="canManage" @click="openReceive()" class="btn-primary btn-sm">
-            <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
-            {{ t('stock.receive_stock') }}
-          </button>
         </div>
       </div>
 
-      
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        <!-- Low -->
-        <div class="card p-5">
-          <div class="flex items-center justify-between mb-3">
-            <h3 class="font-display text-base font-bold text-fg">{{ t('stock.low') }}</h3>
-            <span class="badge badge-danger">{{ lowCategories.length }}</span>
+      <!-- Total assets by location: a live tally of the Asset Register per
+           site, so a site sitting at zero is shown rather than hidden. -->
+      <div class="card p-5 sm:p-6">
+        <div class="flex items-center justify-between gap-4 mb-4">
+          <h3 class="font-display text-base font-bold text-fg">{{ t('stock.assets_by_location') }}</h3>
+          <div class="text-right flex-shrink-0">
+            <p class="font-display text-2xl font-bold text-fg leading-none">{{ totalAssets }}</p>
+            <p class="text-xs text-faint mt-1">{{ t('stock.total_assets') }}</p>
           </div>
-          <div v-if="lowCategories.length" class="space-y-1 max-h-56 overflow-y-auto">
-            <div v-for="c in lowCategories" :key="c.category_id ?? 'uncategorized'" class="px-2.5 py-2 rounded-lg flex items-center justify-between gap-2">
-              <p class="text-sm font-semibold text-fg truncate">{{ c.category?.name || t('stock.uncategorized') }}</p>
-              <p class="text-sm font-bold text-red-600 dark:text-red-400 flex-shrink-0">{{ c.total }}</p>
-            </div>
-          </div>
-          <p v-else class="text-sm text-faint">{{ t('stock.nothing_low') }}</p>
         </div>
 
-        <!-- Normal -->
-        <div class="card p-5">
-          <div class="flex items-center justify-between mb-3">
-            <h3 class="font-display text-base font-bold text-fg">{{ t('stock.normal') }}</h3>
-            <span class="badge badge-success">{{ normalCategories.length }}</span>
+        <div v-if="locationStats.length" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-1">
+          <div
+            v-for="l in locationStats"
+            :key="l.location_id ?? 'unplaced'"
+            class="flex items-center justify-between gap-3 px-2.5 py-2 rounded-lg border-b border-line/60"
+          >
+            <span class="flex items-center gap-2 min-w-0">
+              <span v-if="l.code" class="id-chip flex-shrink-0">{{ l.code }}</span>
+              <span class="text-sm truncate" :class="l.location_id ? 'font-semibold text-fg' : 'font-semibold text-amber-600 dark:text-amber-400'">
+                {{ l.name || t('stock.no_location') }}
+              </span>
+            </span>
+            <span class="text-sm font-bold flex-shrink-0" :class="l.total ? 'text-fg' : 'text-faint'">{{ l.total }}</span>
           </div>
-          <div v-if="normalCategories.length" class="space-y-1 max-h-56 overflow-y-auto">
-            <div v-for="c in normalCategories" :key="c.category_id ?? 'uncategorized'" class="px-2.5 py-2 rounded-lg flex items-center justify-between gap-2">
-              <p class="text-sm font-semibold text-fg truncate">{{ c.category?.name || t('stock.uncategorized') }}</p>
-              <p class="text-sm font-bold text-fg flex-shrink-0">{{ c.total }}</p>
-            </div>
-          </div>
-          <p v-else class="text-sm text-faint">{{ t('stock.items_in_range') }}</p>
         </div>
-
-        <!-- Hight -->
-        <div class="card p-5">
-          <div class="flex items-center justify-between mb-3">
-            <h3 class="font-display text-base font-bold text-fg">{{ t('stock.high') }}</h3>
-            <span class="badge badge-warning">{{ highCategories.length }}</span>
-          </div>
-          <div v-if="highCategories.length" class="space-y-1 max-h-56 overflow-y-auto">
-            <div v-for="c in highCategories" :key="c.category_id ?? 'uncategorized'" class="px-2.5 py-2 rounded-lg flex items-center justify-between gap-2">
-              <p class="text-sm font-semibold text-fg truncate">{{ c.category?.name || t('stock.uncategorized') }}</p>
-              <p class="text-sm font-bold text-amber-600 dark:text-amber-400 flex-shrink-0">{{ c.total }}</p>
-            </div>
-          </div>
-          <p v-else class="text-sm text-faint">{{ t('stock.nothing_over_max') }}</p>
-        </div>
+        <p v-else class="text-sm text-faint">{{ t('stock.no_locations') }}</p>
       </div>
 
       <!-- Grid -->
@@ -374,82 +296,6 @@ onMounted(() => {
         </div>
       </div>
     </div>
-
-    <!-- Receive Stock -->
-    <Modal v-if="showReceiveModal" :title="t('stock.receive_stock')" @close="showReceiveModal = false">
-      <form @submit.prevent="submitReceive">
-        <div class="p-6 space-y-4">
-          <div class="rounded-xl bg-surface-2 border border-line px-3.5 py-2.5 text-xs text-muted flex items-start gap-2">
-            <svg class="w-4 h-4 flex-shrink-0 mt-0.5 text-faint" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" /></svg>
-            <span>{{ t('stock.info_part1') }} <strong class="text-fg font-semibold">{{ t('stock.title') }}</strong> {{ t('stock.info_part2') }} <strong class="text-fg font-semibold">{{ t('assets.title') }}</strong>{{ t('stock.info_part3') }}</span>
-          </div>
-
-          <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('stock.stock_item_name') }} <span class="text-red-500">*</span></label>
-            <select v-model="receiveNameSelection" required class="select">
-              <option value="" disabled>{{ t('stock.select_existing_item') }}</option>
-              <option v-for="n in uniqueItemNames" :key="n" :value="n">{{ n }}</option>
-              <option :value="NEW_ITEM_VALUE">{{ t('stock.create_new_item') }}</option>
-            </select>
-            <input v-if="receiveNameSelection === NEW_ITEM_VALUE" v-model="receiveForm.name" required class="input mt-2" :placeholder="t('stock.item_name_placeholder')" />
-            <p class="text-xs text-faint">{{ t('stock.item_name_hint') }}</p>
-          </div>
-          <div class="grid grid-cols-2 gap-4">
-            <div class="space-y-1.5">
-              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('stock.category') }}</label>
-              <select v-model="receiveForm.category" class="select">
-                <option value="">{{ t('stock.no_category') }}</option>
-                <option v-for="c in categories" :key="c.id" :value="c.name">{{ c.name }}</option>
-              </select>
-              <p class="text-xs text-faint">{{ t('stock.category_hint') }}</p>
-            </div>
-            <div class="space-y-1.5">
-              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('stock.unit') }} <span class="text-red-500">*</span></label>
-              <input v-model="receiveForm.unit" required class="input" :placeholder="t('stock.unit_placeholder')" />
-            </div>
-          </div>
-          <div class="grid grid-cols-2 gap-4">
-            <div class="space-y-1.5">
-              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('stock.quantity_received') }} <span class="text-red-500">*</span></label>
-              <input v-model="receiveForm.quantity" type="number" step="0.01" min="0.01" required class="input" />
-            </div>
-            <div class="space-y-1.5">
-              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('common.location') }} <span class="text-red-500">*</span></label>
-              <select v-model="receiveForm.location_id" required class="select">
-                <option value="">{{ t('common.select_location') }}</option>
-                <option v-for="l in locations" :key="l.id" :value="l.id">{{ l.name }}</option>
-              </select>
-            </div>
-          </div>
-          <div class="grid grid-cols-2 gap-4">
-            <div class="space-y-1.5">
-              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('stock.min_threshold') }}</label>
-              <input v-model="receiveForm.min_threshold" type="number" step="0.01" min="0" class="input" />
-            </div>
-            <div class="space-y-1.5">
-              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('stock.max_threshold') }}</label>
-              <input v-model="receiveForm.max_threshold" type="number" step="0.01" min="0" class="input" />
-            </div>
-          </div>
-          <div class="grid grid-cols-2 gap-4">
-            <div class="space-y-1.5">
-              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('stock.source_reason') }}</label>
-              <input v-model="receiveForm.reason" class="input" :placeholder="t('stock.reason_placeholder_receive')" />
-            </div>
-            <div class="space-y-1.5">
-              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('common.date') }}</label>
-              <input v-model="receiveForm.transaction_date" type="date" class="input" />
-            </div>
-          </div>
-        </div>
-        <div class="flex items-center gap-3 border-t border-line px-6 py-4">
-          <button type="submit" :disabled="receiving" class="btn-primary">
-            {{ receiving ? t('stock.saving') : t('stock.receive_stock') }}
-          </button>
-          <button type="button" class="btn-ghost" @click="showReceiveModal = false">{{ t('common.cancel') }}</button>
-        </div>
-      </form>
-    </Modal>
 
     <!-- Issue Stock -->
     <Modal v-if="issuing" :title="t('stock.issue_stock')" @close="issuing = null">

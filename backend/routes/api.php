@@ -112,11 +112,12 @@ Route::name('api.')->group(function () {
         });
 
         // Stock (consumables) — every role can view the grid/dashboard; only
-        // OPM/Finance can receive, issue, or delete, mirroring suppliers above.
-        Route::get('/stock-items/by-category', [StockItemController::class, 'byCategory']);
+        // OPM/Finance can issue or delete, mirroring suppliers above. There is
+        // deliberately no stock-in route: quantities enter the register through
+        // the Asset create/import flow, not a separate Receive Stock form.
+        Route::get('/stock-items/by-location', [StockItemController::class, 'byLocation']);
         Route::apiResource('stock-items', StockItemController::class)->only(['index', 'show']);
         Route::middleware('role:operations_hr_manager,finance_manager')->group(function () {
-            Route::post('/stock-items/receive', [StockItemController::class, 'receive']);
             Route::post('/stock-items/{stock_item}/issue', [StockItemController::class, 'issue']);
             Route::delete('/stock-items/{stock_item}', [StockItemController::class, 'destroy']);
         });
@@ -147,6 +148,7 @@ Route::name('api.')->group(function () {
             Route::post('/settings', [SettingController::class, 'update']);
             Route::post('/settings/test-mail', [SettingController::class, 'testMail']);
             Route::post('/settings/backup', [SettingController::class, 'backup']);
+            Route::post('/settings/backups/upload', [SettingController::class, 'uploadBackup']);
             Route::get('/settings/backups', [SettingController::class, 'listBackups']);
             Route::get('/settings/backups/{filename}/download', [SettingController::class, 'downloadBackup']);
             Route::post('/settings/backups/{filename}/restore', [SettingController::class, 'restoreBackup']);

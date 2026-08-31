@@ -66,6 +66,34 @@ const kmLeaves = new Set(leaves(km));
 for (const k of enLeaves) if (!kmLeaves.has(k)) problems.push(`in en.json but not km.json: ${k}`);
 for (const k of kmLeaves) if (!enLeaves.has(k)) problems.push(`in km.json but not en.json: ${k}`);
 
+// Messages that vue-i18n cannot compile.
+//
+// '@' opens a linked message (@:key / @.lower:key). A bare '@' — an email
+// address in a placeholder, say — throws "Invalid linked format" when the
+// message is first rendered, which takes down the whole component's render,
+// not just that one string. It is invisible until someone opens that exact
+// page, so it is checked here. Write a literal '@' as {'@'}.
+function messageProblems(obj, locale, trail = [], acc = []) {
+  for (const [k, v] of Object.entries(obj)) {
+    if (v && typeof v === 'object' && !Array.isArray(v)) {
+      messageProblems(v, locale, [...trail, k], acc);
+      continue;
+    }
+    if (typeof v !== 'string') continue;
+
+    // Drop {'...'} literal blocks first — an escaped @ inside one is fine.
+    const bare = v.replace(/\{\s*'[^']*'\s*\}/g, '');
+    if (/@(?![:.])/.test(bare)) {
+      acc.push(
+        `unescaped "@" breaks vue-i18n in ${locale}.json: ${[...trail, k].join('.')} = ${JSON.stringify(v)}` +
+          `  — write it as {'@'}`
+      );
+    }
+  }
+  return acc;
+}
+problems.push(...messageProblems(en, 'en'), ...messageProblems(km, 'km'));
+
 if (problems.length) {
   console.error(`i18n check FAILED - ${problems.length} problem(s):\n`);
   problems.forEach((p) => console.error('  ' + p));

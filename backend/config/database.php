@@ -20,6 +20,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | MySQL Client Binary Directory
+    |--------------------------------------------------------------------------
+    |
+    | Directory holding `mysqldump` and `mysql`, which Settings > Backup shells
+    | out to. Leave unset to search PATH and then the usual install locations
+    | (DBngin, XAMPP, Laragon, WAMP, Program Files) — see MysqlBinaryLocator.
+    | Set it only when those binaries live somewhere unusual.
+    |
+    */
+
+    'mysql_bin_path' => env('MYSQL_BIN_PATH'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Database Connections
     |--------------------------------------------------------------------------
     |

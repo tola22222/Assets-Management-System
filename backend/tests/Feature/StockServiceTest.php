@@ -24,6 +24,36 @@ class StockServiceTest extends TestCase
         return Location::where('code', $code)->firstOrFail();
     }
 
+    /**
+     * Puts an item on the shelf with an opening Stock-In row — the same shape
+     * a historical receive left behind. This stands in for the removed
+     * StockService::receive(); there is no longer any production path that
+     * creates a StockItem, but issue/status/notification behaviour still has
+     * to work against rows that already exist.
+     */
+    private function stockItem(array $attributes = []): StockItem
+    {
+        $quantity = $attributes['quantity'] ?? 10;
+        unset($attributes['quantity']);
+
+        $item = StockItem::create(array_merge([
+            'stock_code' => AssetCodeService::nextStockCode(),
+            'name' => 'Paper',
+            'unit' => 'box',
+            'balance' => $quantity,
+            'location_id' => $this->location()->id,
+        ], $attributes));
+
+        StockTransaction::create([
+            'stock_item_id' => $item->id,
+            'type' => 'in',
+            'quantity' => $quantity,
+            'transaction_date' => now()->toDateString(),
+        ]);
+
+        return $item->fresh();
+    }
+
     // ---- Code generation ----------------------------------------------
 
     public function test_the_first_ever_stock_code_starts_at_0001(): void
@@ -64,43 +94,19 @@ class StockServiceTest extends TestCase
         $this->assertSame('PEY-STK-0001', $stockCode);
     }
 
-    // ---- Receive (Stock-In) --------------------------------------------
+    // ---- Stock-In is gone -------------------------------------------------
 
-    public function test_receiving_a_brand_new_item_creates_it_with_a_stock_code_and_correct_balance(): void
+    public function test_the_receive_stock_route_no_longer_exists(): void
     {
-        $item = (new StockService)->receive([
-            'name' => 'A4 Paper',
-            'unit' => 'box',
-            'quantity' => 10,
-            'location_id' => $this->location()->id,
-        ]);
+        $opm = User::factory()->create(['role' => 'operations_hr_manager']);
 
-        $this->assertSame('PEY-STK-0001', $item->stock_code);
-        $this->assertEquals(10, $item->balance);
-        $this->assertDatabaseHas('stock_transactions', ['stock_item_id' => $item->id, 'type' => 'in', 'quantity' => 10]);
-    }
+        // 405 rather than 404: the surviving GET /stock-items/{stock_item}
+        // route still matches this path, it just refuses POST.
+        $this->actingAs($opm)->postJson('/api/stock-items/receive', [
+            'name' => 'A4 Paper', 'unit' => 'box', 'quantity' => 10, 'location_id' => $this->location()->id,
+        ])->assertStatus(405);
 
-    public function test_receiving_stock_for_an_existing_item_reuses_it_instead_of_duplicating(): void
-    {
-        $service = new StockService;
-        $first = $service->receive(['name' => 'Toner Cartridge', 'unit' => 'pcs', 'quantity' => 5, 'location_id' => $this->location()->id]);
-        $second = $service->receive(['name' => 'toner cartridge', 'unit' => 'pcs', 'quantity' => 3, 'location_id' => $this->location()->id]);
-
-        $this->assertSame($first->id, $second->id);
-        $this->assertSame($first->stock_code, $second->stock_code);
-        $this->assertEquals(8, $second->balance);
-        $this->assertSame(1, StockItem::count());
-        $this->assertSame(2, StockTransaction::count());
-    }
-
-    public function test_the_same_item_name_at_a_different_site_is_a_separate_stock_item(): void
-    {
-        $service = new StockService;
-        $siteA = $service->receive(['name' => 'A4 Paper', 'unit' => 'box', 'quantity' => 5, 'location_id' => $this->location('SR')->id]);
-        $siteB = $service->receive(['name' => 'A4 Paper', 'unit' => 'box', 'quantity' => 5, 'location_id' => $this->location('KL')->id]);
-
-        $this->assertNotSame($siteA->id, $siteB->id);
-        $this->assertSame(2, StockItem::count());
+        $this->assertSame(0, StockItem::count(), 'A removed endpoint must not have created anything.');
     }
 
     // ---- Issue (Stock-Out) ----------------------------------------------
@@ -108,7 +114,7 @@ class StockServiceTest extends TestCase
     public function test_issuing_more_than_the_current_balance_is_blocked(): void
     {
         $service = new StockService;
-        $item = $service->receive(['name' => 'Batteries', 'unit' => 'pcs', 'quantity' => 4, 'location_id' => $this->location()->id]);
+        $item = $this->stockItem(['name' => 'Batteries', 'unit' => 'pcs', 'quantity' => 4]);
 
         $this->expectException(\InvalidArgumentException::class);
         try {
@@ -122,7 +128,7 @@ class StockServiceTest extends TestCase
     public function test_issuing_within_balance_decrements_it_and_logs_a_transaction(): void
     {
         $service = new StockService;
-        $item = $service->receive(['name' => 'Batteries', 'unit' => 'pcs', 'quantity' => 10, 'location_id' => $this->location()->id]);
+        $item = $this->stockItem(['name' => 'Batteries', 'unit' => 'pcs', 'quantity' => 10]);
 
         $issued = $service->issue($item, ['quantity' => 6, 'reason' => 'issued to Kralanh HS']);
 
@@ -135,9 +141,8 @@ class StockServiceTest extends TestCase
     public function test_balance_is_always_re_derivable_by_replaying_the_transaction_log(): void
     {
         $service = new StockService;
-        $item = $service->receive(['name' => 'Cleaning Supplies', 'unit' => 'liter', 'quantity' => 20, 'location_id' => $this->location()->id]);
+        $item = $this->stockItem(['name' => 'Cleaning Supplies', 'unit' => 'liter', 'quantity' => 20]);
         $service->issue($item, ['quantity' => 7]);
-        $service->receive(['name' => 'Cleaning Supplies', 'unit' => 'liter', 'quantity' => 5, 'location_id' => $this->location()->id]);
         $service->issue($item, ['quantity' => 3]);
 
         $replayed = StockTransaction::where('stock_item_id', $item->id)
@@ -145,7 +150,7 @@ class StockServiceTest extends TestCase
             ->reduce(fn ($carry, $t) => $carry + ($t->type === 'in' ? $t->quantity : -$t->quantity), 0);
 
         $this->assertEquals($replayed, $item->fresh()->balance);
-        $this->assertEquals(15, $item->fresh()->balance); // 20 - 7 + 5 - 3
+        $this->assertEquals(10, $item->fresh()->balance); // 20 - 7 - 3
     }
 
     // ---- Low / Normal / High status -------------------------------------
@@ -188,7 +193,7 @@ class StockServiceTest extends TestCase
     public function test_status_recalculates_live_after_a_stock_out_crosses_the_min_threshold(): void
     {
         $service = new StockService;
-        $item = $service->receive(['name' => 'Paper', 'unit' => 'box', 'quantity' => 10, 'min_threshold' => 5, 'location_id' => $this->location()->id]);
+        $item = $this->stockItem(['quantity' => 10, 'min_threshold' => 5]);
         $this->assertSame('normal', $item->status);
 
         $item = $service->issue($item, ['quantity' => 6]);
@@ -203,9 +208,7 @@ class StockServiceTest extends TestCase
         Mail::fake();
         $opm = User::factory()->create(['role' => 'operations_hr_manager']);
         $service = new StockService;
-        $item = $service->receive([
-            'name' => 'Paper', 'unit' => 'box', 'quantity' => 10, 'min_threshold' => 5, 'location_id' => $this->location()->id,
-        ]);
+        $item = $this->stockItem(['quantity' => 10, 'min_threshold' => 5]);
 
         $service->issue($item, ['quantity' => 6]);
 
@@ -217,9 +220,7 @@ class StockServiceTest extends TestCase
         Mail::fake();
         User::factory()->create(['role' => 'operations_hr_manager']);
         $service = new StockService;
-        $item = $service->receive([
-            'name' => 'Paper', 'unit' => 'box', 'quantity' => 10, 'min_threshold' => 5, 'location_id' => $this->location()->id,
-        ]);
+        $item = $this->stockItem(['quantity' => 10, 'min_threshold' => 5]);
 
         $item = $service->issue($item, ['quantity' => 6]); // crosses into low, notifies once
         $service->issue($item, ['quantity' => 1]); // still low, must not notify again
@@ -232,7 +233,7 @@ class StockServiceTest extends TestCase
         Mail::fake();
         User::factory()->create(['role' => 'operations_hr_manager']);
         $service = new StockService;
-        $item = $service->receive(['name' => 'Paper', 'unit' => 'box', 'quantity' => 10, 'location_id' => $this->location()->id]);
+        $item = $this->stockItem(['quantity' => 10]);
 
         $service->issue($item, ['quantity' => 10]);
 
@@ -241,36 +242,27 @@ class StockServiceTest extends TestCase
 
     // ---- API / role permissions ------------------------------------------
 
-    public function test_staff_can_view_stock_but_cannot_receive_issue_or_delete(): void
+    public function test_staff_can_view_stock_but_cannot_issue_or_delete(): void
     {
         $staff = User::factory()->create(['role' => 'staff']);
-        $service = new StockService;
-        $item = $service->receive(['name' => 'Paper', 'unit' => 'box', 'quantity' => 10, 'location_id' => $this->location()->id]);
+        $item = $this->stockItem(['quantity' => 10]);
 
         $this->actingAs($staff)->getJson('/api/stock-items')->assertStatus(200);
         $this->actingAs($staff)->getJson("/api/stock-items/{$item->id}")->assertStatus(200);
-
-        $this->actingAs($staff)->postJson('/api/stock-items/receive', [
-            'name' => 'New Item', 'unit' => 'pcs', 'quantity' => 1, 'location_id' => $this->location()->id,
-        ])->assertStatus(403);
 
         $this->actingAs($staff)->postJson("/api/stock-items/{$item->id}/issue", ['quantity' => 1])->assertStatus(403);
         $this->actingAs($staff)->deleteJson("/api/stock-items/{$item->id}")->assertStatus(403);
     }
 
-    public function test_opm_can_receive_and_issue_stock_via_the_api(): void
+    public function test_opm_can_issue_stock_via_the_api(): void
     {
         $opm = User::factory()->create(['role' => 'operations_hr_manager']);
+        $item = $this->stockItem(['name' => 'Printer Paper', 'quantity' => 20]);
 
-        $receiveResponse = $this->actingAs($opm)->postJson('/api/stock-items/receive', [
-            'name' => 'Printer Paper', 'unit' => 'box', 'quantity' => 20, 'location_id' => $this->location()->id,
-        ]);
-        $receiveResponse->assertStatus(201);
-        $itemId = $receiveResponse->json('id');
-
-        $issueResponse = $this->actingAs($opm)->postJson("/api/stock-items/{$itemId}/issue", [
+        $issueResponse = $this->actingAs($opm)->postJson("/api/stock-items/{$item->id}/issue", [
             'quantity' => 8, 'reason' => 'issued to Office',
         ]);
+
         $issueResponse->assertStatus(200);
         $issueResponse->assertJsonPath('balance', '12.00');
     }
@@ -278,7 +270,7 @@ class StockServiceTest extends TestCase
     public function test_api_blocks_an_over_issue_with_a_422_and_a_clear_message(): void
     {
         $opm = User::factory()->create(['role' => 'operations_hr_manager']);
-        $item = (new StockService)->receive(['name' => 'Paper', 'unit' => 'box', 'quantity' => 3, 'location_id' => $this->location()->id]);
+        $item = $this->stockItem(['quantity' => 3]);
 
         $response = $this->actingAs($opm)->postJson("/api/stock-items/{$item->id}/issue", ['quantity' => 10]);
 
@@ -289,7 +281,7 @@ class StockServiceTest extends TestCase
     public function test_deleting_a_stock_item_with_transaction_history_is_blocked(): void
     {
         $opm = User::factory()->create(['role' => 'operations_hr_manager']);
-        $item = (new StockService)->receive(['name' => 'Paper', 'unit' => 'box', 'quantity' => 3, 'location_id' => $this->location()->id]);
+        $item = $this->stockItem(['quantity' => 3]);
 
         $response = $this->actingAs($opm)->deleteJson("/api/stock-items/{$item->id}");
 
@@ -297,22 +289,69 @@ class StockServiceTest extends TestCase
         $this->assertDatabaseHas('stock_items', ['id' => $item->id]);
     }
 
-    public function test_by_category_returns_a_live_count_of_registered_assets_excluding_disposed(): void
+    // ---- Total assets by location -----------------------------------------
+
+    public function test_by_location_returns_a_live_count_of_registered_assets_excluding_disposed(): void
     {
         $staff = User::factory()->create(['role' => 'staff']);
         $category = AssetCategory::create(['name' => 'Furniture & Fixture', 'short_name' => 'FAF']);
-        $location = $this->location();
+        $office = $this->location('SR');
 
-        Asset::create(['asset_code' => 'PEY-SR-FAF-0001', 'name' => 'Chair', 'category_id' => $category->id, 'location_id' => $location->id, 'status' => 'active', 'condition' => 'good']);
-        Asset::create(['asset_code' => 'PEY-SR-FAF-0002', 'name' => 'Desk', 'category_id' => $category->id, 'location_id' => $location->id, 'status' => 'active', 'condition' => 'good']);
-        Asset::create(['asset_code' => 'PEY-SR-FAF-0003', 'name' => 'Old Desk', 'category_id' => $category->id, 'location_id' => $location->id, 'status' => 'disposed', 'condition' => 'broken']);
+        Asset::create(['asset_code' => 'PEY-SR-FAF-0001', 'name' => 'Chair', 'category_id' => $category->id, 'location_id' => $office->id, 'status' => 'active', 'condition' => 'good']);
+        Asset::create(['asset_code' => 'PEY-SR-FAF-0002', 'name' => 'Desk', 'category_id' => $category->id, 'location_id' => $office->id, 'status' => 'active', 'condition' => 'good']);
+        Asset::create(['asset_code' => 'PEY-SR-FAF-0003', 'name' => 'Old Desk', 'category_id' => $category->id, 'location_id' => $office->id, 'status' => 'disposed', 'condition' => 'broken']);
 
-        $response = $this->actingAs($staff)->getJson('/api/stock-items/by-category');
+        $response = $this->actingAs($staff)->getJson('/api/stock-items/by-location');
 
         $response->assertStatus(200);
-        $row = collect($response->json())->firstWhere('category_id', $category->id);
+        $row = collect($response->json())->firstWhere('location_id', $office->id);
         $this->assertNotNull($row);
-        $this->assertSame(2, $row['total']);
-        $this->assertSame('Furniture & Fixture', $row['category']['name']);
+        $this->assertSame(2, $row['total'], 'The disposed asset must not be counted.');
+        $this->assertSame('PEPY Office', $row['name']);
+        $this->assertSame('SR', $row['code']);
+    }
+
+    public function test_by_location_lists_every_site_including_ones_holding_nothing(): void
+    {
+        $staff = User::factory()->create(['role' => 'staff']);
+
+        $response = $this->actingAs($staff)->getJson('/api/stock-items/by-location');
+
+        $rows = collect($response->json());
+        $this->assertSame(Location::count(), $rows->count());
+        $this->assertTrue($rows->every(fn ($row) => $row['total'] === 0));
+        $this->assertNotNull($rows->firstWhere('code', 'KL'), 'A site with no assets still has to appear.');
+    }
+
+    public function test_by_location_appends_an_unplaced_bucket_only_when_assets_have_no_site(): void
+    {
+        $staff = User::factory()->create(['role' => 'staff']);
+        $category = AssetCategory::create(['name' => 'Computer', 'short_name' => 'COM']);
+
+        $withoutSite = fn () => collect($this->actingAs($staff)->getJson('/api/stock-items/by-location')->json())
+            ->firstWhere('location_id', null);
+
+        $this->assertNull($withoutSite(), 'No unplaced bucket while every asset has a site.');
+
+        Asset::create(['asset_code' => 'PEY-SR-COM-0001', 'name' => 'Stray Laptop', 'category_id' => $category->id, 'location_id' => null, 'status' => 'active', 'condition' => 'good']);
+
+        $this->assertSame(1, $withoutSite()['total']);
+    }
+
+    public function test_by_location_sorts_the_busiest_site_first(): void
+    {
+        $staff = User::factory()->create(['role' => 'staff']);
+        $category = AssetCategory::create(['name' => 'Computer', 'short_name' => 'COM']);
+        $busy = $this->location('KL');
+
+        Asset::create(['asset_code' => 'PEY-SR-COM-0001', 'name' => 'Laptop', 'category_id' => $category->id, 'location_id' => $this->location('SR')->id, 'status' => 'active', 'condition' => 'good']);
+        foreach (['0002', '0003', '0004'] as $n) {
+            Asset::create(['asset_code' => "PEY-KL-COM-{$n}", 'name' => 'Laptop', 'category_id' => $category->id, 'location_id' => $busy->id, 'status' => 'active', 'condition' => 'good']);
+        }
+
+        $rows = $this->actingAs($staff)->getJson('/api/stock-items/by-location')->json();
+
+        $this->assertSame($busy->id, $rows[0]['location_id']);
+        $this->assertSame(3, $rows[0]['total']);
     }
 }

@@ -6,15 +6,21 @@ use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\Setting;
 use App\Services\MailConfigService;
+use App\Services\MysqlBinaryLocator;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Response;
+use RuntimeException;
 
 class SettingController extends Controller
 {
+    /** The only file types restore() knows how to load back. */
+    private const BACKUP_EXTENSIONS = ['sql', 'sqlite'];
+
     public function index()
     {
         $settings = Setting::pluck('value', 'key');
@@ -24,6 +30,24 @@ class SettingController extends Controller
         // file so it can show "leave blank to keep current".
         $settings['mail_password_set'] = filled($settings['mail_password'] ?? null);
         unset($settings['mail_password']);
+
+        // "Next report due" — the old Blade settings screen showed this and it
+        // was lost when that UI was removed. Derived rather than stored: the
+        // scheduler only records last_scheduled_report_at, and the due date is
+        // that plus the configured interval. Mirrors SendScheduledAssetReport's
+        // own Carbon math so the screen and the command can't disagree. Null
+        // means nothing has been sent yet, i.e. it goes on the next check.
+        $lastSentAt = $settings['last_scheduled_report_at'] ?? null;
+        $settings['next_report_due'] = filled($lastSentAt)
+            ? Carbon::parse($lastSentAt)
+                ->addMonths((int) ($settings['report_interval_months'] ?? 6))
+                ->toDateString()
+            : null;
+
+        // Which engine is live decides what a backup file even looks like, and
+        // the restore mismatch errors ("MySQL-format backup, but connected to
+        // sqlite") only make sense if the screen says which one is in use.
+        $settings['database_driver'] = config('database.default');
 
         return response()->json($settings);
     }
@@ -173,18 +197,43 @@ class SettingController extends Controller
             $db = config("database.connections.{$connection}");
             $filename = 'backup-'.date('Y-m-d-His').'.sql';
 
+            try {
+                $mysqldump = MysqlBinaryLocator::dump();
+            } catch (RuntimeException $e) {
+                return response()->json(['message' => $e->getMessage()], 500);
+            }
+
             $result = Process::timeout(300)
-                ->env(['MYSQL_PWD' => $db['password']])
+                ->env(MysqlBinaryLocator::environment($db['password']))
                 ->run([
-                    'mysqldump',
+                    $mysqldump,
                     '-h', $db['host'],
                     '-P', (string) $db['port'],
                     '-u', $db['username'],
+                    // Consistent snapshot without locking the app out mid-dump.
+                    '--single-transaction',
+                    // Without this the dump carries the source server's GTID
+                    // state and refuses to load into any other server, which
+                    // would make these backups un-restorable off-box.
+                    '--set-gtid-purged=OFF',
+                    // A schema-only dump would restore to an app that boots but
+                    // silently lost its stored logic.
+                    '--routines',
+                    '--triggers',
+                    '--events',
+                    // Dumping tablespace info needs the PROCESS privilege, which
+                    // a scoped app user typically lacks.
+                    '--no-tablespaces',
                     '--result-file='.$backupPath.'/'.$filename,
                     $db['database'],
                 ]);
 
             if (! $result->successful()) {
+                // mysqldump still creates the --result-file before it fails, so
+                // without this every failure leaves a 0-byte .sql in the list
+                // offering a Restore button that could only destroy data.
+                @unlink($backupPath.'/'.$filename);
+
                 return response()->json(['message' => 'Backup failed: '.trim($result->errorOutput())], 500);
             }
         }
@@ -198,6 +247,55 @@ class SettingController extends Controller
         return response()->json(['message' => 'Database backed up successfully.', 'filename' => $filename]);
     }
 
+    /**
+     * Accept a backup file produced elsewhere — another install, a colleague's
+     * export, or one downloaded from this screen before a rebuild. Without this
+     * the restore list can only ever contain dumps this very server made, so a
+     * downloaded backup could never be put back.
+     */
+    public function uploadBackup(Request $request)
+    {
+        $request->validate([
+            // Kept as a plain `file` rule: `mimes:sql` leans on the detected MIME
+            // type, and a .sql dump is just text — real backups get rejected.
+            // The extension is what actually decides restorability, checked below.
+            'file' => 'required|file|max:512000',
+        ]);
+
+        $file = $request->file('file');
+        $extension = strtolower($file->getClientOriginalExtension());
+
+        if (! in_array($extension, self::BACKUP_EXTENSIONS, true)) {
+            return response()->json([
+                'message' => 'Only .sql or .sqlite backup files can be uploaded.',
+            ], 422);
+        }
+
+        $backupPath = storage_path('app/backups');
+        if (! is_dir($backupPath)) {
+            mkdir($backupPath, 0755, true);
+        }
+
+        // Never trust the client's filename: it lands on disk and is later
+        // echoed back into a path by restore/download.
+        $name = preg_replace('/[^A-Za-z0-9._-]/', '_', $file->getClientOriginalName());
+        $name = ltrim($name, '.') ?: 'backup.'.$extension;
+
+        if (file_exists($backupPath.'/'.$name)) {
+            $name = pathinfo($name, PATHINFO_FILENAME).'-'.date('Y-m-d-His').'.'.$extension;
+        }
+
+        $file->move($backupPath, $name);
+
+        ActivityLog::create([
+            'user_id' => Auth::id(),
+            'action' => 'Backup',
+            'description' => 'Uploaded database backup: '.$name,
+        ]);
+
+        return response()->json(['message' => 'Backup uploaded.', 'filename' => $name], 201);
+    }
+
     public function listBackups()
     {
         $backupPath = storage_path('app/backups');
@@ -205,17 +303,32 @@ class SettingController extends Controller
             return response()->json([]);
         }
 
-        $files = array_map(function ($file) use ($backupPath) {
-            return [
-                'name' => $file,
-                'size' => filesize($backupPath.'/'.$file),
-                'date' => date('Y-m-d H:i:s', filemtime($backupPath.'/'.$file)),
-            ];
-        }, array_diff(scandir($backupPath), ['.', '..']));
+        $files = array_values(array_filter(
+            array_diff(scandir($backupPath), ['.', '..']),
+            // Anything else in this directory is not restorable, so listing it
+            // would just offer the admin a button that cannot work.
+            fn ($file) => in_array(strtolower(pathinfo($file, PATHINFO_EXTENSION)), self::BACKUP_EXTENSIONS, true)
+                && is_file($backupPath.'/'.$file)
+        ));
+
+        $files = array_map(fn ($file) => [
+            'name' => $file,
+            'size' => filesize($backupPath.'/'.$file),
+            'date' => date('Y-m-d H:i:s', filemtime($backupPath.'/'.$file)),
+            // Lets the UI flag a backup the current connection cannot restore
+            // before the admin clicks Restore and gets a 422.
+            'restorable' => $this->isRestorable($file),
+        ], $files);
 
         usort($files, fn ($a, $b) => strcmp($b['date'], $a['date']));
 
         return response()->json(array_values($files));
+    }
+
+    private function isRestorable(string $filename): bool
+    {
+        return str_ends_with(strtolower($filename), '.sqlite')
+            === (config('database.default') === 'sqlite');
     }
 
     public function downloadBackup(string $filename)
@@ -250,10 +363,16 @@ class SettingController extends Controller
 
             $db = config("database.connections.{$connection}");
 
+            try {
+                $mysql = MysqlBinaryLocator::client();
+            } catch (RuntimeException $e) {
+                return response()->json(['message' => $e->getMessage()], 500);
+            }
+
             $result = Process::timeout(300)
-                ->env(['MYSQL_PWD' => $db['password']])
+                ->env(MysqlBinaryLocator::environment($db['password']))
                 ->input(fopen($backupPath, 'r'))
-                ->run(['mysql', '-h', $db['host'], '-P', (string) $db['port'], '-u', $db['username'], $db['database']]);
+                ->run([$mysql, '-h', $db['host'], '-P', (string) $db['port'], '-u', $db['username'], $db['database']]);
 
             if (! $result->successful()) {
                 return response()->json(['message' => 'Restore failed: '.trim($result->errorOutput())], 500);
