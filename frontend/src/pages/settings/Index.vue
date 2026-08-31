@@ -216,12 +216,12 @@ onMounted(() => {
         <p class="text-xs text-faint -mt-2">{{ t('settings.report_recipient_email_hint') }}</p>
 
         <div class="border-t border-line pt-4 space-y-3">
-          <h3 class="text-xs font-semibold text-muted tracking-wide uppercase">Staff Role</h3>
+          <h3 class="text-xs font-semibold text-muted tracking-wide uppercase">{{ t('settings.staff_role') }}</h3>
           <label class="flex items-start gap-2.5 text-sm text-muted select-none cursor-pointer">
             <input type="checkbox" v-model="form.include_staff_in_reports" class="mt-0.5 rounded border-line text-brand focus:ring-brand/30" />
             <span>
-              Include Staff in scheduled email reports
-              <span class="block text-xs text-faint mt-0.5">Off by default — Staff normally can't pull reports themselves either. Turning this on adds every Staff account's email to the automatic report recipients.</span>
+              {{ t('settings.include_staff_in_reports') }}
+              <span class="block text-xs text-faint mt-0.5">{{ t('settings.include_staff_in_reports_hint') }}</span>
             </span>
           </label>
         </div>
