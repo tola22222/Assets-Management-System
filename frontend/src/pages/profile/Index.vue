@@ -1,7 +1,7 @@
 <script setup>
 import { ref, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
-import http from '../../api/http'
+import http, { errorMessage } from '../../api/http'
 import { useAuthStore } from '../../stores/auth'
 import AppLayout from '../../layouts/AppLayout.vue'
 import { useToastStore } from '../../stores/toast'
@@ -42,7 +42,7 @@ async function saveProfile() {
     photoFile.value = null
     toast.success(t('profile.profile_updated'))
   } catch (e) {
-    toast.error(e.response?.data?.message || t('profile.update_failed'))
+    toast.error(errorMessage(e, t('profile.update_failed')))
   } finally {
     savingProfile.value = false
   }
@@ -62,7 +62,7 @@ async function savePreferences() {
     auth.setUser(data)
     toast.success(t('profile.preference_saved'))
   } catch (e) {
-    toast.error(e.response?.data?.message || t('profile.preference_save_failed'))
+    toast.error(errorMessage(e, t('profile.preference_save_failed')))
   } finally {
     savingPreferences.value = false
   }

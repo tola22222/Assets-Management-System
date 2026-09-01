@@ -2,7 +2,7 @@
 import { ref, computed, onMounted, reactive, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import http from '../../api/http'
+import http, { errorMessage } from '../../api/http'
 import AppLayout from '../../layouts/AppLayout.vue'
 import Modal from '../../components/ui/Modal.vue'
 import ConfirmDialog from '../../components/ui/ConfirmDialog.vue'
@@ -29,17 +29,32 @@ const loading = ref(true)
 
 async function fetchAll() {
   loading.value = true
-  const { data } = await http.get('/stock-items')
-  items.value = data
-  loading.value = false
+  try {
+    const { data } = await http.get('/stock-items')
+    items.value = data
+  } catch (e) {
+    items.value = []
+    toast.error(errorMessage(e, t('stock.load_failed')))
+  } finally {
+    loading.value = false
+  }
 }
 async function loadLocations() {
-  const { data } = await http.get('/locations')
-  locations.value = data
+  try {
+    const { data } = await http.get('/locations')
+    locations.value = data
+  } catch {
+    // The location filter just stays on "All locations"; the grid still works.
+    locations.value = []
+  }
 }
 async function loadLocationStats() {
-  const { data } = await http.get('/stock-items/by-location')
-  locationStats.value = data
+  try {
+    const { data } = await http.get('/stock-items/by-location')
+    locationStats.value = data
+  } catch {
+    locationStats.value = []
+  }
 }
 
 // ---- Total Assets by Location ------------------------------------------
@@ -98,7 +113,7 @@ async function submitIssue() {
     issuing.value = null
     await fetchAll()
   } catch (e) {
-    toast.error(e.response?.data?.message || t('stock.issue_failed'))
+    toast.error(errorMessage(e, t('stock.issue_failed')))
   } finally {
     issueSubmitting.value = false
   }
@@ -107,8 +122,13 @@ async function submitIssue() {
 // ---- Detail / transaction history ---------------------------------------
 const viewing = ref(null)
 async function openDetail(item) {
-  const { data } = await http.get(`/stock-items/${item.id}`)
-  viewing.value = data
+  try {
+    const { data } = await http.get(`/stock-items/${item.id}`)
+    viewing.value = data
+  } catch (e) {
+    // Clicking a row did nothing at all when this failed.
+    toast.error(errorMessage(e, t('stock.detail_failed')))
+  }
 }
 
 // ---- Delete ---------------------------------------------------------------
@@ -119,7 +139,7 @@ async function confirmDelete() {
     toast.success(t('stock.item_deleted'))
     await fetchAll()
   } catch (e) {
-    toast.error(e.response?.data?.message || t('stock.delete_failed'))
+    toast.error(errorMessage(e, t('stock.delete_failed')))
   } finally {
     deletingId.value = null
   }

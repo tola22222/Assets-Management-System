@@ -45,17 +45,28 @@ function openEdit(category) {
 }
 
 async function handleSubmit() {
-  if (editingId.value) {
-    await update(editingId.value, form)
-  } else {
-    await create(form)
+  try {
+    if (editingId.value) {
+      await update(editingId.value, form)
+    } else {
+      await create(form)
+    }
+    // Only close on success, so a rejected save keeps the entered values.
+    showModal.value = false
+  } catch {
+    // useApiCrud already showed why; just clean up here.
   }
-  showModal.value = false
 }
 
 async function confirmDelete() {
-  await destroy(deletingId.value)
-  deletingId.value = null
+  try {
+    await destroy(deletingId.value)
+  } catch {
+    // useApiCrud already showed why; just clean up here.
+  } finally {
+    // Always dismiss the dialog, or a refused delete leaves it stuck open.
+    deletingId.value = null
+  }
 }
 
 async function confirmBulkDelete() {

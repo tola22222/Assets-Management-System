@@ -45,16 +45,16 @@ async function handleSubmit() {
     if (editingId.value) await update(editingId.value, form)
     else await create(form)
     showModal.value = false
-  } catch (e) {
-    toast.error(e.response?.data?.message || t('programs.save_failed'))
+  } catch {
+    // useApiCrud already showed why; just clean up here.
   }
 }
 
 async function confirmDelete() {
   try {
     await destroy(deletingId.value)
-  } catch (e) {
-    toast.error(e.response?.data?.message || t('programs.delete_failed'))
+  } catch {
+    // useApiCrud already showed why; just clean up here.
   } finally {
     deletingId.value = null
   }
@@ -64,8 +64,8 @@ async function confirmBulkDelete() {
   confirmingBulkDelete.value = false
   try {
     await destroyMany(selectedIds.value)
-  } catch (e) {
-    toast.error(e.response?.data?.message || t('programs.delete_failed'))
+  } catch {
+    // useApiCrud already showed why; just clean up here.
   } finally {
     clearSelection()
   }

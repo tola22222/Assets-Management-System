@@ -1,7 +1,7 @@
 <script setup>
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import http from '../../api/http'
+import http, { errorMessage } from '../../api/http'
 import AppLayout from '../../layouts/AppLayout.vue'
 import { useToastStore } from '../../stores/toast'
 
@@ -23,7 +23,7 @@ async function handleScan() {
     locations.value = locs
     verifyForm.value = { location_id: '', condition: 'good', remark: '' }
   } catch (e) {
-    toast.error(e.response?.data?.message || t('qr_scan.not_found'))
+    toast.error(errorMessage(e, t('qr_scan.not_found')))
     asset.value = null
   } finally {
     loading.value = false
@@ -37,7 +37,7 @@ async function submitVerification() {
     const { data } = await http.get(`/qr-scan/${asset.value.asset_code}`)
     asset.value = data
   } catch (e) {
-    toast.error(e.response?.data?.message || t('qr_scan.record_failed'))
+    toast.error(errorMessage(e, t('qr_scan.record_failed')))
   }
 }
 

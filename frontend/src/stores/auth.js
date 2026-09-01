@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import http from '../api/http'
+import { loadPermissions, clearPermissions } from '../composables/usePermissions'
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
@@ -18,6 +19,9 @@ export const useAuthStore = defineStore('auth', {
       this.user = data.user
       localStorage.setItem('token', data.token)
       localStorage.setItem('user', JSON.stringify(data.user))
+      // Permissions are per-account, so they must be refetched on sign-in
+      // rather than carried over from whoever was signed in before.
+      await loadPermissions(true)
     },
 
     async logout() {
@@ -28,6 +32,7 @@ export const useAuthStore = defineStore('auth', {
         this.user = null
         localStorage.removeItem('token')
         localStorage.removeItem('user')
+        clearPermissions()
       }
     },
 

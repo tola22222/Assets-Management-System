@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
-import http from '../../api/http'
+import http, { errorMessage } from '../../api/http'
 import AppLayout from '../../layouts/AppLayout.vue'
 import Modal from '../../components/ui/Modal.vue'
 import StatusBadge from '../../components/ui/StatusBadge.vue'
@@ -35,8 +35,12 @@ const form = reactive({ asset_id: '', recommended_action: 'disposal', reason: ''
 const canApprove = () => auth.user?.role === 'executive_director'
 
 async function loadAssets() {
-  const { data } = await http.get('/assets')
-  assets.value = data.filter((a) => a.status === 'active')
+  try {
+    const { data } = await http.get('/assets')
+    assets.value = data.filter((a) => a.status === 'active')
+  } catch (e) {
+    toast.error(errorMessage(e, t('asset_disposals.load_failed')))
+  }
 }
 
 function openCreate() {
@@ -60,20 +64,30 @@ async function handleSubmit() {
     showModal.value = false
     await fetchAll()
   } catch (e) {
-    toast.error(e.response?.data?.message || t('asset_disposals.submit_failed'))
+    toast.error(errorMessage(e, t('asset_disposals.submit_failed')))
   }
 }
 
 async function approve(id) {
-  await http.post(`/asset-disposals/${id}/approve`)
-  toast.success(t('asset_disposals.approved'))
-  await fetchAll()
+  try {
+    await http.post(`/asset-disposals/${id}/approve`)
+    toast.success(t('asset_disposals.approved'))
+    await fetchAll()
+  } catch (e) {
+    // Only the Executive Director may approve; everyone else gets a 403 whose
+    // message explains exactly that, so surface what the server said.
+    toast.error(errorMessage(e, t('asset_disposals.approve_failed')))
+  }
 }
 
 async function reject(id) {
-  await http.post(`/asset-disposals/${id}/reject`)
-  toast.success(t('asset_disposals.rejected'))
-  await fetchAll()
+  try {
+    await http.post(`/asset-disposals/${id}/reject`)
+    toast.success(t('asset_disposals.rejected'))
+    await fetchAll()
+  } catch (e) {
+    toast.error(errorMessage(e, t('asset_disposals.reject_failed')))
+  }
 }
 
 onMounted(() => {

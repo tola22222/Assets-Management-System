@@ -8,12 +8,14 @@ import ThemeToggle from '../components/ui/ThemeToggle.vue'
 import Breadcrumbs from '../components/ui/Breadcrumbs.vue'
 import logoUrl from '../assets/logo/Official PEPY Logo_Green.png'
 import { useBranding } from '../composables/useBranding'
+import { usePermissions } from '../composables/usePermissions'
 
 const { t } = useI18n()
 const { systemName, organizationName, logoUrl: brandLogoUrl } = useBranding()
 // An admin-uploaded logo wins; otherwise the bundled PEPY mark.
 const displayLogo = computed(() => brandLogoUrl.value || logoUrl)
 const auth = useAuthStore()
+const { canSee } = usePermissions()
 const route = useRoute()
 const router = useRouter()
 
@@ -121,10 +123,21 @@ const settingGroup = computed(() => ({
 }))
 
 // Groups rendered in the scrollable area (order matches the old sidebar)
+// A nav entry only appears when the account can actually open that module.
+// This mirrors the server guard rather than replacing it: a hidden link that
+// is typed as a URL still gets a 403 from the API.
+function visible(group) {
+  const items = group.items.filter((it) => canSee(moduleFor(it.to)))
+  return { ...group, items }
+}
+function moduleFor(path) {
+  return path === '/' ? 'dashboard' : path.split('/').filter(Boolean)[0]
+}
+
 const mainGroups = computed(() =>
   isAdmin.value
-    ? [inventoryGroup.value, peopleGroup.value, systemSetupGroup.value]
-    : [myAssetsGroup.value, peopleGroup.value, systemSetupGroup.value]
+    ? [inventoryGroup.value, peopleGroup.value, systemSetupGroup.value].map(visible).filter((g) => g.items.length)
+    : [myAssetsGroup.value, peopleGroup.value, systemSetupGroup.value].map(visible).filter((g) => g.items.length)
 )
 
 function isActive(to) {
@@ -259,8 +272,8 @@ function initials(name) {
             </div>
 
             <!-- Insight: reporting/analytics -->
-            <p v-if="!isStaff" class="nav-section-label pt-3">{{ t('nav.insight') }}</p>
-            <RouterLink v-if="!isStaff" to="/reports" class="nav-link" active-class="nav-link-active" @click="mobileOpen = false">
+            <p v-if="!isStaff && canSee('reports')" class="nav-section-label pt-3">{{ t('nav.insight') }}</p>
+            <RouterLink v-if="!isStaff && canSee('reports')" to="/reports" class="nav-link" active-class="nav-link-active" @click="mobileOpen = false">
               <svg class="w-[18px] h-[18px] flex-shrink-0" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :d="I.chart" /></svg>
               <span class="truncate">{{ t('nav.reports') }}</span>
             </RouterLink>
@@ -282,7 +295,7 @@ function initials(name) {
               </button>
               <div v-show="openGroup === settingGroup.key" class="mt-0.5 space-y-0.5">
                 <RouterLink
-                  v-for="item in settingGroup.items"
+                  v-for="item in visible(settingGroup).items"
                   :key="item.to"
                   :to="item.to"
                   class="nav-link pl-9"

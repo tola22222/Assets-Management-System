@@ -51,7 +51,8 @@
     "upcoming_verifications": "Upcoming verifications",
     "recent_scans": "Recent QR scans",
     "recent_scans_subtitle": "Latest condition reports from scanning your assets",
-    "no_scans": "No recent scans."
+    "no_scans": "No recent scans.",
+    "trend_failed": "Could not load the registration trend."
   },
   "nav": {
     "overview": "Overview",
@@ -138,7 +139,9 @@
     "delete_selected": "Delete Selected ({count})",
     "breadcrumb": "Breadcrumb",
     "switch_to_light": "Switch to light mode",
-    "switch_to_dark": "Switch to dark mode"
+    "switch_to_dark": "Switch to dark mode",
+    "bulk_delete_failed": "{count} item(s) could not be deleted.",
+    "retry": "Retry"
   },
   "confirm": {
     "delete_title": "Delete Confirmation",
@@ -226,7 +229,10 @@
     "delete_selected": "Delete Selected",
     "delete_confirm_title_one": "Delete 1 asset?",
     "delete_confirm_title_other": "Delete {count} assets?",
-    "delete_confirm_message": "This cannot be undone."
+    "delete_confirm_message": "This cannot be undone.",
+    "delete_failed": "Could not delete asset.",
+    "qr_failed": "Could not regenerate the QR code.",
+    "options_failed": "Could not load categories and locations."
   },
   "import": {
     "title": "Import Asset Register",
@@ -268,7 +274,8 @@
     "clear_images": "Clear photos",
     "images_attached_message": "{count} photo(s) attached to matching assets.",
     "images_unmatched": "Photos that didn't match any row",
-    "file_size_kb": "{size} KB"
+    "file_size_kb": "{size} KB",
+    "template_failed": "Could not download the template."
   },
   "categories": {
     "title": "Asset Categories",
@@ -287,7 +294,9 @@
     "entity": "Category",
     "short_name_placeholder": "e.g. MOV, or your own like ELEC",
     "short_name_hint": "2-6 letters/numbers. MOV/FAF/COM/EQU are the Manual's defaults — you can also type your own.",
-    "bulk_delete_title": "Delete {count} category? | Delete {count} categories?"
+    "bulk_delete_title": "Delete {count} category? | Delete {count} categories?",
+    "save_failed": "Could not save category.",
+    "delete_failed": "Could not delete category."
   },
   "locations": {
     "title": "Locations",
@@ -309,7 +318,8 @@
     "create_button": "Create Location",
     "entity": "Location",
     "delete_failed": "Could not delete location.",
-    "bulk_delete_title": "Delete {count} location? | Delete {count} locations?"
+    "bulk_delete_title": "Delete {count} location? | Delete {count} locations?",
+    "save_failed": "Could not save location."
   },
   "programs": {
     "title": "Programs",
@@ -351,7 +361,8 @@
     "updated": "Staff updated successfully.",
     "created": "Staff member created.",
     "save_failed": "Could not save staff member.",
-    "bulk_delete_title": "Delete {count} staff member? | Delete {count} staff members?"
+    "bulk_delete_title": "Delete {count} staff member? | Delete {count} staff members?",
+    "delete_failed": "Could not delete staff member."
   },
   "users": {
     "title": "User Management",
@@ -390,7 +401,23 @@
     "delete_selected": "Delete Selected",
     "delete_confirm_title_one": "Delete 1 user?",
     "delete_confirm_title_other": "Delete {count} users?",
-    "delete_confirm_message": "This cannot be undone."
+    "delete_confirm_message": "This cannot be undone.",
+    "staff_load_failed": "Could not load the staff list.",
+    "tab_users": "Accounts",
+    "tab_roles": "Roles",
+    "additional_roles": "Additional Roles",
+    "additional_roles_hint": "Optional. These add permissions on top of the role above — they never take access away.",
+    "no_custom_roles": "No custom roles yet. Create one on the Roles tab.",
+    "roles_save_failed": "The account was saved, but its roles could not be updated.",
+    "view_permissions": "View effective permissions",
+    "permissions_title": "{name} — effective permissions",
+    "permissions_failed": "Could not load permissions for this account.",
+    "effective": "Can do",
+    "granted_by": "Granted by",
+    "from_base_role": "base role",
+    "no_permissions": "This account has no permissions.",
+    "hidden_modules": "Hidden from this account: {list}",
+    "permissions_note": "This is what the server will allow. Menus and buttons follow it, but every request is checked again server side."
   },
   "suppliers": {
     "title": "Suppliers",
@@ -405,7 +432,9 @@
     "save_changes": "Save Changes",
     "create_button": "Create Supplier",
     "entity": "Supplier",
-    "bulk_delete_title": "Delete {count} supplier? | Delete {count} suppliers?"
+    "bulk_delete_title": "Delete {count} supplier? | Delete {count} suppliers?",
+    "save_failed": "Could not save supplier.",
+    "delete_failed": "Could not delete supplier."
   },
   "settings": {
     "title": "System Settings",
@@ -496,7 +525,8 @@
     "organization_info_subtitle": "Name, contact details and display defaults",
     "report_schedule": "Report Schedule",
     "report_schedule_subtitle": "When the automatic asset report is sent",
-    "save_hint": "Saves Organization, Report Schedule and Outgoing Email together."
+    "save_hint": "Saves Organization, Report Schedule and Outgoing Email together.",
+    "download_failed": "Could not download the backup."
   },
   "asset_movements": {
     "title": "Stock Movements",
@@ -546,7 +576,10 @@
     "photo": "Photo",
     "photo_reference": "Photo Reference",
     "confirm_return": "Confirm Return",
-    "entity": "Assignment"
+    "entity": "Assignment",
+    "cancel_failed": "Could not cancel this assignment.",
+    "return_failed": "Could not record the return.",
+    "options_failed": "Could not load assignment options."
   },
   "asset_transfers": {
     "title": "Asset Transfers",
@@ -567,7 +600,10 @@
     "transfer_date_required": "Transfer Date *",
     "reason": "Reason",
     "submit_button": "Submit Transfer",
-    "entity": "Transfer"
+    "entity": "Transfer",
+    "approve_failed": "Could not approve this transfer.",
+    "reject_failed": "Could not reject this transfer.",
+    "options_failed": "Could not load assets and locations."
   },
   "asset_returns": {
     "title": "Asset Returns",
@@ -619,7 +655,9 @@
     "photo": "Photo",
     "photo_reference": "Photo Reference",
     "submit_button": "Save Verification",
-    "entity": "Verification"
+    "entity": "Verification",
+    "complete_failed": "Could not mark this verification complete.",
+    "options_failed": "Could not load assets and locations."
   },
   "asset_disposals": {
     "title": "Asset Disposals",
@@ -644,7 +682,10 @@
     "reason_placeholder": "Describe the condition and why this action is recommended",
     "photo_reference": "Photo Reference",
     "submit_button": "Submit Request",
-    "entity": "Disposal request"
+    "entity": "Disposal request",
+    "approve_failed": "Could not approve this request.",
+    "reject_failed": "Could not reject this request.",
+    "load_failed": "Could not load assets."
   },
   "stock": {
     "title": "Stock",
@@ -691,7 +732,9 @@
     "assets_by_location": "Total Assets by Location",
     "total_assets": "Total assets",
     "no_location": "No location assigned",
-    "no_locations": "No locations set up yet."
+    "no_locations": "No locations set up yet.",
+    "load_failed": "Could not load stock items.",
+    "detail_failed": "Could not load the transaction history."
   },
   "reports": {
     "title": "Reports",
@@ -776,7 +819,8 @@
     "status_retiring": "Retiring",
     "uncategorized": "Uncategorized",
     "total_label_assets": "assets",
-    "total_label_value": "total value"
+    "total_label_value": "total value",
+    "stock_failed": "Could not load the stock summary."
   },
   "profile": {
     "title": "My Profile",
@@ -843,13 +887,17 @@
     "bulk_deleted_other": "{count} activity log entries deleted.",
     "delete_confirm_title_one": "Delete 1 activity log entry?",
     "delete_confirm_title_other": "Delete {count} activity log entries?",
-    "delete_confirm_message": "This cannot be undone."
+    "delete_confirm_message": "This cannot be undone.",
+    "delete_failed": "Could not delete this log entry.",
+    "load_failed": "Could not load the activity log."
   },
   "notifications": {
     "title": "Notifications",
     "subtitle": "Recent activity relevant to you",
     "empty": "No notifications yet.",
-    "marked_all_read": "All notifications marked as read."
+    "marked_all_read": "All notifications marked as read.",
+    "mark_failed": "Could not update this notification.",
+    "load_failed": "Could not load notifications."
   },
   "search": {
     "title": "Search",
@@ -862,6 +910,83 @@
     "type_suppliers": "Suppliers",
     "type_locations": "Locations",
     "type_programs": "Programs",
-    "type_users": "Users"
+    "type_users": "Users",
+    "failed": "Search failed. Please try again."
+  },
+  "errors": {
+    "network": "Can't reach the server. Check your connection and try again.",
+    "forbidden": "You do not have permission to do that.",
+    "not_found": "That record no longer exists. Refresh the page.",
+    "not_supported": "This action is not available in this version.",
+    "expired": "Your session expired. Sign in again.",
+    "too_many": "Too many requests. Wait a moment and try again.",
+    "server": "Something went wrong on the server. Nothing was changed.",
+    "server_suffix": "The server rejected the request, so nothing was changed.",
+    "invalid": "Please check the highlighted fields and try again.",
+    "generic": "Something went wrong. Please try again.",
+    "load_failed": "Could not load {entity}."
+  },
+  "roles": {
+    "title": "Roles & Permissions",
+    "subtitle": "Bundle module permissions into roles, then assign them to accounts.",
+    "role": "Role",
+    "roles": "Roles",
+    "users": "Users",
+    "module": "Module",
+    "permissions": "Permissions",
+    "permissions_subtitle": "Tick what holders of this role may do in each module.",
+    "new": "New Role",
+    "create_title": "Create Role",
+    "edit_title": "Edit {name}",
+    "view_title": "{name} — permissions",
+    "create_button": "Create Role",
+    "save_changes": "Save Changes",
+    "saving": "Saving…",
+    "name": "Role Name",
+    "name_required": "A role name is required.",
+    "description_placeholder": "What is this role for?",
+    "is_active_hint": "Active — grants its permissions",
+    "inactive": "Inactive",
+    "inactive_grants_nothing": "This role is inactive and grants nothing.",
+    "built_in": "Built-in",
+    "system_role_note": "This is a built-in role. It can be renamed and re-permissioned, but not deleted or deactivated, because accounts still reference it.",
+    "select_all": "Select All",
+    "clear_all": "Clear All",
+    "toggle_column": "Toggle {ability} for every module",
+    "granted_count": "{granted} of {total} permissions granted",
+    "matrix_hint": "Create, Read, Update and Delete each require View, so View is added automatically and cannot be removed while they are ticked.",
+    "view_locked": "View is required by another ticked permission.",
+    "ability_view": "View",
+    "ability_create": "Create",
+    "ability_read": "Read",
+    "ability_update": "Update",
+    "ability_delete": "Delete",
+    "ability_hide": "Hide",
+    "n_permissions": "{count} permissions",
+    "no_permissions": "This role grants nothing yet.",
+    "no_description": "No description",
+    "duplicate": "Duplicate",
+    "duplicated": "Role duplicated. The copy is inactive until you switch it on.",
+    "duplicate_failed": "Could not duplicate this role.",
+    "activate": "Activate",
+    "deactivate": "Deactivate",
+    "activated": "Role activated.",
+    "deactivated": "Role deactivated. It now grants nothing.",
+    "toggle_failed": "Could not change this role.",
+    "created": "Role created.",
+    "updated": "Role updated.",
+    "deleted": "Role deleted.",
+    "save_failed": "Could not save this role.",
+    "delete_failed": "Could not delete this role.",
+    "load_failed": "Could not load roles.",
+    "search_placeholder": "Search roles…",
+    "empty": "No roles yet.",
+    "empty_hint": "Create a role to grant permissions beyond the built-in ones.",
+    "empty_search": "No roles match that search.",
+    "empty_search_hint": "Try a different name.",
+    "confirm_save_title": "Save this role?",
+    "confirm_save_message": "{grants} permission(s) will apply to {holders} account(s) on their next request.",
+    "confirm_delete_title": "Delete {name}?",
+    "confirm_delete_assigned": "{count} account(s) hold this role and will lose its permissions. This cannot be undone."
   }
 }

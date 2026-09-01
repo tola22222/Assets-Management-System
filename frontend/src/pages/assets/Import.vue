@@ -1,7 +1,7 @@
 <script setup>
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import http from '../../api/http'
+import http, { errorMessage } from '../../api/http'
 import AppLayout from '../../layouts/AppLayout.vue'
 import PageHeader from '../../components/ui/PageHeader.vue'
 import { useToastStore } from '../../stores/toast'
@@ -68,20 +68,24 @@ async function submit() {
     result.value = data
     toast.success(t('import.success_message', { created: data.created, updated: data.updated }))
   } catch (e) {
-    toast.error(e.response?.data?.message || t('import.failed'))
+    toast.error(errorMessage(e, t('import.failed')))
   } finally {
     importing.value = false
   }
 }
 
 async function downloadTemplate() {
-  const { data } = await http.get('/assets/import/template', { responseType: 'blob' })
-  const url = URL.createObjectURL(data)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = 'asset_import_template.csv'
-  a.click()
-  URL.revokeObjectURL(url)
+  try {
+    const { data } = await http.get('/assets/import/template', { responseType: 'blob' })
+    const url = URL.createObjectURL(data)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'asset_import_template.csv'
+    a.click()
+    URL.revokeObjectURL(url)
+  } catch (e) {
+    toast.error(errorMessage(e, t('import.template_failed')))
+  }
 }
 
 function reset() {

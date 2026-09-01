@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import http from '../../api/http'
+import http, { errorMessage } from '../../api/http'
 import AppLayout from '../../layouts/AppLayout.vue'
 import TableSortIcon from '../../components/ui/TableSortIcon.vue'
 import ConfirmDialog from '../../components/ui/ConfirmDialog.vue'
@@ -30,26 +30,46 @@ const { selectedIds, allSelected, toggleSelectAll, toggleSelect, clearSelection 
 async function loadPage(page = 1) {
   loading.value = true
   clearSelection()
-  const { data } = await http.get('/activity-logs', { params: { page } })
-  logs.value = data.data
-  currentPage.value = data.current_page
-  lastPage.value = data.last_page
-  loading.value = false
+  try {
+    const { data } = await http.get('/activity-logs', { params: { page } })
+    logs.value = data.data
+    currentPage.value = data.current_page
+    lastPage.value = data.last_page
+  } catch (e) {
+    logs.value = []
+    toast.error(errorMessage(e, t('activity_logs.load_failed')))
+  } finally {
+    loading.value = false
+  }
 }
 
 async function removeLog(id) {
-  await http.delete(`/activity-logs/${id}`)
-  toast.success(t('activity_logs.deleted'))
-  await loadPage(currentPage.value)
+  try {
+    await http.delete(`/activity-logs/${id}`)
+    toast.success(t('activity_logs.deleted'))
+    await loadPage(currentPage.value)
+  } catch (e) {
+    toast.error(errorMessage(e, t('activity_logs.delete_failed')))
+  }
 }
 
 async function confirmBulkDelete() {
   confirmingBulkDelete.value = false
   const ids = selectedIds.value
-  await Promise.all(ids.map((id) => http.delete(`/activity-logs/${id}`)))
-  toast.success(ids.length === 1
-    ? t('activity_logs.bulk_deleted_one')
-    : t('activity_logs.bulk_deleted_other', { count: ids.length }))
+  // allSettled, not all(): one refused row used to abort the whole batch and
+  // report nothing, leaving the user unsure which entries actually went.
+  const results = await Promise.allSettled(ids.map((id) => http.delete(`/activity-logs/${id}`)))
+  const failed = results.filter((r) => r.status === 'rejected')
+  const removed = ids.length - failed.length
+
+  if (removed > 0) {
+    toast.success(removed === 1
+      ? t('activity_logs.bulk_deleted_one')
+      : t('activity_logs.bulk_deleted_other', { count: removed }))
+  }
+  if (failed.length > 0) {
+    toast.error(errorMessage(failed[0].reason, t('common.bulk_delete_failed', { count: failed.length })))
+  }
   await loadPage(currentPage.value)
 }
 

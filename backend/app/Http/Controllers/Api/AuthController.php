@@ -21,13 +21,13 @@ class AuthController extends Controller
 
         $user = User::where('email', $credentials['email'])->first();
 
-        if (!$user || !Hash::check($credentials['password'], $user->password)) {
+        if (! $user || ! Hash::check($credentials['password'], $user->password)) {
             throw ValidationException::withMessages([
                 'email' => 'The provided credentials do not match our records.',
             ]);
         }
 
-        if (!$user->is_active) {
+        if (! $user->is_active) {
             throw ValidationException::withMessages([
                 'email' => 'Your account has been deactivated.',
             ]);
@@ -44,7 +44,7 @@ class AuthController extends Controller
         ActivityLog::create([
             'user_id' => $user->id,
             'action' => 'Login',
-            'description' => $user->name . ' signed into the system.',
+            'description' => $user->name.' signed into the system.',
         ]);
 
         // Remember me: 30-day token; otherwise a short 12-hour token, so a shared/kiosk
@@ -65,7 +65,7 @@ class AuthController extends Controller
         ActivityLog::create([
             'user_id' => $user->id,
             'action' => 'Logout',
-            'description' => $user->name . ' signed out of the system.',
+            'description' => $user->name.' signed out of the system.',
         ]);
 
         $user->currentAccessToken()->delete();
@@ -75,7 +75,27 @@ class AuthController extends Controller
 
     public function me(Request $request)
     {
-        return response()->json($request->user());
+        return response()->json($request->user()->load('roles:id,name,slug,is_active'));
+    }
+
+    /**
+     * The signed-in account's own permission set, used by the SPA to decide
+     * which menu entries and buttons to render.
+     *
+     * This is presentation only. Every route is independently guarded server
+     * side — hiding a button here never replaces that check, it just avoids
+     * offering an action that would come back 403.
+     */
+    public function permissions(Request $request)
+    {
+        $user = $request->user();
+
+        return response()->json([
+            'role' => $user->role,
+            'permissions' => $user->effectivePermissions(),
+            'hidden_modules' => $user->hiddenModules(),
+            'roles' => $user->roles()->get(['roles.id', 'name', 'slug', 'is_active'])->all(),
+        ]);
     }
 
     public function updateProfile(Request $request)
@@ -113,7 +133,7 @@ class AuthController extends Controller
         ActivityLog::create([
             'user_id' => $user->id,
             'action' => 'Profile Update',
-            'description' => $user->name . ' updated their profile.',
+            'description' => $user->name.' updated their profile.',
         ]);
 
         return response()->json($user->fresh());
@@ -128,7 +148,7 @@ class AuthController extends Controller
             'password' => 'required|min:8|confirmed',
         ]);
 
-        if (!Hash::check($request->current_password, $user->password)) {
+        if (! Hash::check($request->current_password, $user->password)) {
             throw ValidationException::withMessages([
                 'current_password' => 'Current password is incorrect.',
             ]);
@@ -139,7 +159,7 @@ class AuthController extends Controller
         ActivityLog::create([
             'user_id' => $user->id,
             'action' => 'Password Change',
-            'description' => $user->name . ' changed their password.',
+            'description' => $user->name.' changed their password.',
         ]);
 
         return response()->json(['message' => 'Password changed successfully.']);

@@ -5,6 +5,7 @@ import router from './router'
 import i18n from './i18n'
 import './composables/useThemeColor' // applies the persisted brand color before mount
 import { useBranding } from './composables/useBranding'
+import { loadPermissions } from './composables/usePermissions'
 import './assets/main.css'
 
 const app = createApp(App)
@@ -16,3 +17,7 @@ app.use(i18n)
 app.mount('#app')
 
 useBranding().loadBranding()
+
+// What the signed-in account may do, used to decide which menu entries and
+// buttons to render. Presentation only - every route is guarded server side.
+loadPermissions()

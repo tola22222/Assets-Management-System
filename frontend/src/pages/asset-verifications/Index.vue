@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, onMounted, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
-import http from '../../api/http'
+import http, { errorMessage } from '../../api/http'
 import AppLayout from '../../layouts/AppLayout.vue'
 import Modal from '../../components/ui/Modal.vue'
 import SearchInput from '../../components/ui/SearchInput.vue'
@@ -34,9 +34,13 @@ const imageFile = ref(null)
 const form = reactive({ asset_id: '', location_id: '', quantity_verified: 1, condition: 'good', remark: '' })
 
 async function loadOptions() {
-  const [a, l] = await Promise.all([http.get('/assets'), http.get('/locations')])
-  assets.value = a.data
-  locations.value = l.data
+  try {
+    const [a, l] = await Promise.all([http.get('/assets'), http.get('/locations')])
+    assets.value = a.data
+    locations.value = l.data
+  } catch (e) {
+    toast.error(errorMessage(e, t('asset_verifications.options_failed')))
+  }
 }
 
 function openCreate() {
@@ -60,14 +64,20 @@ async function handleSubmit() {
     showModal.value = false
     await fetchAll()
   } catch (e) {
-    toast.error(e.response?.data?.message || t('asset_verifications.record_failed'))
+    toast.error(errorMessage(e, t('asset_verifications.record_failed')))
   }
 }
 
 async function complete(id) {
-  await http.post(`/asset-verifications/${id}/complete`)
-  toast.success(t('asset_verifications.marked_complete'))
-  await fetchAll()
+  try {
+    await http.post(`/asset-verifications/${id}/complete`)
+    toast.success(t('asset_verifications.marked_complete'))
+    await fetchAll()
+  } catch (e) {
+    // The route is OPM-only while the button renders for every role, so this
+    // 403s for Finance, ED and Staff — previously in complete silence.
+    toast.error(errorMessage(e, t('asset_verifications.complete_failed')))
+  }
 }
 
 onMounted(() => {

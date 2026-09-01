@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
-import http from '../../api/http'
+import http, { errorMessage } from '../../api/http'
 import AppLayout from '../../layouts/AppLayout.vue'
 import ConfirmDialog from '../../components/ui/ConfirmDialog.vue'
 import { useToastStore } from '../../stores/toast'
@@ -135,7 +135,7 @@ async function handleSubmit() {
     form.mail_password = ''
     toast.success(t('settings.updated'))
   } catch (e) {
-    toast.error(e.response?.data?.message || t('settings.update_failed'))
+    toast.error(errorMessage(e, t('settings.update_failed')))
   }
 }
 
@@ -149,7 +149,7 @@ async function sendTestEmail() {
     const { data } = await http.post('/settings/test-mail', { email: testEmail.value })
     toast.success(data.message || t('settings.mail_test_sent'))
   } catch (e) {
-    toast.error(e.response?.data?.message || t('settings.mail_test_failed'))
+    toast.error(errorMessage(e, t('settings.mail_test_failed')))
   } finally {
     sendingTest.value = false
   }
@@ -169,7 +169,7 @@ async function loadBackups() {
     // The backup card renders independently of the settings form, so a failure
     // here must not take the rest of the page down with it.
     backups.value = []
-    toast.error(e.response?.data?.message || t('settings.backups_load_failed'))
+    toast.error(errorMessage(e, t('settings.backups_load_failed')))
   }
 }
 
@@ -180,7 +180,7 @@ async function createBackup() {
     toast.success(t('settings.backup_created'))
     await loadBackups()
   } catch (e) {
-    toast.error(e.response?.data?.message || t('settings.backup_failed'))
+    toast.error(errorMessage(e, t('settings.backup_failed')))
   } finally {
     backingUp.value = false
   }
@@ -212,20 +212,25 @@ async function submitUpload() {
     clearUploadSelection()
     await loadBackups()
   } catch (e) {
-    toast.error(e.response?.data?.message || t('settings.backup_upload_failed'))
+    toast.error(errorMessage(e, t('settings.backup_upload_failed')))
   } finally {
     uploading.value = false
   }
 }
 
 async function downloadBackup(name) {
-  const { data } = await http.get(`/settings/backups/${encodeURIComponent(name)}/download`, { responseType: 'blob' })
-  const url = URL.createObjectURL(data)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = name
-  a.click()
-  URL.revokeObjectURL(url)
+  try {
+    const { data } = await http.get(`/settings/backups/${encodeURIComponent(name)}/download`, { responseType: 'blob' })
+    const url = URL.createObjectURL(data)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = name
+    a.click()
+    URL.revokeObjectURL(url)
+  } catch (e) {
+    // A missing or unreadable backup file used to do nothing at all on click.
+    toast.error(errorMessage(e, t('settings.download_failed')))
+  }
 }
 
 async function confirmRestore() {
@@ -235,7 +240,7 @@ async function confirmRestore() {
     await http.post(`/settings/backups/${encodeURIComponent(name)}/restore`)
     toast.success(t('settings.restored'))
   } catch (e) {
-    toast.error(e.response?.data?.message || t('settings.restore_failed'))
+    toast.error(errorMessage(e, t('settings.restore_failed')))
   }
 }
 
@@ -247,7 +252,7 @@ async function confirmDelete() {
     toast.success(t('settings.deleted'))
     await loadBackups()
   } catch (e) {
-    toast.error(e.response?.data?.message || t('settings.delete_failed'))
+    toast.error(errorMessage(e, t('settings.delete_failed')))
   }
 }
 
@@ -270,8 +275,8 @@ onMounted(() => {
          so sit outside it, in their own row. -->
     <div class="p-6 sm:p-8 max-w-6xl mx-auto space-y-6">
       <div>
-        <h1 class="font-display text-xl font-bold text-fg tracking-tight">{{ t('settings.title') }}</h1>
-        <p class="text-muted text-sm mt-0.5">{{ t('settings.subtitle') }}</p>
+        <h1 class="font-display text-3xl font-bold text-fg tracking-tight">{{ t('settings.title') }}</h1>
+        <p class="text-muted text-sm mt-1">{{ t('settings.subtitle') }}</p>
       </div>
 
       <!-- Never leave the page looking empty: say what failed and offer a retry. -->
@@ -303,12 +308,16 @@ onMounted(() => {
             </div>
             <div class="space-y-1.5">
               <label class="text-xs font-semibold text-muted tracking-wide">{{ t('settings.logo') }}</label>
-              <div class="flex items-center gap-4">
-                <div class="w-14 h-14 rounded-xl border border-line bg-bg flex items-center justify-center overflow-hidden flex-shrink-0">
+              <!-- flex-wrap with a min-width on the picker: at 375px the
+                   preview, the file input and the Cancel button together leave
+                   the input about 170px, which clips the chosen filename. It
+                   now drops onto its own line instead. -->
+              <div class="flex flex-wrap items-center gap-4">
+                <div class="w-14 h-14 rounded-xl border border-line bg-surface-2 flex items-center justify-center overflow-hidden flex-shrink-0">
                   <img v-if="logoPreview || logoUrl" :src="logoPreview || logoUrl" alt="" class="w-full h-full object-contain" />
                   <span v-else class="text-[10px] text-faint text-center px-1">{{ t('settings.logo_default') }}</span>
                 </div>
-                <div class="flex-1 min-w-0">
+                <div class="flex-1 min-w-[200px]">
                   <input type="file" accept="image/png,image/jpeg" @change="onLogoChange" class="block w-full text-sm text-muted file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-brand file:text-white hover:file:bg-brand-dark file:cursor-pointer" />
                   <p class="text-xs text-faint mt-1">{{ t('settings.logo_hint') }}</p>
                 </div>
@@ -329,12 +338,12 @@ onMounted(() => {
             </div>
             <div class="space-y-1.5">
               <label class="text-xs font-semibold text-muted tracking-wide">{{ t('settings.address') }}</label>
-              <textarea v-model="form.address" rows="2" class="input"></textarea>
+              <textarea v-model="form.address" rows="2" class="textarea"></textarea>
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div class="space-y-1.5">
                 <label class="text-xs font-semibold text-muted tracking-wide">{{ t('settings.language') }}</label>
-                <select v-model="form.locale" @change="onLocaleChange" class="input">
+                <select v-model="form.locale" @change="onLocaleChange" class="select">
                   <option value="en">English</option>
                   <option value="km">ខ្មែរ</option>
                 </select>
@@ -345,7 +354,11 @@ onMounted(() => {
               </div>
               <div class="space-y-1.5">
                 <label class="text-xs font-semibold text-muted tracking-wide">{{ t('settings.theme_color') }}</label>
-                <input v-model="form.theme_color" @input="onThemeColorChange" type="color" class="w-full h-11 border border-line rounded-xl cursor-pointer p-1" />
+                <!-- 2.625rem is exactly what .input resolves to (py-2.5 +
+                     text-sm line-height + 1px borders). h-11 made this swatch
+                     2px taller than the Language and QR size fields beside it,
+                     so the row sat visibly out of line. -->
+                <input v-model="form.theme_color" @input="onThemeColorChange" type="color" class="w-full h-[2.625rem] bg-surface-2 border border-line rounded-xl cursor-pointer p-1 transition focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/15" />
               </div>
             </div>
           </div>
@@ -401,12 +414,18 @@ onMounted(() => {
                   <label class="text-xs font-semibold text-muted tracking-wide">{{ t('settings.report_recipient_email') }}</label>
                   <input v-model="form.report_recipient_email" type="email" placeholder="reports@example.com" class="input" />
                 </div>
+                <!-- Spans the grid rather than sitting in the email field's own
+                     cell: the sentence is long enough to wrap to four ragged
+                     lines in a half-width column, which leaves the field beside
+                     it stranded above a block of empty space. As a grid child it
+                     picks up the grid's own gap-4, so it no longer needs the
+                     -mt-2 that used to cancel out a double gap. -->
+                <p class="sm:col-span-2 text-xs text-faint">{{ t('settings.report_recipient_email_hint') }}</p>
               </div>
-              <p class="text-xs text-faint -mt-2">{{ t('settings.report_recipient_email_hint') }}</p>
 
               <!-- Derived from the last send + the interval above, so an admin can
                    see when the next scheduled report actually goes out. -->
-              <div class="rounded-xl bg-bg border border-line px-3.5 py-2.5 text-sm">
+              <div class="rounded-xl bg-surface-2 border border-line px-3.5 py-2.5 text-sm">
                 <span class="font-semibold text-fg">{{ t('settings.next_report_due') }}</span>
                 <span class="text-muted ml-1.5">{{ nextReportDue || t('settings.next_report_due_none') }}</span>
               </div>
@@ -432,14 +451,14 @@ onMounted(() => {
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div class="space-y-1.5">
                   <label class="text-xs font-semibold text-muted tracking-wide">{{ t('settings.mail_mailer') }}</label>
-                  <select v-model="form.mail_mailer" class="input">
+                  <select v-model="form.mail_mailer" class="select">
                     <option value="smtp">SMTP</option>
                     <option value="log">{{ t('settings.mail_mailer_log') }}</option>
                   </select>
                 </div>
                 <div class="space-y-1.5">
                   <label class="text-xs font-semibold text-muted tracking-wide">{{ t('settings.mail_encryption') }}</label>
-                  <select v-model="form.mail_encryption" class="input">
+                  <select v-model="form.mail_encryption" class="select">
                     <option value="tls">TLS</option>
                     <option value="ssl">SSL</option>
                     <option value="none">{{ t('settings.mail_encryption_none') }}</option>
@@ -486,7 +505,7 @@ onMounted(() => {
                 </div>
               </div>
 
-              <div class="rounded-xl bg-bg border border-line p-4 space-y-2">
+              <div class="rounded-xl bg-surface-2 border border-line p-4 space-y-2">
                 <label class="text-xs font-semibold text-muted tracking-wide">{{ t('settings.mail_test') }}</label>
                 <div class="flex flex-wrap gap-2">
                   <input v-model="testEmail" type="email" :placeholder="t('settings.mail_test_placeholder')" class="input flex-1 min-w-[180px]" />
@@ -515,75 +534,87 @@ onMounted(() => {
       <!-- Full width, not half: the backups table carries a filename, size,
            date and three actions, and at half width the actions get pushed out
            of view behind a horizontal scroll. -->
-      <div>
-        <div class="card p-6 space-y-4">
-          <div class="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h2 class="font-bold text-fg">{{ t('settings.backup_title') }}</h2>
-              <p class="text-muted text-sm mt-0.5">{{ t('settings.backup_subtitle') }}</p>
-            </div>
-            <button @click="createBackup" :disabled="backingUp" class="btn-primary btn-sm flex-shrink-0">
-              {{ backingUp ? t('settings.backing_up') : t('settings.create_backup') }}
+      <div class="card p-6 space-y-4">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 class="font-bold text-fg">{{ t('settings.backup_title') }}</h2>
+            <p class="text-muted text-sm mt-0.5">{{ t('settings.backup_subtitle') }}</p>
+          </div>
+          <button @click="createBackup" :disabled="backingUp" class="btn-primary btn-sm flex-shrink-0">
+            {{ backingUp ? t('settings.backing_up') : t('settings.create_backup') }}
+          </button>
+        </div>
+
+        <p v-if="databaseDriver" class="text-xs text-faint">
+          {{ t('settings.backup_engine', { engine: databaseDriver === 'sqlite' ? 'SQLite (.sqlite)' : 'MySQL (.sql)' }) }}
+        </p>
+
+        <!-- Restoring a dump this server did not make is only possible if it can
+             be uploaded first. -->
+        <div class="rounded-xl bg-surface-2 border border-line p-4 space-y-2">
+          <label class="text-xs font-semibold text-muted tracking-wide">{{ t('settings.upload_backup') }}</label>
+          <div class="flex flex-wrap items-center gap-2">
+            <input
+              ref="uploadInput"
+              type="file"
+              accept=".sql,.sqlite"
+              @change="onUploadChange"
+              class="flex-1 min-w-[240px] sm:max-w-sm block text-sm text-muted file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-brand file:text-white hover:file:bg-brand-dark file:cursor-pointer"
+            />
+            <button type="button" @click="submitUpload" :disabled="!uploadFile || uploading" class="btn-primary btn-sm flex-shrink-0 disabled:opacity-50">
+              {{ uploading ? t('settings.uploading') : t('settings.upload') }}
+            </button>
+            <button v-if="uploadFile" type="button" @click="clearUploadSelection" class="btn-ghost btn-sm flex-shrink-0">
+              {{ t('common.cancel') }}
             </button>
           </div>
-
-          <p v-if="databaseDriver" class="text-xs text-faint">
-            {{ t('settings.backup_engine', { engine: databaseDriver === 'sqlite' ? 'SQLite (.sqlite)' : 'MySQL (.sql)' }) }}
-          </p>
-
-          <!-- Restoring a dump this server did not make is only possible if it can
-               be uploaded first. -->
-          <div class="rounded-xl bg-bg border border-line p-4 space-y-2">
-            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('settings.upload_backup') }}</label>
-            <div class="flex flex-wrap items-center gap-2">
-              <input
-                ref="uploadInput"
-                type="file"
-                accept=".sql,.sqlite"
-                @change="onUploadChange"
-                class="flex-1 min-w-[180px] block text-sm text-muted file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-brand file:text-white hover:file:bg-brand-dark file:cursor-pointer"
-              />
-              <button type="button" @click="submitUpload" :disabled="!uploadFile || uploading" class="btn-primary btn-sm flex-shrink-0 disabled:opacity-50">
-                {{ uploading ? t('settings.uploading') : t('settings.upload') }}
-              </button>
-              <button v-if="uploadFile" type="button" @click="clearUploadSelection" class="btn-ghost btn-sm flex-shrink-0">
-                {{ t('common.cancel') }}
-              </button>
-            </div>
-            <p class="text-xs text-faint">{{ t('settings.upload_backup_hint') }}</p>
-          </div>
-
-          <div v-if="backups.length" class="table-wrap">
-            <table class="data-table">
-              <thead>
-                <tr><th>{{ t('settings.file') }}</th><th>{{ t('settings.size') }}</th><th>{{ t('settings.created') }}</th><th></th></tr>
-              </thead>
-              <tbody>
-                <tr v-for="b in backups" :key="b.name">
-                  <td class="font-mono text-xs">
-                    {{ b.name }}
-                    <!-- Say up front that this file cannot load into the running
-                         engine, instead of only failing after Restore is clicked. -->
-                    <span v-if="b.restorable === false" class="badge badge-warning ml-1.5">{{ t('settings.wrong_format') }}</span>
-                  </td>
-                  <td>{{ formatSize(b.size) }}</td>
-                  <td class="whitespace-nowrap">{{ b.date }}</td>
-                  <td class="text-right pr-5 space-x-1.5 whitespace-nowrap">
-                    <button @click="downloadBackup(b.name)" class="btn-ghost btn-sm">{{ t('settings.download') }}</button>
-                    <button
-                      @click="pendingRestore = b.name"
-                      :disabled="b.restorable === false"
-                      :title="b.restorable === false ? t('settings.wrong_format_hint') : ''"
-                      class="btn-ghost btn-sm disabled:opacity-40 disabled:cursor-not-allowed"
-                    >{{ t('settings.restore') }}</button>
-                    <button @click="pendingDelete = b.name" class="btn-ghost btn-sm text-red-600 dark:text-red-400">{{ t('settings.delete') }}</button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <p v-else class="text-sm text-faint">{{ t('settings.no_backups') }}</p>
+          <p class="text-xs text-faint">{{ t('settings.upload_backup_hint') }}</p>
         </div>
+
+        <!-- overflow-x-auto is load-bearing: this row cannot shrink (mono
+             filename plus three whitespace-nowrap cells), so without it the
+             Restore and Delete buttons are clipped off-screen and
+             unreachable on a phone rather than scrolled to.
+             Plain border/rounded-xl rather than .table-wrap: that class adds
+             its own shadow and a rounded-2xl radius, which reads as a second
+             card floating inside this one and doesn't match the radius of
+             the upload panel directly above it. -->
+        <div v-if="backups.length" class="border border-line rounded-xl overflow-x-auto">
+          <table class="data-table">
+            <thead>
+              <tr><th>{{ t('settings.file') }}</th><th>{{ t('settings.size') }}</th><th>{{ t('settings.created') }}</th><th></th></tr>
+            </thead>
+            <tbody>
+              <tr v-for="b in backups" :key="b.name">
+                <!-- nowrap on the filename and size: both are short, unbreakable
+                     values, and letting them wrap split "69 KB" over two lines
+                     and broke filenames mid-token once the column got tight. -->
+                <td class="font-mono text-xs whitespace-nowrap">
+                  {{ b.name }}
+                  <!-- Say up front that this file cannot load into the running
+                       engine, instead of only failing after Restore is clicked. -->
+                  <span v-if="b.restorable === false" class="badge badge-warning ml-1.5">{{ t('settings.wrong_format') }}</span>
+                </td>
+                <td class="whitespace-nowrap">{{ formatSize(b.size) }}</td>
+                <td class="whitespace-nowrap">{{ b.date }}</td>
+                <td class="text-right pr-5 space-x-1.5 whitespace-nowrap">
+                  <button @click="downloadBackup(b.name)" class="btn-ghost btn-sm">{{ t('settings.download') }}</button>
+                  <button
+                    @click="pendingRestore = b.name"
+                    :disabled="b.restorable === false"
+                    :title="b.restorable === false ? t('settings.wrong_format_hint') : ''"
+                    class="btn-ghost btn-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                  >{{ t('settings.restore') }}</button>
+                  <!-- .btn-danger is the app-wide destructive button (every other
+                       page's Delete uses it); btn-ghost + text-red also lost the
+                       red on hover, since .btn-ghost sets hover:text-fg. -->
+                  <button @click="pendingDelete = b.name" class="btn-danger btn-sm">{{ t('settings.delete') }}</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p v-else class="text-sm text-faint">{{ t('settings.no_backups') }}</p>
       </div>
     </div>
 

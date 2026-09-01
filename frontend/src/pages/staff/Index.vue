@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, onMounted, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
-import http from '../../api/http'
+import http, { errorMessage } from '../../api/http'
 import AppLayout from '../../layouts/AppLayout.vue'
 import Modal from '../../components/ui/Modal.vue'
 import ConfirmDialog from '../../components/ui/ConfirmDialog.vue'
@@ -36,8 +36,12 @@ const emptyForm = () => ({ full_name: '', email: '', phone: '', position: '', hi
 const form = reactive(emptyForm())
 
 async function loadLocations() {
-  const { data } = await http.get('/locations')
-  locations.value = data
+  try {
+    const { data } = await http.get('/locations')
+    locations.value = data
+  } catch {
+    locations.value = []
+  }
 }
 
 function openCreate() {
@@ -79,13 +83,18 @@ async function handleSubmit() {
     showModal.value = false
     await fetchAll()
   } catch (e) {
-    toast.error(e.response?.data?.message || t('staff.save_failed'))
+    toast.error(errorMessage(e, t('staff.save_failed')))
   }
 }
 
 async function confirmDelete() {
-  await destroy(deletingId.value)
-  deletingId.value = null
+  try {
+    await destroy(deletingId.value)
+  } catch {
+    // useApiCrud already showed why; just clean up here.
+  } finally {
+    deletingId.value = null
+  }
 }
 
 async function confirmBulkDelete() {

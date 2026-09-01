@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\PermissionRegistry;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -67,6 +68,71 @@ class User extends Authenticatable
     public function canApproveDisposal(): bool
     {
         return $this->isExecutiveDirector();
+    }
+
+    // ---- Roles & permissions -------------------------------------------
+    //
+    // `role` (the string column above) stays the primary authorisation input
+    // for every route guard that already exists. Custom roles assigned here are
+    // additive: effective permissions are the union of the baseline that string
+    // grants and every ACTIVE custom role held. A custom role can therefore
+    // widen someone's access but never silently narrow it, so switching this
+    // feature on cannot lock anyone out of what they can do today.
+
+    public function roles()
+    {
+        return $this->belongsToMany(Role::class, 'role_user')->withTimestamps();
+    }
+
+    /** Assigned custom roles that are currently switched on. */
+    public function activeRoles()
+    {
+        return $this->roles()->where('is_active', true);
+    }
+
+    /**
+     * ['module' => ['view','create', ...]] — everything this user may do.
+     *
+     * Computed per request rather than stored, so a permission change takes
+     * effect on the user's next request instead of on their next login.
+     */
+    public function effectivePermissions(): array
+    {
+        $merged = PermissionRegistry::baselineFor($this->role);
+
+        foreach ($this->activeRoles()->with('permissions')->get() as $role) {
+            foreach ($role->grants() as $module => $abilities) {
+                $merged[$module] = array_merge($merged[$module] ?? [], $abilities);
+            }
+        }
+
+        return PermissionRegistry::normalise($merged);
+    }
+
+    public function hasPermission(string $module, string $ability = 'view'): bool
+    {
+        $permissions = $this->effectivePermissions();
+
+        return in_array($ability, $permissions[$module] ?? [], true);
+    }
+
+    /**
+     * Which UI elements this user should have hidden. `hide` is deliberately
+     * NOT part of hasPermission()'s authorisation path — it only ever affects
+     * presentation, and is returned separately so the frontend cannot mistake
+     * it for an access grant.
+     */
+    public function hiddenModules(): array
+    {
+        $hidden = [];
+
+        foreach ($this->effectivePermissions() as $module => $abilities) {
+            if (in_array('hide', $abilities, true)) {
+                $hidden[] = $module;
+            }
+        }
+
+        return $hidden;
     }
 
     public function staff()

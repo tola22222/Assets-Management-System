@@ -43,19 +43,23 @@ function openEdit(location) {
 }
 
 async function handleSubmit() {
-  if (editingId.value) {
-    await update(editingId.value, form)
-  } else {
-    await create(form)
+  try {
+    if (editingId.value) {
+      await update(editingId.value, form)
+    } else {
+      await create(form)
+    }
+    showModal.value = false
+  } catch {
+    // useApiCrud already showed why; just clean up here.
   }
-  showModal.value = false
 }
 
 async function confirmDelete() {
   try {
     await destroy(deletingId.value)
-  } catch (e) {
-    toast.error(e.response?.data?.message || t('locations.delete_failed'))
+  } catch {
+    // useApiCrud already showed why; just clean up here.
   } finally {
     deletingId.value = null
   }
@@ -65,8 +69,8 @@ async function confirmBulkDelete() {
   confirmingBulkDelete.value = false
   try {
     await destroyMany(selectedIds.value)
-  } catch (e) {
-    toast.error(e.response?.data?.message || t('locations.delete_failed'))
+  } catch {
+    // useApiCrud already showed why; just clean up here.
   } finally {
     clearSelection()
   }

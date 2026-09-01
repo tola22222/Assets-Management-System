@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\ProgramController;
 use App\Http\Controllers\Api\QrScanController;
 use App\Http\Controllers\Api\ReportController;
+use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\SearchController;
 use App\Http\Controllers\Api\SettingController;
 use App\Http\Controllers\Api\StaffController;
@@ -139,10 +140,31 @@ Route::name('api.')->group(function () {
             Route::post('/reports/email', [ReportController::class, 'email']);
         });
 
+        // What the signed-in account may do. Every authenticated role can read
+        // its own permission set — the SPA needs it to decide what to render,
+        // and it exposes nothing the user doesn't already hold.
+        Route::get('/me/permissions', [AuthController::class, 'permissions']);
+
         Route::middleware('role:operations_hr_manager')->group(function () {
             Route::apiResource('users', UserController::class)->except(['create', 'show']);
             Route::post('/users/{user}/lock', [UserController::class, 'lock']);
             Route::post('/users/{user}/reset-password', [UserController::class, 'resetPassword']);
+            Route::post('/users/{user}/roles', [UserController::class, 'syncRoles'])->middleware('permission:roles,update');
+            Route::get('/users/{user}/permissions', [UserController::class, 'permissions'])->middleware('permission:users,read');
+
+            // Role & Permission Management. Guarded twice on purpose: the
+            // role: middleware is the existing coarse gate, and permission:
+            // is the fine-grained one this feature introduces. A request has
+            // to satisfy both, so the new system can never widen access past
+            // what the old guard already allowed.
+            Route::get('/roles/catalogue', [RoleController::class, 'catalogue'])->middleware('permission:roles,view');
+            Route::post('/roles/{role}/duplicate', [RoleController::class, 'duplicate'])->middleware('permission:roles,create');
+            Route::post('/roles/{role}/toggle', [RoleController::class, 'toggle'])->middleware('permission:roles,update');
+            Route::get('/roles', [RoleController::class, 'index'])->middleware('permission:roles,view');
+            Route::get('/roles/{role}', [RoleController::class, 'show'])->middleware('permission:roles,read');
+            Route::post('/roles', [RoleController::class, 'store'])->middleware('permission:roles,create');
+            Route::put('/roles/{role}', [RoleController::class, 'update'])->middleware('permission:roles,update');
+            Route::delete('/roles/{role}', [RoleController::class, 'destroy'])->middleware('permission:roles,delete');
 
             Route::get('/settings', [SettingController::class, 'index']);
             Route::post('/settings', [SettingController::class, 'update']);

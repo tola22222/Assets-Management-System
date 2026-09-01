@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, onMounted, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
-import http from '../../api/http'
+import http, { errorMessage } from '../../api/http'
 import AppLayout from '../../layouts/AppLayout.vue'
 import Modal from '../../components/ui/Modal.vue'
 import ConfirmDialog from '../../components/ui/ConfirmDialog.vue'
@@ -114,14 +114,16 @@ function exportCsv() {
   URL.revokeObjectURL(url)
 }
 
-async function loadCategories() {
-  const { data } = await http.get('/categories')
-  categories.value = data
-}
-
-async function loadLocations() {
-  const { data } = await http.get('/locations')
-  locations.value = data
+async function loadOptions() {
+  try {
+    const [c, l] = await Promise.all([http.get('/categories'), http.get('/locations')])
+    categories.value = c.data
+    locations.value = l.data
+  } catch (e) {
+    // Both feed required dropdowns on the register form. Failing quietly left
+    // them empty, so the form looked broken rather than un-loaded.
+    toast.error(errorMessage(e, t('assets.options_failed')))
+  }
 }
 
 function openCreate() {
@@ -172,29 +174,44 @@ async function handleSubmit() {
     showModal.value = false
     await fetchAll()
   } catch (e) {
-    toast.error(e.response?.data?.message || t('assets.save_failed'))
+    toast.error(errorMessage(e, t('assets.save_failed')))
   } finally {
     submitting.value = false
   }
 }
 
 async function confirmDelete() {
-  await destroy(deletingId.value)
-  deletingId.value = null
+  // finally, not a bare await: the server refuses to delete an asset that has
+  // ever been counted, and without this the confirm dialog stayed open forever
+  // on failure with nothing explaining why.
+  try {
+    await destroy(deletingId.value)
+  } catch {
+    // useApiCrud has already shown the reason.
+  } finally {
+    deletingId.value = null
+  }
 }
 
 async function confirmBulkDelete() {
   confirmingBulkDelete.value = false
-  await destroyMany(selectedIds.value)
-  clearSelection()
+  try {
+    await destroyMany(selectedIds.value)
+  } finally {
+    clearSelection()
+  }
 }
 
 async function regenerateQr(asset) {
-  await http.post(`/assets/${asset.id}/regenerate-qr`)
-  toast.success(t('assets.qr_regenerated'))
-  await fetchAll()
-  if (viewing.value?.id === asset.id) {
-    viewing.value = assetsList.value.find((a) => a.id === asset.id) || viewing.value
+  try {
+    await http.post(`/assets/${asset.id}/regenerate-qr`)
+    toast.success(t('assets.qr_regenerated'))
+    await fetchAll()
+    if (viewing.value?.id === asset.id) {
+      viewing.value = assetsList.value.find((a) => a.id === asset.id) || viewing.value
+    }
+  } catch (e) {
+    toast.error(errorMessage(e, t('assets.qr_failed')))
   }
 }
 
@@ -219,7 +236,7 @@ async function submitFlag() {
       viewing.value = assetsList.value.find((a) => a.id === viewing.value.id) || viewing.value
     }
   } catch (e) {
-    toast.error(e.response?.data?.message || t('assets.flag_failed'))
+    toast.error(errorMessage(e, t('assets.flag_failed')))
   } finally {
     flagSubmitting.value = false
   }
@@ -239,9 +256,8 @@ function printQr(asset) {
 }
 
 onMounted(() => {
-  fetchAll()
-  loadCategories()
-  loadLocations()
+  fetchAll().catch(() => {})
+  loadOptions()
 })
 </script>
 

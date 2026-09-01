@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import http from '../../api/http'
+import http, { errorMessage } from '../../api/http'
 import AppLayout from '../../layouts/AppLayout.vue'
 import { useToastStore } from '../../stores/toast'
 
@@ -12,20 +12,35 @@ const loading = ref(true)
 
 async function load() {
   loading.value = true
-  const { data } = await http.get('/notifications')
-  notifications.value = data.data
-  loading.value = false
+  try {
+    const { data } = await http.get('/notifications')
+    notifications.value = data.data
+  } catch (e) {
+    notifications.value = []
+    toast.error(errorMessage(e, t('notifications.load_failed')))
+  } finally {
+    loading.value = false
+  }
 }
 
 async function markRead(n) {
-  await http.post(`/notifications/${n.id}/mark-read`)
-  n.is_read = true
+  try {
+    await http.post(`/notifications/${n.id}/mark-read`)
+    n.is_read = true
+  } catch (e) {
+    // Only flip the dot once the server agrees, or the row lies about itself.
+    toast.error(errorMessage(e, t('notifications.mark_failed')))
+  }
 }
 
 async function markAllRead() {
-  await http.post('/notifications/mark-all-read')
-  toast.success(t('notifications.marked_all_read'))
-  await load()
+  try {
+    await http.post('/notifications/mark-all-read')
+    toast.success(t('notifications.marked_all_read'))
+    await load()
+  } catch (e) {
+    toast.error(errorMessage(e, t('notifications.mark_failed')))
+  }
 }
 
 onMounted(load)

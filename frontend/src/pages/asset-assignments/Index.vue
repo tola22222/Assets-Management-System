@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, onMounted, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
-import http from '../../api/http'
+import http, { errorMessage } from '../../api/http'
 import AppLayout from '../../layouts/AppLayout.vue'
 import Modal from '../../components/ui/Modal.vue'
 import StatusBadge from '../../components/ui/StatusBadge.vue'
@@ -42,13 +42,17 @@ function handleReturnFileChange(e) {
 const form = reactive({ asset_id: '', assigned_to_type: 'staff', assigned_to_id: '', location_id: '', quantity: 1, assigned_date: '', due_date: '' })
 
 async function loadOptions() {
-  const [a, l, s, p] = await Promise.all([
-    http.get('/assets'), http.get('/locations'), http.get('/staff').catch(() => ({ data: [] })), http.get('/programs').catch(() => ({ data: [] })),
-  ])
-  assets.value = a.data
-  locations.value = l.data
-  staffList.value = s.data
-  programs.value = p.data
+  try {
+    const [a, l, s, p] = await Promise.all([
+      http.get('/assets'), http.get('/locations'), http.get('/staff').catch(() => ({ data: [] })), http.get('/programs').catch(() => ({ data: [] })),
+    ])
+    assets.value = a.data
+    locations.value = l.data
+    staffList.value = s.data
+    programs.value = p.data
+  } catch (e) {
+    toast.error(errorMessage(e, t('asset_assignments.options_failed')))
+  }
 }
 
 function openCreate() {
@@ -63,14 +67,18 @@ async function handleSubmit() {
     showModal.value = false
     await fetchAll()
   } catch (e) {
-    toast.error(e.response?.data?.message || t('asset_assignments.assign_failed'))
+    toast.error(errorMessage(e, t('asset_assignments.assign_failed')))
   }
 }
 
 async function cancelAssignment(id) {
-  await http.post(`/asset-assignments/${id}/cancel`)
-  toast.success(t('asset_assignments.cancelled'))
-  await fetchAll()
+  try {
+    await http.post(`/asset-assignments/${id}/cancel`)
+    toast.success(t('asset_assignments.cancelled'))
+    await fetchAll()
+  } catch (e) {
+    toast.error(errorMessage(e, t('asset_assignments.cancel_failed')))
+  }
 }
 
 async function submitReturn() {
@@ -78,10 +86,15 @@ async function submitReturn() {
   fd.append('condition', returnCondition.value)
   fd.append('remark', returnRemark.value)
   if (returnImageFile.value) fd.append('image', returnImageFile.value)
-  await http.post(`/asset-assignments/${returningId.value}/return`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })
-  toast.success(t('asset_assignments.returned_successfully'))
-  returningId.value = null
-  await fetchAll()
+  try {
+    await http.post(`/asset-assignments/${returningId.value}/return`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+    toast.success(t('asset_assignments.returned_successfully'))
+    returningId.value = null
+    await fetchAll()
+  } catch (e) {
+    // Keep the modal open so the entered condition and remark are not lost.
+    toast.error(errorMessage(e, t('asset_assignments.return_failed')))
+  }
 }
 
 onMounted(() => {

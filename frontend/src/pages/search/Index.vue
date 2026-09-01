@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import http from '../../api/http'
+import http, { errorMessage } from '../../api/http'
 import AppLayout from '../../layouts/AppLayout.vue'
 import SearchInput from '../../components/ui/SearchInput.vue'
 import { useToastStore } from '../../stores/toast'
@@ -32,6 +32,9 @@ async function search() {
   try {
     const { data } = await http.get('/search', { params: { q: q.value } })
     results.value = data
+  } catch (e) {
+    results.value = null
+    toast.error(errorMessage(e, t('search.failed')))
   } finally {
     loading.value = false
   }

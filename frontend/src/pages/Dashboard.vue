@@ -1,8 +1,9 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import http from '../api/http'
+import http, { errorMessage } from '../api/http'
 import { useAuthStore } from '../stores/auth'
+import { useToastStore } from '../stores/toast'
 import AppLayout from '../layouts/AppLayout.vue'
 import StatCard from '../components/ui/StatCard.vue'
 import DonutChart from '../components/ui/DonutChart.vue'
@@ -13,6 +14,7 @@ import StatusBadge from '../components/ui/StatusBadge.vue'
 
 const { t } = useI18n()
 const auth = useAuthStore()
+const toast = useToastStore()
 const isStaff = computed(() => auth.user?.role === 'staff')
 const stats = ref(null)
 const loading = ref(true)
@@ -27,6 +29,11 @@ async function loadTrend() {
   try {
     const { data } = await http.get('/dashboard/by-period', { params: { period: trendPeriod.value } })
     trendData.value = data.data
+  } catch (e) {
+    // A failed load left the chart showing "no data", which reads as "nothing
+    // was ever registered" rather than "this request failed".
+    trendData.value = []
+    toast.error(errorMessage(e, t('dashboard.trend_failed')))
   } finally {
     trendLoading.value = false
   }

@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, onMounted, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
-import http from '../../api/http'
+import http, { errorMessage } from '../../api/http'
 import AppLayout from '../../layouts/AppLayout.vue'
 import Modal from '../../components/ui/Modal.vue'
 import StatusBadge from '../../components/ui/StatusBadge.vue'
@@ -30,9 +30,15 @@ const showModal = ref(false)
 const form = reactive({ asset_id: '', from_location_id: '', to_location_id: '', reason: '', transfer_date: '' })
 
 async function loadOptions() {
-  const [a, l] = await Promise.all([http.get('/assets'), http.get('/locations')])
-  assets.value = a.data
-  locations.value = l.data
+  try {
+    const [a, l] = await Promise.all([http.get('/assets'), http.get('/locations')])
+    assets.value = a.data
+    locations.value = l.data
+  } catch (e) {
+    // Without this the asset and location dropdowns render empty and the form
+    // looks broken, with nothing saying the lookup failed.
+    toast.error(errorMessage(e, t('asset_transfers.options_failed')))
+  }
 }
 
 function openCreate() {
@@ -47,20 +53,30 @@ async function handleSubmit() {
     showModal.value = false
     await fetchAll()
   } catch (e) {
-    toast.error(e.response?.data?.message || t('asset_transfers.submit_failed'))
+    toast.error(errorMessage(e, t('asset_transfers.submit_failed')))
   }
 }
 
 async function approve(id) {
-  await http.post(`/asset-transfers/${id}/approve`)
-  toast.success(t('asset_transfers.approved'))
-  await fetchAll()
+  try {
+    await http.post(`/asset-transfers/${id}/approve`)
+    toast.success(t('asset_transfers.approved'))
+    await fetchAll()
+  } catch (e) {
+    // Approving your own request is refused with a 403, which used to produce
+    // no message at all — the row simply stayed pending with no explanation.
+    toast.error(errorMessage(e, t('asset_transfers.approve_failed')))
+  }
 }
 
 async function reject(id) {
-  await http.post(`/asset-transfers/${id}/reject`)
-  toast.success(t('asset_transfers.rejected'))
-  await fetchAll()
+  try {
+    await http.post(`/asset-transfers/${id}/reject`)
+    toast.success(t('asset_transfers.rejected'))
+    await fetchAll()
+  } catch (e) {
+    toast.error(errorMessage(e, t('asset_transfers.reject_failed')))
+  }
 }
 
 onMounted(() => {
