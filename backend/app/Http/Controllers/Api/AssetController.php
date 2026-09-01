@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Exceptions\AssetCodeException;
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\Asset;
@@ -13,6 +14,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class AssetController extends Controller
 {
@@ -44,11 +46,19 @@ class AssetController extends Controller
     {
         $validated = $this->validateAsset($request, null);
 
+        // Before the upload: a rejected code leaves no orphaned photo behind.
+        try {
+            $validated['asset_code'] = AssetCodeService::nextCode($validated['location_id'], $validated['category_id']);
+        } catch (AssetCodeException $e) {
+            // A site with no code / a category with no short code is a fixable
+            // setup problem, not a server fault — report it on the field that
+            // owns the fix instead of throwing a 500 at the register form.
+            throw ValidationException::withMessages([$e->field => $e->getMessage()]);
+        }
+
         if ($request->hasFile('image')) {
             $validated['image_path'] = $request->file('image')->store('assets', 'public');
         }
-
-        $validated['asset_code'] = AssetCodeService::nextCode($validated['location_id'], $validated['category_id']);
 
         $asset = Asset::create($validated);
         AssetCodeService::generateQrCode($asset);

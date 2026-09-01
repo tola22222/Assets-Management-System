@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Exceptions\AssetCodeException;
 use App\Models\Asset;
 use App\Models\AssetCategory;
 use App\Models\Location;
@@ -235,6 +236,19 @@ class AssetImportService
                 }
                 $asset = Asset::create($payload + ['asset_code' => $code]);
             } else {
+                // Generated before the photo is stored so a rejected code
+                // leaves no orphaned file — and reported as a row error rather
+                // than allowed to escape, because an uncaught throw here would
+                // abort the whole upload half-imported over one site that is
+                // simply missing its code.
+                try {
+                    $assetCode = AssetCodeService::nextCode($location->id, $category->id);
+                } catch (AssetCodeException $e) {
+                    $errors[] = "Row {$lineNo}: ".$e->getMessage();
+
+                    continue;
+                }
+
                 if ($imageFile) {
                     $payload['image_path'] = $imageFile->store('assets', 'public');
                     if ($imageKey !== null) {
@@ -242,7 +256,7 @@ class AssetImportService
                     }
                     $imagesAttached++;
                 }
-                $asset = Asset::create($payload + ['asset_code' => AssetCodeService::nextCode($location->id, $category->id)]);
+                $asset = Asset::create($payload + ['asset_code' => $assetCode]);
             }
 
             if ($generateQr) {
@@ -432,7 +446,15 @@ class AssetImportService
         return $existing;
     }
 
-    /** Strict counterpart to resolveLocation() for the template layout — see the call site for why. */
+    /**
+     * Strict counterpart to resolveLocation() for the template layout — see the
+     * call site for why.
+     *
+     * Location names are not unique, and production has held a hand-made
+     * duplicate of a seeded site sitting alongside the real one. Where several
+     * rows share a name, prefer the one that actually has a site code: the
+     * code-less twin can't mint an asset tag, so picking it just fails the row.
+     */
     private function requireLocation(string $name): Location
     {
         if ($name === '') {
@@ -442,7 +464,7 @@ class AssetImportService
         if (isset($this->locationCache[$key])) {
             return $this->locationCache[$key];
         }
-        $existing = Location::whereRaw('LOWER(name) = ?', [$key])->first();
+        $existing = Location::whereRaw('LOWER(name) = ?', [$key])->orderByRaw('code is null')->first();
         if (! $existing) {
             throw new \RuntimeException("location \"{$name}\" not found.");
         }
@@ -477,7 +499,7 @@ class AssetImportService
         }
 
         $location = $key !== ''
-            ? Location::whereRaw('LOWER(name) = ?', [$key])->first()
+            ? Location::whereRaw('LOWER(name) = ?', [$key])->orderByRaw('code is null')->first()
             : null;
 
         $location ??= Location::whereRaw('UPPER(code) = ?', ['SR'])->first();

@@ -15,7 +15,7 @@ import { useAuthStore } from '../../stores/auth'
 
 const { t } = useI18n()
 const { items: locations, loading, fetchAll, create, update, destroy, destroyMany } = useApiCrud('/locations', { entityName: t('locations.entity') })
-const { search, filtered: searched } = useTableSearch(locations, ['name', 'type', 'description'])
+const { search, filtered: searched } = useTableSearch(locations, ['name', 'code', 'type', 'description'])
 const { sortKey, sortDir, toggleSort, sorted: filtered } = useTableSort(searched, { defaultKey: 'name', paths: { count: 'assets_count' } })
 const { selectedIds, allSelected, toggleSelectAll, toggleSelect, clearSelection } = useBulkSelect(filtered)
 const confirmingBulkDelete = ref(false)
@@ -28,17 +28,17 @@ const isOpm = computed(() => auth.user?.role === 'operations_hr_manager')
 const showModal = ref(false)
 const editingId = ref(null)
 const deletingId = ref(null)
-const form = reactive({ name: '', type: 'office', description: '' })
+const form = reactive({ name: '', code: '', type: 'office', description: '' })
 
 function openCreate() {
   editingId.value = null
-  Object.assign(form, { name: '', type: 'office', description: '' })
+  Object.assign(form, { name: '', code: '', type: 'office', description: '' })
   showModal.value = true
 }
 
 function openEdit(location) {
   editingId.value = location.id
-  Object.assign(form, { name: location.name, type: location.type, description: location.description || '' })
+  Object.assign(form, { name: location.name, code: location.code || '', type: location.type, description: location.description || '' })
   showModal.value = true
 }
 
@@ -114,6 +114,7 @@ onMounted(fetchAll)
                   <input type="checkbox" :checked="allSelected" @change="toggleSelectAll" class="rounded border-line text-brand focus:ring-brand/30" />
                 </th>
                 <th class="th-sort" @click="toggleSort('name')">{{ t('common.name') }}<TableSortIcon :active="sortKey === 'name'" :direction="sortDir" /></th>
+                <th class="th-sort" @click="toggleSort('code')">{{ t('locations.code') }}<TableSortIcon :active="sortKey === 'code'" :direction="sortDir" /></th>
                 <th class="th-sort" @click="toggleSort('type')">{{ t('locations.type') }}<TableSortIcon :active="sortKey === 'type'" :direction="sortDir" /></th>
                 <th class="th-sort" @click="toggleSort('count')">{{ t('locations.stock_records') }}<TableSortIcon :active="sortKey === 'count'" :direction="sortDir" /></th>
                 <th v-if="isOpm" class="text-right">{{ t('common.actions') }}</th>
@@ -125,6 +126,10 @@ onMounted(fetchAll)
                   <input type="checkbox" :checked="selectedIds.includes(loc.id)" @change="toggleSelect(loc.id)" class="rounded border-line text-brand focus:ring-brand/30" />
                 </td>
                 <td class="font-medium text-fg">{{ loc.name }}</td>
+                <td>
+                  <span v-if="loc.code" class="badge-neutral font-mono">{{ loc.code }}</span>
+                  <span v-else class="badge-danger" :title="t('locations.code_missing_hint')">{{ t('locations.code_missing') }}</span>
+                </td>
                 <td class="capitalize">{{ loc.type }}</td>
                 <td>{{ loc.assets_count ?? 0 }}</td>
                 <td v-if="isOpm" class="text-right">
@@ -139,7 +144,7 @@ onMounted(fetchAll)
                 </td>
               </tr>
               <tr v-if="!loading && !filtered.length">
-                <td :colspan="isOpm ? 5 : 3" class="py-10 text-center text-faint">{{ search ? t('locations.empty_search') : t('locations.empty') }}</td>
+                <td :colspan="isOpm ? 6 : 4" class="py-10 text-center text-faint">{{ search ? t('locations.empty_search') : t('locations.empty') }}</td>
               </tr>
             </tbody>
           </table>
@@ -153,6 +158,19 @@ onMounted(fetchAll)
           <div class="space-y-1.5">
             <label class="text-xs font-semibold text-muted tracking-wide">{{ t('locations.name_required') }}</label>
             <input v-model="form.name" required class="input" />
+          </div>
+          <div class="space-y-1.5">
+            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('locations.code_required') }}</label>
+            <input
+              v-model="form.code"
+              required
+              maxlength="4"
+              pattern="[A-Za-z0-9]{2,4}"
+              class="input uppercase font-mono"
+              placeholder="SR"
+              @input="form.code = form.code.toUpperCase()"
+            />
+            <p class="text-xs text-faint">{{ t('locations.code_help') }}</p>
           </div>
           <div class="space-y-1.5">
             <label class="text-xs font-semibold text-muted tracking-wide">{{ t('locations.type_required') }}</label>

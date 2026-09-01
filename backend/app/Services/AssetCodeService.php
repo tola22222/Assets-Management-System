@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Exceptions\AssetCodeException;
 use App\Models\Asset;
 use App\Models\AssetCategory;
 use App\Models\Location;
@@ -12,7 +13,6 @@ use Endroid\QrCode\ErrorCorrectionLevel;
 use Endroid\QrCode\Writer\PngWriter;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use InvalidArgumentException;
 
 /**
  * Generates asset tags in the PEY-[SITE]-[CATEGORY]-[####] format defined by
@@ -39,8 +39,8 @@ class AssetCodeService
     public const CODE_FORMAT = '/^[A-Z0-9]{2,6}$/';
 
     /**
-     * @throws InvalidArgumentException if the category has no well-formed
-     *                                  short_name, or the location isn't an approved site.
+     * @throws AssetCodeException if the category has no well-formed short_name,
+     *                            or the location has no site code.
      */
     public static function nextCode(?int $locationId, int $categoryId): string
     {
@@ -48,7 +48,8 @@ class AssetCodeService
         $categoryCode = strtoupper((string) $category->short_name);
 
         if (! preg_match(self::CODE_FORMAT, $categoryCode)) {
-            throw new InvalidArgumentException(
+            throw new AssetCodeException(
+                'category_id',
                 "Category \"{$category->name}\" has no valid short code assigned. Set a 2-6 letter/number code for it on the Categories screen before registering assets in it."
             );
         }
@@ -56,8 +57,17 @@ class AssetCodeService
         $location = $locationId ? Location::find($locationId) : null;
         $siteCode = $location?->code;
 
+        // Every site the system ships with is seeded with a code, but a site
+        // added by hand through the Locations screen can still be missing one
+        // — say which one, and where to fix it, instead of the old bare
+        // "must be an approved site" that gave the admin nothing to act on.
         if (! $siteCode) {
-            throw new InvalidArgumentException('Asset location must be an approved site with a site code.');
+            throw new AssetCodeException(
+                'location_id',
+                $location
+                    ? "Location \"{$location->name}\" has no site code assigned. Open Locations, edit it, and set a 2-4 letter/number site code (e.g. SR) before registering assets there."
+                    : 'Asset location must be an approved site with a site code.'
+            );
         }
 
         return DB::transaction(function () use ($siteCode, $categoryCode) {
