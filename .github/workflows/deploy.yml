@@ -5,6 +5,10 @@ on:
     branches:
       - main
 
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
@@ -12,6 +16,65 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      # Gate the whole job on the host actually being reachable, BEFORE the
+      # image build, for two reasons:
+      #
+      #  1. A dead host otherwise costs a full uncached build+push (minutes)
+      #     before anyone finds out, and the real error lands buried under
+      #     the build logs.
+      #  2. ssh-action echoes the entire deploy script to the log (between its
+      #     ======CMD====== / ======END====== markers) BEFORE it dials the
+      #     host, so a connection failure prints directly after the script and
+      #     reads as though the last command in it failed. It did not - nothing
+      #     in the script ran at all. Probing here says plainly which half broke.
+      #
+      # If you would rather always publish the image even when the server is
+      # down (so you can deploy by hand later), move this step back to just
+      # above "Deploy on EC2 via SSH".
+      - name: Wait for EC2 SSH to be reachable
+        run: |
+          HOST="${{ secrets.EC2_HOST }}"
+
+          if [ -z "$HOST" ]; then
+            echo "::error::EC2_HOST secret is empty. Set it to the instance's current public IP or DNS name."
+            exit 1
+          fi
+
+          if [ -z "${{ secrets.EC2_SSH_KEY }}" ]; then
+            echo "::error::EC2_SSH_KEY secret is empty. The SSH step would fail with a confusing auth error."
+            exit 1
+          fi
+
+          for i in $(seq 1 10); do
+            # `run:` executes under `bash -e`, so the probe must not be a bare
+            # failing command or the first miss aborts the step instead of
+            # retrying. `|| rc=$?` puts it in a tested context, which -e ignores.
+            rc=0
+            timeout 10 bash -c "cat < /dev/null > /dev/tcp/$HOST/22" 2>/dev/null || rc=$?
+
+            if [ $rc -eq 0 ]; then
+              echo "Port 22 reachable on attempt $i."
+              exit 0
+            fi
+
+            if [ $rc -eq 124 ]; then
+              echo "Attempt $i/10: packets dropped (no response) - retrying in 15s..."
+            else
+              echo "Attempt $i/10: connection refused - host is up but sshd is not listening. Retrying in 15s..."
+            fi
+            sleep 15
+          done
+
+          echo "::error::Cannot reach $HOST:22 after ~2.5 minutes - aborted before building the image."
+          echo "An i/o timeout means the runner never reached the host at all. Check, in order:"
+          echo "  1. The instance is running - a stopped instance loses its public IP unless an Elastic IP is attached."
+          echo "  2. EC2_HOST still matches the instance's current public IP/DNS."
+          echo "  3. The security group allows inbound TCP 22. GitHub-hosted runners use rotating IPs,"
+          echo "     so a rule pinned to a single address will fail intermittently."
+          echo "If port 80 on the same host is dead too, the box itself is down - not an SSH or firewall problem."
+          echo "A refused connection instead means the host is reachable but sshd is not running."
+          exit 1
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -36,13 +99,20 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
+          port: 22
+          # Defaults are 30s to connect and 10m for the whole script. The script
+          # below pulls an image, waits up to 90s for MySQL, migrates, then runs
+          # six artisan commands - that can exceed 10m on a small instance, and
+          # hitting the cap kills the deploy midway (potentially mid-migration).
+          timeout: 60s
+          command_timeout: 30m
           script: |
             set -e
             APP_DIR=/home/ubuntu/asset_management_app
 
             mkdir -p $APP_DIR/nginx
 
-            # Write docker-compose.yml directly G�� no SCP needed
+            # Write docker-compose.yml directly - no SCP needed
             cat > $APP_DIR/docker-compose.yml << 'EOF'
             services:
               app:
@@ -119,7 +189,7 @@ jobs:
               app_public:
             EOF
 
-            # Write nginx/default.conf directly G�� no SCP needed
+            # Write nginx/default.conf directly - no SCP needed
             cat > $APP_DIR/nginx/default.conf << 'EOF'
             server {
                 listen 80;
@@ -237,6 +307,25 @@ jobs:
               grep -qE "^${required}=.+" .env || echo "::warning::APP_ENV secret is missing ${required} - production will fall back to a framework default."
             done
 
+            # Reclaim disk BEFORE pulling, so a nearly-full volume cannot fail
+            # the pull halfway. Every deploy pulls a fresh :latest and orphans
+            # the previous image's layers, and nothing has cleaned those up
+            # since commit 50fd0b8 dropped the original `docker image prune -f`
+            # (118 commits ago). A full root volume takes the whole box down -
+            # sshd included, which is how you lose SSH and EC2 Instance Connect
+            # at the same moment and cannot get in to clear the space.
+            #
+            # Dangling-only, deliberately NOT `-a`: tagged images and anything
+            # a running container references are left untouched.
+            echo "--- disk before prune ---"
+            df -h /
+            docker image prune -f
+            echo "--- disk after prune ---"
+            df -h /
+            DISK_PCT=$(df --output=pcent / 2>/dev/null | tr -dc '0-9' || true)
+            if [ "${DISK_PCT:-0}" -ge 85 ]; then
+              echo "::warning::Root volume is ${DISK_PCT}% full even after pruning - investigate before it takes the instance down."
+            fi
             # Only pull app/nginx here so the pinned mysql image never changes
             # underneath a running db container on a routine deploy.
             docker compose pull app nginx
