@@ -78,6 +78,11 @@ const myAssetsGroup = computed(() => ({
     { to: '/asset-assignments', label: t('nav.assignments') },
     { to: '/asset-transfers', label: t('nav.transfer_requests') },
     { to: '/asset-verifications', label: t('nav.verification') },
+    // Same reasoning as the disposals entry below: every role holds at least
+    // view/read on stock-items, but /stock sat only in the admin-only inventory
+    // group, so Finance/ED/Staff had no way to reach a page they can open.
+    // Receive/issue/delete stay OPM+Finance-only, enforced server side.
+    { to: '/stock', label: t('nav.stock') },
     // The Executive Director is the ONLY role that can approve a disposal, but
     // the disposals page lived solely in the admin-only inventory group — the
     // sole approver had no way to reach the approval screen. The API's
@@ -130,8 +135,18 @@ function visible(group) {
   const items = group.items.filter((it) => canSee(moduleFor(it.to)))
   return { ...group, items }
 }
+// Permission module keys mirror the API path segment, which is not always the
+// SPA path segment. /stock is the one that diverges: the page lives at /stock
+// but the module is 'stock-items' (from /api/stock-items). Without this alias
+// canSee() looks up a key the payload never contains, and — because can()
+// allows everything until the payload lands — the link renders on first paint
+// and then vanishes once permissions resolve, for every role including OPM.
+const MODULE_ALIASES = { stock: 'stock-items' }
+
 function moduleFor(path) {
-  return path === '/' ? 'dashboard' : path.split('/').filter(Boolean)[0]
+  if (path === '/') return 'dashboard'
+  const segment = path.split('/').filter(Boolean)[0]
+  return MODULE_ALIASES[segment] ?? segment
 }
 
 const mainGroups = computed(() =>
