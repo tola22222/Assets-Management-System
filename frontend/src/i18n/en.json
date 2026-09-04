@@ -1017,7 +1017,7 @@
     "select_role": "Select a role to see its permissions."
   },
   "pagination": {
-    "rows_per_page": "Rows per page:",
+    "rows_per_page": "Rows per page",
     "displayed": "{from}–{to} of {count}",
     "previous": "Previous page",
     "next": "Next page"

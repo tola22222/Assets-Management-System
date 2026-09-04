@@ -1017,7 +1017,7 @@
     "select_role": "ជ្រើសរើសតួនាទី ដើម្បីមើលសិទ្ធិរបស់វា។"
   },
   "pagination": {
-    "rows_per_page": "ជួរដេកក្នុងមួយទំព័រ៖",
+    "rows_per_page": "ជួរដេកក្នុងមួយទំព័រ",
     "displayed": "{from}–{to} នៃ {count}",
     "previous": "ទំព័រមុន",
     "next": "ទំព័របន្ទាប់"

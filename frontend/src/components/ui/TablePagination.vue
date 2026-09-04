@@ -32,9 +32,9 @@ function onRowsPerPage(event) {
 <template>
   <div class="flex flex-wrap items-center justify-center sm:justify-end gap-x-6 gap-y-3 px-2 py-2.5 min-h-[52px] text-sm text-muted border-t border-line">
     <div v-if="rowsPerPageOptions.length" class="flex items-center gap-2">
-      <label :for="'rpp-' + $.uid" class="whitespace-nowrap">{{ t('pagination.rows_per_page') }}</label>
       <select
-        :id="'rpp-' + $.uid"
+        :aria-label="t('pagination.rows_per_page')"
+        :title="t('pagination.rows_per_page')"
         :value="rowsPerPage"
         @change="onRowsPerPage"
         class="bg-surface-2 border border-line rounded-md pl-2.5 pr-7 py-1 text-sm text-fg cursor-pointer transition

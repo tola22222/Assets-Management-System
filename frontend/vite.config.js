@@ -32,6 +32,15 @@ export default defineConfig(() => {
     build: {
       outDir: 'dist',
       emptyOutDir: true,
+      // Bundles land in dist/static/, NOT Vite's default dist/assets/. The build
+      // is copied to public/app/, so a bundle dir called `assets` creates a real
+      // public/app/assets/ directory that collides with the SPA's own /app/assets
+      // page: nginx resolves the directory itself (try_files $uri $uri/) and a
+      // refresh of /app/assets answers 301 -> 403 "directory index is forbidden"
+      // instead of falling through to Laravel's `spa` route and the SPA shell.
+      // Local dev never hits it (no public/app dir under `php artisan serve`).
+      // Keep this out of the way of any /app/<page> route name.
+      assetsDir: 'static',
     },
   }
 })

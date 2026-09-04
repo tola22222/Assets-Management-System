@@ -198,6 +198,19 @@ jobs:
                 root /var/www/public;
                 index index.php index.html;
 
+                # SPA deep links (/app/*) must reach Laravel's `spa` route, which
+                # returns the SPA shell so vue-router can take over. Deliberately
+                # NO `$uri/` here: with it, any /app path that matches a real
+                # directory under public/app — e.g. a stale bundle dir
+                # public/app/assets/, which collides with the SPA's own
+                # /app/assets page — is answered by the index module with 403
+                # "directory index is forbidden" instead of the app (a refresh of
+                # /app/assets went 301 -> 403 in production while working locally,
+                # where there is no public/app dir at all). See frontend/vite.config.js.
+                location /app/ {
+                    try_files $uri /index.php?$query_string;
+                }
+
                 location / {
                     try_files $uri $uri/ /index.php?$query_string;
                 }
@@ -338,11 +351,20 @@ jobs:
             # favicon, etc.) was silently invisible in production while the
             # volume kept serving whatever was baked in on day one. Re-sync the
             # volume from the freshly pulled image before starting containers.
+            #
+            # public/app (the SPA build) is REPLACED, not merged: `cp -a` only
+            # adds and overwrites, so anything a newer build no longer emits kept
+            # living in the volume forever — every old hashed bundle, and the
+            # pre-rename public/app/assets/ directory that shadowed the SPA's own
+            # /app/assets route and made a refresh there return nginx 403. The
+            # directory is pure build output (Dockerfile copies frontend/dist into
+            # it), so deleting it before the copy is safe; if the copy then fails
+            # the step fails loudly rather than silently serving a stale app.
             echo "Syncing public/ assets from the new image into the shared volume..."
             PUBLIC_VOLUME=$(docker volume ls --filter name=app_public --format '{{.Name}}' | head -n1)
             if [ -n "$PUBLIC_VOLUME" ]; then
               docker run --rm -v "$PUBLIC_VOLUME":/target toladev1/ams_app:latest \
-                sh -c "cp -a /var/www/public/. /target/ && chown -R www-data:www-data /target"
+                sh -c "rm -rf /target/app && cp -a /var/www/public/. /target/ && chown -R www-data:www-data /target"
               echo "Synced into volume: $PUBLIC_VOLUME"
             else
               echo "No existing app_public volume found (first deploy) — image content will seed it normally."
