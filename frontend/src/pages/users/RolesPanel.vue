@@ -357,7 +357,11 @@ defineExpose({ reload: load })
             <PermissionMatrix v-model="form.permissions" :modules="modules" :abilities="abilities" />
           </div>
         </div>
-        <div class="flex items-center gap-3 border-t border-line px-6 py-4">
+        <!-- Sticky, unlike the other modals' action bars: Modal.vue puts the
+             whole slot inside its scroll area, and the permission matrix makes
+             this form several screens tall, so a footer in normal flow left the
+             save button below the fold with no hint it was there. -->
+        <div class="sticky bottom-0 z-10 flex items-center gap-3 border-t border-line bg-surface px-6 py-4">
           <button type="submit" :disabled="saving" class="btn-primary">
             {{ saving ? t('roles.saving') : (editing ? t('roles.save_changes') : t('roles.create_button')) }}
           </button>
@@ -368,8 +372,10 @@ defineExpose({ reload: load })
 
     <ConfirmDialog
       v-if="confirmingSave"
+      tone="primary"
       :title="t('roles.confirm_save_title')"
       :message="t('roles.confirm_save_message', { grants: confirmingSave.grants, holders: confirmingSave.holders })"
+      :confirm-label="t('common.save')"
       @confirm="save"
       @cancel="confirmingSave = null"
     />

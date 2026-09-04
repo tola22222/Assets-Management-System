@@ -802,6 +802,7 @@ onMounted(() => {
       v-if="pendingRestore"
       :title="t('settings.restore_title')"
       :message="t('settings.restore_message')"
+      :confirm-label="t('settings.restore')"
       @confirm="confirmRestore"
       @cancel="pendingRestore = null"
     />
