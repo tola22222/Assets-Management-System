@@ -14,7 +14,7 @@ import tailwindcss from '@tailwindcss/vite'
 // host, where Laravel's `spa` route mounts it at /app/*, and app.pepyasset.online,
 // whose nginx block also serves it nested at /app/ — see .github/workflows/deploy.yml)
 // reach it via that path. Do not switch this back to base '/' — the JS/CSS bundle
-// would then request assets at the domain root instead of /app/assets/*, which is
+// would then request assets at the domain root instead of /app/static/*, which is
 // where they're actually served, and the app renders as a blank white screen.
 export default defineConfig(() => {
   return {

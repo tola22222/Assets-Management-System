@@ -252,7 +252,7 @@ jobs:
                 }
 
                 # The SPA is built with base '/app/', so its own HTML/JS already
-                # requests assets as /app/assets/*, /app/favicon.png, etc. — root
+                # requests assets as /app/static/*, /app/favicon.png, etc. — root
                 # stays at public/ (not public/app) so those paths resolve directly
                 # without doubling up to /app/app/*. Anything without a matching
                 # static file falls back to the SPA shell so vue-router's
