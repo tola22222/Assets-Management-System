@@ -19,6 +19,18 @@ const { isDark, setDark, setLight } = useTheme()
 const { applyThemeColor } = useThemeColor()
 const { systemName, organizationName, logoUrl, refreshBranding } = useBranding()
 
+// One tab per section. Backup is the odd one out: it acts immediately and owns
+// its own buttons, so its panel renders outside the <form> (a bare <button>
+// inside a form defaults to type=submit and would save the settings instead).
+const tabs = [
+  { id: 'general', label: 'settings.tab_general' },
+  { id: 'appearance', label: 'settings.tab_appearance' },
+  { id: 'reports', label: 'settings.tab_reports' },
+  { id: 'mail', label: 'settings.tab_mail' },
+  { id: 'backup', label: 'settings.tab_backup' },
+]
+const activeTab = ref('general')
+
 // Logo upload. The backend has always accepted this (SettingController::update
 // validates and stores a `logo`), but no control existed to send one.
 const logoFile = ref(null)
@@ -102,6 +114,14 @@ function onThemeColorChange() {
   applyThemeColor(form.theme_color)
 }
 
+// The hex field lets the value be typed as well as picked. Half-typed input
+// ("#12", "#12ab") would otherwise be handed to applyThemeColor on every
+// keystroke, so only a complete 6-digit hex is previewed — the raw text stays
+// bound either way so the field never fights what is being typed.
+function onThemeColorText() {
+  if (/^#[0-9a-fA-F]{6}$/.test(form.theme_color)) applyThemeColor(form.theme_color)
+}
+
 async function handleSubmit() {
   try {
     // A file can't ride along in a JSON body, so switch to multipart only when
@@ -139,6 +159,13 @@ async function handleSubmit() {
   }
 }
 
+// Cancel in the footer discards unsaved edits by re-reading the saved values —
+// the same request the page makes on mount, so nothing is written.
+function discardChanges() {
+  clearLogoSelection()
+  loadSettings()
+}
+
 // Mail test
 const testEmail = ref('')
 const sendingTest = ref(false)
@@ -166,7 +193,7 @@ async function loadBackups() {
     const { data } = await http.get('/settings/backups')
     backups.value = data
   } catch (e) {
-    // The backup card renders independently of the settings form, so a failure
+    // The backup panel renders independently of the settings form, so a failure
     // here must not take the rest of the page down with it.
     backups.value = []
     toast.error(errorMessage(e, t('settings.backups_load_failed')))
@@ -270,289 +297,417 @@ onMounted(() => {
 
 <template>
   <AppLayout>
-    <!-- Two-column card grid. The settings that save together stay inside one
-         <form> with a single Save bar; Appearance and Backup act immediately and
-         so sit outside it, in their own row. -->
-    <div class="p-6 sm:p-8 max-w-6xl mx-auto space-y-6">
-      <div>
-        <h1 class="font-display text-3xl font-bold text-fg tracking-tight">{{ t('settings.title') }}</h1>
+    <!-- Single-column, row-based settings layout: a tab bar selects a section,
+         and each setting is one full-width row of "label + description" beside
+         its control, divided by rules rather than boxed in separate cards. -->
+    <div class="p-6 sm:p-8 max-w-5xl mx-auto">
+      <div class="mb-5">
+        <h1 class="font-display text-2xl font-bold text-fg tracking-tight">{{ t('settings.title') }}</h1>
         <p class="text-muted text-sm mt-1">{{ t('settings.subtitle') }}</p>
       </div>
 
+      <!-- Scrolls sideways rather than wrapping: five tabs plus Khmer labels
+           overflow a phone, and a wrapped second row reads as two nav bars. -->
+      <nav class="flex gap-1 border-b border-line pb-3 mb-6 overflow-x-auto">
+        <button
+          v-for="tab in tabs"
+          :key="tab.id"
+          type="button"
+          @click="activeTab = tab.id"
+          class="px-3 py-2 rounded-lg text-sm whitespace-nowrap transition"
+          :class="activeTab === tab.id ? 'bg-surface-2 text-fg font-bold' : 'text-muted hover:text-fg font-medium'"
+        >{{ t(tab.label) }}</button>
+      </nav>
+
       <!-- Never leave the page looking empty: say what failed and offer a retry. -->
-      <div v-if="loadError" class="card border-red-300 dark:border-red-800 p-6 space-y-3">
+      <div v-if="loadError && activeTab !== 'backup'" class="card border-red-300 dark:border-red-800 p-6 space-y-3">
         <h2 class="font-bold text-red-600 dark:text-red-400">{{ t('settings.load_failed_title') }}</h2>
         <p class="text-sm text-muted">{{ loadError }}</p>
         <button type="button" @click="loading = true; loadSettings()" class="btn-primary btn-sm">{{ t('settings.retry') }}</button>
       </div>
 
-      <form v-if="!loading && !loadError" @submit.prevent="handleSubmit" class="space-y-6">
-        <!-- items-start keeps the shorter column from stretching to match the taller one. -->
-        <div class="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
+      <!-- One <form> for every savable tab: the fields of the tabs that are not
+           on screen stay bound to the same reactive object, so Save still posts
+           the whole settings payload from whichever tab is open. -->
+      <form v-if="!loading && !loadError && activeTab !== 'backup'" @submit.prevent="handleSubmit">
 
-          <!-- Left column -->
-          <div class="space-y-6">
-          <div class="card p-6 space-y-4">
-            <div>
-              <h2 class="font-bold text-fg">{{ t('settings.organization_info') }}</h2>
-              <p class="text-muted text-sm mt-0.5">{{ t('settings.organization_info_subtitle') }}</p>
-            </div>
+        <!-- ── General ─────────────────────────────────────────────── -->
+        <template v-if="activeTab === 'general'">
+          <div class="mb-6">
+            <h2 class="text-base font-semibold text-fg">{{ t('settings.organization_info') }}</h2>
+            <p class="text-sm text-muted mt-0.5">{{ t('settings.organization_info_subtitle') }}</p>
+          </div>
 
-            <div class="space-y-1.5">
-              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('settings.organization_name') }}</label>
-              <input v-model="form.organization_name" class="input" />
+          <div class="grid grid-cols-1 md:grid-cols-[240px_minmax(0,1fr)] gap-x-8 gap-y-3 py-5 border-t border-line">
+            <div class="md:pr-4">
+              <label class="block text-sm font-semibold text-fg">{{ t('settings.organization_name') }}</label>
             </div>
-            <div class="space-y-1.5">
-              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('settings.system_name') }}</label>
-              <input v-model="form.system_name" class="input" />
+            <div><input v-model="form.organization_name" class="input max-w-md" /></div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-[240px_minmax(0,1fr)] gap-x-8 gap-y-3 py-5 border-t border-line">
+            <div class="md:pr-4">
+              <label class="block text-sm font-semibold text-fg">{{ t('settings.system_name') }}</label>
+              <p class="text-sm text-muted mt-0.5">{{ t('settings.system_name_desc') }}</p>
             </div>
-            <div class="space-y-1.5">
-              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('settings.logo') }}</label>
-              <!-- flex-wrap with a min-width on the picker: at 375px the
-                   preview, the file input and the Cancel button together leave
-                   the input about 170px, which clips the chosen filename. It
-                   now drops onto its own line instead. -->
-              <div class="flex flex-wrap items-center gap-4">
-                <div class="w-14 h-14 rounded-xl border border-line bg-surface-2 flex items-center justify-center overflow-hidden flex-shrink-0">
-                  <img v-if="logoPreview || logoUrl" :src="logoPreview || logoUrl" alt="" class="w-full h-full object-contain" />
-                  <span v-else class="text-[10px] text-faint text-center px-1">{{ t('settings.logo_default') }}</span>
-                </div>
-                <div class="flex-1 min-w-[200px]">
-                  <input type="file" accept="image/png,image/jpeg" @change="onLogoChange" class="block w-full text-sm text-muted file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-brand file:text-white hover:file:bg-brand-dark file:cursor-pointer" />
-                  <p class="text-xs text-faint mt-1">{{ t('settings.logo_hint') }}</p>
-                </div>
-                <button v-if="logoFile" type="button" @click="clearLogoSelection" class="btn-ghost btn-sm flex-shrink-0">
-                  {{ t('common.cancel') }}
-                </button>
-              </div>
+            <div><input v-model="form.system_name" class="input max-w-md" /></div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-[240px_minmax(0,1fr)] gap-x-8 gap-y-3 py-5 border-t border-line">
+            <div class="md:pr-4">
+              <label class="block text-sm font-semibold text-fg">{{ t('settings.logo') }}</label>
+              <p class="text-sm text-muted mt-0.5">{{ t('settings.logo_hint') }}</p>
             </div>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div class="space-y-1.5">
-                <label class="text-xs font-semibold text-muted tracking-wide">{{ t('settings.email') }}</label>
-                <input v-model="form.email" type="email" class="input" />
+            <!-- flex-wrap with a min-width on the picker: at 375px the preview,
+                 the file input and the Cancel button together leave the input
+                 about 170px, which clips the chosen filename. It now drops onto
+                 its own line instead. -->
+            <div class="flex flex-wrap items-center gap-4">
+              <div class="w-14 h-14 rounded-xl border border-line bg-surface-2 flex items-center justify-center overflow-hidden flex-shrink-0">
+                <img v-if="logoPreview || logoUrl" :src="logoPreview || logoUrl" alt="" class="w-full h-full object-contain" />
+                <span v-else class="text-[10px] text-faint text-center px-1">{{ t('settings.logo_default') }}</span>
               </div>
-              <div class="space-y-1.5">
-                <label class="text-xs font-semibold text-muted tracking-wide">{{ t('settings.phone') }}</label>
-                <input v-model="form.phone" class="input" />
+              <div class="flex-1 min-w-[200px]">
+                <input type="file" accept="image/png,image/jpeg" @change="onLogoChange" class="block w-full text-sm text-muted file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-brand file:text-white hover:file:bg-brand-dark file:cursor-pointer" />
               </div>
-            </div>
-            <div class="space-y-1.5">
-              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('settings.address') }}</label>
-              <textarea v-model="form.address" rows="2" class="textarea"></textarea>
-            </div>
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div class="space-y-1.5">
-                <label class="text-xs font-semibold text-muted tracking-wide">{{ t('settings.language') }}</label>
-                <select v-model="form.locale" @change="onLocaleChange" class="select">
-                  <option value="en">English</option>
-                  <option value="km">ខ្មែរ</option>
-                </select>
-              </div>
-              <div class="space-y-1.5">
-                <label class="text-xs font-semibold text-muted tracking-wide">{{ t('settings.qr_size') }}</label>
-                <input v-model.number="form.qr_size" type="number" min="100" max="1000" class="input" />
-              </div>
-              <div class="space-y-1.5">
-                <label class="text-xs font-semibold text-muted tracking-wide">{{ t('settings.theme_color') }}</label>
-                <!-- 2.625rem is exactly what .input resolves to (py-2.5 +
-                     text-sm line-height + 1px borders). h-11 made this swatch
-                     2px taller than the Language and QR size fields beside it,
-                     so the row sat visibly out of line. -->
-                <input v-model="form.theme_color" @input="onThemeColorChange" type="color" class="w-full h-[2.625rem] bg-surface-2 border border-line rounded-xl cursor-pointer p-1 transition focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/15" />
-              </div>
+              <button v-if="logoFile" type="button" @click="clearLogoSelection" class="btn-ghost btn-sm flex-shrink-0">
+                {{ t('common.cancel') }}
+              </button>
             </div>
           </div>
 
-          <!-- Appearance is grouped here only so the two columns come out a
-               similar height. It holds no form fields — light/dark is a
-               per-browser localStorage preference that applies on click — so
-               nothing in it is submitted with the settings. -->
-          <div class="card p-6 space-y-4">
-            <div>
-              <h2 class="font-bold text-fg">{{ t('settings.appearance') }}</h2>
-              <p class="text-muted text-sm mt-0.5">{{ t('settings.appearance_subtitle') }}</p>
+          <div class="grid grid-cols-1 md:grid-cols-[240px_minmax(0,1fr)] gap-x-8 gap-y-3 py-5 border-t border-line">
+            <div class="md:pr-4">
+              <label class="block text-sm font-semibold text-fg">{{ t('settings.email') }}</label>
             </div>
-            <div class="flex flex-wrap items-center justify-between gap-4">
-              <div>
-                <p class="text-sm font-semibold text-fg">{{ t('settings.dark_mode') }}</p>
-                <p class="text-xs text-faint mt-0.5">{{ t('settings.dark_mode_hint') }}</p>
-              </div>
-              <div class="flex items-center gap-1 bg-surface-2 rounded-xl p-1 w-fit flex-shrink-0">
-                <button
-                  type="button"
-                  @click="setLight()"
-                  class="px-4 py-1.5 rounded-lg text-xs font-semibold transition"
-                  :class="!isDark ? 'bg-brand text-white' : 'text-muted hover:text-fg'"
-                >{{ t('settings.light') }}</button>
-                <button
-                  type="button"
-                  @click="setDark()"
-                  class="px-4 py-1.5 rounded-lg text-xs font-semibold transition"
-                  :class="isDark ? 'bg-brand text-white' : 'text-muted hover:text-fg'"
-                >{{ t('settings.dark') }}</button>
-              </div>
-            </div>
-          </div>
+            <div><input v-model="form.email" type="email" class="input max-w-md" /></div>
           </div>
 
-          <!-- Right column: two stacked cards, so the two columns end up a
-               similar height instead of one very tall card beside a stub. -->
-          <div class="space-y-6">
+          <div class="grid grid-cols-1 md:grid-cols-[240px_minmax(0,1fr)] gap-x-8 gap-y-3 py-5 border-t border-line">
+            <div class="md:pr-4">
+              <label class="block text-sm font-semibold text-fg">{{ t('settings.phone') }}</label>
+            </div>
+            <div><input v-model="form.phone" class="input max-w-xs" /></div>
+          </div>
 
-            <div class="card p-6 space-y-4">
-              <div>
-                <h2 class="font-bold text-fg">{{ t('settings.report_schedule') }}</h2>
-                <p class="text-muted text-sm mt-0.5">{{ t('settings.report_schedule_subtitle') }}</p>
-              </div>
+          <div class="grid grid-cols-1 md:grid-cols-[240px_minmax(0,1fr)] gap-x-8 gap-y-3 py-5 border-t border-line">
+            <div class="md:pr-4">
+              <label class="block text-sm font-semibold text-fg">{{ t('settings.address') }}</label>
+            </div>
+            <div><textarea v-model="form.address" rows="3" class="textarea max-w-md"></textarea></div>
+          </div>
 
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div class="space-y-1.5">
-                  <label class="text-xs font-semibold text-muted tracking-wide">{{ t('settings.report_interval') }}</label>
-                  <input v-model.number="form.report_interval_months" type="number" min="1" max="24" class="input" />
-                </div>
-                <div class="space-y-1.5">
-                  <label class="text-xs font-semibold text-muted tracking-wide">{{ t('settings.report_recipient_email') }}</label>
-                  <input v-model="form.report_recipient_email" type="email" placeholder="reports@example.com" class="input" />
-                </div>
-                <!-- Spans the grid rather than sitting in the email field's own
-                     cell: the sentence is long enough to wrap to four ragged
-                     lines in a half-width column, which leaves the field beside
-                     it stranded above a block of empty space. As a grid child it
-                     picks up the grid's own gap-4, so it no longer needs the
-                     -mt-2 that used to cancel out a double gap. -->
-                <p class="sm:col-span-2 text-xs text-faint">{{ t('settings.report_recipient_email_hint') }}</p>
-              </div>
+          <div class="grid grid-cols-1 md:grid-cols-[240px_minmax(0,1fr)] gap-x-8 gap-y-3 py-5 border-t border-line">
+            <div class="md:pr-4">
+              <label class="block text-sm font-semibold text-fg">{{ t('settings.qr_size') }}</label>
+              <p class="text-sm text-muted mt-0.5">{{ t('settings.qr_size_desc') }}</p>
+            </div>
+            <div><input v-model.number="form.qr_size" type="number" min="100" max="1000" class="input w-32" /></div>
+          </div>
+        </template>
 
-              <!-- Derived from the last send + the interval above, so an admin can
-                   see when the next scheduled report actually goes out. -->
-              <div class="rounded-xl bg-surface-2 border border-line px-3.5 py-2.5 text-sm">
-                <span class="font-semibold text-fg">{{ t('settings.next_report_due') }}</span>
-                <span class="text-muted ml-1.5">{{ nextReportDue || t('settings.next_report_due_none') }}</span>
-              </div>
+        <!-- ── Appearance ──────────────────────────────────────────── -->
+        <template v-if="activeTab === 'appearance'">
+          <div class="mb-6">
+            <h2 class="text-base font-semibold text-fg">{{ t('settings.appearance') }}</h2>
+            <p class="text-sm text-muted mt-0.5">{{ t('settings.appearance_subtitle') }}</p>
+          </div>
 
-              <div class="border-t border-line pt-4 space-y-3">
-                <h3 class="text-xs font-semibold text-muted tracking-wide uppercase">{{ t('settings.staff_role') }}</h3>
-                <label class="flex items-start gap-2.5 text-sm text-muted select-none cursor-pointer">
-                  <input type="checkbox" v-model="form.include_staff_in_reports" class="mt-0.5 rounded border-line text-brand focus:ring-brand/30" />
-                  <span>
-                    {{ t('settings.include_staff_in_reports') }}
-                    <span class="block text-xs text-faint mt-0.5">{{ t('settings.include_staff_in_reports_hint') }}</span>
+          <div class="grid grid-cols-1 md:grid-cols-[240px_minmax(0,1fr)] gap-x-8 gap-y-3 py-5 border-t border-line">
+            <div class="md:pr-4">
+              <label class="block text-sm font-semibold text-fg">{{ t('settings.theme_color') }}</label>
+              <p class="text-sm text-muted mt-0.5">{{ t('settings.theme_color_desc') }}</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <!-- The native picker is the swatch: clicking the colour opens it,
+                   and the hex beside it can be pasted or typed instead. -->
+              <input
+                v-model="form.theme_color"
+                @input="onThemeColorChange"
+                type="color"
+                class="w-10 h-10 flex-shrink-0 bg-surface-2 border border-line rounded-lg cursor-pointer p-1 transition focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
+              />
+              <input
+                v-model="form.theme_color"
+                @input="onThemeColorText"
+                type="text"
+                spellcheck="false"
+                maxlength="7"
+                class="input w-32 font-mono uppercase"
+              />
+            </div>
+          </div>
+
+          <!-- Light/dark holds no form field — it is a per-browser localStorage
+               preference that applies the moment it is clicked, so it is not
+               submitted with the rest of the settings. -->
+          <div class="grid grid-cols-1 md:grid-cols-[240px_minmax(0,1fr)] gap-x-8 gap-y-3 py-5 border-t border-line">
+            <div class="md:pr-4">
+              <label class="block text-sm font-semibold text-fg">{{ t('settings.dark_mode') }}</label>
+              <p class="text-sm text-muted mt-0.5">{{ t('settings.dark_mode_hint') }}</p>
+            </div>
+            <div class="grid grid-cols-2 gap-4 max-w-md">
+              <button type="button" @click="setLight()" class="text-left">
+                <div
+                  class="relative h-[120px] rounded-xl border-[1.5px] bg-surface-2 flex items-center justify-center overflow-hidden transition"
+                  :class="!isDark ? 'border-brand ring-1 ring-brand' : 'border-line'"
+                >
+                  <span v-if="!isDark" class="absolute top-2 right-2 w-[18px] h-[18px] rounded-full bg-brand flex items-center justify-center">
+                    <svg class="w-2.5 h-2.5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
                   </span>
-                </label>
-              </div>
+                  <!-- A miniature of the app in that mode, drawn from plain divs
+                       in fixed neutrals: it has to keep looking light while the
+                       app is dark (and the reverse), so it cannot use the
+                       theme tokens that flip underneath it. -->
+                  <div class="w-4/5 h-[70%] rounded-md border border-[#EAECF0] bg-white p-2 flex flex-col gap-1.5">
+                    <div class="h-1.5 rounded-full bg-brand w-2/5"></div>
+                    <div class="h-1.5 rounded-full bg-[#EAECF0]"></div>
+                    <div class="h-1.5 rounded-full bg-[#EAECF0]"></div>
+                  </div>
+                </div>
+                <div class="mt-2.5">
+                  <p class="text-sm font-semibold text-fg">{{ t('settings.light') }}</p>
+                  <p class="text-[13px] text-muted mt-0.5">{{ t('settings.theme_light_desc') }}</p>
+                </div>
+              </button>
+
+              <button type="button" @click="setDark()" class="text-left">
+                <div
+                  class="relative h-[120px] rounded-xl border-[1.5px] bg-surface-2 flex items-center justify-center overflow-hidden transition"
+                  :class="isDark ? 'border-brand ring-1 ring-brand' : 'border-line'"
+                >
+                  <span v-if="isDark" class="absolute top-2 right-2 w-[18px] h-[18px] rounded-full bg-brand flex items-center justify-center">
+                    <svg class="w-2.5 h-2.5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+                  </span>
+                  <div class="w-4/5 h-[70%] rounded-md border border-[#344054] bg-[#101828] p-2 flex flex-col gap-1.5">
+                    <div class="h-1.5 rounded-full bg-brand w-2/5"></div>
+                    <div class="h-1.5 rounded-full bg-[#344054]"></div>
+                    <div class="h-1.5 rounded-full bg-[#344054]"></div>
+                  </div>
+                </div>
+                <div class="mt-2.5">
+                  <p class="text-sm font-semibold text-fg">{{ t('settings.dark') }}</p>
+                  <p class="text-[13px] text-muted mt-0.5">{{ t('settings.theme_dark_desc') }}</p>
+                </div>
+              </button>
             </div>
+          </div>
 
-            <div class="card p-6 space-y-4">
-              <div>
-                <h2 class="font-bold text-fg">{{ t('settings.mail_title') }}</h2>
-                <p class="text-muted text-sm mt-0.5">{{ t('settings.mail_subtitle') }}</p>
-              </div>
+          <div class="grid grid-cols-1 md:grid-cols-[240px_minmax(0,1fr)] gap-x-8 gap-y-3 py-5 border-t border-line">
+            <div class="md:pr-4">
+              <label class="block text-sm font-semibold text-fg">{{ t('settings.language') }}</label>
+              <p class="text-sm text-muted mt-0.5">{{ t('settings.language_desc') }}</p>
+            </div>
+            <div>
+              <select v-model="form.locale" @change="onLocaleChange" class="select w-60">
+                <option value="en">English</option>
+                <option value="km">ខ្មែរ</option>
+              </select>
+            </div>
+          </div>
+        </template>
 
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div class="space-y-1.5">
-                  <label class="text-xs font-semibold text-muted tracking-wide">{{ t('settings.mail_mailer') }}</label>
-                  <select v-model="form.mail_mailer" class="select">
-                    <option value="smtp">SMTP</option>
-                    <option value="log">{{ t('settings.mail_mailer_log') }}</option>
-                  </select>
-                </div>
-                <div class="space-y-1.5">
-                  <label class="text-xs font-semibold text-muted tracking-wide">{{ t('settings.mail_encryption') }}</label>
-                  <select v-model="form.mail_encryption" class="select">
-                    <option value="tls">TLS</option>
-                    <option value="ssl">SSL</option>
-                    <option value="none">{{ t('settings.mail_encryption_none') }}</option>
-                  </select>
-                </div>
-              </div>
+        <!-- ── Reports ─────────────────────────────────────────────── -->
+        <template v-if="activeTab === 'reports'">
+          <div class="mb-6">
+            <h2 class="text-base font-semibold text-fg">{{ t('settings.report_schedule') }}</h2>
+            <p class="text-sm text-muted mt-0.5">{{ t('settings.report_schedule_subtitle') }}</p>
+          </div>
 
-              <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div class="sm:col-span-2 space-y-1.5">
-                  <label class="text-xs font-semibold text-muted tracking-wide">{{ t('settings.mail_host') }}</label>
-                  <input v-model="form.mail_host" placeholder="smtp.gmail.com" class="input" />
-                </div>
-                <div class="space-y-1.5">
-                  <label class="text-xs font-semibold text-muted tracking-wide">{{ t('settings.mail_port') }}</label>
-                  <input v-model.number="form.mail_port" type="number" min="1" max="65535" class="input" />
-                </div>
-              </div>
+          <div class="grid grid-cols-1 md:grid-cols-[240px_minmax(0,1fr)] gap-x-8 gap-y-3 py-5 border-t border-line">
+            <div class="md:pr-4">
+              <label class="block text-sm font-semibold text-fg">{{ t('settings.report_interval') }}</label>
+              <p class="text-sm text-muted mt-0.5">{{ t('settings.report_interval_desc') }}</p>
+            </div>
+            <div><input v-model.number="form.report_interval_months" type="number" min="1" max="24" class="input w-32" /></div>
+          </div>
 
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div class="space-y-1.5">
-                  <label class="text-xs font-semibold text-muted tracking-wide">{{ t('settings.mail_username') }}</label>
-                  <input v-model="form.mail_username" autocomplete="off" class="input" />
-                </div>
-                <div class="space-y-1.5">
-                  <label class="text-xs font-semibold text-muted tracking-wide">{{ t('settings.mail_password') }}</label>
-                  <input
-                    v-model="form.mail_password"
-                    type="password"
-                    autocomplete="new-password"
-                    :placeholder="mailPasswordSet ? t('settings.mail_password_keep') : ''"
-                    class="input"
-                  />
-                </div>
-              </div>
+          <div class="grid grid-cols-1 md:grid-cols-[240px_minmax(0,1fr)] gap-x-8 gap-y-3 py-5 border-t border-line">
+            <div class="md:pr-4">
+              <label class="block text-sm font-semibold text-fg">{{ t('settings.report_recipient_email') }}</label>
+              <p class="text-sm text-muted mt-0.5">{{ t('settings.report_recipient_email_hint') }}</p>
+            </div>
+            <div><input v-model="form.report_recipient_email" type="email" placeholder="reports@example.com" class="input max-w-md" /></div>
+          </div>
 
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div class="space-y-1.5">
-                  <label class="text-xs font-semibold text-muted tracking-wide">{{ t('settings.mail_from_address') }}</label>
-                  <input v-model="form.mail_from_address" type="email" class="input" />
-                </div>
-                <div class="space-y-1.5">
-                  <label class="text-xs font-semibold text-muted tracking-wide">{{ t('settings.mail_from_name') }}</label>
-                  <input v-model="form.mail_from_name" class="input" />
-                </div>
-              </div>
-
-              <div class="rounded-xl bg-surface-2 border border-line p-4 space-y-2">
-                <label class="text-xs font-semibold text-muted tracking-wide">{{ t('settings.mail_test') }}</label>
-                <div class="flex flex-wrap gap-2">
-                  <input v-model="testEmail" type="email" :placeholder="t('settings.mail_test_placeholder')" class="input flex-1 min-w-[180px]" />
-                  <button
-                    type="button"
-                    @click="sendTestEmail"
-                    :disabled="sendingTest || !testEmail"
-                    class="btn-ghost flex-shrink-0 disabled:opacity-50"
-                  >
-                    {{ sendingTest ? t('settings.mail_test_sending') : t('settings.mail_test_send') }}
-                  </button>
-                </div>
-                <p class="text-xs text-faint">{{ t('settings.mail_test_hint') }}</p>
+          <!-- Derived from the last send + the interval above, so an admin can
+               see when the next scheduled report actually goes out. -->
+          <div class="grid grid-cols-1 md:grid-cols-[240px_minmax(0,1fr)] gap-x-8 gap-y-3 py-5 border-t border-line">
+            <div class="md:pr-4">
+              <label class="block text-sm font-semibold text-fg">{{ t('settings.next_report_due') }}</label>
+            </div>
+            <div>
+              <div class="rounded-xl bg-surface-2 border border-line px-3.5 py-2.5 text-sm text-muted max-w-md">
+                {{ nextReportDue || t('settings.next_report_due_none') }}
               </div>
             </div>
           </div>
-        </div>
 
-        <!-- One Save for every card above — they post as a single request. -->
-        <div class="card p-4 flex flex-wrap items-center gap-3">
-          <button type="submit" class="btn-primary">{{ t('settings.save') }}</button>
-          <p class="text-xs text-faint">{{ t('settings.save_hint') }}</p>
+          <div class="grid grid-cols-1 md:grid-cols-[240px_minmax(0,1fr)] gap-x-8 gap-y-3 py-5 border-t border-line">
+            <div class="md:pr-4">
+              <label class="block text-sm font-semibold text-fg">{{ t('settings.staff_role') }}</label>
+              <p class="text-sm text-muted mt-0.5">{{ t('settings.include_staff_in_reports_hint') }}</p>
+            </div>
+            <div>
+              <label class="flex items-start gap-2.5 text-sm text-muted select-none cursor-pointer">
+                <input type="checkbox" v-model="form.include_staff_in_reports" class="mt-0.5 rounded border-line text-brand focus:ring-brand/30" />
+                <span>{{ t('settings.include_staff_in_reports') }}</span>
+              </label>
+            </div>
+          </div>
+        </template>
+
+        <!-- ── Outgoing email ──────────────────────────────────────── -->
+        <template v-if="activeTab === 'mail'">
+          <div class="mb-6">
+            <h2 class="text-base font-semibold text-fg">{{ t('settings.mail_title') }}</h2>
+            <p class="text-sm text-muted mt-0.5">{{ t('settings.mail_subtitle') }}</p>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-[240px_minmax(0,1fr)] gap-x-8 gap-y-3 py-5 border-t border-line">
+            <div class="md:pr-4">
+              <label class="block text-sm font-semibold text-fg">{{ t('settings.mail_mailer') }}</label>
+              <p class="text-sm text-muted mt-0.5">{{ t('settings.mail_mailer_desc') }}</p>
+            </div>
+            <div>
+              <select v-model="form.mail_mailer" class="select w-60">
+                <option value="smtp">SMTP</option>
+                <option value="log">{{ t('settings.mail_mailer_log') }}</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-[240px_minmax(0,1fr)] gap-x-8 gap-y-3 py-5 border-t border-line">
+            <div class="md:pr-4">
+              <label class="block text-sm font-semibold text-fg">{{ t('settings.mail_server') }}</label>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-md">
+              <div class="sm:col-span-2 space-y-1.5">
+                <label class="text-xs font-semibold text-muted tracking-wide">{{ t('settings.mail_host') }}</label>
+                <input v-model="form.mail_host" placeholder="smtp.gmail.com" class="input" />
+              </div>
+              <div class="space-y-1.5">
+                <label class="text-xs font-semibold text-muted tracking-wide">{{ t('settings.mail_port') }}</label>
+                <input v-model.number="form.mail_port" type="number" min="1" max="65535" class="input" />
+              </div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-[240px_minmax(0,1fr)] gap-x-8 gap-y-3 py-5 border-t border-line">
+            <div class="md:pr-4">
+              <label class="block text-sm font-semibold text-fg">{{ t('settings.mail_encryption') }}</label>
+            </div>
+            <div>
+              <select v-model="form.mail_encryption" class="select w-60">
+                <option value="tls">TLS</option>
+                <option value="ssl">SSL</option>
+                <option value="none">{{ t('settings.mail_encryption_none') }}</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-[240px_minmax(0,1fr)] gap-x-8 gap-y-3 py-5 border-t border-line">
+            <div class="md:pr-4">
+              <label class="block text-sm font-semibold text-fg">{{ t('settings.mail_credentials') }}</label>
+              <p class="text-sm text-muted mt-0.5">{{ t('settings.mail_credentials_desc') }}</p>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-md">
+              <div class="space-y-1.5">
+                <label class="text-xs font-semibold text-muted tracking-wide">{{ t('settings.mail_username') }}</label>
+                <input v-model="form.mail_username" autocomplete="off" class="input" />
+              </div>
+              <div class="space-y-1.5">
+                <label class="text-xs font-semibold text-muted tracking-wide">{{ t('settings.mail_password') }}</label>
+                <input
+                  v-model="form.mail_password"
+                  type="password"
+                  autocomplete="new-password"
+                  :placeholder="mailPasswordSet ? t('settings.mail_password_keep') : ''"
+                  class="input"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-[240px_minmax(0,1fr)] gap-x-8 gap-y-3 py-5 border-t border-line">
+            <div class="md:pr-4">
+              <label class="block text-sm font-semibold text-fg">{{ t('settings.mail_from') }}</label>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-md">
+              <div class="space-y-1.5">
+                <label class="text-xs font-semibold text-muted tracking-wide">{{ t('settings.mail_from_address') }}</label>
+                <input v-model="form.mail_from_address" type="email" class="input" />
+              </div>
+              <div class="space-y-1.5">
+                <label class="text-xs font-semibold text-muted tracking-wide">{{ t('settings.mail_from_name') }}</label>
+                <input v-model="form.mail_from_name" class="input" />
+              </div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-[240px_minmax(0,1fr)] gap-x-8 gap-y-3 py-5 border-t border-line">
+            <div class="md:pr-4">
+              <label class="block text-sm font-semibold text-fg">{{ t('settings.mail_test') }}</label>
+              <p class="text-sm text-muted mt-0.5">{{ t('settings.mail_test_hint') }}</p>
+            </div>
+            <div class="flex flex-wrap gap-2 max-w-md">
+              <input v-model="testEmail" type="email" :placeholder="t('settings.mail_test_placeholder')" class="input flex-1 min-w-[180px]" />
+              <button
+                type="button"
+                @click="sendTestEmail"
+                :disabled="sendingTest || !testEmail"
+                class="btn-ghost w-full sm:w-auto sm:flex-shrink-0 disabled:opacity-50"
+              >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" /></svg>
+                {{ sendingTest ? t('settings.mail_test_sending') : t('settings.mail_test_send') }}
+              </button>
+            </div>
+          </div>
+        </template>
+
+        <!-- One Save for every tab above — they post as a single request. -->
+        <!-- Below sm the two buttons stack full width with Save on top, so the
+             main action is the one under your thumb. -->
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-3 border-t border-line pt-4 mt-4">
+          <p class="text-xs text-faint sm:mr-auto">{{ t('settings.save_hint') }}</p>
+          <div class="flex flex-col-reverse sm:flex-row sm:items-center gap-3 w-full sm:w-auto">
+            <button type="button" @click="discardChanges" class="btn-ghost w-full sm:w-auto">{{ t('common.cancel') }}</button>
+            <button type="submit" class="btn-primary w-full sm:w-auto">{{ t('settings.save') }}</button>
+          </div>
         </div>
       </form>
 
-      <!-- Full width, not half: the backups table carries a filename, size,
-           date and three actions, and at half width the actions get pushed out
-           of view behind a horizontal scroll. -->
-      <div class="card p-6 space-y-4">
-        <div class="flex flex-wrap items-center justify-between gap-3">
+      <!-- ── Backup ────────────────────────────────────────────────
+           Outside the <form> on purpose: these buttons act immediately, and a
+           button inside a form submits it by default. -->
+      <div v-if="activeTab === 'backup'">
+        <div class="flex flex-wrap items-start justify-between gap-3 mb-6">
           <div>
-            <h2 class="font-bold text-fg">{{ t('settings.backup_title') }}</h2>
-            <p class="text-muted text-sm mt-0.5">{{ t('settings.backup_subtitle') }}</p>
+            <h2 class="text-base font-semibold text-fg">{{ t('settings.backup_title') }}</h2>
+            <p class="text-sm text-muted mt-0.5">{{ t('settings.backup_subtitle') }}</p>
           </div>
-          <button @click="createBackup" :disabled="backingUp" class="btn-primary btn-sm flex-shrink-0">
+          <button type="button" @click="createBackup" :disabled="backingUp" class="btn-primary btn-sm flex-shrink-0 disabled:opacity-60">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" /><polyline points="17 21 17 13 7 13 7 21" /><polyline points="7 3 7 8 15 8" /></svg>
             {{ backingUp ? t('settings.backing_up') : t('settings.create_backup') }}
           </button>
         </div>
 
-        <p v-if="databaseDriver" class="text-xs text-faint">
-          {{ t('settings.backup_engine', { engine: databaseDriver === 'sqlite' ? 'SQLite (.sqlite)' : 'MySQL (.sql)' }) }}
-        </p>
+        <div v-if="databaseDriver" class="grid grid-cols-1 md:grid-cols-[240px_minmax(0,1fr)] gap-x-8 gap-y-3 py-5 border-t border-line">
+          <div class="md:pr-4">
+            <label class="block text-sm font-semibold text-fg">{{ t('settings.backup_format') }}</label>
+          </div>
+          <div class="text-sm text-muted">
+            {{ t('settings.backup_engine', { engine: databaseDriver === 'sqlite' ? 'SQLite (.sqlite)' : 'MySQL (.sql)' }) }}
+          </div>
+        </div>
 
         <!-- Restoring a dump this server did not make is only possible if it can
              be uploaded first. -->
-        <div class="rounded-xl bg-surface-2 border border-line p-4 space-y-2">
-          <label class="text-xs font-semibold text-muted tracking-wide">{{ t('settings.upload_backup') }}</label>
+        <div class="grid grid-cols-1 md:grid-cols-[240px_minmax(0,1fr)] gap-x-8 gap-y-3 py-5 border-t border-line">
+          <div class="md:pr-4">
+            <label class="block text-sm font-semibold text-fg">{{ t('settings.upload_backup') }}</label>
+            <p class="text-sm text-muted mt-0.5">{{ t('settings.upload_backup_hint') }}</p>
+          </div>
           <div class="flex flex-wrap items-center gap-2">
             <input
               ref="uploadInput"
@@ -562,59 +717,84 @@ onMounted(() => {
               class="flex-1 min-w-[240px] sm:max-w-sm block text-sm text-muted file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-brand file:text-white hover:file:bg-brand-dark file:cursor-pointer"
             />
             <button type="button" @click="submitUpload" :disabled="!uploadFile || uploading" class="btn-primary btn-sm flex-shrink-0 disabled:opacity-50">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>
               {{ uploading ? t('settings.uploading') : t('settings.upload') }}
             </button>
             <button v-if="uploadFile" type="button" @click="clearUploadSelection" class="btn-ghost btn-sm flex-shrink-0">
               {{ t('common.cancel') }}
             </button>
           </div>
-          <p class="text-xs text-faint">{{ t('settings.upload_backup_hint') }}</p>
         </div>
 
-        <!-- overflow-x-auto is load-bearing: this row cannot shrink (mono
-             filename plus three whitespace-nowrap cells), so without it the
-             Restore and Delete buttons are clipped off-screen and
-             unreachable on a phone rather than scrolled to.
-             Plain border/rounded-xl rather than .table-wrap: that class adds
-             its own shadow and a rounded-2xl radius, which reads as a second
-             card floating inside this one and doesn't match the radius of
-             the upload panel directly above it. -->
-        <div v-if="backups.length" class="border border-line rounded-xl overflow-x-auto">
-          <table class="data-table">
-            <thead>
-              <tr><th>{{ t('settings.file') }}</th><th>{{ t('settings.size') }}</th><th>{{ t('settings.created') }}</th><th></th></tr>
-            </thead>
-            <tbody>
-              <tr v-for="b in backups" :key="b.name">
-                <!-- nowrap on the filename and size: both are short, unbreakable
-                     values, and letting them wrap split "69 KB" over two lines
-                     and broke filenames mid-token once the column got tight. -->
-                <td class="font-mono text-xs whitespace-nowrap">
-                  {{ b.name }}
-                  <!-- Say up front that this file cannot load into the running
-                       engine, instead of only failing after Restore is clicked. -->
-                  <span v-if="b.restorable === false" class="badge badge-warning ml-1.5">{{ t('settings.wrong_format') }}</span>
-                </td>
-                <td class="whitespace-nowrap">{{ formatSize(b.size) }}</td>
-                <td class="whitespace-nowrap">{{ b.date }}</td>
-                <td class="text-right pr-5 space-x-1.5 whitespace-nowrap">
-                  <button @click="downloadBackup(b.name)" class="btn-ghost btn-sm">{{ t('settings.download') }}</button>
-                  <button
-                    @click="pendingRestore = b.name"
-                    :disabled="b.restorable === false"
-                    :title="b.restorable === false ? t('settings.wrong_format_hint') : ''"
-                    class="btn-ghost btn-sm disabled:opacity-40 disabled:cursor-not-allowed"
-                  >{{ t('settings.restore') }}</button>
-                  <!-- .btn-danger is the app-wide destructive button (every other
-                       page's Delete uses it); btn-ghost + text-red also lost the
-                       red on hover, since .btn-ghost sets hover:text-fg. -->
-                  <button @click="pendingDelete = b.name" class="btn-danger btn-sm">{{ t('settings.delete') }}</button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+        <!-- The saved-files list spans the full width rather than sitting in the
+             control column: the row carries a filename, size, date and three
+             actions, which a 1fr column cannot hold without scrolling. -->
+        <div class="py-6 border-t border-line">
+          <h3 class="text-sm font-semibold text-fg mb-3">{{ t('settings.saved_backups') }}</h3>
+
+          <!-- overflow-x-auto is load-bearing: this row cannot shrink (mono
+               filename plus three whitespace-nowrap cells), so without it the
+               Restore and Delete buttons are clipped off-screen and
+               unreachable on a phone rather than scrolled to. -->
+          <div v-if="backups.length" class="border border-line rounded-xl overflow-x-auto">
+            <table class="data-table">
+              <thead>
+                <tr><th>{{ t('settings.file') }}</th><th>{{ t('settings.size') }}</th><th>{{ t('settings.created') }}</th><th></th></tr>
+              </thead>
+              <tbody>
+                <tr v-for="b in backups" :key="b.name">
+                  <!-- nowrap on the filename and size: both are short, unbreakable
+                       values, and letting them wrap split "69 KB" over two lines
+                       and broke filenames mid-token once the column got tight. -->
+                  <td class="font-mono text-xs whitespace-nowrap">
+                    {{ b.name }}
+                    <!-- Say up front that this file cannot load into the running
+                         engine, instead of only failing after Restore is clicked. -->
+                    <span v-if="b.restorable === false" class="badge badge-warning ml-1.5">{{ t('settings.wrong_format') }}</span>
+                  </td>
+                  <td class="whitespace-nowrap">{{ formatSize(b.size) }}</td>
+                  <td class="whitespace-nowrap">{{ b.date }}</td>
+                  <!-- Row actions match every other table in the app: square
+                       icon buttons, destructive one in the danger variant. The
+                       label moves to the tooltip/aria-label. -->
+                  <td class="text-right pr-5 whitespace-nowrap">
+                    <div class="flex items-center justify-end gap-1.5">
+                      <button
+                        type="button"
+                        @click="downloadBackup(b.name)"
+                        :title="t('settings.download')"
+                        :aria-label="t('settings.download')"
+                        class="btn-icon"
+                      >
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
+                      </button>
+                      <button
+                        type="button"
+                        @click="pendingRestore = b.name"
+                        :disabled="b.restorable === false"
+                        :title="b.restorable === false ? t('settings.wrong_format_hint') : t('settings.restore')"
+                        :aria-label="t('settings.restore')"
+                        class="btn-icon"
+                      >
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10" /><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" /></svg>
+                      </button>
+                      <button
+                        type="button"
+                        @click="pendingDelete = b.name"
+                        :title="t('settings.delete')"
+                        :aria-label="t('settings.delete')"
+                        class="btn-icon-danger"
+                      >
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /></svg>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p v-else class="text-sm text-faint">{{ t('settings.no_backups') }}</p>
         </div>
-        <p v-else class="text-sm text-faint">{{ t('settings.no_backups') }}</p>
       </div>
     </div>
 

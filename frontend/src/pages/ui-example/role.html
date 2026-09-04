@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Permissions Management</title>
+  <style>
+    :root {
+      --primary-blue: #0061FF;
+      --bg-page: #FAF9FB;
+      --bg-card: #FFFFFF;
+      --bg-sidebar: #FFFFFF;
+      --bg-selected: #F3F6FF;
+      --border-color: #EAECF0;
+      --text-main: #101828;
+      --text-muted: #667085;
+      --text-subtle: #98A2B3;
+      --danger-text: #D92D20;
+      --radius-sm: 6px;
+      --radius-md: 12px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-page);
+      color: var(--text-main);
+      padding: 32px 24px;
+      display: flex;
+      justify-content: center;
+    }
+
+    .dashboard-container {
+      width: 100%;
+      max-width: 1100px;
+    }
+
+    /* Top Title Header */
+    .header-section {
+      margin-bottom: 20px;
+    }
+
+    .header-section h1 {
+      font-size: 20px;
+      font-weight: 700;
+      color: #111827;
+    }
+
+    .header-section p {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    /* Main Grid Layout */
+    .content-grid {
+      display: grid;
+      grid-template-columns: 260px 1fr;
+      gap: 20px;
+      align-items: start;
+    }
+
+    /* Sidebar - Agent List */
+    .sidebar {
+      background: var(--bg-sidebar);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 12px;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+    }
+
+    .search-input {
+      width: 100%;
+      padding: 8px 12px 8px 30px;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      color: var(--text-main);
+      outline: none;
+      background: #F9FAFB url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="%2098A2B3" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>') no-repeat 10px center;
+      margin-bottom: 12px;
+    }
+
+    .agent-list {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      max-height: 520px;
+      overflow-y: auto;
+    }
+
+    .agent-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-main);
+    }
+
+    .agent-item:hover {
+      background-color: #F9FAFB;
+    }
+
+    .agent-item.active {
+      background-color: var(--bg-selected);
+    }
+
+    .avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      object-fit: cover;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      font-size: 9px;
+      font-weight: 700;
+      color: white;
+      margin-left: 2px;
+    }
+
+    .badge-green { background-color: #12B76A; }
+    .badge-blue { background-color: #2E90FA; }
+    .badge-red { background-color: #F04438; }
+    .badge-gray { background-color: #98A2B3; }
+
+    /* Main Panel */
+    .main-panel {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+    }
+
+    /* User Header Area */
+    .user-profile-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .user-info-group {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .user-avatar-large {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      object-fit: cover;
+    }
+
+    .user-details h2 {
+      font-size: 16px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .user-meta {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .user-meta a {
+      color: var(--primary-blue);
+      text-decoration: none;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 10px;
+    }
+
+    .btn-restore {
+      background: transparent;
+      border: 1px solid #FECDCA;
+      color: var(--danger-text);
+      padding: 6px 12px;
+      border-radius: var(--radius-sm);
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+
+    .btn-view-profile {
+      background: transparent;
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      padding: 6px 12px;
+      border-radius: var(--radius-sm);
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+
+    /* Matrix Table Layout */
+    .matrix-container {
+      padding: 24px;
+    }
+
+    .matrix-section {
+      margin-bottom: 28px;
+    }
+
+    .matrix-row {
+      display: grid;
+      grid-template-columns: 220px repeat(5, 1fr);
+      align-items: center;
+      padding: 12px 0;
+      border-bottom: 1px solid #F2F4F7;
+    }
+
+    .matrix-header {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-subtle);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 8px;
+    }
+
+    .category-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .feature-name {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-main);
+    }
+
+    .feature-icon {
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
+    /* Custom Checkbox Control */
+    .checkbox-cell {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .checkbox-cell.active {
+      color: var(--text-main);
+      font-weight: 500;
+    }
+
+    .checkbox-cell.disabled {
+      color: var(--text-subtle);
+    }
+
+    .custom-cb {
+      width: 16px;
+      height: 16px;
+      border-radius: 4px;
+      border: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: #FFF;
+    }
+
+    .checkbox-cell.active .custom-cb {
+      background-color: var(--primary-blue);
+      border-color: var(--primary-blue);
+    }
+
+    .custom-cb::after {
+      content: '';
+      width: 3px;
+      height: 7px;
+      border: solid white;
+      border-width: 0 1.5px 1.5px 0;
+      transform: rotate(45deg);
+      display: none;
+      margin-bottom: 1px;
+    }
+
+    .checkbox-cell.active .custom-cb::after {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="dashboard-container">
+    <div class="header-section">
+      <h1>Permissions</h1>
+      <p>Responded 2 discussion in 1 Property</p>
+    </div>
+
+    <div class="content-grid">
+      
+      <div class="sidebar">
+        <input type="text" class="search-input" placeholder="Search Agents or Teams...">
+        
+        <div class="agent-list">
+          <div class="agent-item active">
+            <img src="https://i.pravatar.cc/100?img=12" class="avatar" alt="Arlo">
+            <span>Arlo Kingston</span>
+            <span class="badge badge-green">S</span>
+            <span class="badge badge-blue">B</span>
+          </div>
+
+          <div class="agent-item">
+            <img src="https://i.pravatar.cc/100?img=5" class="avatar" alt="Sienna">
+            <span>Sienna Brooks</span>
+            <span class="badge badge-green">S</span>
+          </div>
+
+          <div class="agent-item">
+            <img src="https://i.pravatar.cc/100?img=9" class="avatar" alt="Tessa">
+            <span>Tessa Mikky Hawke</span>
+            <span class="badge badge-blue">B</span>
+          </div>
+
+          <div class="agent-item">
+            <img src="https://i.pravatar.cc/100?img=1" class="avatar" alt="Levi">
+            <span>Levi Monroe</span>
+            <span class="badge badge-blue">B</span>
+          </div>
+
+          <div class="agent-item">
+            <img src="https://i.pravatar.cc/100?img=11" class="avatar" alt="Dalton">
+            <span>Dalton Rivers</span>
+            <span class="badge badge-red">A</span>
+          </div>
+
+          <div class="agent-item">
+            <img src="https://i.pravatar.cc/100?img=16" class="avatar" alt="Isla">
+            <span>Isla Montgomery</span>
+            <span class="badge badge-green">S</span>
+          </div>
+
+          <div class="agent-item">
+            <img src="https://i.pravatar.cc/100?img=13" class="avatar" alt="Finn">
+            <span>Finn Harper</span>
+            <span class="badge badge-gray">L</span>
+          </div>
+
+          <div class="agent-item">
+            <img src="https://i.pravatar.cc/100?img=68" class="avatar" alt="Kaelor">
+            <span>Kaelor Duskbane</span>
+            <span class="badge badge-green">S</span>
+            <span class="badge badge-blue">B</span>
+          </div>
+
+          <div class="agent-item">
+            <img src="https://i.pravatar.cc/100?img=23" class="avatar" alt="Sylvara">
+            <span>Sylvara Moonshadow</span>
+            <span class="badge badge-gray">L</span>
+          </div>
+
+          <div class="agent-item">
+            <img src="https://i.pravatar.cc/100?img=33" class="avatar" alt="Elowen">
+            <span>Elowen Starfire</span>
+            <span class="badge badge-blue">B</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="main-panel">
+        
+        <div class="user-profile-header">
+          <div class="user-info-group">
+            <img src="https://i.pravatar.cc/100?img=12" class="user-avatar-large" alt="Arlo Kingston">
+            <div class="user-details">
+              <h2>
+                Arlo Kingston 
+                <span class="badge badge-green">S</span>
+                <span class="badge badge-blue">B</span>
+              </h2>
+              <div class="user-meta">Sales Manager • <a href="#">Tickmark Inc.</a></div>
+            </div>
+          </div>
+          <div class="header-actions">
+            <button type="button" class="btn-restore">Restore role defaults</button>
+            <button type="button" class="btn-view-profile">View profile</button>
+          </div>
+        </div>
+
+        <div class="matrix-container">
+          
+          <div class="matrix-section">
+            <div class="matrix-row matrix-header">
+              <span class="category-title">Leads Management</span>
+              <span>VIEW</span>
+              <span>SHARE</span>
+              <span>CREATE</span>
+              <span>EDIT</span>
+              <span>DELETE</span>
+            </div>
+
+            <div class="matrix-row">
+              <span class="feature-name"><span class="feature-icon">👤+</span> New Leads</span>
+              <label class="checkbox-cell active"><div class="custom-cb"></div> Yes</label>
+              <label class="checkbox-cell active"><div class="custom-cb"></div> Yes</label>
+              <label class="checkbox-cell active"><div class="custom-cb"></div> Yes</label>
+              <label class="checkbox-cell active"><div class="custom-cb"></div> Yes</label>
+              <label class="checkbox-cell active"><div class="custom-cb"></div> Yes</label>
+            </div>
+
+            <div class="matrix-row">
+              <span class="feature-name"><span class="feature-icon">📥</span> Requests</span>
+              <label class="checkbox-cell disabled"><div class="custom-cb"></div> No</label>
+              <label class="checkbox-cell disabled"><div class="custom-cb"></div> No</label>
+              <label class="checkbox-cell disabled"><div class="custom-cb"></div> No</label>
+              <label class="checkbox-cell disabled"><div class="custom-cb"></div> No</label>
+              <label class="checkbox-cell disabled"><div class="custom-cb"></div> No</label>
+            </div>
+
+            <div class="matrix-row">
+              <span class="feature-name"><span class="feature-icon">✉️</span> Communication</span>
+              <label class="checkbox-cell active"><div class="custom-cb"></div> Yes</label>
+              <label class="checkbox-cell disabled"><div class="custom-cb"></div> No</label>
+              <label class="checkbox-cell disabled"><div class="custom-cb"></div> No</label>
+              <label class="checkbox-cell disabled"><div class="custom-cb"></div> No</label>
+              <label class="checkbox-cell disabled"><div class="custom-cb"></div> No</label>
+            </div>
+
+            <div class="matrix-row">
+              <span class="feature-name"><span class="feature-icon">💬</span> Comments</span>
+              <label class="checkbox-cell active"><div class="custom-cb"></div> Yes</label>
+              <label class="checkbox-cell active"><div class="custom-cb"></div> Yes</label>
+              <label class="checkbox-cell active"><div class="custom-cb"></div> Yes</label>
+              <label class="checkbox-cell active"><div class="custom-cb"></div> Yes</label>
+              <label class="checkbox-cell disabled"><div class="custom-cb"></div> No</label>
+            </div>
+
+            <div class="matrix-row">
+              <span class="feature-name"><span class="feature-icon">☑️</span> Scheduled Tasks</span>
+              <label class="checkbox-cell active"><div class="custom-cb"></div> Yes</label>
+              <label class="checkbox-cell active"><div class="custom-cb"></div> Yes</label>
+              <label class="checkbox-cell active"><div class="custom-cb"></div> Yes</label>
+              <label class="checkbox-cell active"><div class="custom-cb"></div> Yes</label>
+              <label class="checkbox-cell disabled"><div class="custom-cb"></div> No</label>
+            </div>
+          </div>
+
+          <div class="matrix-section">
+            <div class="matrix-row matrix-header">
+              <span class="category-title">Content Generation</span>
+              <span>VIEW</span>
+              <span>SHARE</span>
+              <span>CREATE</span>
+              <span>EDIT</span>
+              <span>DELETE</span>
+            </div>
+
+            <div class="matrix-row">
+              <span class="feature-name"><span class="feature-icon">📊</span> Reports & Analytics</span>
+              <label class="checkbox-cell active"><div class="custom-cb"></div> Yes</label>
+              <label class="checkbox-cell disabled"><div class="custom-cb"></div> No</label>
+              <label class="checkbox-cell disabled"><div class="custom-cb"></div> No</label>
+              <label class="checkbox-cell disabled"><div class="custom-cb"></div> No</label>
+              <label class="checkbox-cell disabled"><div class="custom-cb"></div> No</label>
+            </div>
+
+            <div class="matrix-row">
+              <span class="feature-name"><span class="feature-icon">📁</span> Templates</span>
+              <label class="checkbox-cell active"><div class="custom-cb"></div> Yes</label>
+              <label class="checkbox-cell disabled"><div class="custom-cb"></div> No</label>
+              <label class="checkbox-cell disabled"><div class="custom-cb"></div> No</label>
+              <label class="checkbox-cell disabled"><div class="custom-cb"></div> No</label>
+              <label class="checkbox-cell disabled"><div class="custom-cb"></div> No</label>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+</body>
+</html>

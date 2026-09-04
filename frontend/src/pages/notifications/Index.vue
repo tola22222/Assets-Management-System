@@ -63,7 +63,7 @@ onMounted(load)
             <p class="text-sm text-fg" :class="!n.is_read && 'font-semibold'">{{ n.message }}</p>
             <p class="text-xs text-faint mt-0.5">{{ new Date(n.created_at).toLocaleString() }}</p>
           </div>
-          <button v-if="!n.is_read" @click="markRead(n)" :title="t('common.mark_read')" class="w-7 h-7 rounded-lg bg-brand text-white flex items-center justify-center hover:bg-brand-dark transition flex-shrink-0">
+          <button v-if="!n.is_read" @click="markRead(n)" :title="t('common.mark_read')" class="btn-icon">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
           </button>
         </div>

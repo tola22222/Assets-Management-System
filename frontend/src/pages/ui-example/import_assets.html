@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Import Data File</title>
+  <style>
+    :root {
+      --primary: #2b2671;
+      --primary-hover: #1f1b54;
+      --secondary-btn: #a3b8cd;
+      --secondary-btn-hover: #8da6bd;
+      --text-main: #182230;
+      --text-label: #667085;
+      --text-placeholder: #98a2b3;
+      --border-color: #d0d5dd;
+      --bg-dropzone: #fcfcfd;
+      --bg-page: #ffffff;
+      --success-green: #12b76a;
+      --radius-sm: 6px;
+      --radius-md: 8px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-page);
+      color: var(--text-main);
+      padding: 40px 24px;
+      display: flex;
+      justify-content: center;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 900px;
+    }
+
+    /* Page Title */
+    h1 {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--primary);
+      margin-bottom: 24px;
+    }
+
+    /* Stepper Navigation */
+    .stepper {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 20px;
+      border: 1px solid #eaecf0;
+      border-radius: 30px;
+      margin-bottom: 32px;
+      background-color: #ffffff;
+      box-shadow: 0px 1px 2px rgba(16, 24, 40, 0.05);
+    }
+
+    .step {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-placeholder);
+    }
+
+    .step.completed {
+      color: var(--success-green);
+    }
+
+    .step.active {
+      color: var(--primary);
+    }
+
+    .step-icon {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+    }
+
+    .step.completed .step-icon {
+      background-color: var(--success-green);
+      color: white;
+    }
+
+    .step.active .step-icon {
+      background-color: var(--primary);
+      color: white;
+    }
+
+    .step.pending .step-icon {
+      border: 1.5px solid var(--border-color);
+    }
+
+    /* Form Layout */
+    .form-container {
+      max-width: 480px;
+      margin: 0 auto;
+    }
+
+    /* Drag & Drop Area */
+    .dropzone {
+      border: 1.5px dashed var(--border-color);
+      border-radius: var(--radius-md);
+      background-color: var(--bg-dropzone);
+      padding: 24px;
+      text-align: center;
+      margin-bottom: 28px;
+    }
+
+    .dropzone-text {
+      font-size: 12px;
+      color: var(--text-placeholder);
+      font-style: italic;
+      margin-bottom: 12px;
+    }
+
+    .btn-import-upload {
+      background-color: var(--primary);
+      color: white;
+      border: none;
+      padding: 8px 18px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn-import-upload:hover {
+      background-color: var(--primary-hover);
+    }
+
+    /* Input Groups */
+    .form-group {
+      margin-bottom: 18px;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-label);
+      margin-bottom: 6px;
+    }
+
+    .input-wrapper {
+      position: relative;
+    }
+
+    .form-control {
+      width: 100%;
+      height: 40px;
+      padding: 8px 36px 8px 12px;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      color: var(--text-main);
+      background-color: #ffffff;
+      outline: none;
+      appearance: none;
+    }
+
+    .form-control:focus {
+      border-color: var(--primary);
+    }
+
+    .input-icons {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--text-placeholder);
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    /* Choose File Button */
+    .btn-choose-file {
+      background-color: var(--secondary-btn);
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn-choose-file:hover {
+      background-color: var(--secondary-btn-hover);
+    }
+
+    /* Small Input Width */
+    .input-small {
+      width: 200px;
+    }
+
+    /* Checkboxes */
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    .checkbox-group input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      accent-color: var(--primary);
+      border-radius: 4px;
+      border: 1px solid var(--border-color);
+      cursor: pointer;
+    }
+
+    .checkbox-group label {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--primary);
+      cursor: pointer;
+    }
+
+    /* Bottom Actions Bar */
+    .action-bar {
+      margin-top: 36px;
+      padding-top: 20px;
+      border-top: 1px solid #eaecf0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .btn-save-stage {
+      background: none;
+      border: none;
+      color: var(--primary);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .nav-buttons {
+      display: flex;
+      gap: 12px;
+    }
+
+    .btn-back {
+      background-color: #d0d7e2;
+      color: var(--primary);
+      border: none;
+      padding: 10px 24px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .btn-next {
+      background-color: var(--primary);
+      color: white;
+      border: none;
+      padding: 10px 24px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .btn-next:hover {
+      background-color: var(--primary-hover);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <h1>Import Data File</h1>
+
+    <div class="stepper">
+      <div class="step completed">
+        <span class="step-icon">✓</span>
+        <span>Customer</span>
+      </div>
+      <div class="step active">
+        <span class="step-icon">✓</span>
+        <span>Import</span>
+      </div>
+      <div class="step pending">
+        <span class="step-icon"></span>
+        <span>Mapping</span>
+      </div>
+      <div class="step pending">
+        <span class="step-icon"></span>
+        <span>Margins</span>
+      </div>
+      <div class="step pending">
+        <span class="step-icon"></span>
+        <span>Discounts</span>
+      </div>
+      <div class="step pending">
+        <span class="step-icon"></span>
+        <span>Preview</span>
+      </div>
+      <div class="step pending">
+        <span class="step-icon"></span>
+        <span>Complete</span>
+      </div>
+    </div>
+
+    <div class="form-container">
+      
+      <div class="dropzone">
+        <div class="dropzone-text">Drag and Drop to upload data file (*.xml) or<br>import file from your computer</div>
+        <button type="button" class="btn-import-upload">
+          <span>↓</span> Import
+        </button>
+      </div>
+
+      <form>
+        <div class="form-group">
+          <label class="form-label">Company name</label>
+          <div class="input-wrapper">
+            <input type="text" class="form-control" value="Support Warehouse LTD">
+            <div class="input-icons">
+              <span>✕</span>
+              <span>∨</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Vendor name</label>
+          <div class="input-wrapper">
+            <input type="text" class="form-control" value="Hewlett Packard Enterprise">
+            <div class="input-icons">
+              <span>✕</span>
+              <span>∨</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Template</label>
+          <div class="input-wrapper">
+            <input type="text" class="form-control" value="SWH - HPE - GB - English (Up Front)">
+            <div class="input-icons">
+              <span>✕</span>
+              <span>∨</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Distributor file</label>
+          <div>
+            <button type="button" class="btn-choose-file">
+              <span>↑</span> Choose file
+            </button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Total Buy price (£)</label>
+          <input type="text" class="form-control input-small" value="0">
+        </div>
+
+        <div class="checkbox-group">
+          <input type="checkbox" id="payment-schedule">
+          <label for="payment-schedule">Add payment schedule</label>
+        </div>
+
+        <div class="checkbox-group">
+          <input type="checkbox" id="calculate-price">
+          <label for="calculate-price">Calculate List Price</label>
+        </div>
+
+        <div class="action-bar">
+          <button type="button" class="btn-save-stage">
+            <span>💾</span> Save stage
+          </button>
+          
+          <div class="nav-buttons">
+            <button type="button" class="btn-back">&lt; Back</button>
+            <button type="button" class="btn-next">Next &gt;</button>
+          </div>
+        </div>
+      </form>
+
+    </div>
+  </div>
+
+</body>
+</html>

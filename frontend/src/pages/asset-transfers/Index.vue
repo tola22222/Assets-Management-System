@@ -12,6 +12,8 @@ import { useTableSearch } from '../../composables/useTableSearch'
 import { useTableSort } from '../../composables/useTableSort'
 import { useToastStore } from '../../stores/toast'
 import { useAuthStore } from '../../stores/auth'
+import TablePagination from '../../components/ui/TablePagination.vue'
+import { usePagination } from '../../composables/usePagination'
 
 const { t } = useI18n()
 const { items: transfers, loading, fetchAll } = useApiCrud('/asset-transfers', { entityName: t('asset_transfers.entity') })
@@ -83,6 +85,10 @@ onMounted(() => {
   fetchAll()
   loadOptions()
 })
+
+// Pagination is the last step, applied to the finished list, so search
+// and sort still consider every row rather than just the page on screen.
+const { page, rowsPerPage, total, paged } = usePagination(sortedTransfers)
 </script>
 
 <template>
@@ -119,7 +125,7 @@ onMounted(() => {
               </tr>
             </thead>
             <tbody>
-              <tr v-for="t2 in sortedTransfers" :key="t2.id">
+              <tr v-for="t2 in paged" :key="t2.id">
                 <td class="font-medium text-fg">{{ t2.asset?.name || t('common.n_a') }}</td>
                 <td>{{ t2.from_location?.name || t('common.n_a') }}</td>
                 <td>{{ t2.to_location?.name || t('common.n_a') }}</td>
@@ -128,10 +134,10 @@ onMounted(() => {
                 <td class="text-right whitespace-nowrap">
                   <template v-if="t2.status === 'pending' && auth.user?.role === 'operations_hr_manager' && t2.requester?.id !== auth.user?.id">
                     <div class="flex items-center justify-end gap-1.5">
-                      <button @click="approve(t2.id)" :title="t('common.approve')" class="w-7 h-7 rounded-lg bg-brand text-white flex items-center justify-center hover:bg-brand-dark transition">
+                      <button @click="approve(t2.id)" :title="t('common.approve')" class="btn-icon">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                       </button>
-                      <button @click="reject(t2.id)" :title="t('common.reject')" class="w-7 h-7 rounded-lg bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition">
+                      <button @click="reject(t2.id)" :title="t('common.reject')" class="btn-icon-danger">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                       </button>
                     </div>
@@ -144,6 +150,7 @@ onMounted(() => {
             </tbody>
           </table>
         </div>
+        <TablePagination v-model:page="page" v-model:rows-per-page="rowsPerPage" :count="total" />
       </div>
     </div>
 

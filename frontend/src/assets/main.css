@@ -261,7 +261,7 @@
 
   /* Data table */
   .table-wrap {
-    @apply bg-surface border border-line rounded-2xl shadow-[var(--shadow-card)] overflow-hidden;
+    @apply bg-surface border border-line rounded-xl shadow-[var(--shadow-card)] overflow-hidden;
   }
   /* Search/filter toolbar living inside the table card, above the header row */
   .table-toolbar {
@@ -270,12 +270,16 @@
   .data-table {
     @apply w-full text-left text-sm;
   }
+  /* Header: a tinted strip with a firm rule under it. Sentence case rather
+     than uppercase — long column names stay readable at 12px. */
   .data-table thead tr {
-    @apply text-faint bg-surface-2 border-b border-line;
+    @apply text-muted bg-surface-2 border-b border-line;
   }
   .data-table thead th {
-    @apply px-4 py-3 font-semibold text-xs uppercase tracking-wider first:pl-5 last:pr-5;
+    @apply px-4 py-3 font-semibold text-xs first:pl-5 last:pr-5 whitespace-nowrap;
   }
+  /* Rows are divided by a lighter rule than the header's, so the head reads as
+     the strong edge and the body as a quiet list. */
   .data-table tbody tr {
     @apply border-b border-line/70 last:border-0 transition-colors hover:bg-surface-2/60;
   }
@@ -288,8 +292,26 @@
     @apply bg-surface-2 border border-line rounded-xl px-3 py-2 text-sm text-fg
            focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/15 transition;
   }
+  /* Cell text sits at 13px in the main foreground colour — the reference puts
+     row content one step darker than the header, not greyed out. */
   .data-table tbody td {
-    @apply px-4 py-3.5 text-muted first:pl-5 last:pr-5;
+    @apply px-4 py-3 text-[13px] text-fg align-middle first:pl-5 last:pr-5;
+  }
+
+  /* Square icon button for table row actions: outlined and neutral at rest,
+     picking up the brand (or red, for destructive) on hover. */
+  .btn-icon,
+  .btn-icon-danger {
+    @apply w-8 h-8 rounded-md border border-line bg-surface text-muted
+           inline-flex items-center justify-center flex-shrink-0 transition
+           focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/30
+           disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+  .btn-icon:hover:not(:disabled) {
+    @apply bg-surface-2 text-brand border-brand;
+  }
+  .btn-icon-danger:hover:not(:disabled) {
+    @apply bg-red-50 text-red-600 border-red-400 dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/50;
   }
 
   /* Overlay + modal */

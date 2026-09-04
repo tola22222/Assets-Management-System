@@ -11,6 +11,8 @@ import DonutChart from '../../components/ui/DonutChart.vue'
 import LocationPillCards from '../../components/ui/LocationPillCards.vue'
 import { useToastStore } from '../../stores/toast'
 import { useAuthStore } from '../../stores/auth'
+import TablePagination from '../../components/ui/TablePagination.vue'
+import { usePagination } from '../../composables/usePagination'
 
 const { t } = useI18n()
 const toast = useToastStore()
@@ -306,6 +308,16 @@ const sortedRows = computed(() => {
   })
 })
 
+// Pagination sits on the finished list. exportCsv and the record counts below
+// deliberately keep reading sortedRows, so they still cover every row.
+const { page, rowsPerPage, total, paged } = usePagination(sortedRows)
+// Switching report type swaps the whole dataset, so page 3 of the old one is
+// meaningless in the new one. Nothing assigns `selected` in the template today
+// (the type picker isn't wired up — reportTypes only feeds a label), so this
+// never fires as things stand; it is here so pagination stays correct if the
+// picker comes back.
+watch(selected, () => { page.value = 0 })
+
 function exportCsv() {
   const cols = columns.value[selected.value]
   const lines = [cols.map((c) => c[1]).join(',')]
@@ -493,7 +505,7 @@ onMounted(() => {
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="(row, i) in sortedRows" :key="i">
+                <tr v-for="(row, i) in paged" :key="i">
                   <td v-for="col in columns[selected]" :key="col[0]">
                     <span v-if="col[0] === 'stock_level'" class="px-2.5 py-1 rounded-full text-xs font-bold capitalize" :class="STOCK_LEVEL_STYLES[cell(row, col)] ?? ''">
                       {{ cell(row, col) }}
@@ -510,6 +522,7 @@ onMounted(() => {
               </tbody>
             </table>
           </div>
+          <TablePagination v-model:page="page" v-model:rows-per-page="rowsPerPage" :count="total" />
         </template>
       </div>
 

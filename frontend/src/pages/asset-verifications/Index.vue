@@ -11,6 +11,8 @@ import { useTableSearch } from '../../composables/useTableSearch'
 import { useTableSort } from '../../composables/useTableSort'
 import { useToastStore } from '../../stores/toast'
 import { useAuthStore } from '../../stores/auth'
+import TablePagination from '../../components/ui/TablePagination.vue'
+import { usePagination } from '../../composables/usePagination'
 
 const { t } = useI18n()
 const { items: verifications, loading, fetchAll } = useApiCrud('/asset-verifications', { entityName: t('asset_verifications.entity') })
@@ -84,6 +86,10 @@ onMounted(() => {
   fetchAll()
   loadOptions()
 })
+
+// Pagination is the last step, applied to the finished list, so search
+// and sort still consider every row rather than just the page on screen.
+const { page, rowsPerPage, total, paged } = usePagination(sortedVerifications)
 </script>
 
 <template>
@@ -121,7 +127,7 @@ onMounted(() => {
               </tr>
             </thead>
             <tbody>
-              <tr v-for="v in sortedVerifications" :key="v.id">
+              <tr v-for="v in paged" :key="v.id">
                 <td class="font-medium text-fg">{{ v.asset?.name || t('common.n_a') }}</td>
                 <td>{{ v.location?.name || t('common.n_a') }}</td>
                 <td class="capitalize">{{ v.condition }}</td>
@@ -136,7 +142,7 @@ onMounted(() => {
                   </span>
                 </td>
                 <td class="text-right">
-                  <button v-if="!v.verified_at" @click="complete(v.id)" :title="t('common.mark_complete')" class="w-7 h-7 rounded-lg bg-brand text-white flex items-center justify-center hover:bg-brand-dark transition">
+                  <button v-if="!v.verified_at" @click="complete(v.id)" :title="t('common.mark_complete')" class="btn-icon">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                   </button>
                 </td>
@@ -147,6 +153,7 @@ onMounted(() => {
             </tbody>
           </table>
         </div>
+        <TablePagination v-model:page="page" v-model:rows-per-page="rowsPerPage" :count="total" />
       </div>
     </div>
 

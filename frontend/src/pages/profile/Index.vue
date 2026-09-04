@@ -5,14 +5,10 @@ import http, { errorMessage } from '../../api/http'
 import { useAuthStore } from '../../stores/auth'
 import AppLayout from '../../layouts/AppLayout.vue'
 import { useToastStore } from '../../stores/toast'
-import { useLocale } from '../../composables/useLocale'
-import { useTheme } from '../../composables/useTheme'
 
 const { t } = useI18n()
 const auth = useAuthStore()
 const toast = useToastStore()
-const { locale, setLocale } = useLocale()
-const { isDark, setDark, setLight } = useTheme()
 
 const form = reactive({
   name: auth.user?.name || '',
@@ -131,26 +127,13 @@ async function changePassword() {
         </button>
       </form>
 
-      <div class="card p-6 space-y-5">
+      <!-- Theme and language pickers were removed from here; light/dark lives in
+           the header toggle. The card now carries only the staff report opt-in,
+           so it renders for staff alone rather than as an empty heading. -->
+      <div v-if="auth.user?.role === 'staff'" class="card p-6 space-y-5">
         <h2 class="font-bold text-fg">{{ t('profile.preferences') }}</h2>
 
-        <div class="space-y-1.5">
-          <label class="label">{{ t('profile.color_theme') }}</label>
-          <div class="flex items-center gap-1 bg-surface-2 rounded-xl p-1 w-fit">
-            <button type="button" @click="setLight()" class="px-4 py-1.5 rounded-lg text-xs font-semibold transition" :class="!isDark ? 'bg-brand text-white' : 'text-muted hover:text-fg'">{{ t('profile.light') }}</button>
-            <button type="button" @click="setDark()" class="px-4 py-1.5 rounded-lg text-xs font-semibold transition" :class="isDark ? 'bg-brand text-white' : 'text-muted hover:text-fg'">{{ t('profile.dark') }}</button>
-          </div>
-        </div>
-
-        <div class="space-y-1.5">
-          <label class="label">{{ t('profile.language') }}</label>
-          <select :value="locale" @change="setLocale($event.target.value)" class="select">
-            <option value="en">English</option>
-            <option value="km">ខ្មែរ</option>
-          </select>
-        </div>
-
-        <form v-if="auth.user?.role === 'staff'" @submit.prevent="savePreferences" class="space-y-3 pt-2 border-t border-line">
+        <form @submit.prevent="savePreferences" class="space-y-3">
           <label class="flex items-start gap-2.5 text-sm text-muted select-none cursor-pointer">
             <input type="checkbox" v-model="receiveReports" class="mt-0.5 rounded border-line text-brand focus:ring-brand/30" />
             <span>
