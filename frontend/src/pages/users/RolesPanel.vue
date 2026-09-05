@@ -175,22 +175,11 @@ async function confirmDelete() {
 }
 
 onMounted(load)
-defineExpose({ reload: load })
+defineExpose({ reload: load, openCreate })
 </script>
 
 <template>
   <div>
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5">
-      <div>
-        <h2 class="font-display text-xl font-bold text-fg">{{ t('roles.title') }}</h2>
-        <p class="text-muted text-sm mt-0.5">{{ t('roles.subtitle') }}</p>
-      </div>
-      <button v-if="can('roles', 'create')" @click="openCreate" class="btn-primary btn-sm flex-shrink-0">
-        <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
-        {{ t('roles.new') }}
-      </button>
-    </div>
-
     <div v-if="loading" class="grid grid-cols-1 lg:grid-cols-[280px_minmax(0,1fr)] gap-5 items-start">
       <div class="h-80 rounded-xl bg-surface-2 animate-pulse"></div>
       <div class="h-80 rounded-xl bg-surface-2 animate-pulse"></div>

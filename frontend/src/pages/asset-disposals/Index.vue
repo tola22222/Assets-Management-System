@@ -1,10 +1,12 @@
 <script setup>
-import { ref, onMounted, reactive } from 'vue'
+import { ref, computed, onMounted, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
 import http, { errorMessage } from '../../api/http'
 import AppLayout from '../../layouts/AppLayout.vue'
 import Modal from '../../components/ui/Modal.vue'
 import StatusBadge from '../../components/ui/StatusBadge.vue'
+import DetailModal from '../../components/ui/DetailModal.vue'
+import ConfirmDialog from '../../components/ui/ConfirmDialog.vue'
 import SearchInput from '../../components/ui/SearchInput.vue'
 import TableSortIcon from '../../components/ui/TableSortIcon.vue'
 import { useApiCrud } from '../../composables/useApiCrud'
@@ -16,7 +18,7 @@ import TablePagination from '../../components/ui/TablePagination.vue'
 import { usePagination } from '../../composables/usePagination'
 
 const { t } = useI18n()
-const { items: disposals, loading, fetchAll } = useApiCrud('/asset-disposals', { entityName: t('asset_disposals.entity') })
+const { items: disposals, loading, fetchAll, destroy } = useApiCrud('/asset-disposals', { entityName: t('asset_disposals.entity') })
 const toast = useToastStore()
 const auth = useAuthStore()
 
@@ -25,6 +27,41 @@ const { sortKey, sortDir, toggleSort, sorted: sortedDisposals } = useTableSort(s
   defaultKey: 'created_at', defaultDir: 'desc',
   paths: { asset: 'asset.name', action: 'recommended_action', requester: 'requester.name' },
 })
+
+// View reads the row already in the table: /asset-disposals has no show
+// endpoint, and its index already returns the asset, requester and image.
+const viewing = ref(null)
+const deletingId = ref(null)
+
+// The server refuses to delete anything already reviewed (422), so the button
+// is only live while the request is still pending.
+const canDelete = (d) => d.status === 'pending'
+
+const viewRows = computed(() => {
+  const d = viewing.value
+  if (!d) return []
+  return [
+    { label: t('common.asset'), value: d.asset?.name },
+    { label: t('assets.code'), value: d.asset?.asset_code, type: 'code' },
+    { label: t('asset_disposals.action_col'), value: d.recommended_action, type: 'capitalize' },
+    { label: t('asset_disposals.reason_col'), value: d.reason, type: 'multiline' },
+    { label: t('asset_disposals.requested_by'), value: d.requester?.name },
+    { label: t('common.status'), value: d.status, type: 'status' },
+    { label: t('common.date'), value: (d.created_at || '').slice(0, 10) },
+    { label: t('asset_disposals.photo'), value: d.image_url, type: 'image' },
+  ]
+})
+
+async function confirmDelete() {
+  const id = deletingId.value
+  deletingId.value = null
+  try {
+    await destroy(id)
+  } catch {
+    // useApiCrud surfaces the server's own message (e.g. "Cannot delete a
+    // reviewed disposal request."); nothing to add here.
+  }
+}
 
 const assets = ref([])
 const showModal = ref(false)
@@ -111,10 +148,12 @@ const { page, rowsPerPage, total, paged } = usePagination(sortedDisposals)
             <h1 class="font-display text-3xl font-bold text-fg tracking-tight">{{ t('asset_disposals.title') }}</h1>
             <p class="text-muted text-sm mt-1">{{ t('asset_disposals.subtitle') }}</p>
           </div>
-          <button @click="openCreate" class="btn-primary btn-sm flex-shrink-0">
-            <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
-            {{ t('asset_disposals.new') }}
-          </button>
+          <div class="flex items-center gap-2 flex-shrink-0">
+            <button @click="openCreate" class="btn-primary btn-sm">
+              <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+              {{ t('asset_disposals.new') }}
+            </button>
+          </div>
         </div>
 
         <div class="flex flex-wrap items-center gap-3 mb-6">
@@ -148,16 +187,28 @@ const { page, rowsPerPage, total, paged } = usePagination(sortedDisposals)
                 <td>{{ d.requester?.name || t('common.n_a') }}</td>
                 <td><StatusBadge :status="d.status" /></td>
                 <td class="text-right whitespace-nowrap">
-                  <template v-if="d.status === 'pending' && canApprove()">
-                    <div class="flex items-center justify-end gap-1.5">
-                      <button @click="approve(d.id)" :title="t('common.approve')" class="btn-icon">
+                  <div class="flex items-center justify-end gap-1.5">
+                    <button @click="viewing = d" :title="t('common.view')" :aria-label="t('common.view')" class="btn-icon">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
+                    </button>
+                    <template v-if="d.status === 'pending' && canApprove()">
+                      <button @click="approve(d.id)" :title="t('common.approve')" :aria-label="t('common.approve')" class="btn-icon">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                       </button>
-                      <button @click="reject(d.id)" :title="t('common.reject')" class="btn-icon-danger">
+                      <button @click="reject(d.id)" :title="t('common.reject')" :aria-label="t('common.reject')" class="btn-icon-danger">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                       </button>
-                    </div>
-                  </template>
+                    </template>
+                    <button
+                      @click="deletingId = d.id"
+                      :disabled="!canDelete(d)"
+                      :title="canDelete(d) ? t('common.delete') : t('asset_disposals.delete_pending_only')"
+                      :aria-label="t('common.delete')"
+                      class="btn-icon-danger"
+                    >
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /></svg>
+                    </button>
+                  </div>
                 </td>
               </tr>
               <tr v-if="!loading && !sortedDisposals.length">
@@ -206,5 +257,13 @@ const { page, rowsPerPage, total, paged } = usePagination(sortedDisposals)
         </div>
       </form>
     </Modal>
+    <DetailModal
+      v-if="viewing"
+      :title="t('common.details')"
+      :rows="viewRows"
+      @close="viewing = null"
+    />
+
+    <ConfirmDialog v-if="deletingId" @confirm="confirmDelete" @cancel="deletingId = null" />
   </AppLayout>
 </template>

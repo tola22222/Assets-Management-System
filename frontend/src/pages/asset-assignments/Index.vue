@@ -5,6 +5,8 @@ import http, { errorMessage } from '../../api/http'
 import AppLayout from '../../layouts/AppLayout.vue'
 import Modal from '../../components/ui/Modal.vue'
 import StatusBadge from '../../components/ui/StatusBadge.vue'
+import DetailModal from '../../components/ui/DetailModal.vue'
+import ConfirmDialog from '../../components/ui/ConfirmDialog.vue'
 import SearchInput from '../../components/ui/SearchInput.vue'
 import TableSortIcon from '../../components/ui/TableSortIcon.vue'
 import { useApiCrud } from '../../composables/useApiCrud'
@@ -16,7 +18,7 @@ import TablePagination from '../../components/ui/TablePagination.vue'
 import { usePagination } from '../../composables/usePagination'
 
 const { t } = useI18n()
-const { items: assignments, loading, fetchAll } = useApiCrud('/asset-assignments', { entityName: t('asset_assignments.entity') })
+const { items: assignments, loading, fetchAll, update, destroy } = useApiCrud('/asset-assignments', { entityName: t('asset_assignments.entity') })
 const toast = useToastStore()
 const auth = useAuthStore()
 const canManage = computed(() => ['operations_hr_manager', 'finance_manager'].includes(auth.user?.role))
@@ -26,6 +28,70 @@ const { sortKey, sortDir, toggleSort, sorted: sortedAssignments } = useTableSort
   defaultKey: 'assigned_date', defaultDir: 'desc',
   paths: { asset: 'asset.name', location: 'location.name' },
 })
+
+// View renders the row the table already holds — /asset-assignments has no
+// show endpoint, and its index returns the asset and location.
+const viewing = ref(null)
+const deletingId = ref(null)
+
+// The server refuses to delete anything still out on loan (422); an assignment
+// has to come back first. Deleting at all is OPM/Finance only.
+const canDelete = (a) => canManage.value && a.status === 'returned'
+
+const viewRows = computed(() => {
+  const a = viewing.value
+  if (!a) return []
+  return [
+    { label: t('common.asset'), value: a.asset?.name },
+    { label: t('assets.code'), value: a.asset?.asset_code, type: 'code' },
+    { label: t('asset_assignments.recipient'), value: a.recipient_name },
+    { label: t('common.location'), value: a.location?.name },
+    { label: t('common.quantity'), value: a.quantity },
+    { label: t('asset_assignments.assigned_date'), value: (a.assigned_date || '').slice(0, 10) },
+    { label: t('asset_assignments.due_date'), value: (a.due_date || '').slice(0, 10) },
+    { label: t('common.status'), value: a.status, type: 'status' },
+    { label: t('asset_assignments.remark'), value: a.remark, type: 'multiline' },
+    { label: t('asset_assignments.photo'), value: a.image_url, type: 'image' },
+  ]
+})
+
+// Edit is limited to the three fields AssetAssignmentController::update
+// validates — location, due date and status. Asset, recipient and quantity are
+// not editable server-side, so they are shown as read-only context instead of
+// offered as inputs that would be silently dropped.
+const editingId = ref(null)
+const editContext = ref(null)
+const editForm = reactive({ location_id: '', due_date: '', status: 'assigned' })
+
+function openEdit(a) {
+  editingId.value = a.id
+  editContext.value = a
+  Object.assign(editForm, {
+    location_id: a.location_id || a.location?.id || '',
+    due_date: (a.due_date || '').slice(0, 10),
+    status: a.status,
+  })
+}
+
+async function submitEdit() {
+  try {
+    await update(editingId.value, { ...editForm, due_date: editForm.due_date || null })
+    toast.success(t('asset_assignments.updated'))
+    editingId.value = null
+  } catch (e) {
+    toast.error(errorMessage(e, t('asset_assignments.update_failed')))
+  }
+}
+
+async function confirmDelete() {
+  const id = deletingId.value
+  deletingId.value = null
+  try {
+    await destroy(id)
+  } catch {
+    // useApiCrud already surfaced the server's refusal message.
+  }
+}
 
 const assets = ref([])
 const locations = ref([])
@@ -118,10 +184,12 @@ const { page, rowsPerPage, total, paged } = usePagination(sortedAssignments)
             <h1 class="font-display text-3xl font-bold text-fg tracking-tight">{{ t('asset_assignments.title') }}</h1>
             <p class="text-muted text-sm mt-1">{{ t('asset_assignments.subtitle') }}</p>
           </div>
-          <button v-if="canManage" @click="openCreate" class="btn-primary btn-sm flex-shrink-0">
-            <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
-            {{ t('asset_assignments.new') }}
-          </button>
+          <div class="flex items-center gap-2 flex-shrink-0">
+            <button v-if="canManage" @click="openCreate" class="btn-primary btn-sm">
+              <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+              {{ t('asset_assignments.new') }}
+            </button>
+          </div>
         </div>
 
         <div class="flex flex-wrap items-center gap-3 mb-6">
@@ -140,6 +208,7 @@ const { page, rowsPerPage, total, paged } = usePagination(sortedAssignments)
                 <th class="th-sort" @click="toggleSort('quantity')">{{ t('asset_assignments.qty') }}<TableSortIcon :active="sortKey === 'quantity'" :direction="sortDir" /></th>
                 <th>{{ t('asset_assignments.photo') }}</th>
                 <th class="th-sort" @click="toggleSort('status')">{{ t('common.status') }}<TableSortIcon :active="sortKey === 'status'" :direction="sortDir" /></th>
+                <th>{{ t('common.status_actions') }}</th>
                 <th class="text-right">{{ t('common.actions') }}</th>
               </tr>
             </thead>
@@ -154,21 +223,45 @@ const { page, rowsPerPage, total, paged } = usePagination(sortedAssignments)
                   <span v-else class="text-faint">—</span>
                 </td>
                 <td><StatusBadge :status="a.status" /></td>
-                <td class="text-right whitespace-nowrap">
-                  <template v-if="a.status !== 'returned' && canManage">
-                    <div class="flex items-center justify-end gap-1.5">
-                      <button @click="returningId = a.id; returnCondition = 'good'; returnRemark = ''; returnImageFile = null" :title="t('common.return')" class="btn-icon">
+                <!-- Status actions: the transitions that move this assignment
+                     through its lifecycle, kept apart from the row-management
+                     actions on the right. -->
+                <td class="whitespace-nowrap">
+                  <div class="flex items-center gap-1.5">
+                    <template v-if="a.status !== 'returned' && canManage">
+                      <button @click="returningId = a.id; returnCondition = 'good'; returnRemark = ''; returnImageFile = null" :title="t('common.return')" :aria-label="t('common.return')" class="btn-icon">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" /></svg>
                       </button>
-                      <button @click="cancelAssignment(a.id)" :title="t('common.cancel')" class="btn-icon-danger">
+                      <button @click="cancelAssignment(a.id)" :title="t('common.cancel')" :aria-label="t('common.cancel')" class="btn-icon-danger">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                       </button>
-                    </div>
-                  </template>
+                    </template>
+                    <span v-else class="text-faint">—</span>
+                  </div>
+                </td>
+                <td class="text-right whitespace-nowrap">
+                  <div class="flex items-center justify-end gap-1.5">
+                    <button @click="viewing = a" :title="t('common.view')" :aria-label="t('common.view')" class="btn-icon">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
+                    </button>
+                    <button v-if="canManage" @click="openEdit(a)" :title="t('common.edit')" :aria-label="t('common.edit')" class="btn-icon">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
+                    </button>
+                    <button
+                      v-if="canManage"
+                      @click="deletingId = a.id"
+                      :disabled="!canDelete(a)"
+                      :title="canDelete(a) ? t('common.delete') : t('asset_assignments.delete_returned_only')"
+                      :aria-label="t('common.delete')"
+                      class="btn-icon-danger"
+                    >
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /></svg>
+                    </button>
+                  </div>
                 </td>
               </tr>
               <tr v-if="!loading && !sortedAssignments.length">
-                <td colspan="7" class="py-10 text-center text-faint">{{ t('asset_assignments.empty') }}</td>
+                <td colspan="8" class="py-10 text-center text-faint">{{ t('asset_assignments.empty') }}</td>
               </tr>
             </tbody>
           </table>
@@ -264,5 +357,54 @@ const { page, rowsPerPage, total, paged } = usePagination(sortedAssignments)
         </div>
       </form>
     </Modal>
+    <DetailModal
+      v-if="viewing"
+      :title="t('common.details')"
+      :rows="viewRows"
+      @close="viewing = null"
+    />
+
+    <!-- Edit covers exactly the three fields the update endpoint validates.
+         Asset, recipient and quantity are fixed once assigned, so they are
+         shown as context rather than as inputs the server would ignore. -->
+    <Modal v-if="editingId" :title="t('asset_assignments.edit_title')" @close="editingId = null">
+      <form @submit.prevent="submitEdit">
+        <div class="p-6 space-y-4">
+          <div class="rounded-xl border border-line bg-surface-2 px-3.5 py-3 text-sm">
+            <p class="font-semibold text-fg">{{ editContext?.asset?.name }}</p>
+            <p class="text-muted text-[13px] mt-0.5">
+              {{ t('asset_assignments.recipient') }}: {{ editContext?.recipient_name }} · {{ t('asset_assignments.qty') }}: {{ editContext?.quantity }}
+            </p>
+          </div>
+          <div>
+            <label class="label">{{ t('asset_assignments.location_required') }}</label>
+            <select v-model="editForm.location_id" required class="select">
+              <option value="">{{ t('common.select_location') }}</option>
+              <option v-for="l in locations" :key="l.id" :value="l.id">{{ l.name }}</option>
+            </select>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label class="label">{{ t('asset_assignments.due_date') }}</label>
+              <input v-model="editForm.due_date" type="date" class="input" />
+            </div>
+            <div>
+              <label class="label">{{ t('common.status') }}</label>
+              <select v-model="editForm.status" required class="select">
+                <option value="assigned">{{ t('status.assigned') }}</option>
+                <option value="active">{{ t('status.active') }}</option>
+                <option value="returned">{{ t('status.returned') }}</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="flex items-center gap-3 border-t border-line px-6 py-4">
+          <button type="submit" class="btn-primary">{{ t('common.save') }}</button>
+          <button type="button" class="btn-ghost" @click="editingId = null">{{ t('common.cancel') }}</button>
+        </div>
+      </form>
+    </Modal>
+
+    <ConfirmDialog v-if="deletingId" @confirm="confirmDelete" @cancel="deletingId = null" />
   </AppLayout>
 </template>

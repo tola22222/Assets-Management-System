@@ -345,10 +345,10 @@ onMounted(() => {
     <div class="p-6 sm:p-8 space-y-6">
 
       <!-- Page heading — same layout as Dashboard.vue's own header -->
-      <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 class="font-display text-3xl sm:text-4xl font-semibold text-fg tracking-tight">{{ t('reports.title') }}</h1>
-          <p class="text-muted text-sm mt-2">{{ t('reports.subtitle') }}</p>
+          <h1 class="font-display text-3xl font-bold text-fg tracking-tight">{{ t('reports.title') }}</h1>
+          <p class="text-muted text-sm mt-1">{{ t('reports.subtitle') }}</p>
         </div>
         <div class="flex items-center gap-2 flex-shrink-0 mt-1 sm:mt-0">
           <button @click="openEmailModal" class="btn-ghost">

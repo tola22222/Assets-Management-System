@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import http, { errorMessage } from '../api/http'
 import { useAuthStore } from '../stores/auth'
@@ -24,19 +24,52 @@ const trendPeriod = ref('month')
 const trendData = ref([])
 const trendLoading = ref(false)
 
-async function loadTrend() {
-  trendLoading.value = true
+// The chart keeps itself current by re-polling: this backend has no
+// broadcasting set up (BROADCAST_CONNECTION=log, and there is no Echo client in
+// the SPA), so a socket push would mean standing up Reverb or Pusher first.
+// Registrations are a low-frequency event, so half a minute is frequent enough
+// to feel live without hammering the endpoint.
+const REFRESH_MS = 30000
+const lastUpdated = ref(null)
+let refreshTimer = null
+
+// `silent` is what separates a background poll from a load the user asked for:
+// a poll must not blank the chart behind a spinner, and must not raise a toast
+// every 30s if the network is down — it keeps the last good data on screen and
+// tries again on the next tick.
+async function loadTrend({ silent = false } = {}) {
+  if (!silent) trendLoading.value = true
   try {
     const { data } = await http.get('/dashboard/by-period', { params: { period: trendPeriod.value } })
     trendData.value = data.data
+    lastUpdated.value = new Date()
   } catch (e) {
+    if (silent) return
     // A failed load left the chart showing "no data", which reads as "nothing
     // was ever registered" rather than "this request failed".
     trendData.value = []
     toast.error(errorMessage(e, t('dashboard.trend_failed')))
   } finally {
-    trendLoading.value = false
+    if (!silent) trendLoading.value = false
   }
+}
+
+function stopAutoRefresh() {
+  if (refreshTimer) clearInterval(refreshTimer)
+  refreshTimer = null
+}
+
+function startAutoRefresh() {
+  stopAutoRefresh()
+  refreshTimer = setInterval(() => {
+    // A backgrounded tab does not need fresh bars; it catches up the moment it
+    // is looked at again (see onVisibility).
+    if (document.visibilityState === 'visible') loadTrend({ silent: true })
+  }, REFRESH_MS)
+}
+
+function onVisibility() {
+  if (document.visibilityState === 'visible') loadTrend({ silent: true })
 }
 
 const greeting = computed(() => {
@@ -51,7 +84,7 @@ function formatCurrency(value) {
   return `$${Math.round(value || 0)}`
 }
 
-watch(trendPeriod, loadTrend)
+watch(trendPeriod, () => loadTrend())
 
 onMounted(async () => {
   try {
@@ -66,7 +99,14 @@ onMounted(async () => {
   // Trend data is an admin-only concept (mirrors the admin vs. staff dashboard split).
   if (!isStaff.value) {
     loadTrend()
+    startAutoRefresh()
+    document.addEventListener('visibilitychange', onVisibility)
   }
+})
+
+onBeforeUnmount(() => {
+  stopAutoRefresh()
+  document.removeEventListener('visibilitychange', onVisibility)
 })
 </script>
 
@@ -170,7 +210,20 @@ onMounted(async () => {
         <div class="card p-6">
           <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-2">
             <div>
-              <h2 class="font-display text-lg font-bold text-fg">{{ t('dashboard.registered_over_time') }}</h2>
+              <div class="flex items-center gap-2.5">
+                <h2 class="font-display text-lg font-bold text-fg">{{ t('dashboard.registered_over_time') }}</h2>
+                <span
+                  v-if="lastUpdated"
+                  class="inline-flex items-center gap-1.5 text-[11px] font-semibold text-muted"
+                  :title="t('dashboard.last_updated', { time: lastUpdated.toLocaleTimeString() })"
+                >
+                  <span class="relative flex w-2 h-2">
+                    <span class="absolute inline-flex h-full w-full rounded-full bg-brand opacity-60 animate-ping"></span>
+                    <span class="relative inline-flex h-2 w-2 rounded-full bg-brand"></span>
+                  </span>
+                  {{ t('dashboard.live') }}
+                </span>
+              </div>
               <p class="text-sm text-faint">{{ t('dashboard.registered_over_time_subtitle') }}</p>
             </div>
             <div class="flex items-center gap-1 bg-surface-2 rounded-xl p-1 flex-shrink-0">

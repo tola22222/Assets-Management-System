@@ -55,7 +55,10 @@
     "recent_scans": "Recent QR scans",
     "recent_scans_subtitle": "Latest condition reports from scanning your assets",
     "no_scans": "No recent scans.",
-    "trend_failed": "Could not load the registration trend."
+    "trend_failed": "Could not load the registration trend.",
+    "live": "Live",
+    "last_updated": "Last updated {time}",
+    "paused_hidden": "Paused while this tab is in the background"
   },
   "nav": {
     "overview": "Overview",
@@ -144,7 +147,9 @@
     "switch_to_light": "Switch to light mode",
     "switch_to_dark": "Switch to dark mode",
     "bulk_delete_failed": "{count} item(s) could not be deleted.",
-    "retry": "Retry"
+    "retry": "Retry",
+    "details": "Details",
+    "status_actions": "Status Actions"
   },
   "confirm": {
     "delete_title": "Delete Confirmation",
@@ -609,7 +614,11 @@
     "entity": "Assignment",
     "cancel_failed": "Could not cancel this assignment.",
     "return_failed": "Could not record the return.",
-    "options_failed": "Could not load assignment options."
+    "options_failed": "Could not load assignment options.",
+    "delete_returned_only": "Only a returned assignment can be deleted.",
+    "edit_title": "Edit Assignment",
+    "updated": "Assignment updated.",
+    "update_failed": "Could not update the assignment."
   },
   "asset_transfers": {
     "title": "Asset Transfers",
@@ -633,7 +642,8 @@
     "entity": "Transfer",
     "approve_failed": "Could not approve this transfer.",
     "reject_failed": "Could not reject this transfer.",
-    "options_failed": "Could not load assets and locations."
+    "options_failed": "Could not load assets and locations.",
+    "delete_approved_blocked": "An approved transfer cannot be deleted."
   },
   "asset_returns": {
     "title": "Asset Returns",
@@ -715,7 +725,8 @@
     "entity": "Disposal request",
     "approve_failed": "Could not approve this request.",
     "reject_failed": "Could not reject this request.",
-    "load_failed": "Could not load assets."
+    "load_failed": "Could not load assets.",
+    "delete_pending_only": "Only a request still awaiting review can be deleted."
   },
   "stock": {
     "title": "Stock",
@@ -1021,5 +1032,11 @@
     "displayed": "{from}–{to} of {count}",
     "previous": "Previous page",
     "next": "Next page"
+  },
+  "toast": {
+    "success": "Success",
+    "error": "Something went wrong",
+    "warning": "Warning",
+    "info": "Notice"
   }
 }

@@ -5,6 +5,8 @@ import http, { errorMessage } from '../../api/http'
 import AppLayout from '../../layouts/AppLayout.vue'
 import Modal from '../../components/ui/Modal.vue'
 import SearchInput from '../../components/ui/SearchInput.vue'
+import DetailModal from '../../components/ui/DetailModal.vue'
+import ConfirmDialog from '../../components/ui/ConfirmDialog.vue'
 import TableSortIcon from '../../components/ui/TableSortIcon.vue'
 import { useApiCrud } from '../../composables/useApiCrud'
 import { useTableSearch } from '../../composables/useTableSearch'
@@ -15,7 +17,7 @@ import TablePagination from '../../components/ui/TablePagination.vue'
 import { usePagination } from '../../composables/usePagination'
 
 const { t } = useI18n()
-const { items: verifications, loading, fetchAll } = useApiCrud('/asset-verifications', { entityName: t('asset_verifications.entity') })
+const { items: verifications, loading, fetchAll, destroy } = useApiCrud('/asset-verifications', { entityName: t('asset_verifications.entity') })
 const toast = useToastStore()
 const auth = useAuthStore()
 // Only OPM/Finance can submit a verification directly (role:operations_hr_manager,finance_manager
@@ -28,6 +30,41 @@ const { sortKey, sortDir, toggleSort, sorted: sortedVerifications } = useTableSo
   defaultKey: 'verified_at', defaultDir: 'desc',
   paths: { asset: 'asset.name', location: 'location.name', verified_by: 'verified_by.name' },
 })
+
+// View renders the row the table already holds — /asset-verifications has no
+// show endpoint, and its index returns the asset, location and verifier.
+const viewing = ref(null)
+const deletingId = ref(null)
+
+// destroy sits behind role:operations_hr_manager, so only OPM gets the button
+// at all; there is no status guard on the server side for this one.
+const canDelete = computed(() => auth.user?.role === 'operations_hr_manager')
+
+const viewRows = computed(() => {
+  const v = viewing.value
+  if (!v) return []
+  return [
+    { label: t('common.asset'), value: v.asset?.name },
+    { label: t('assets.code'), value: v.asset?.asset_code, type: 'code' },
+    { label: t('common.location'), value: v.location?.name },
+    { label: t('common.quantity'), value: v.quantity_verified },
+    { label: t('asset_returns.condition'), value: v.condition, type: 'capitalize' },
+    { label: t('asset_verifications.verified_by'), value: v.verified_by?.name },
+    { label: t('common.date'), value: (v.verified_at || v.created_at || '').slice(0, 10) },
+    { label: t('asset_verifications.remark'), value: v.remark, type: 'multiline' },
+    { label: t('asset_verifications.photo'), value: v.image_url, type: 'image' },
+  ]
+})
+
+async function confirmDelete() {
+  const id = deletingId.value
+  deletingId.value = null
+  try {
+    await destroy(id)
+  } catch {
+    // useApiCrud already surfaced the server's message.
+  }
+}
 
 const assets = ref([])
 const locations = ref([])
@@ -101,10 +138,12 @@ const { page, rowsPerPage, total, paged } = usePagination(sortedVerifications)
             <h1 class="font-display text-3xl font-bold text-fg tracking-tight">{{ t('asset_verifications.title') }}</h1>
             <p class="text-muted text-sm mt-1">{{ t('asset_verifications.subtitle') }}</p>
           </div>
-          <button v-if="canCreate" @click="openCreate" class="btn-primary btn-sm flex-shrink-0">
-            <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
-            {{ t('asset_verifications.new') }}
-          </button>
+          <div class="flex items-center gap-2 flex-shrink-0">
+            <button v-if="canCreate" @click="openCreate" class="btn-primary btn-sm">
+              <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+              {{ t('asset_verifications.new') }}
+            </button>
+          </div>
         </div>
 
         <div class="flex flex-wrap items-center gap-3 mb-6">
@@ -141,10 +180,24 @@ const { page, rowsPerPage, total, paged } = usePagination(sortedVerifications)
                     {{ v.verified_at ? t('asset_verifications.complete') : t('asset_verifications.pending') }}
                   </span>
                 </td>
-                <td class="text-right">
-                  <button v-if="!v.verified_at" @click="complete(v.id)" :title="t('common.mark_complete')" class="btn-icon">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                  </button>
+                <td class="text-right whitespace-nowrap">
+                  <div class="flex items-center justify-end gap-1.5">
+                    <button @click="viewing = v" :title="t('common.view')" :aria-label="t('common.view')" class="btn-icon">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
+                    </button>
+                    <button v-if="!v.verified_at" @click="complete(v.id)" :title="t('common.mark_complete')" :aria-label="t('common.mark_complete')" class="btn-icon">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    </button>
+                    <button
+                      v-if="canDelete"
+                      @click="deletingId = v.id"
+                      :title="t('common.delete')"
+                      :aria-label="t('common.delete')"
+                      class="btn-icon-danger"
+                    >
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /></svg>
+                    </button>
+                  </div>
                 </td>
               </tr>
               <tr v-if="!loading && !sortedVerifications.length">
@@ -207,5 +260,13 @@ const { page, rowsPerPage, total, paged } = usePagination(sortedVerifications)
         </div>
       </form>
     </Modal>
+    <DetailModal
+      v-if="viewing"
+      :title="t('common.details')"
+      :rows="viewRows"
+      @close="viewing = null"
+    />
+
+    <ConfirmDialog v-if="deletingId" @confirm="confirmDelete" @cancel="deletingId = null" />
   </AppLayout>
 </template>

@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, onMounted, onBeforeUnmount, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
@@ -17,25 +17,106 @@ const props = defineProps({
 const emit = defineEmits(['confirm', 'cancel'])
 
 const isDanger = computed(() => props.tone !== 'primary')
+
+// Same palette as the toasts: danger is the hex behind .badge-danger rather
+// than a raw Tailwind red, so a confirm and the error toast that may follow it
+// are the same colour.
+const skin = computed(() =>
+  isDanger.value
+    ? { bar: 'bg-[#a13b3b]', dot: 'bg-[#a13b3b] text-white', ring: 'ring-[#a13b3b]/15', wash: 'from-[#a13b3b]/[0.07]', btn: 'bg-[#a13b3b] hover:bg-[#8c3232] text-white focus-visible:ring-[#a13b3b]/25' }
+    : { bar: 'bg-brand', dot: 'bg-brand text-white', ring: 'ring-brand/15', wash: 'from-brand/[0.07]', btn: 'bg-brand hover:bg-brand-dark text-white focus-visible:ring-brand/25' }
+)
+
+// Every caller mounts this behind its own `v-if`, so an exit transition would
+// normally be impossible — the component is torn down the instant the event
+// fires. Holding the visible state internally and delaying the emit lets the
+// panel animate out first, with no change at any of the call sites.
+const visible = ref(false)
+const cancelButton = ref(null)
+let closing = false
+
+function close(event) {
+  if (closing) return
+  closing = true
+  visible.value = false
+  setTimeout(() => emit(event), 160)
+}
+
+function onKeydown(e) {
+  if (e.key === 'Escape') close('cancel')
+}
+
+onMounted(() => {
+  window.addEventListener('keydown', onKeydown)
+  requestAnimationFrame(() => {
+    visible.value = true
+    // Focus lands on Cancel, not on the destructive button: a stray Enter
+    // should back out of a delete, not commit it. It has to happen after the
+    // panel is in the DOM, and in the same frame the transition starts —
+    // queueing it as a second rAF ran before the ref had settled.
+    cancelButton.value?.focus()
+  })
+})
+onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 </script>
 
 <template>
-  <div class="overlay items-center justify-center z-[150]" @click.self="emit('cancel')">
-    <div class="modal-panel max-w-sm p-6 text-center">
-      <div
-        class="w-14 h-14 mx-auto rounded-full flex items-center justify-center"
-        :class="isDanger ? 'bg-red-100 dark:bg-red-500/15' : 'bg-brand-100 dark:bg-brand-500/15'"
-      >
-        <svg v-if="isDanger" class="w-7 h-7 text-red-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/></svg>
-        <svg v-else class="w-7 h-7 text-brand-600 dark:text-brand-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z"/></svg>
-      </div>
-      <h3 class="text-lg font-bold text-fg mt-4">{{ title ?? t('confirm.delete_title') }}</h3>
-      <p class="text-sm text-muted mt-2">{{ message ?? t('confirm.delete_message') }}</p>
-      <div class="flex items-center justify-center gap-3 mt-6">
-        <button @click="emit('cancel')" class="btn-ghost px-6">{{ t('common.cancel') }}</button>
-        <button @click="emit('confirm')" class="px-6" :class="isDanger ? 'btn-danger' : 'btn-primary'">
-          {{ confirmLabel ?? t('common.delete') }}
-        </button>
+  <!-- Backdrop fades on its own timing so the blur builds up behind the panel
+       rather than snapping in with it. -->
+  <div
+    class="overlay items-center justify-center z-[150] transition-opacity duration-200 ease-out"
+    :class="visible ? 'opacity-100' : 'opacity-0'"
+    role="dialog"
+    aria-modal="true"
+    @click.self="close('cancel')"
+  >
+    <div
+      class="relative isolate w-full max-w-sm transition-all duration-300"
+      :class="visible ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 translate-y-2'"
+      style="transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1)"
+    >
+      <!-- The alert mockup's offset back card, kept so the popup shares the
+           toasts' stacked-paper look. -->
+      <div class="absolute left-4 right-[-7px] top-3 bottom-[-7px] rounded-2xl bg-surface-2/60 border border-line/60 -z-10"></div>
+
+      <div class="relative modal-panel max-w-none p-0 overflow-hidden">
+        <!-- Tone bar across the top: a centred dialog reads better with the
+             accent above the icon than down one edge. -->
+        <span class="absolute top-0 inset-x-0 h-[3px]" :class="skin.bar"></span>
+        <span class="absolute inset-0 bg-gradient-to-b to-transparent pointer-events-none" :class="skin.wash"></span>
+
+        <div class="relative p-6 text-center">
+          <div
+            class="w-14 h-14 mx-auto rounded-full flex items-center justify-center ring-8"
+            :class="[skin.dot, skin.ring]"
+          >
+            <svg v-if="isDanger" class="w-7 h-7" fill="currentColor" viewBox="0 0 24 24"><path fill-rule="evenodd" clip-rule="evenodd" d="M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.748c1.154 2-.29 4.5-2.599 4.5H4.645c-2.309 0-3.752-2.5-2.598-4.5L9.4 3.003zM12 8.25a.75.75 0 01.75.75v3.75a.75.75 0 01-1.5 0V9a.75.75 0 01.75-.75zm0 8.25a.75.75 0 100-1.5.75.75 0 000 1.5z" /></svg>
+            <svg v-else class="w-7 h-7" fill="currentColor" viewBox="0 0 24 24"><path fill-rule="evenodd" clip-rule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm11.378-3.917c-.89-.777-2.366-.777-3.255 0a.75.75 0 01-.988-1.129c1.454-1.272 3.776-1.272 5.23 0 1.513 1.324 1.513 3.518 0 4.842a3.75 3.75 0 01-.837.552c-.676.328-1.028.774-1.028 1.152v.75a.75.75 0 01-1.5 0v-.75c0-1.279 1.06-2.107 1.875-2.502.182-.088.351-.199.503-.331.83-.727.83-1.857 0-2.584zM12 18a.75.75 0 100-1.5.75.75 0 000 1.5z" /></svg>
+          </div>
+
+          <h3 class="text-lg font-bold text-fg tracking-tight mt-4">{{ title ?? t('confirm.delete_title') }}</h3>
+          <p class="text-sm text-muted leading-relaxed mt-2">{{ message ?? t('confirm.delete_message') }}</p>
+        </div>
+
+        <!-- Actions sit on their own footer band, divided from the message, so
+             the destructive button reads as a deliberate step rather than part
+             of the copy. Stacked on a phone with Cancel underneath. -->
+        <div class="relative flex flex-col-reverse sm:flex-row sm:justify-center gap-2.5 px-6 pb-6 pt-1">
+          <button
+            ref="cancelButton"
+            type="button"
+            @click="close('cancel')"
+            class="btn-ghost sm:px-7"
+          >{{ t('common.cancel') }}</button>
+          <button
+            type="button"
+            @click="close('confirm')"
+            class="inline-flex items-center justify-center gap-2 font-semibold text-sm px-4 sm:px-7 py-2.5 rounded-xl
+                   shadow-[var(--shadow-card)] transition-colors duration-150
+                   focus:outline-none focus-visible:ring-4"
+            :class="skin.btn"
+          >{{ confirmLabel ?? t('common.delete') }}</button>
+        </div>
       </div>
     </div>
   </div>
