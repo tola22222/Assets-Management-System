@@ -306,34 +306,34 @@ const { page, rowsPerPage, total, paged } = usePagination(visible)
 
     <!-- Issue Stock -->
     <Modal v-if="issuing" :title="t('stock.issue_stock')" @close="issuing = null">
-      <form @submit.prevent="submitIssue">
-        <div class="p-6 space-y-4">
+      <form class="modal-form" @submit.prevent="submitIssue">
+        <div class="modal-body space-y-4">
           <p class="text-sm text-muted">{{ issuing.name }} <span class="font-mono text-xs text-faint">({{ issuing.stock_code }})</span> — {{ t('stock.on_hand', { balance: issuing.balance, unit: issuing.unit }) }}</p>
-          <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('stock.quantity_to_issue') }} <span class="text-red-500">*</span></label>
+          <div class="form-group">
+            <label class="label">{{ t('stock.quantity_to_issue') }} <span class="text-red-500">*</span></label>
             <input v-model="issueForm.quantity" type="number" step="0.01" min="0.01" :max="issuing.balance" required class="input" />
           </div>
-          <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('stock.issued_to') }}</label>
+          <div class="form-group">
+            <label class="label">{{ t('stock.issued_to') }}</label>
             <input v-model="issueForm.reason" class="input" :placeholder="t('stock.issued_to_placeholder')" />
           </div>
-          <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('common.date') }}</label>
+          <div class="form-group">
+            <label class="label">{{ t('common.date') }}</label>
             <input v-model="issueForm.transaction_date" type="date" class="input" />
           </div>
         </div>
-        <div class="flex items-center gap-3 border-t border-line px-6 py-4">
+        <div class="modal-footer">
+          <button type="button" class="btn-ghost" @click="issuing = null">{{ t('common.cancel') }}</button>
           <button type="submit" :disabled="issueSubmitting" class="btn-primary">
             {{ issueSubmitting ? t('stock.saving') : t('stock.issue_stock') }}
           </button>
-          <button type="button" class="btn-ghost" @click="issuing = null">{{ t('common.cancel') }}</button>
         </div>
       </form>
     </Modal>
 
     <!-- Detail / transaction history -->
     <Modal v-if="viewing" :title="t('stock.transaction_history')" wide @close="viewing = null">
-      <div class="p-6 space-y-6">
+      <div class="modal-body space-y-6">
         <div class="flex items-start justify-between gap-4">
           <div>
             <h4 class="text-xl font-bold text-fg">{{ viewing.name }}</h4>

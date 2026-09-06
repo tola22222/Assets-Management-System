@@ -160,14 +160,14 @@ const { page, rowsPerPage, total, paged } = usePagination(filtered)
     </div>
 
     <Modal v-if="showModal" :title="editingId ? t('locations.edit_title') : t('locations.create_title')" @close="showModal = false">
-      <form @submit.prevent="handleSubmit">
-        <div class="p-6 space-y-4">
-          <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('locations.name_required') }}</label>
+      <form class="modal-form" @submit.prevent="handleSubmit">
+        <div class="modal-body space-y-4">
+          <div class="form-group">
+            <label class="label">{{ t('locations.name_required') }}</label>
             <input v-model="form.name" required class="input" />
           </div>
-          <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('locations.code_required') }}</label>
+          <div class="form-group">
+            <label class="label">{{ t('locations.code_required') }}</label>
             <input
               v-model="form.code"
               required
@@ -179,25 +179,25 @@ const { page, rowsPerPage, total, paged } = usePagination(filtered)
             />
             <p class="text-xs text-faint">{{ t('locations.code_help') }}</p>
           </div>
-          <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('locations.type_required') }}</label>
+          <div class="form-group">
+            <label class="label">{{ t('locations.type_required') }}</label>
             <select v-model="form.type" class="input">
               <option value="office">{{ t('locations.type_office') }}</option>
               <option value="lab">{{ t('locations.type_lab') }}</option>
               <option value="program">{{ t('locations.type_program') }}</option>
             </select>
           </div>
-          <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('common.description') }}</label>
-            <textarea v-model="form.description" rows="2" class="input"></textarea>
+          <div class="form-group">
+            <label class="label">{{ t('common.description') }}</label>
+            <textarea v-model="form.description" rows="2" class="textarea"></textarea>
           </div>
         </div>
-        <div class="flex items-center gap-3 border-t border-line px-6 py-4">
+        <div class="modal-footer">
+          <button type="button" class="btn-ghost" @click="showModal = false">{{ t('common.cancel') }}</button>
           <button type="submit" class="btn-primary">
             <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
             {{ editingId ? t('locations.save_changes') : t('locations.create_button') }}
           </button>
-          <button type="button" class="btn-ghost" @click="showModal = false">{{ t('common.cancel') }}</button>
         </div>
       </form>
     </Modal>

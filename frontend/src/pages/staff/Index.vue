@@ -15,6 +15,7 @@ import { useToastStore } from '../../stores/toast'
 import { useAuthStore } from '../../stores/auth'
 import TablePagination from '../../components/ui/TablePagination.vue'
 import { usePagination } from '../../composables/usePagination'
+import ImageField from '../../components/ui/ImageField.vue'
 
 const { t } = useI18n()
 const auth = useAuthStore()
@@ -33,6 +34,9 @@ const showModal = ref(false)
 const editingId = ref(null)
 const deletingId = ref(null)
 const photoFile = ref(null)
+// The staff photo already on the record; shown while editing so it is clear a
+// person already has one.
+const existingPhoto = ref(null)
 const locations = ref([])
 const emptyForm = () => ({ full_name: '', email: '', phone: '', position: '', hire_date: '', status: 'active', location_id: '' })
 const form = reactive(emptyForm())
@@ -50,6 +54,7 @@ function openCreate() {
   editingId.value = null
   Object.assign(form, emptyForm())
   photoFile.value = null
+  existingPhoto.value = null
   showModal.value = true
 }
 
@@ -61,11 +66,8 @@ function openEdit(staff) {
     location_id: staff.location_id || '',
   })
   photoFile.value = null
+  existingPhoto.value = staff.photo_path_url || null
   showModal.value = true
-}
-
-function handleFileChange(e) {
-  photoFile.value = e.target.files[0] || null
 }
 
 async function handleSubmit() {
@@ -195,57 +197,57 @@ const { page, rowsPerPage, total, paged } = usePagination(filtered)
     </div>
 
     <Modal v-if="showModal" :title="editingId ? t('staff.edit_title') : t('staff.create_title')" @close="showModal = false">
-      <form @submit.prevent="handleSubmit">
-        <div class="p-6 space-y-4">
-          <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('staff.full_name') }}</label>
+      <form class="modal-form" @submit.prevent="handleSubmit">
+        <div class="modal-body space-y-4">
+          <div class="form-group">
+            <label class="label">{{ t('staff.full_name') }}</label>
             <input v-model="form.full_name" required class="input" />
           </div>
           <div class="grid grid-cols-2 gap-4">
-            <div class="space-y-1.5">
-              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('common.email') }}</label>
+            <div class="form-group">
+              <label class="label">{{ t('common.email') }}</label>
               <input v-model="form.email" type="email" class="input" />
             </div>
-            <div class="space-y-1.5">
-              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('common.phone') }}</label>
+            <div class="form-group">
+              <label class="label">{{ t('common.phone') }}</label>
               <input v-model="form.phone" class="input" />
             </div>
           </div>
           <div class="grid grid-cols-2 gap-4">
-            <div class="space-y-1.5">
-              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('staff.position') }}</label>
+            <div class="form-group">
+              <label class="label">{{ t('staff.position') }}</label>
               <input v-model="form.position" class="input" />
             </div>
-            <div class="space-y-1.5">
-              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('staff.hire_date') }}</label>
+            <div class="form-group">
+              <label class="label">{{ t('staff.hire_date') }}</label>
               <input v-model="form.hire_date" type="date" class="input" />
             </div>
           </div>
-          <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('staff.site') }}</label>
+          <div class="form-group">
+            <label class="label">{{ t('staff.site') }}</label>
             <select v-model="form.location_id" class="input">
               <option value="">{{ t('common.select_location') }}</option>
               <option v-for="l in locations" :key="l.id" :value="l.id">{{ l.name }}</option>
             </select>
           </div>
-          <div v-if="editingId" class="space-y-1.5">
-            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('staff.status_required') }}</label>
+          <div v-if="editingId" class="form-group">
+            <label class="label">{{ t('staff.status_required') }}</label>
             <select v-model="form.status" class="input">
               <option value="active">{{ t('staff.status_active') }}</option>
               <option value="inactive">{{ t('staff.status_inactive') }}</option>
             </select>
           </div>
-          <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('staff.photo') }}</label>
-            <input type="file" accept="image/jpeg,image/png" @change="handleFileChange" class="w-full text-sm" />
+          <div class="form-group">
+            <label class="label">{{ t('staff.photo') }}</label>
+            <ImageField v-model="photoFile" :existing="existingPhoto" :aspect="1" :hint="t('image.field_hint')" />
           </div>
         </div>
-        <div class="flex items-center gap-3 border-t border-line px-6 py-4">
+        <div class="modal-footer">
+          <button type="button" class="btn-ghost" @click="showModal = false">{{ t('common.cancel') }}</button>
           <button type="submit" class="btn-primary">
             <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
             {{ editingId ? t('staff.save_changes') : t('staff.add_button') }}
           </button>
-          <button type="button" class="btn-ghost" @click="showModal = false">{{ t('common.cancel') }}</button>
         </div>
       </form>
     </Modal>

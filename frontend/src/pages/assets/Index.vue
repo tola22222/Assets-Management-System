@@ -17,6 +17,7 @@ import { useToastStore } from '../../stores/toast'
 import { useAuthStore } from '../../stores/auth'
 import TablePagination from '../../components/ui/TablePagination.vue'
 import { usePagination } from '../../composables/usePagination'
+import ImageField from '../../components/ui/ImageField.vue'
 
 const { t } = useI18n()
 const { items: assetsList, loading, fetchAll, destroy, destroyMany } = useApiCrud('/assets', { entityName: t('assets.entity') })
@@ -32,6 +33,9 @@ const editingId = ref(null)
 const deletingId = ref(null)
 const viewing = ref(null)
 const imageFile = ref(null)
+// URL of the photo already saved on the asset, so the edit dialog shows what is
+// there now instead of an empty well implying there is none.
+const existingImage = ref(null)
 const submitting = ref(false)
 const flagging = ref(null)
 const flagNote = ref('')
@@ -132,6 +136,7 @@ function openCreate() {
   editingId.value = null
   Object.assign(form, emptyForm())
   imageFile.value = null
+  existingImage.value = null
   showModal.value = true
 }
 
@@ -144,11 +149,8 @@ function openEdit(asset) {
     condition: asset.condition, status: asset.status,
   })
   imageFile.value = null
+  existingImage.value = asset.image_url || null
   showModal.value = true
-}
-
-function handleFileChange(e) {
-  imageFile.value = e.target.files[0] || null
 }
 
 function buildFormData() {
@@ -375,8 +377,8 @@ const { page, rowsPerPage, total, paged } = usePagination(visible)
 
     <!-- Create / Edit -->
     <Modal v-if="showModal" :title="editingId ? t('assets.edit_title') : t('assets.create_title')" wide @close="showModal = false">
-      <form @submit.prevent="handleSubmit">
-        <div class="p-6 space-y-4">
+      <form class="modal-form" @submit.prevent="handleSubmit">
+        <div class="modal-body space-y-4">
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label class="label">{{ t('assets.name_required') }} <span class="text-red-500">*</span></label>
@@ -432,10 +434,12 @@ const { page, rowsPerPage, total, paged } = usePagination(visible)
                 <option value="disposed">{{ t('status.disposed') }}</option>
               </select>
             </div>
-            <div>
+            <!-- Spans the row: the upload well is a full-width group in the
+                 mockup, and squeezed into one column of a two-column grid the
+                 dashed box is narrower than its own caption. -->
+            <div class="form-group sm:col-span-2">
               <label class="label">{{ t('assets.photo') }}</label>
-              <input type="file" accept="image/jpeg,image/png" @change="handleFileChange"
-                class="w-full text-sm text-muted file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100 cursor-pointer" />
+              <ImageField v-model="imageFile" :existing="existingImage" :hint="t('image.field_hint')" />
             </div>
           </div>
           <div>
@@ -443,19 +447,19 @@ const { page, rowsPerPage, total, paged } = usePagination(visible)
             <textarea v-model="form.description" rows="2" class="textarea"></textarea>
           </div>
         </div>
-        <div class="flex items-center gap-3 border-t border-line px-6 py-4">
+        <div class="modal-footer">
+          <button type="button" class="btn-ghost" @click="showModal = false">{{ t('common.cancel') }}</button>
           <button type="submit" :disabled="submitting" class="btn-primary">
             <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
             {{ submitting ? t('assets.saving') : (editingId ? t('assets.save_changes') : t('assets.register')) }}
           </button>
-          <button type="button" class="btn-ghost" @click="showModal = false">{{ t('common.cancel') }}</button>
         </div>
       </form>
     </Modal>
 
     <!-- Detail view -->
     <Modal v-if="viewing" :title="t('assets.detail_title')" wide @close="viewing = null">
-      <div class="p-6 space-y-6">
+      <div class="modal-body space-y-6">
         <div class="flex items-start gap-5">
           <img v-if="viewing.image_url" :src="viewing.image_url" class="w-28 h-24 rounded-xl object-cover border border-line flex-shrink-0" alt="" />
           <div v-else class="w-28 h-24 rounded-xl bg-surface-2 border border-line flex items-center justify-center text-faint text-xs flex-shrink-0">{{ t('assets.no_image_full') }}</div>
@@ -496,8 +500,8 @@ const { page, rowsPerPage, total, paged } = usePagination(visible)
 
     <!-- Flag Issue -->
     <Modal v-if="flagging" :title="t('assets.flag_issue')" @close="flagging = null">
-      <form @submit.prevent="submitFlag">
-        <div class="p-6 space-y-4">
+      <form class="modal-form" @submit.prevent="submitFlag">
+        <div class="modal-body space-y-4">
           <p class="text-sm text-muted">{{ flagging.name }} <span class="font-mono text-xs text-faint">({{ flagging.asset_code }})</span></p>
           <div>
             <label class="label">{{ t('assets.flag_note_label') }} <span class="text-red-500">*</span></label>
@@ -512,11 +516,11 @@ const { page, rowsPerPage, total, paged } = usePagination(visible)
             </select>
           </div>
         </div>
-        <div class="flex items-center gap-3 border-t border-line px-6 py-4">
+        <div class="modal-footer">
+          <button type="button" class="btn-ghost" @click="flagging = null">{{ t('common.cancel') }}</button>
           <button type="submit" :disabled="flagSubmitting" class="btn-primary">
             {{ flagSubmitting ? t('assets.saving') : t('assets.flag_submit') }}
           </button>
-          <button type="button" class="btn-ghost" @click="flagging = null">{{ t('common.cancel') }}</button>
         </div>
       </form>
     </Modal>

@@ -529,21 +529,21 @@ onMounted(() => {
     </div>
 
     <Modal v-if="showEmailModal" :title="t('reports.email_report')" @close="showEmailModal = false">
-      <form @submit.prevent="sendReportEmail">
-        <div class="p-6 space-y-4">
+      <form class="modal-form" @submit.prevent="sendReportEmail">
+        <div class="modal-body space-y-4">
           <p class="text-sm text-muted">
             {{ t('reports.email_body_hint') }}
           </p>
-          <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('reports.recipient_email') }}</label>
+          <div class="form-group">
+            <label class="label">{{ t('reports.recipient_email') }}</label>
             <input v-model="emailAddress" type="email" required placeholder="name@example.com" class="input" />
           </div>
         </div>
-        <div class="flex items-center gap-3 border-t border-line px-6 py-4">
+        <div class="modal-footer">
+          <button type="button" class="btn-ghost" @click="showEmailModal = false">{{ t('common.cancel') }}</button>
           <button type="submit" :disabled="emailSending" class="btn-primary">
             {{ emailSending ? t('reports.sending') : t('reports.send') }}
           </button>
-          <button type="button" class="btn-ghost" @click="showEmailModal = false">{{ t('common.cancel') }}</button>
         </div>
       </form>
     </Modal>

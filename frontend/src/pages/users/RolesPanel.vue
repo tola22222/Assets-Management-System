@@ -315,14 +315,14 @@ defineExpose({ reload: load, openCreate })
 
     <!-- Create / edit -->
     <Modal v-if="showModal" :title="editing ? t('roles.edit_title', { name: editing.name }) : t('roles.create_title')" wide @close="showModal = false">
-      <form @submit.prevent="requestSave">
-        <div class="p-6 space-y-5">
+      <form class="modal-form" @submit.prevent="requestSave">
+        <div class="modal-body space-y-5">
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div class="space-y-1.5">
+            <div class="form-group">
               <label class="label">{{ t('roles.name') }} <span class="text-red-500">*</span></label>
               <input v-model="form.name" required maxlength="100" class="input" />
             </div>
-            <div class="space-y-1.5">
+            <div class="form-group">
               <label class="label">{{ t('common.status') }}</label>
               <label class="flex items-center gap-2.5 text-sm text-muted h-[42px]">
                 <input type="checkbox" v-model="form.is_active" :disabled="editing?.is_system"
@@ -331,7 +331,7 @@ defineExpose({ reload: load, openCreate })
               </label>
             </div>
           </div>
-          <div class="space-y-1.5">
+          <div class="form-group">
             <label class="label">{{ t('common.description') }}</label>
             <textarea v-model="form.description" rows="2" class="textarea" :placeholder="t('roles.description_placeholder')"></textarea>
           </div>
@@ -346,15 +346,11 @@ defineExpose({ reload: load, openCreate })
             <PermissionMatrix v-model="form.permissions" :modules="modules" :abilities="abilities" />
           </div>
         </div>
-        <!-- Sticky, unlike the other modals' action bars: Modal.vue puts the
-             whole slot inside its scroll area, and the permission matrix makes
-             this form several screens tall, so a footer in normal flow left the
-             save button below the fold with no hint it was there. -->
-        <div class="sticky bottom-0 z-10 flex items-center gap-3 border-t border-line bg-surface px-6 py-4">
+        <div class="modal-footer">
+          <button type="button" class="btn-ghost" @click="showModal = false">{{ t('common.cancel') }}</button>
           <button type="submit" :disabled="saving" class="btn-primary">
             {{ saving ? t('roles.saving') : (editing ? t('roles.save_changes') : t('roles.create_button')) }}
           </button>
-          <button type="button" class="btn-ghost" @click="showModal = false">{{ t('common.cancel') }}</button>
         </div>
       </form>
     </Modal>

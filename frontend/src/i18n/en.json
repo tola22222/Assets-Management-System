@@ -1038,5 +1038,24 @@
     "error": "Something went wrong",
     "warning": "Warning",
     "info": "Notice"
+  },
+  "image": {
+    "drop_title": "Choose a photo or drag & drop it here.",
+    "drop_hint": "JPG or PNG - up to {size}MB",
+    "browse": "Browse files",
+    "crop_title": "Crop photo",
+    "crop_subtitle": "Drag to reposition, scroll or use the slider to zoom",
+    "zoom": "Zoom",
+    "reset": "Reset",
+    "apply": "Apply",
+    "recrop": "Crop again",
+    "change": "Change",
+    "replace": "Replace",
+    "remove": "Remove",
+    "current_photo": "Current photo",
+    "replace_hint": "Drop a new image here or browse to replace it",
+    "invalid_type": "That file is not a JPG or PNG image.",
+    "too_large": "That image is larger than {size}MB.",
+    "field_hint": "Drag and drop a photo here, or browse to upload it"
   }
 }

@@ -16,6 +16,7 @@ import { useToastStore } from '../../stores/toast'
 import { useAuthStore } from '../../stores/auth'
 import TablePagination from '../../components/ui/TablePagination.vue'
 import { usePagination } from '../../composables/usePagination'
+import ImageField from '../../components/ui/ImageField.vue'
 
 const { t } = useI18n()
 const { items: disposals, loading, fetchAll, destroy } = useApiCrud('/asset-disposals', { entityName: t('asset_disposals.entity') })
@@ -86,10 +87,6 @@ function openCreate() {
   Object.assign(form, { asset_id: '', recommended_action: 'disposal', reason: '' })
   imageFile.value = null
   showModal.value = true
-}
-
-function handleFileChange(e) {
-  imageFile.value = e.target.files[0] || null
 }
 
 async function handleSubmit() {
@@ -222,38 +219,38 @@ const { page, rowsPerPage, total, paged } = usePagination(sortedDisposals)
     </div>
 
     <Modal v-if="showModal" :title="t('asset_disposals.modal_title')" @close="showModal = false">
-      <form @submit.prevent="handleSubmit">
-        <div class="p-6 space-y-4">
-          <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_disposals.asset_required') }}</label>
+      <form class="modal-form" @submit.prevent="handleSubmit">
+        <div class="modal-body space-y-4">
+          <div class="form-group">
+            <label class="label">{{ t('asset_disposals.asset_required') }}</label>
             <select v-model="form.asset_id" required class="input">
               <option value="">{{ t('common.select_asset') }}</option>
               <option v-for="a in assets" :key="a.id" :value="a.id">{{ a.name }} ({{ a.asset_code }})</option>
             </select>
           </div>
-          <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_disposals.recommended_action_required') }}</label>
+          <div class="form-group">
+            <label class="label">{{ t('asset_disposals.recommended_action_required') }}</label>
             <select v-model="form.recommended_action" class="input">
               <option value="repair">{{ t('asset_disposals.action_repair') }}</option>
               <option value="disposal">{{ t('asset_disposals.action_disposal') }}</option>
               <option value="replacement">{{ t('asset_disposals.action_replacement') }}</option>
             </select>
           </div>
-          <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_disposals.reason_required') }}</label>
-            <textarea v-model="form.reason" rows="3" required :placeholder="t('asset_disposals.reason_placeholder')" class="input"></textarea>
+          <div class="form-group">
+            <label class="label">{{ t('asset_disposals.reason_required') }}</label>
+            <textarea v-model="form.reason" rows="3" required :placeholder="t('asset_disposals.reason_placeholder')" class="textarea"></textarea>
           </div>
-          <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_disposals.photo_reference') }}</label>
-            <input type="file" accept="image/jpeg,image/png" @change="handleFileChange" class="w-full text-sm" />
+          <div class="form-group">
+            <label class="label">{{ t('asset_disposals.photo_reference') }}</label>
+            <ImageField v-model="imageFile" :hint="t('image.field_hint')" />
           </div>
         </div>
-        <div class="flex items-center gap-3 border-t border-line px-6 py-4">
+        <div class="modal-footer">
+          <button type="button" class="btn-ghost" @click="showModal = false">{{ t('common.cancel') }}</button>
           <button type="submit" class="btn-primary">
             <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
             {{ t('asset_disposals.submit_button') }}
           </button>
-          <button type="button" class="btn-ghost" @click="showModal = false">{{ t('common.cancel') }}</button>
         </div>
       </form>
     </Modal>

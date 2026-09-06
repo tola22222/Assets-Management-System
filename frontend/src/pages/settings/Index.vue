@@ -906,6 +906,7 @@ onMounted(() => {
 
     <ConfirmDialog
       v-if="pendingRestore"
+      icon="alert"
       :title="t('settings.restore_title')"
       :message="t('settings.restore_message')"
       :confirm-label="t('settings.restore')"

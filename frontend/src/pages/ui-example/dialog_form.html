@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Assign Task Modal</title>
+  <style>
+    :root {
+      --bg-page: #EAECEF;
+      --card-bg: #FFFFFF;
+      --border-light: #E2E8F0;
+      --border-dashed: #CBD5E1;
+      --text-main: #1E293B;
+      --text-sub: #64748B;
+      --text-placeholder: #94A3B8;
+      --primary-dark: #0F172A;
+      --primary-dark-hover: #1E293B;
+      --chip-bg: #EEF2FF;
+      --chip-text: #4F46E5;
+      --chip-remove: #818CF8;
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 16px;
+      --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: var(--font-family);
+    }
+
+    body {
+      background-color: var(--bg-page);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 24px;
+    }
+
+    /* Modal Card Outer Container */
+    .modal-card {
+      background: var(--card-bg);
+      width: 100%;
+      max-width: 580px;
+      border-radius: var(--radius-lg);
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01);
+      border: 1px solid var(--border-light);
+      padding: 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* Header Section */
+    .modal-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .icon-flag-box {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: #F1F5F9;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-sub);
+      flex-shrink: 0;
+    }
+
+    .header-text {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .header-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .header-subtitle {
+      font-size: 12px;
+      color: var(--text-sub);
+    }
+
+    /* Form Layout Grid */
+    .form-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .form-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+
+    .form-label-sub {
+      font-size: 12px;
+      color: var(--text-sub);
+      font-weight: normal;
+      margin-top: -2px;
+    }
+
+    /* Control Inputs */
+    .form-control {
+      width: 100%;
+      height: 42px;
+      padding: 0 12px;
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      color: var(--text-main);
+      background-color: #FFFFFF;
+      outline: none;
+      display: flex;
+      align-items: center;
+      transition: border-color 0.15s ease;
+    }
+
+    .form-control:focus-within, .form-control:focus {
+      border-color: #94A3B8;
+    }
+
+    /* Select Dropdowns with User Avatar */
+    .select-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .select-avatar {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      object-fit: cover;
+      margin-right: 8px;
+    }
+
+    .select-control {
+      width: 100%;
+      height: 42px;
+      padding: 0 32px 0 36px;
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-main);
+      background: #FFFFFF;
+      appearance: none;
+      outline: none;
+      cursor: pointer;
+    }
+
+    .select-icon {
+      position: absolute;
+      right: 12px;
+      pointer-events: none;
+      color: var(--text-sub);
+    }
+
+    .avatar-absolute {
+      position: absolute;
+      left: 10px;
+      pointer-events: none;
+    }
+
+    /* Tags Input Box */
+    .tags-container {
+      height: 42px;
+      padding: 4px 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-sm);
+      background: #FFFFFF;
+      overflow-x: auto;
+    }
+
+    .tag-chip {
+      background-color: var(--chip-bg);
+      color: var(--chip-text);
+      font-size: 12px;
+      font-weight: 500;
+      padding: 4px 8px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+
+    .tag-close {
+      cursor: pointer;
+      color: var(--chip-remove);
+      font-size: 14px;
+      line-height: 1;
+    }
+
+    /* Date Inputs */
+    .date-input-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .date-input-wrapper input {
+      padding-left: 36px;
+    }
+
+    .date-icon {
+      position: absolute;
+      left: 10px;
+      color: var(--text-sub);
+      pointer-events: none;
+    }
+
+    /* Drag & Drop File Area */
+    .dropzone-container {
+      border: 1.5px dashed var(--border-dashed);
+      border-radius: var(--radius-md);
+      padding: 24px;
+      text-align: center;
+      background: #FAFAFA;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      cursor: pointer;
+      transition: background-color 0.15s ease;
+    }
+
+    .dropzone-container:hover {
+      background: #F1F5F9;
+    }
+
+    .cloud-icon-box {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: #E2E8F0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #FFFFFF;
+      margin-bottom: 2px;
+    }
+
+    .dropzone-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .dropzone-subtitle {
+      font-size: 11px;
+      color: var(--text-placeholder);
+    }
+
+    .btn-browse {
+      margin-top: 4px;
+      background: #FFFFFF;
+      border: 1px solid var(--border-light);
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-main);
+      cursor: pointer;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    }
+
+    /* Textarea Description */
+    textarea.form-control {
+      height: 72px;
+      padding: 10px 12px;
+      resize: none;
+      font-family: inherit;
+    }
+
+    textarea.form-control::placeholder {
+      color: var(--text-placeholder);
+    }
+
+    /* Actions Footer */
+    .modal-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 4px;
+    }
+
+    .right-actions {
+      display: flex;
+      gap: 10px;
+    }
+
+    .btn-action {
+      height: 38px;
+      padding: 0 16px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s ease;
+    }
+
+    .btn-draft {
+      background: #FFFFFF;
+      border: 1px solid var(--border-light);
+      color: var(--text-main);
+    }
+
+    .btn-reset {
+      background: #FFFFFF;
+      border: 1px solid var(--border-light);
+      color: var(--text-main);
+    }
+
+    .btn-draft:hover, .btn-reset:hover {
+      background: #F8FAFC;
+    }
+
+    .btn-save {
+      background: var(--primary-dark);
+      border: none;
+      color: #FFFFFF;
+    }
+
+    .btn-save:hover {
+      background: var(--primary-dark-hover);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="modal-card">
+    
+    <div class="modal-header">
+      <div class="icon-flag-box">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path>
+          <line x1="4" y1="22" x2="4" y2="15"></line>
+        </svg>
+      </div>
+      <div class="header-text">
+        <h3 class="header-title">Assign Task</h3>
+        <span class="header-subtitle">Assign task for people join to team</span>
+      </div>
+    </div>
+
+    <form id="assignTaskForm" onsubmit="event.preventDefault();">
+      <div class="form-grid">
+        
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Assign to</label>
+            <div class="select-wrapper">
+              <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&q=80" class="select-avatar avatar-absolute" alt="Avatar">
+              <select class="select-control">
+                <option value="insan">Insan Kamil</option>
+              </select>
+              <svg class="select-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Lead Project</label>
+            <div class="select-wrapper">
+              <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&q=80" class="select-avatar avatar-absolute" alt="Avatar">
+              <select class="select-control">
+                <option value="miguel">Miguel Lorenzo</option>
+              </select>
+              <svg class="select-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Task Title</label>
+            <input type="text" class="form-control" value="Research payment flow">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Tags</label>
+            <div class="tags-container">
+              <div class="tag-chip">
+                Web Design <span class="tag-close">&times;</span>
+              </div>
+              <div class="tag-chip">
+                User Research <span class="tag-close">&times;</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Start Date</label>
+            <div class="date-input-wrapper">
+              <svg class="date-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                <line x1="16" y1="2" x2="16" y2="6"></line>
+                <line x1="8" y1="2" x2="8" y2="6"></line>
+                <line x1="3" y1="10" x2="21" y2="10"></line>
+              </svg>
+              <input type="text" class="form-control" value="10 Jan 2025">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">End Date</label>
+            <div class="date-input-wrapper">
+              <svg class="date-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                <line x1="16" y1="2" x2="16" y2="6"></line>
+                <line x1="8" y1="2" x2="8" y2="6"></line>
+                <line x1="3" y1="10" x2="21" y2="10"></line>
+              </svg>
+              <input type="text" class="form-control" value="12 Jan 2025">
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Upload Document</label>
+          <span class="form-label-sub">Drag and drop document to upload your support task</span>
+          
+          <div class="dropzone-container" style="margin-top: 6px;">
+            <div class="cloud-icon-box">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M17.5 19C19.9853 19 22 16.9853 22 14.5C22 12.156 20.206 10.231 17.886 10.024C17.452 6.587 14.537 3.9 11 3.9C8.016 3.9 5.461 5.822 4.498 8.528C2.016 8.948 0.1 11.106 0.1 13.7C0.1 16.627 2.473 19 5.4 19H17.5Z"></path>
+                <polyline points="12 11 12 16"></polyline>
+                <polyline points="9 13 12 11 15 13"></polyline>
+              </svg>
+            </div>
+            <span class="dropzone-title">Choose a file or drag & drop it here.</span>
+            <span class="dropzone-subtitle">txt, docx, pdf, jpeg, xlsx - Up to 50MB</span>
+            <button type="button" class="btn-browse">Browse files</button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Description</label>
+          <textarea class="form-control" placeholder="Descript your experience here!"></textarea>
+        </div>
+
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-action btn-draft">Save as Draft</button>
+        <div class="right-actions">
+          <button type="reset" class="btn-action btn-reset">Reset Data</button>
+          <button type="submit" class="btn-action btn-save">Save Task</button>
+        </div>
+      </div>
+    </form>
+
+  </div>
+
+</body>
+</html>

@@ -81,15 +81,15 @@ function reset() {
         <div class="card p-6">
           <h3 class="font-display font-bold text-fg mb-4">{{ t('qr_scan.record_verification') }}</h3>
           <form @submit.prevent="submitVerification" class="space-y-4">
-            <div class="space-y-1.5">
-              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('qr_scan.location_required') }}</label>
+            <div class="form-group">
+              <label class="label">{{ t('qr_scan.location_required') }}</label>
               <select v-model="verifyForm.location_id" required class="input">
                 <option value="">{{ t('common.select_location') }}</option>
                 <option v-for="l in locations" :key="l.id" :value="l.id">{{ l.name }}</option>
               </select>
             </div>
-            <div class="space-y-1.5">
-              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('qr_scan.condition_required') }}</label>
+            <div class="form-group">
+              <label class="label">{{ t('qr_scan.condition_required') }}</label>
               <select v-model="verifyForm.condition" class="input">
                 <option value="good">{{ t('qr_scan.condition_good') }}</option>
                 <option value="fair">{{ t('qr_scan.condition_fair') }}</option>
@@ -97,9 +97,9 @@ function reset() {
                 <option value="lost">{{ t('qr_scan.condition_lost') }}</option>
               </select>
             </div>
-            <div class="space-y-1.5">
-              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('qr_scan.remark') }}</label>
-              <textarea v-model="verifyForm.remark" rows="2" class="input"></textarea>
+            <div class="form-group">
+              <label class="label">{{ t('qr_scan.remark') }}</label>
+              <textarea v-model="verifyForm.remark" rows="2" class="textarea"></textarea>
             </div>
             <button type="submit" class="btn-primary w-full">{{ t('qr_scan.confirm_verification') }}</button>
           </form>

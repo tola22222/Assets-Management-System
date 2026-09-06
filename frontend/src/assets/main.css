@@ -63,6 +63,17 @@
 
   --shadow-card: 0 1px 2px rgb(28 46 38 / 0.03), 0 1px 2px rgb(28 46 38 / 0.04);
   --shadow-pop: 0 10px 30px -12px rgb(28 46 38 / 0.22);
+
+  /* Dialog scrim + lift, from the ui-example/alert.html mockup: instead of a
+     heavy black curtain the page is barely tinted and the separation comes from
+     a wide, very soft drop shadow under the card plus a light backdrop blur.
+     Kept a touch stronger than the mockup's 4% — the app's canvas is cream and
+     the cards behind a dialog are white, so 4% left nothing to see. */
+  --color-scrim: rgb(28 46 38 / 0.1);
+  --shadow-dialog: 0 20px 40px rgb(28 46 38 / 0.1), 0 1px 3px rgb(28 46 38 / 0.04);
+  /* The form modal sits flatter than the alert: dialog_form.html gives its card
+     a near-invisible lift and lets the 1px border do the containing. */
+  --shadow-modal: 0 10px 25px -5px rgb(28 46 38 / 0.06), 0 8px 10px -6px rgb(28 46 38 / 0.02);
 }
 
 /* ---- Dark theme: only the semantic tokens change ---- */
@@ -84,6 +95,13 @@
   --shadow-card: 0 1px 2px rgb(0 0 0 / 0.3), 0 1px 3px rgb(0 0 0 / 0.4);
   --shadow-pop: 0 16px 40px -12px rgb(0 0 0 / 0.6);
   --texture-opacity: 0.05;
+
+  /* The mockup's near-clear scrim only works over a light page — on the dark
+     canvas a 10% wash is invisible, so the curtain carries the separation here
+     and the shadow deepens to stay readable against a dark surface. */
+  --color-scrim: rgb(0 0 0 / 0.55);
+  --shadow-dialog: 0 24px 48px rgb(0 0 0 / 0.55), 0 1px 3px rgb(0 0 0 / 0.4);
+  --shadow-modal: 0 10px 25px -5px rgb(0 0 0 / 0.45), 0 8px 10px -6px rgb(0 0 0 / 0.3);
 }
 
 /* ---------- Base ---------- */
@@ -167,18 +185,19 @@
   .btn-danger,
   .btn-success,
   .btn-warning {
-    @apply inline-flex items-center justify-center gap-2 font-semibold text-sm px-4 py-2.5
-           rounded-xl transition-colors duration-150 disabled:opacity-60 disabled:cursor-not-allowed
+    @apply inline-flex items-center justify-center gap-2 font-semibold text-[13px] h-[38px] px-4
+           rounded-lg transition-colors duration-150 disabled:opacity-60 disabled:cursor-not-allowed
            focus:outline-none focus-visible:ring-4;
   }
   .btn-primary {
-    @apply bg-brand text-white hover:bg-brand-dark shadow-[var(--shadow-card)] focus-visible:ring-brand/20;
+    @apply bg-brand text-white hover:bg-brand-dark focus-visible:ring-brand/20
+           dark:bg-brand-200 dark:text-brand-900 dark:hover:bg-brand-100;
   }
   .btn-accent {
     @apply bg-accent text-brand-800 hover:bg-accent-dark hover:text-white focus-visible:ring-accent/20;
   }
   .btn-ghost {
-    @apply border border-line text-muted bg-surface hover:bg-surface-2 hover:text-fg focus-visible:ring-line-strong/30;
+    @apply border border-line text-fg bg-surface hover:bg-surface-2 focus-visible:ring-line-strong/30;
   }
   .btn-subtle {
     @apply text-muted hover:bg-surface-2 hover:text-fg;
@@ -193,25 +212,173 @@
     @apply border border-amber-600 text-amber-600 bg-surface hover:bg-amber-600 hover:text-white focus-visible:ring-amber-500/20;
   }
   .btn-sm {
-    @apply px-3 py-1.5 text-xs rounded-lg;
+    @apply h-8 px-3 text-xs rounded-md;
   }
 
-  /* Form controls */
+  /* ---- Form controls ----
+     Geometry from the ui-example/dialog_form.html mockup: a 42px control on an
+     8px radius, 13px text, sitting on the card surface itself with the border
+     doing the containing rather than a tinted fill. Labels are 13px semibold in
+     the foreground colour, not the small muted caps they were — the mockup
+     treats the label as part of the field, not a caption above it. */
   .label {
-    @apply block text-xs font-semibold text-muted tracking-wide mb-1.5;
+    @apply block text-[13px] font-semibold text-fg mb-1.5;
+  }
+  /* Optional second line under a label ("Drag and drop a document…") — the
+     mockup's .form-label-sub. Sits tight under the label, so the pair still
+     reads as one heading. */
+  .label-sub {
+    @apply block text-xs font-normal text-muted -mt-1 mb-1.5;
   }
   .input,
   .select,
   .textarea {
-    @apply w-full bg-surface-2 text-fg border border-line rounded-xl px-3.5 py-2.5 text-sm
-           placeholder:text-faint transition
-           focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/15;
+    @apply w-full bg-surface text-fg border border-line rounded-lg px-3 text-[13px]
+           placeholder:text-faint transition-colors duration-150
+           focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/10
+           disabled:opacity-60 disabled:cursor-not-allowed;
+  }
+  /* Fixed height on the single-line controls, so a text input, a select and a
+     date field line up across a two-column row whatever their content. */
+  .input,
+  .select {
+    @apply h-[42px];
+  }
+  /* The textarea is the one control the mockup lets grow: a 72px floor and real
+     vertical padding instead of the fixed 42px. `rows` still works on top. */
+  .textarea {
+    @apply min-h-[72px] py-2.5 resize-y;
   }
   .select {
-    @apply appearance-none bg-no-repeat pr-9;
+    @apply appearance-none bg-no-repeat pr-8;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2397a29a' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
-    background-position: right 0.7rem center;
-    background-size: 1.1rem;
+    background-position: right 0.75rem center;
+    background-size: 1rem;
+  }
+
+  /* Field with a leading glyph (the mockup's date pickers and avatar selects):
+     wrap the control, drop the icon in .field-icon, and the control indents to
+     clear it. */
+  .field {
+    @apply relative flex items-center;
+  }
+  .field-icon {
+    @apply absolute left-3 text-muted pointer-events-none flex items-center;
+  }
+  .field > .input,
+  .field > .select {
+    @apply pl-9;
+  }
+
+  /* One label-over-control field. The mockup stacks them on a 6px gap, which
+     is also what the space-y-1.5 wrappers this replaced were doing — so .label
+     drops its own bottom margin in here and the gap governs, hints included. */
+  .form-group {
+    @apply flex flex-col gap-1.5;
+  }
+  .form-group > .label,
+  .form-group > .label-sub {
+    @apply mb-0;
+  }
+
+  /* Two-column field row, collapsing to one column on a phone — the mockup's
+     .form-row, which is a hard 1fr 1fr at every width. */
+  .form-row {
+    @apply grid grid-cols-1 sm:grid-cols-2 gap-4;
+  }
+
+  /* Filled tint chip for a multi-value field (tags, selected assets). Distinct
+     from .tag, which is the outlined label used inside table cells. */
+  .chip {
+    @apply inline-flex items-center gap-1.5 whitespace-nowrap rounded-md
+           bg-brand-50 text-brand-700 px-2 py-1 text-xs font-medium
+           dark:bg-brand-300/15 dark:text-brand-100;
+  }
+  .chip-remove {
+    @apply cursor-pointer leading-none text-brand-300 hover:text-brand-700
+           dark:text-brand-300 dark:hover:text-brand-100;
+  }
+  /* The box those chips sit in — same 42px/8px shell as a text control. */
+  .chip-field {
+    @apply flex items-center gap-1.5 h-[42px] px-2 overflow-x-auto
+           bg-surface border border-line rounded-lg;
+  }
+
+  /* Drag-and-drop file area (the mockup's .dropzone-container): a dashed well
+     with a filled icon disc, a bold line, a hint, and a small browse button.
+     Trimmed a step below the mockup's 24px padding and 8px gap — the mockup
+     shows this well on its own, and at full size it was the tallest thing in a
+     dialog that also has to fit eight other fields. */
+  .dropzone {
+    @apply flex flex-col items-center justify-center gap-1.5 text-center cursor-pointer
+           border-[1.5px] border-dashed border-line-strong rounded-xl p-4
+           bg-surface-2/60 hover:bg-surface-2 transition-colors duration-150;
+  }
+  .dropzone-icon {
+    @apply w-10 h-10 rounded-full bg-line-strong text-surface
+           flex items-center justify-center flex-shrink-0;
+  }
+  .dropzone-title {
+    @apply text-[13px] font-bold text-fg;
+  }
+  .dropzone-hint {
+    @apply text-[11px] text-faint;
+  }
+  .btn-browse {
+    @apply mt-0.5 inline-flex items-center justify-center rounded-md border border-line
+           bg-surface text-fg px-3.5 py-1.5 text-xs font-semibold
+           shadow-[var(--shadow-card)] hover:bg-surface-2 transition-colors duration-150
+           focus:outline-none focus-visible:ring-4 focus-visible:ring-line-strong/30;
+  }
+
+  /* Dropzone while a file is being dragged over it: the brand takes over the
+     dashes and the well tints, so it is obvious which target will catch a drop
+     when there is more than one field on screen. */
+  .dropzone-active {
+    @apply border-brand bg-brand-50 dark:bg-brand-300/10;
+  }
+
+  /* ---- Image crop dialog ----
+     A fixed window on to the picture: the frame is the crop, the image pans
+     under it. checkerboard-free, since a PNG keeps its alpha through to the
+     export and a light grey ground reads truer than a chequer at this size. */
+  /* Width is capped from the height at the call site (max-width: 52vh * aspect)
+     so a tall crop never pushes the zoom row and the actions out of the card on
+     a short screen. */
+  .crop-frame {
+    @apply relative w-full mx-auto overflow-hidden rounded-xl border border-line
+           bg-surface-2 select-none touch-none cursor-grab active:cursor-grabbing;
+  }
+  .crop-image {
+    @apply absolute top-0 left-0 max-w-none pointer-events-none;
+  }
+  /* Rule-of-thirds guides. Drawn as two repeating-gradients rather than four
+     elements, and non-interactive so they never swallow a drag. */
+  .crop-guides {
+    @apply absolute inset-0 pointer-events-none opacity-40;
+    background-image:
+      linear-gradient(to right, transparent calc(33.333% - 0.5px), rgb(255 255 255 / 0.7) calc(33.333% - 0.5px), rgb(255 255 255 / 0.7) calc(33.333% + 0.5px), transparent calc(33.333% + 0.5px)),
+      linear-gradient(to right, transparent calc(66.666% - 0.5px), rgb(255 255 255 / 0.7) calc(66.666% - 0.5px), rgb(255 255 255 / 0.7) calc(66.666% + 0.5px), transparent calc(66.666% + 0.5px)),
+      linear-gradient(to bottom, transparent calc(33.333% - 0.5px), rgb(255 255 255 / 0.7) calc(33.333% - 0.5px), rgb(255 255 255 / 0.7) calc(33.333% + 0.5px), transparent calc(33.333% + 0.5px)),
+      linear-gradient(to bottom, transparent calc(66.666% - 0.5px), rgb(255 255 255 / 0.7) calc(66.666% - 0.5px), rgb(255 255 255 / 0.7) calc(66.666% + 0.5px), transparent calc(66.666% + 0.5px));
+  }
+  /* Left as a native range and simply tinted: stripping the appearance also
+     strips the thumb, and re-building one per engine buys nothing here. */
+  .crop-range {
+    @apply flex-1 min-w-0 cursor-pointer accent-brand dark:accent-brand-200
+           focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/30 rounded-full;
+  }
+
+  /* Filled state of an image field: the picture itself, then its name and the
+     actions — a filename alone gives no way to tell a wrong photo was picked. */
+  .image-preview {
+    @apply flex items-start gap-4 rounded-xl border border-line bg-surface-2/60 p-3;
+  }
+  .image-preview-thumb {
+    @apply w-24 flex-shrink-0 overflow-hidden rounded-lg border border-line bg-surface;
+  }
+  .image-preview-thumb img {
+    @apply w-full h-full object-cover;
   }
 
   /* Badges — soft pastel pills, colors pinned to the Asset Register mockup's
@@ -287,10 +454,13 @@
   .th-sort {
     @apply cursor-pointer select-none hover:text-fg transition-colors;
   }
-  /* Compact filter <select> used above data tables, next to search */
+  /* Compact filter <select> used above data tables, next to search. Same shell
+     as .input/.select so the toolbar row reads as one set of controls — the
+     mockup pairs 42px fields with 38px buttons, and that split holds here. */
   .filter-select {
-    @apply bg-surface-2 border border-line rounded-xl px-3 py-2 text-sm text-fg
-           focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/15 transition;
+    @apply h-[42px] bg-surface border border-line rounded-lg px-3 text-[13px] text-fg
+           transition-colors duration-150
+           focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/10;
   }
   /* Cell text sits at 13px in the main foreground colour — the reference puts
      row content one step darker than the header, not greyed out. */
@@ -317,12 +487,107 @@
   /* Overlay + modal */
   .overlay {
     @apply fixed inset-0 z-[100] flex p-4;
-    background: color-mix(in srgb, #0b120e 45%, transparent);
-    backdrop-filter: blur(4px);
+    background: var(--color-scrim);
+    backdrop-filter: blur(2px);
   }
+  /* ---- Form modal ----
+     The card, header and footer from the ui-example/dialog_form.html mockup:
+     16px corners, a 28px gutter all round, and no rule between the header and
+     the fields — the header is part of the same padded column, led by a small
+     neutral icon disc rather than sitting in its own tinted band.
+     Repainted in the app tokens, so it flips with the theme. */
   .modal-panel {
-    @apply bg-surface text-fg w-full rounded-2xl shadow-[var(--shadow-pop)] border border-line
+    @apply bg-surface text-fg w-full rounded-2xl shadow-[var(--shadow-modal)] border border-line
            flex flex-col max-h-[92vh] overflow-hidden;
+  }
+  .modal-header {
+    @apply flex items-start gap-3 px-7 pt-7;
+  }
+  .modal-header-icon {
+    @apply w-9 h-9 rounded-full bg-surface-2 text-muted flex items-center justify-center flex-shrink-0;
+  }
+  .modal-title {
+    @apply text-base font-bold text-fg leading-tight;
+  }
+  .modal-subtitle {
+    @apply text-xs text-muted mt-0.5;
+  }
+  .modal-close {
+    @apply w-8 h-8 rounded-full text-faint hover:text-fg hover:bg-surface-2
+           flex items-center justify-center flex-shrink-0 transition-colors duration-150
+           focus:outline-none focus-visible:ring-2 focus-visible:ring-line-strong/40;
+  }
+  /* Wraps the <form> so the fields scroll while the actions stay put — the
+     mockup card is short enough never to scroll, the real ones are not. */
+  .modal-form {
+    @apply flex flex-col flex-1 min-h-0;
+  }
+  /* The bottom gutter lives on the footer, not in here: this box scrolls, so
+     padding at its foot scrolls away too and the last field ends up jammed
+     against the buttons the moment the form is taller than the card. */
+  .modal-body {
+    @apply flex-1 overflow-y-auto px-7 pt-5 pb-1;
+  }
+  /* With no footer under it the body carries the card gutter itself. */
+  .modal-body:last-child {
+    @apply pb-7;
+  }
+  .modal-footer {
+    @apply flex items-center justify-end gap-2.5 px-7 pt-4 pb-7 flex-shrink-0;
+  }
+
+  /* ---- Confirm / alert dialog ----
+     Geometry lifted from the ui-example/alert.html mockup: a 24px-radius card
+     capped at 380px, a soft tinted icon disc over the copy, and a pair of
+     equal-width pill actions. Only the palette differs — the mockup's blues
+     become the brand green (or the .badge-danger red for a destructive
+     confirm), so a dialog belongs to the page it opens over. The icon disc's
+     tint is set per tone at the call site, since it tracks the confirm button. */
+  .dialog-card {
+    @apply bg-surface text-fg w-full max-w-[380px] rounded-3xl border border-line
+           px-7 pt-8 pb-7 text-center flex flex-col items-center
+           shadow-[var(--shadow-dialog)];
+  }
+  .dialog-icon {
+    @apply w-14 h-14 rounded-full flex items-center justify-center mb-5;
+  }
+  .dialog-title {
+    @apply text-[22px] font-bold text-fg tracking-[-0.3px] mb-3;
+  }
+  .dialog-text {
+    @apply text-sm font-normal text-muted leading-[1.5] max-w-[280px] mb-7;
+  }
+  .dialog-actions {
+    @apply flex gap-3 w-full;
+  }
+
+  /* Pill actions for the dialog footer: equal width, 48px tall, fully rounded,
+     and no border — the fill alone separates the confirm from the way out.
+     Deliberately a separate family from .btn-*, which stays at rounded-xl for
+     toolbars and forms. */
+  .btn-pill,
+  .btn-pill-neutral,
+  .btn-pill-primary,
+  .btn-pill-danger {
+    @apply flex-1 h-12 inline-flex items-center justify-center rounded-full border-0
+           text-[13px] font-semibold cursor-pointer
+           transition-[background-color,color,transform] duration-150 active:scale-[0.98]
+           focus:outline-none focus-visible:ring-4
+           disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100;
+  }
+  .btn-pill-neutral {
+    @apply bg-surface-2 text-fg hover:bg-line/70 focus-visible:ring-line-strong/30;
+  }
+  /* Dark inverts the fill rather than keeping bg-brand: the brand green is
+     within a few points of the dark card surface, so a dark-on-dark confirm sat
+     next to the neutral cancel with nothing to tell them apart. A light sage
+     fill keeps the confirm obviously the primary of the pair in both themes. */
+  .btn-pill-primary {
+    @apply bg-brand text-white hover:bg-brand-dark focus-visible:ring-brand/25
+           dark:bg-brand-200 dark:text-brand-900 dark:hover:bg-brand-100;
+  }
+  .btn-pill-danger {
+    @apply bg-[#a13b3b] text-white hover:bg-[#8c3232] focus-visible:ring-[#a13b3b]/25;
   }
 
   /* Sidebar links */

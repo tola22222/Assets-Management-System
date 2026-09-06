@@ -16,6 +16,7 @@ import { useToastStore } from '../../stores/toast'
 import { useAuthStore } from '../../stores/auth'
 import TablePagination from '../../components/ui/TablePagination.vue'
 import { usePagination } from '../../composables/usePagination'
+import ImageField from '../../components/ui/ImageField.vue'
 
 const { t } = useI18n()
 const { items: assignments, loading, fetchAll, update, destroy } = useApiCrud('/asset-assignments', { entityName: t('asset_assignments.entity') })
@@ -102,10 +103,6 @@ const returningId = ref(null)
 const returnCondition = ref('good')
 const returnRemark = ref('')
 const returnImageFile = ref(null)
-
-function handleReturnFileChange(e) {
-  returnImageFile.value = e.target.files[0] || null
-}
 
 const form = reactive({ asset_id: '', assigned_to_type: 'staff', assigned_to_id: '', location_id: '', quantity: 1, assigned_date: '', due_date: '' })
 
@@ -271,25 +268,25 @@ const { page, rowsPerPage, total, paged } = usePagination(sortedAssignments)
     </div>
 
     <Modal v-if="showModal" :title="t('asset_assignments.modal_title')" @close="showModal = false">
-      <form @submit.prevent="handleSubmit">
-        <div class="p-6 space-y-4">
-          <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_assignments.asset_required') }}</label>
+      <form class="modal-form" @submit.prevent="handleSubmit">
+        <div class="modal-body space-y-4">
+          <div class="form-group">
+            <label class="label">{{ t('asset_assignments.asset_required') }}</label>
             <select v-model="form.asset_id" required class="input">
               <option value="">{{ t('common.select_asset') }}</option>
               <option v-for="a in assets" :key="a.id" :value="a.id">{{ a.name }} ({{ a.asset_code }})</option>
             </select>
           </div>
           <div class="grid grid-cols-2 gap-4">
-            <div class="space-y-1.5">
-              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_assignments.assign_to') }}</label>
+            <div class="form-group">
+              <label class="label">{{ t('asset_assignments.assign_to') }}</label>
               <select v-model="form.assigned_to_type" class="input">
                 <option value="staff">{{ t('asset_assignments.staff') }}</option>
                 <option value="program">{{ t('asset_assignments.program') }}</option>
               </select>
             </div>
-            <div class="space-y-1.5">
-              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_assignments.recipient_required') }}</label>
+            <div class="form-group">
+              <label class="label">{{ t('asset_assignments.recipient_required') }}</label>
               <select v-model="form.assigned_to_id" required class="input">
                 <option value="">{{ t('asset_assignments.select_recipient') }}</option>
                 <option v-for="r in (form.assigned_to_type === 'staff' ? staffList : programs)" :key="r.id" :value="r.id">{{ r.full_name || r.name }}</option>
@@ -297,44 +294,44 @@ const { page, rowsPerPage, total, paged } = usePagination(sortedAssignments)
             </div>
           </div>
           <div class="grid grid-cols-2 gap-4">
-            <div class="space-y-1.5">
-              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_assignments.location_required') }}</label>
+            <div class="form-group">
+              <label class="label">{{ t('asset_assignments.location_required') }}</label>
               <select v-model="form.location_id" required class="input">
                 <option value="">{{ t('common.select_location') }}</option>
                 <option v-for="l in locations" :key="l.id" :value="l.id">{{ l.name }}</option>
               </select>
             </div>
-            <div class="space-y-1.5">
-              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_assignments.quantity_required') }}</label>
+            <div class="form-group">
+              <label class="label">{{ t('asset_assignments.quantity_required') }}</label>
               <input v-model.number="form.quantity" type="number" min="1" required class="input" />
             </div>
           </div>
           <div class="grid grid-cols-2 gap-4">
-            <div class="space-y-1.5">
-              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_assignments.assigned_date') }}</label>
+            <div class="form-group">
+              <label class="label">{{ t('asset_assignments.assigned_date') }}</label>
               <input v-model="form.assigned_date" type="date" required class="input" />
             </div>
-            <div class="space-y-1.5">
-              <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_assignments.due_date') }}</label>
+            <div class="form-group">
+              <label class="label">{{ t('asset_assignments.due_date') }}</label>
               <input v-model="form.due_date" type="date" class="input" />
             </div>
           </div>
         </div>
-        <div class="flex items-center gap-3 border-t border-line px-6 py-4">
+        <div class="modal-footer">
+          <button type="button" class="btn-ghost" @click="showModal = false">{{ t('common.cancel') }}</button>
           <button type="submit" class="btn-primary">
             <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
             {{ t('asset_assignments.assign_button') }}
           </button>
-          <button type="button" class="btn-ghost" @click="showModal = false">{{ t('common.cancel') }}</button>
         </div>
       </form>
     </Modal>
 
     <Modal v-if="returningId" :title="t('asset_assignments.return_title')" @close="returningId = null">
-      <form @submit.prevent="submitReturn">
-        <div class="p-6 space-y-4">
-          <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_assignments.condition_required') }}</label>
+      <form class="modal-form" @submit.prevent="submitReturn">
+        <div class="modal-body space-y-4">
+          <div class="form-group">
+            <label class="label">{{ t('asset_assignments.condition_required') }}</label>
             <select v-model="returnCondition" class="input">
               <option value="good">{{ t('asset_assignments.condition_good') }}</option>
               <option value="fair">{{ t('asset_assignments.condition_fair') }}</option>
@@ -342,18 +339,18 @@ const { page, rowsPerPage, total, paged } = usePagination(sortedAssignments)
               <option value="lost">{{ t('asset_assignments.condition_lost') }}</option>
             </select>
           </div>
-          <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_assignments.remark') }}</label>
-            <textarea v-model="returnRemark" rows="2" class="input"></textarea>
+          <div class="form-group">
+            <label class="label">{{ t('asset_assignments.remark') }}</label>
+            <textarea v-model="returnRemark" rows="2" class="textarea"></textarea>
           </div>
-          <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('asset_assignments.photo_reference') }}</label>
-            <input type="file" accept="image/jpeg,image/png" @change="handleReturnFileChange" class="w-full text-sm" />
+          <div class="form-group">
+            <label class="label">{{ t('asset_assignments.photo_reference') }}</label>
+            <ImageField v-model="returnImageFile" :hint="t('image.field_hint')" />
           </div>
         </div>
-        <div class="flex items-center gap-3 border-t border-line px-6 py-4">
-          <button type="submit" class="btn-primary">{{ t('asset_assignments.confirm_return') }}</button>
+        <div class="modal-footer">
           <button type="button" class="btn-ghost" @click="returningId = null">{{ t('common.cancel') }}</button>
+          <button type="submit" class="btn-primary">{{ t('asset_assignments.confirm_return') }}</button>
         </div>
       </form>
     </Modal>
@@ -368,8 +365,8 @@ const { page, rowsPerPage, total, paged } = usePagination(sortedAssignments)
          Asset, recipient and quantity are fixed once assigned, so they are
          shown as context rather than as inputs the server would ignore. -->
     <Modal v-if="editingId" :title="t('asset_assignments.edit_title')" @close="editingId = null">
-      <form @submit.prevent="submitEdit">
-        <div class="p-6 space-y-4">
+      <form class="modal-form" @submit.prevent="submitEdit">
+        <div class="modal-body space-y-4">
           <div class="rounded-xl border border-line bg-surface-2 px-3.5 py-3 text-sm">
             <p class="font-semibold text-fg">{{ editContext?.asset?.name }}</p>
             <p class="text-muted text-[13px] mt-0.5">
@@ -398,9 +395,9 @@ const { page, rowsPerPage, total, paged } = usePagination(sortedAssignments)
             </div>
           </div>
         </div>
-        <div class="flex items-center gap-3 border-t border-line px-6 py-4">
-          <button type="submit" class="btn-primary">{{ t('common.save') }}</button>
+        <div class="modal-footer">
           <button type="button" class="btn-ghost" @click="editingId = null">{{ t('common.cancel') }}</button>
+          <button type="submit" class="btn-primary">{{ t('common.save') }}</button>
         </div>
       </form>
     </Modal>

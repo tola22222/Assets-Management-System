@@ -155,14 +155,14 @@ const { page, rowsPerPage, total, paged } = usePagination(filtered)
     </div>
 
     <Modal v-if="showModal" :title="editingId ? t('categories.edit_title') : t('categories.create_title')" @close="showModal = false">
-      <form @submit.prevent="handleSubmit">
-        <div class="p-6 space-y-4">
-          <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('categories.name_required') }}</label>
+      <form class="modal-form" @submit.prevent="handleSubmit">
+        <div class="modal-body space-y-4">
+          <div class="form-group">
+            <label class="label">{{ t('categories.name_required') }}</label>
             <input v-model="form.name" required class="input" />
           </div>
-          <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('categories.short_name') }}</label>
+          <div class="form-group">
+            <label class="label">{{ t('categories.short_name') }}</label>
             <input :value="form.short_name" @input="uppercaseShortName" list="category-codes" maxlength="6"
               :placeholder="t('categories.short_name_placeholder')" class="input" />
             <datalist id="category-codes">
@@ -170,17 +170,17 @@ const { page, rowsPerPage, total, paged } = usePagination(filtered)
             </datalist>
             <p class="text-xs text-faint">{{ t('categories.short_name_hint') }}</p>
           </div>
-          <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-muted tracking-wide">{{ t('common.description') }}</label>
-            <textarea v-model="form.description" rows="2" class="input"></textarea>
+          <div class="form-group">
+            <label class="label">{{ t('common.description') }}</label>
+            <textarea v-model="form.description" rows="2" class="textarea"></textarea>
           </div>
         </div>
-        <div class="flex items-center gap-3 border-t border-line px-6 py-4">
+        <div class="modal-footer">
+          <button type="button" class="btn-ghost" @click="showModal = false">{{ t('common.cancel') }}</button>
           <button type="submit" class="btn-primary">
             <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
             {{ editingId ? t('categories.save_changes') : t('categories.create_button') }}
           </button>
-          <button type="button" class="btn-ghost" @click="showModal = false">{{ t('common.cancel') }}</button>
         </div>
       </form>
     </Modal>

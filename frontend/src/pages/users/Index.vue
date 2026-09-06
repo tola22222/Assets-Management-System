@@ -391,8 +391,8 @@ const { page, rowsPerPage, total, paged } = usePagination(filtered)
     </div>
 
     <Modal v-if="showModal" :title="editingId ? t('users.edit_title') : t('users.create_title')" @close="showModal = false">
-      <form @submit.prevent="handleSubmit">
-        <div class="p-6 space-y-4">
+      <form class="modal-form" @submit.prevent="handleSubmit">
+        <div class="modal-body space-y-4">
           <div>
             <label class="label">{{ t('users.name_required') }}</label>
             <input v-model="form.name" required class="input" />
@@ -449,19 +449,19 @@ const { page, rowsPerPage, total, paged } = usePagination(filtered)
             </div>
           </div>
         </div>
-        <div class="flex items-center gap-3 border-t border-line px-6 py-4">
+        <div class="modal-footer">
+          <button type="button" class="btn-ghost" @click="showModal = false">{{ t('common.cancel') }}</button>
           <button type="submit" class="btn-primary">
             <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
             {{ editingId ? t('users.save_changes') : t('users.create_button') }}
           </button>
-          <button type="button" class="btn-ghost" @click="showModal = false">{{ t('common.cancel') }}</button>
         </div>
       </form>
     </Modal>
 
     <Modal v-if="resettingId" :title="t('users.reset_password_title')" @close="resettingId = null">
-      <form @submit.prevent="submitPasswordReset">
-        <div class="p-6 space-y-4">
+      <form class="modal-form" @submit.prevent="submitPasswordReset">
+        <div class="modal-body space-y-4">
           <div>
             <label class="label">{{ t('users.new_password') }}</label>
             <input v-model="newPassword" type="password" minlength="8" required class="input" />
@@ -471,9 +471,9 @@ const { page, rowsPerPage, total, paged } = usePagination(filtered)
             <input v-model="newPasswordConfirm" type="password" minlength="8" required class="input" />
           </div>
         </div>
-        <div class="flex items-center gap-3 border-t border-line px-6 py-4">
-          <button type="submit" class="btn-primary">{{ t('users.reset_password_title') }}</button>
+        <div class="modal-footer">
           <button type="button" class="btn-ghost" @click="resettingId = null">{{ t('common.cancel') }}</button>
+          <button type="submit" class="btn-primary">{{ t('users.reset_password_title') }}</button>
         </div>
       </form>
     </Modal>
@@ -481,7 +481,7 @@ const { page, rowsPerPage, total, paged } = usePagination(filtered)
     <!-- Effective permissions: what this account can actually do, and which
          role each grant came from. -->
     <Modal v-if="permissionsFor" :title="t('users.permissions_title', { name: permissionsFor.user.name })" wide @close="permissionsFor = null">
-      <div class="p-6 space-y-5">
+      <div class="modal-body space-y-5">
         <div v-if="permissionsLoading" class="py-10 text-center text-sm text-faint">{{ t('common.loading') }}</div>
         <template v-else-if="permissionsFor.data">
           <div class="flex flex-wrap items-center gap-2">

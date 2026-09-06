@@ -105,19 +105,19 @@ async function changePassword() {
           </label>
         </div>
 
-        <div class="space-y-1.5">
+        <div class="form-group">
           <label class="label">{{ t('common.name') }}</label>
           <input v-model="form.name" class="input" required />
         </div>
-        <div class="space-y-1.5">
+        <div class="form-group">
           <label class="label">{{ t('common.email') }}</label>
           <input :value="auth.user?.email" class="input" disabled />
         </div>
-        <div class="space-y-1.5">
+        <div class="form-group">
           <label class="label">{{ t('common.phone') }}</label>
           <input v-model="form.phone" class="input" />
         </div>
-        <div class="space-y-1.5">
+        <div class="form-group">
           <label class="label">{{ t('profile.role') }}</label>
           <input :value="auth.user?.role?.replace('_', ' ')" class="input capitalize" disabled />
         </div>
@@ -149,16 +149,16 @@ async function changePassword() {
 
       <form @submit.prevent="changePassword" class="card p-6 space-y-5">
         <h2 class="font-bold text-fg">{{ t('profile.change_password') }}</h2>
-        <div class="space-y-1.5">
+        <div class="form-group">
           <label class="label">{{ t('profile.current_password') }}</label>
           <input v-model="passwordForm.current_password" type="password" class="input" required />
         </div>
         <div class="grid grid-cols-2 gap-4">
-          <div class="space-y-1.5">
+          <div class="form-group">
             <label class="label">{{ t('profile.new_password') }}</label>
             <input v-model="passwordForm.password" type="password" class="input" required minlength="8" />
           </div>
-          <div class="space-y-1.5">
+          <div class="form-group">
             <label class="label">{{ t('profile.confirm_password') }}</label>
             <input v-model="passwordForm.password_confirmation" type="password" class="input" required minlength="8" />
           </div>
