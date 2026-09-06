@@ -155,22 +155,16 @@ onMounted(() => {
 <template>
   <AppLayout>
     <!-- Same shell as System Settings and User Management: the title block sits
-         on the canvas with a brand tile beside it, the feed lives in its own
-         card below. -->
+         on the canvas, the feed lives in its own card below. -->
     <div class="p-4 sm:p-6 lg:p-8 max-w-3xl mx-auto space-y-5">
 
       <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-        <div class="flex items-start gap-4 min-w-0">
-          <div class="w-11 h-11 rounded-2xl bg-brand text-white flex items-center justify-center flex-shrink-0 shadow-[var(--shadow-card)]">
-            <svg class="w-[22px] h-[22px]" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :d="BELL" /></svg>
-          </div>
-          <div class="min-w-0">
-            <h1 class="font-display text-2xl font-bold text-fg tracking-tight flex items-center gap-2.5">
-              {{ t('notifications.title') }}
-              <span v-if="unreadCount" class="badge badge-danger">{{ unreadCount }}</span>
-            </h1>
-            <p class="text-muted text-sm mt-1">{{ t('notifications.subtitle') }}</p>
-          </div>
+        <div class="min-w-0">
+          <h1 class="font-display text-2xl font-bold text-fg tracking-tight flex items-center gap-2.5">
+            {{ t('notifications.title') }}
+            <span v-if="unreadCount" class="badge badge-danger">{{ unreadCount }}</span>
+          </h1>
+          <p class="text-muted text-sm mt-1">{{ t('notifications.subtitle') }}</p>
         </div>
         <!-- Only offered while something is actually unread. -->
         <button v-if="unreadCount" @click="markAllRead" class="btn-ghost flex-shrink-0">

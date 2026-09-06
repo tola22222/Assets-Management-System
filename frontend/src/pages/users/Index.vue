@@ -236,14 +236,9 @@ const { page, rowsPerPage, total, paged } = usePagination(filtered)
     <div class="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-5">
 
       <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-        <div class="flex items-start gap-4 min-w-0">
-          <div class="w-11 h-11 rounded-2xl bg-brand text-white flex items-center justify-center flex-shrink-0 shadow-[var(--shadow-card)]">
-            <svg class="w-[22px] h-[22px]" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :d="I.users" /></svg>
-          </div>
-          <div class="min-w-0">
-            <h1 class="font-display text-2xl font-bold text-fg tracking-tight">{{ t('users.title') }}</h1>
-            <p class="text-muted text-sm mt-1">{{ t('users.subtitle') }}</p>
-          </div>
+        <div class="min-w-0">
+          <h1 class="font-display text-2xl font-bold text-fg tracking-tight">{{ t('users.title') }}</h1>
+          <p class="text-muted text-sm mt-1">{{ t('users.subtitle') }}</p>
         </div>
         <button v-if="tab === 'users'" @click="openCreate" class="btn-primary flex-shrink-0">
           <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>

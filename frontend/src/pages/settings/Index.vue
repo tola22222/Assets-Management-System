@@ -29,7 +29,6 @@ const I = {
   database: 'M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 0v3.75m-16.5-3.75v3.75m16.5 0v3.75C20.25 16.153 16.556 18 12 18s-8.25-1.847-8.25-4.125v-3.75',
   info: 'm11.25 11.25.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z',
   calendar: 'M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5',
-  cog: 'M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.281zM15 12a3 3 0 11-6 0 3 3 0 016 0z',
 }
 
 // One tab per section. Each carries its icon and the one-line description shown
@@ -38,11 +37,11 @@ const I = {
 // its own buttons, so its panel renders outside the <form> (a bare <button>
 // inside a form defaults to type=submit and would save the settings instead).
 const tabs = [
-  { id: 'general', label: 'settings.tab_general', desc: 'settings.organization_info_subtitle', icon: I.building },
-  { id: 'appearance', label: 'settings.tab_appearance', desc: 'settings.appearance_subtitle', icon: I.swatch },
-  { id: 'reports', label: 'settings.tab_reports', desc: 'settings.report_schedule_subtitle', icon: I.report },
-  { id: 'mail', label: 'settings.tab_mail', desc: 'settings.mail_subtitle', icon: I.mail },
-  { id: 'backup', label: 'settings.tab_backup', desc: 'settings.backup_subtitle', icon: I.database },
+  { id: 'general', label: 'settings.tab_general', icon: I.building },
+  { id: 'appearance', label: 'settings.tab_appearance', icon: I.swatch },
+  { id: 'reports', label: 'settings.tab_reports', icon: I.report },
+  { id: 'mail', label: 'settings.tab_mail', icon: I.mail },
+  { id: 'backup', label: 'settings.tab_backup', icon: I.database },
 ]
 const activeTab = ref('general')
 const currentTab = computed(() => tabs.find((tab) => tab.id === activeTab.value) || tabs[0])
@@ -326,25 +325,20 @@ onMounted(() => {
          selected item is the sidebar's brand green with a gold marker bar. -->
     <div class="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto">
 
-      <!-- Page header: a brand tile with a white cog, echoing the sidebar's
-           Setting group so the page announces where you are. -->
-      <div class="flex items-start gap-4 mb-6">
-        <div class="w-11 h-11 rounded-2xl bg-brand text-white flex items-center justify-center flex-shrink-0 shadow-[var(--shadow-card)]">
-          <svg class="w-[22px] h-[22px]" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :d="I.cog" /></svg>
-        </div>
-        <div class="min-w-0">
-          <h1 class="font-display text-2xl font-bold text-fg tracking-tight">{{ t('settings.title') }}</h1>
-          <p class="text-muted text-sm mt-1">{{ t('settings.subtitle') }}</p>
-        </div>
+      <div class="min-w-0 mb-6">
+        <h1 class="font-display text-2xl font-bold text-fg tracking-tight">{{ t('settings.title') }}</h1>
+        <p class="text-muted text-sm mt-1">{{ t('settings.subtitle') }}</p>
       </div>
 
       <div class="grid grid-cols-1 lg:grid-cols-[264px_minmax(0,1fr)] gap-5 lg:gap-7 items-start">
-
-        <!-- Section rail. Below lg it collapses to a single scrolling row:
-             five tabs plus Khmer labels overflow a phone, and a wrapped second
-             row reads as two nav bars. -->
+        <!-- Section rail, built like the Roles list: a p-3 card holding a
+             column of rows, each a 28px disc plus one 13px line, with the
+             selected row washed in the brand rather than filled by it. Below lg
+             it collapses to a single scrolling row — five tabs plus Khmer
+             labels overflow a phone, and a wrapped second row reads as two nav
+             bars. No search box: Roles can hold dozens, this holds five. -->
         <nav
-          class="card p-2 flex lg:flex-col gap-1 overflow-x-auto lg:overflow-visible lg:sticky lg:top-20"
+          class="card p-3 flex lg:flex-col gap-0.5 overflow-x-auto lg:overflow-visible lg:sticky lg:top-20"
           :aria-label="t('settings.title')"
         >
           <button
@@ -352,31 +346,21 @@ onMounted(() => {
             :key="tab.id"
             type="button"
             @click="activeTab = tab.id"
-            class="group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-left whitespace-nowrap lg:whitespace-normal transition-colors duration-150 flex-shrink-0 lg:w-full"
-            :class="activeTab === tab.id
-              ? 'bg-brand text-white shadow-[var(--shadow-card)]'
-              : 'text-muted hover:bg-surface-2 hover:text-fg'"
+            class="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left transition
+                   whitespace-nowrap lg:whitespace-normal flex-shrink-0 lg:w-full"
+            :class="activeTab === tab.id ? 'bg-brand/10' : 'hover:bg-surface-2'"
             :aria-current="activeTab === tab.id ? 'page' : undefined"
           >
-            <!-- Gold marker on the selected row: the same "you are here"
-                 signal the sidebar uses. -->
+            <!-- The Roles list puts initials in this disc; a settings section
+                 has an icon instead, and it carries the selected state. -->
             <span
-              v-if="activeTab === tab.id"
-              class="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 rounded-r-full bg-accent hidden lg:block"
-            ></span>
-            <svg
-              class="w-[18px] h-[18px] flex-shrink-0 transition-colors"
-              :class="activeTab === tab.id ? 'text-white' : 'text-faint group-hover:text-fg'"
-              fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"
-            ><path stroke-linecap="round" stroke-linejoin="round" :d="tab.icon" /></svg>
-            <span class="min-w-0">
-              <span class="block text-sm font-semibold">{{ t(tab.label) }}</span>
-              <!-- The description only earns its space in the vertical rail; in
-                   the phone scroller it would triple every tab's width. -->
-              <span
-                class="hidden lg:block text-[11px] leading-snug mt-0.5"
-                :class="activeTab === tab.id ? 'text-white/55' : 'text-faint'"
-              >{{ t(tab.desc) }}</span>
+              class="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 transition-colors"
+              :class="activeTab === tab.id ? 'bg-brand text-white' : 'bg-surface-2 text-muted'"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :d="tab.icon" /></svg>
+            </span>
+            <span class="flex-1 min-w-0">
+              <span class="block text-[13px] font-medium truncate text-fg">{{ t(tab.label) }}</span>
             </span>
           </button>
         </nav>
@@ -393,9 +377,9 @@ onMounted(() => {
           <!-- Skeleton rather than a blank column while the first GET is in
                flight, so the page never looks like it rendered empty. -->
           <div v-else-if="loading && activeTab !== 'backup'" class="card overflow-hidden">
-            <div class="px-5 sm:px-6 py-4 border-b border-line bg-surface-2/60">
+            <div class="px-5 sm:px-6 py-5 border-b border-line flex items-center gap-3.5">
+              <div class="w-[52px] h-[52px] rounded-full bg-line animate-pulse flex-shrink-0"></div>
               <div class="h-4 w-40 rounded bg-line animate-pulse"></div>
-              <div class="h-3 w-64 rounded bg-line/70 animate-pulse mt-2.5"></div>
             </div>
             <div class="divide-y divide-line">
               <div v-for="n in 4" :key="n" class="px-5 sm:px-6 py-5 flex items-center gap-8">
@@ -411,21 +395,23 @@ onMounted(() => {
                open. -->
           <form v-else-if="activeTab !== 'backup'" @submit.prevent="handleSubmit">
             <section class="card overflow-hidden">
-              <!-- The panel header repeats the selected tab's icon and
-                   description, so the rail and the panel always name the same
-                   thing. -->
-              <header class="px-5 sm:px-6 py-4 border-b border-line bg-surface-2/60 flex items-start gap-3">
-                <span class="w-9 h-9 rounded-xl bg-brand text-white flex items-center justify-center flex-shrink-0">
-                  <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :d="currentTab.icon" /></svg>
-                </span>
-                <div class="min-w-0">
-                  <h2 class="text-base font-semibold text-fg">
-                    <template v-if="activeTab === 'general'">{{ t('settings.organization_info') }}</template>
-                    <template v-else-if="activeTab === 'appearance'">{{ t('settings.appearance') }}</template>
-                    <template v-else-if="activeTab === 'reports'">{{ t('settings.report_schedule') }}</template>
-                    <template v-else>{{ t('settings.mail_title') }}</template>
-                  </h2>
-                  <p class="text-sm text-muted mt-0.5">{{ t(currentTab.desc) }}</p>
+              <!-- Same header shape as the Roles panel: a 52px round brand
+                   disc, a bold title and one muted line under it, on the card
+                   surface rather than in a tinted band. The rail and the panel
+                   still name the same thing. -->
+              <header class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-5 sm:px-6 py-5 border-b border-line">
+                <div class="flex items-center gap-3.5 min-w-0">
+                  <span class="w-[52px] h-[52px] rounded-full bg-brand text-white flex items-center justify-center flex-shrink-0">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :d="currentTab.icon" /></svg>
+                  </span>
+                  <div class="min-w-0">
+                    <h2 class="font-bold text-fg">
+                      <template v-if="activeTab === 'general'">{{ t('settings.organization_info') }}</template>
+                      <template v-else-if="activeTab === 'appearance'">{{ t('settings.appearance') }}</template>
+                      <template v-else-if="activeTab === 'reports'">{{ t('settings.report_schedule') }}</template>
+                      <template v-else>{{ t('settings.mail_title') }}</template>
+                    </h2>
+                  </div>
                 </div>
               </header>
 
@@ -768,20 +754,24 @@ onMounted(() => {
                Outside the <form> on purpose: these buttons act immediately, and
                a button inside a form submits it by default. -->
           <section v-else class="card overflow-hidden">
-            <header class="px-5 sm:px-6 py-4 border-b border-line bg-surface-2/60 flex flex-wrap items-start justify-between gap-3">
-              <div class="flex items-start gap-3 min-w-0">
-                <span class="w-9 h-9 rounded-xl bg-brand text-white flex items-center justify-center flex-shrink-0">
-                  <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :d="I.database" /></svg>
+            <!-- Same header shape as the Roles panel: a 52px round brand disc,
+                 a bold title and one muted line under it, sitting on the card
+                 surface rather than in a tinted band. -->
+            <header class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-5 sm:px-6 py-5 border-b border-line">
+              <div class="flex items-center gap-3.5 min-w-0">
+                <span class="w-[52px] h-[52px] rounded-full bg-brand text-white flex items-center justify-center flex-shrink-0">
+                  <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :d="I.database" /></svg>
                 </span>
                 <div class="min-w-0">
-                  <h2 class="text-base font-semibold text-fg">{{ t('settings.backup_title') }}</h2>
-                  <p class="text-sm text-muted mt-0.5">{{ t('settings.backup_subtitle') }}</p>
+                  <h2 class="font-bold text-fg">{{ t('settings.backup_title') }}</h2>
                 </div>
               </div>
-              <button type="button" @click="createBackup" :disabled="backingUp" class="btn-primary btn-sm flex-shrink-0">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" /><polyline points="17 21 17 13 7 13 7 21" /><polyline points="7 3 7 8 15 8" /></svg>
-                {{ backingUp ? t('settings.backing_up') : t('settings.create_backup') }}
-              </button>
+              <div class="flex flex-wrap items-center gap-2 flex-shrink-0">
+                <button type="button" @click="createBackup" :disabled="backingUp" class="btn-primary btn-sm">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" /><polyline points="17 21 17 13 7 13 7 21" /><polyline points="7 3 7 8 15 8" /></svg>
+                  {{ backingUp ? t('settings.backing_up') : t('settings.create_backup') }}
+                </button>
+              </div>
             </header>
 
             <div class="divide-y divide-line">
