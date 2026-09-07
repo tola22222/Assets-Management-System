@@ -66,6 +66,12 @@ class UatSeeder extends Seeder
         $this->command?->line('  → users and staff');
         $this->call(UatUserSeeder::class);
 
+        // Programs point at the staff member accountable for them, and staff
+        // only exist now — so their leads are attached on a second pass. A
+        // program without one leaves its school unable to accept a transfer.
+        $this->command?->line('  → program leads');
+        (new UatReferenceSeeder)->seedPrograms();
+
         $this->command?->line('  → asset register');
         $assetSeeder = new UatAssetSeeder($withQr);
         $assetSeeder->setContainer(app())->setCommand($this->command)->run();

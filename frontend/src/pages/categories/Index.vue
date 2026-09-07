@@ -134,7 +134,7 @@ const { page, rowsPerPage, total, paged } = usePagination(filtered)
                 <td>{{ cat.assets_count ?? 0 }}</td>
                 <td class="text-right">
                   <div v-if="isOpm" class="flex items-center justify-end gap-1.5">
-                    <button @click="openEdit(cat)" :title="t('common.edit')" class="btn-icon">
+                    <button @click="openEdit(cat)" :title="t('common.edit')" class="btn-icon-edit">
                       <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
                     </button>
                     <button @click="deletingId = cat.id" :title="t('common.delete')" class="btn-icon-danger">

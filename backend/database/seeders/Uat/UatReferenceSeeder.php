@@ -6,6 +6,7 @@ use App\Models\AssetCategory;
 use App\Models\Location;
 use App\Models\Program;
 use App\Models\Setting;
+use App\Models\Staff;
 use App\Models\Supplier;
 use Database\Seeders\Support\PepyInventory;
 use Illuminate\Database\Seeder;
@@ -30,15 +31,29 @@ class UatReferenceSeeder extends Seeder
      * descriptions. Descriptions are ours; the names are the source's.
      */
     private const PROGRAMS = [
-        'Dream Program' => 'Partner high-school program — the largest holder of tagged assets in the register.',
-        'Office' => 'PEPY Siem Reap office general use.',
-        'LC_English' => 'Learning Centre — English classes.',
-        'LC_ICT' => 'Learning Centre — ICT classes and computer lab.',
-        'LC_YE' => 'Learning Centre — Youth Employment.',
-        'Comm. Team' => 'Communications team — cameras, drone and stabiliser equipment.',
-        'Office Storage' => 'Held in office storage, not yet issued to a person or site.',
-        'Scholarship Program' => 'Scholarship student laptop borrowing scheme.',
-        'Bright Future Labs' => 'Bright Future Labs laptop cohort.',
+        'Dream Program' => ['Partner high-school program — the largest holder of tagged assets in the register.', 'KL', 'Nhem Sievlong'],
+        // Each lead appears exactly once: a staff member may be responsible for
+        // at most one program (unique index on programs.responsible_staff_id),
+        // so reusing a name here would make the seed fail.
+        'Office' => ['PEPY Siem Reap office general use.', 'SR', 'Oem Manin'],
+        'LC_English' => ['Learning Centre — English classes.', 'SR', 'Ny Konnitha'],
+        'LC_ICT' => ['Learning Centre — ICT classes and computer lab.', 'SR', 'Meas Sokvoeun'],
+        'LC_YE' => ['Learning Centre — Youth Employment.', 'SR', 'Vann Samath'],
+        'Comm. Team' => ['Communications team — cameras, drone and stabiliser equipment.', 'SR', 'Ariel Sophea'],
+        'Office Storage' => ['Held in office storage, not yet issued to a person or site.', 'SR', 'Chhin Chhunly'],
+        'Scholarship Program' => ['Scholarship student laptop borrowing scheme.', 'SR', 'Ros Dena'],
+        'Bright Future Labs' => ['Bright Future Labs laptop cohort.', 'SR', 'Sok Chamreun'],
+
+        // One program per partner school that has a focal point, so each of
+        // those sites has somebody who can accept an asset transfer. A site
+        // with no program carrying a responsible staff member cannot be
+        // transferred to at all — AssetTransferController refuses up front.
+        'School Assets — Sen Sok' => ['Assets held at Sen Sok HS.', 'SS', 'Chan Narun'],
+        'School Assets — Varin' => ['Assets held at Varin HS.', 'VR', 'Pich Savoeng'],
+        'School Assets — Banteay Srei' => ['Assets held at Banteay Srei HS.', 'BS', 'Kim Solin'],
+        'School Assets — Kork Dong' => ['Assets held at Kork Dong HS.', 'KD', 'Sao Korng'],
+        'School Assets — Sna Techo' => ['Assets held at Sna Techo 317 HS.', 'ST', 'Long Pisey'],
+        'School Assets — Roeul' => ['Assets held at Roeul HS.', 'RO', 'Heng Rithy'],
     ];
 
     /** Suppliers are not in the register source; these support the Suppliers CRUD screen only. */
@@ -73,9 +88,7 @@ class UatReferenceSeeder extends Seeder
         $this->assertSitesPresent();
         $this->seedCategories();
 
-        foreach (self::PROGRAMS as $name => $description) {
-            Program::updateOrCreate(['name' => $name], ['description' => $description]);
-        }
+        $this->seedPrograms();
 
         foreach (self::SUPPLIERS as $supplier) {
             Supplier::updateOrCreate(['name' => $supplier['name']], $supplier);
@@ -83,6 +96,43 @@ class UatReferenceSeeder extends Seeder
 
         foreach (self::SETTINGS as $key => $value) {
             Setting::updateOrCreate(['key' => $key], ['value' => $value]);
+        }
+    }
+
+    /**
+     * A program carries the school it runs at and the staff member accountable
+     * for it. That pairing is what AssetTransferController reads to decide who
+     * may accept a delivery at a site, so a program seeded without it would
+     * leave its school unable to receive anything.
+     *
+     * Called twice on purpose. Reference data is seeded before UatUserSeeder,
+     * so the first pass can only set the school; UatSeeder calls this again
+     * once staff exist to attach the leads. It is idempotent (updateOrCreate),
+     * and a program whose named lead is missing is left without one rather
+     * than failing the whole seed.
+     */
+    public function seedPrograms(): void
+    {
+        foreach (self::PROGRAMS as $name => [$description, $siteCode, $leadName]) {
+            $location = Location::where('code', $siteCode)->first();
+            $lead = Staff::where('full_name', $leadName)
+                ->when($location, fn ($query) => $query->where('location_id', $location->id))
+                ->first();
+
+            $program = Program::firstOrNew(['name' => $name]);
+
+            // A lead can only hold one program, so on a re-run over data that
+            // has drifted, leave a lead already claimed elsewhere alone rather
+            // than hitting the unique index and failing the whole seed.
+            $claimed = $lead && Program::where('responsible_staff_id', $lead->id)
+                ->when($program->exists, fn ($query) => $query->whereKeyNot($program->id))
+                ->exists();
+
+            $program->fill([
+                'description' => $description,
+                'location_id' => $location?->id,
+                'responsible_staff_id' => $claimed ? $program->responsible_staff_id : $lead?->id,
+            ])->save();
         }
     }
 

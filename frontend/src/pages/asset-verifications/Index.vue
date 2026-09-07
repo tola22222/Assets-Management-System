@@ -179,10 +179,10 @@ const { page, rowsPerPage, total, paged } = usePagination(sortedVerifications)
                 </td>
                 <td class="text-right whitespace-nowrap">
                   <div class="flex items-center justify-end gap-1.5">
-                    <button @click="viewing = v" :title="t('common.view')" :aria-label="t('common.view')" class="btn-icon">
+                    <button @click="viewing = v" :title="t('common.view')" :aria-label="t('common.view')" class="btn-icon-view">
                       <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
                     </button>
-                    <button v-if="!v.verified_at" @click="complete(v.id)" :title="t('common.mark_complete')" :aria-label="t('common.mark_complete')" class="btn-icon">
+                    <button v-if="!v.verified_at" @click="complete(v.id)" :title="t('common.mark_complete')" :aria-label="t('common.mark_complete')" class="btn-icon-success">
                       <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                     </button>
                     <button

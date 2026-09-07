@@ -282,7 +282,7 @@ const { page, rowsPerPage, total, paged } = usePagination(visible)
                 <td class="text-muted whitespace-nowrap">{{ formatDate(i.updated_at) }}</td>
                 <td class="text-right" @click.stop>
                   <div v-if="canManage" class="flex items-center justify-end gap-1.5">
-                    <button @click="openIssue(i)" :title="t('stock.issue')" class="btn-icon">
+                    <button @click="openIssue(i)" :title="t('stock.issue')" class="btn-icon-info">
                       <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" /></svg>
                     </button>
                     <button @click="deletingId = i.id" :title="t('common.delete')" class="btn-icon-danger">

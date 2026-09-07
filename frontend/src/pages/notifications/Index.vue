@@ -215,7 +215,7 @@ onMounted(() => {
               @click.stop="markRead(n)"
               :title="t('common.mark_read')"
               :aria-label="t('common.mark_read')"
-              class="btn-icon flex-shrink-0"
+              class="btn-icon-info flex-shrink-0"
             >
               <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
             </button>

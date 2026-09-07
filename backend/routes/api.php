@@ -75,10 +75,20 @@ Route::name('api.')->group(function () {
             Route::apiResource('asset-assignments', AssetAssignmentController::class)->only(['store', 'update', 'destroy']);
         });
 
+        // approve/reject act on a request that has not reached the destination
+        // yet, so they stay OPM-only.
         Route::middleware('role:operations_hr_manager')->group(function () {
             Route::post('/asset-transfers/{asset_transfer}/approve', [AssetTransferController::class, 'approve']);
             Route::post('/asset-transfers/{asset_transfer}/reject', [AssetTransferController::class, 'reject']);
         });
+        // Accepting, refusing and returning belong to the destination site and
+        // are resolved through the School -> Program -> Responsible Staff
+        // chain, not by role — so no role: guard here. Authorisation is
+        // AssetTransferController::canReceive(), which OPM does not satisfy at
+        // a school it runs no program for.
+        Route::post('/asset-transfers/{asset_transfer}/confirm', [AssetTransferController::class, 'confirmReceipt']);
+        Route::post('/asset-transfers/{asset_transfer}/decline', [AssetTransferController::class, 'decline']);
+        Route::post('/asset-transfers/{asset_transfer}/return', [AssetTransferController::class, 'returnAsset']);
         Route::apiResource('asset-transfers', AssetTransferController::class)->only(['index', 'store', 'destroy']);
 
         Route::middleware('role:operations_hr_manager')->group(function () {

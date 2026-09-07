@@ -338,10 +338,10 @@ const { page, rowsPerPage, total, paged } = usePagination(filtered)
                   </td>
                   <td class="text-right whitespace-nowrap">
                     <div class="flex items-center justify-end gap-1.5">
-                      <button @click="openPermissions(u)" :title="t('users.view_permissions')" :aria-label="t('users.view_permissions')" class="btn-icon">
+                      <button @click="openPermissions(u)" :title="t('users.view_permissions')" :aria-label="t('users.view_permissions')" class="btn-icon-view">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :d="I.shield" /></svg>
                       </button>
-                      <button @click="openEdit(u)" :title="t('common.edit')" :aria-label="t('common.edit')" class="btn-icon">
+                      <button @click="openEdit(u)" :title="t('common.edit')" :aria-label="t('common.edit')" class="btn-icon-edit">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
                       </button>
                       <button
@@ -349,12 +349,12 @@ const { page, rowsPerPage, total, paged } = usePagination(filtered)
                         :disabled="u.id === auth.user?.id"
                         :title="u.id === auth.user?.id ? t('users.cannot_lock_self') : (u.is_locked ? t('common.unlock') : t('common.lock'))"
                         :aria-label="u.is_locked ? t('common.unlock') : t('common.lock')"
-                        class="btn-icon"
+                        class="btn-icon-admin"
                       >
                         <svg v-if="u.is_locked" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 10.5V6.75a4.5 4.5 0 119 0v3.75M3.75 21.75h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H3.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" /></svg>
                         <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" /></svg>
                       </button>
-                      <button @click="resettingId = u.id; newPassword = ''; newPasswordConfirm = ''" :title="t('common.reset_password')" :aria-label="t('common.reset_password')" class="btn-icon">
+                      <button @click="resettingId = u.id; newPassword = ''; newPasswordConfirm = ''" :title="t('common.reset_password')" :aria-label="t('common.reset_password')" class="btn-icon-admin">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z" /></svg>
                       </button>
                       <button @click="deletingId = u.id" :title="t('common.delete')" :aria-label="t('common.delete')" class="btn-icon-danger">

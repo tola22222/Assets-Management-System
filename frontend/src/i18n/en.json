@@ -157,7 +157,7 @@
     "cannot_be_undone": "This cannot be undone."
   },
   "status": {
-    "pending": "PENDING",
+    "pending": "AWAITING SITE",
     "approved": "APPROVED",
     "active": "ACTIVE",
     "completed": "COMPLETED",
@@ -169,7 +169,9 @@
     "inactive": "INACTIVE",
     "stock_in": "RECEIVED",
     "transfer": "TRANSFER",
-    "overdue": "OVERDUE"
+    "overdue": "OVERDUE",
+    "received": "RECEIVED",
+    "pending_approval": "AWAITING APPROVAL"
   },
   "assets": {
     "title": "Asset Register",
@@ -352,7 +354,19 @@
     "entity": "Program",
     "save_failed": "Could not save program.",
     "delete_failed": "Could not delete program.",
-    "bulk_delete_title": "Delete {count} program? | Delete {count} programs?"
+    "bulk_delete_title": "Delete {count} program? | Delete {count} programs?",
+    "school": "School",
+    "school_required": "School *",
+    "responsible_staff": "Responsible Staff",
+    "responsible_staff_required": "Responsible Staff *",
+    "select_staff": "Select responsible staff",
+    "no_lead": "No lead",
+    "no_staff_at_school": "No staff are based at this school yet. Add one in the Staff directory first.",
+    "options_failed": "Could not load schools and staff.",
+    "all_staff_taken": "Every staff member at this school already leads a program. Free one up, or add staff to this school.",
+    "responsible_staff_hint": "A staff member can be responsible for only one program.",
+    "no_login": "No login",
+    "no_login_hint": "This person has no user account, so they cannot accept a transfer for this school. Create an account for them, or pick a lead who has one."
   },
   "staff": {
     "title": "Staff Directory",
@@ -643,7 +657,25 @@
     "approve_failed": "Could not approve this transfer.",
     "reject_failed": "Could not reject this transfer.",
     "options_failed": "Could not load assets and locations.",
-    "delete_approved_blocked": "An approved transfer cannot be deleted."
+    "received": "Transfer accepted. The asset is now recorded at its destination.",
+    "confirm_failed": "Could not accept this transfer.",
+    "confirm_receipt": "Accept Transfer",
+    "return_asset": "Return Asset",
+    "return_modal_title": "Return Asset",
+    "return_explainer": "This sends {asset} back to {location}. It stays recorded here until they confirm receipt.",
+    "return_reason": "Reason for Return",
+    "return_reason_placeholder": "e.g. program finished, no longer needed",
+    "return_submit": "Send Back",
+    "return_submitted": "Return sent. Awaiting confirmation at the destination.",
+    "return_failed": "Could not return this asset.",
+    "received_by": "Received By",
+    "received_at": "Received On",
+    "delete_dispatched_blocked": "Once the destination has been asked to accept it, a transfer can only be rejected, not deleted.",
+    "reject_delivery": "Reject Delivery",
+    "reject_modal_title": "Reject Transfer",
+    "reject_explainer": "Rejecting means {asset} is not accepted. It stays where it is and the transfer is closed.",
+    "reject_reason": "Reason for Rejection",
+    "reject_reason_placeholder": "e.g. wrong item, no space, arrived damaged"
   },
   "asset_returns": {
     "title": "Asset Returns",

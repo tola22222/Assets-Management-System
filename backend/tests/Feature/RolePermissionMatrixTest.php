@@ -35,6 +35,28 @@ class RolePermissionMatrixTest extends TestCase
         ]);
     }
 
+    /**
+     * A site can only be transferred to once someone answers for it: a program
+     * there, with a responsible staff member who has a login account. See
+     * AssetTransferReceiptTest for the rules that hang off this.
+     */
+    private function makeReceivable(Location $location): User
+    {
+        $staff = \App\Models\Staff::create([
+            'full_name' => 'Lead '.$location->id,
+            'phone' => '012345678',
+            'location_id' => $location->id,
+        ]);
+
+        \App\Models\Program::create([
+            'name' => 'Program at '.$location->id,
+            'location_id' => $location->id,
+            'responsible_staff_id' => $staff->id,
+        ]);
+
+        return User::factory()->create(['role' => 'staff', 'staff_id' => $staff->id]);
+    }
+
     public function test_staff_cannot_create_an_asset(): void
     {
         $staff = User::factory()->create(['role' => 'staff']);
@@ -156,25 +178,33 @@ class RolePermissionMatrixTest extends TestCase
             'to_location_id' => $otherLocation->id,
             'requested_by' => $requester->id,
             'transfer_date' => now(),
-            'status' => 'pending',
+            'status' => 'pending_approval',
         ]);
+        $this->makeReceivable($otherLocation);
 
         foreach (['staff', 'finance_manager', 'executive_director'] as $role) {
             $user = User::factory()->create(['role' => $role]);
             $this->actingAs($user)->postJson("/api/asset-transfers/{$transfer->id}/approve")->assertStatus(403);
             $this->actingAs($user)->postJson("/api/asset-transfers/{$transfer->id}/reject")->assertStatus(403);
         }
-        $this->assertDatabaseHas('asset_transfers', ['id' => $transfer->id, 'status' => 'pending']);
+        $this->assertDatabaseHas('asset_transfers', ['id' => $transfer->id, 'status' => 'pending_approval']);
 
         $opm = User::factory()->create(['role' => 'operations_hr_manager']);
         $this->actingAs($opm)->postJson("/api/asset-transfers/{$transfer->id}/approve")->assertStatus(200);
-        $this->assertDatabaseHas('asset_transfers', ['id' => $transfer->id, 'status' => 'approved']);
+        // Approval only hands the request to the destination; the asset does
+        // not move until that site accepts it.
+        $this->assertDatabaseHas('asset_transfers', ['id' => $transfer->id, 'status' => 'pending']);
+        $this->assertSame($asset->location_id, $asset->fresh()->location_id, 'Approval must not move the asset.');
     }
 
-    public function test_opm_created_transfer_is_pending_and_opm_cannot_approve_their_own_request(): void
+    public function test_opm_transfer_goes_straight_to_the_destination(): void
     {
+        // OPM is the dispatch authority, so their transfer needs no second
+        // sign-off — but it still waits on the receiving site, and the asset
+        // stays where it is until that site accepts.
         $asset = $this->makeAsset();
         $otherLocation = Location::where('code', '!=', 'SR')->firstOrFail();
+        $this->makeReceivable($otherLocation);
         $opm = User::factory()->create(['role' => 'operations_hr_manager']);
 
         $response = $this->actingAs($opm)->postJson('/api/asset-transfers', [
@@ -185,15 +215,30 @@ class RolePermissionMatrixTest extends TestCase
         ]);
 
         $response->assertStatus(201);
-        $transferId = $response->json('id');
-        $this->assertDatabaseHas('asset_transfers', ['id' => $transferId, 'status' => 'pending']);
+        $this->assertDatabaseHas('asset_transfers', [
+            'id' => $response->json('id'),
+            'status' => 'pending',
+            'approved_by' => $opm->id,
+        ]);
+        $this->assertSame($asset->location_id, $asset->fresh()->location_id, 'Sending must not move the asset.');
+    }
 
-        $this->actingAs($opm)->postJson("/api/asset-transfers/{$transferId}/approve")->assertStatus(403);
-        $this->assertDatabaseHas('asset_transfers', ['id' => $transferId, 'status' => 'pending']);
+    public function test_a_non_opm_request_still_waits_on_approval(): void
+    {
+        $asset = $this->makeAsset();
+        $otherLocation = Location::where('code', '!=', 'SR')->firstOrFail();
+        $this->makeReceivable($otherLocation);
+        $staff = User::factory()->create(['role' => 'staff']);
 
-        $otherOpm = User::factory()->create(['role' => 'operations_hr_manager']);
-        $this->actingAs($otherOpm)->postJson("/api/asset-transfers/{$transferId}/approve")->assertStatus(200);
-        $this->assertDatabaseHas('asset_transfers', ['id' => $transferId, 'status' => 'approved']);
+        $response = $this->actingAs($staff)->postJson('/api/asset-transfers', [
+            'asset_id' => $asset->id,
+            'from_location_id' => $asset->location_id,
+            'to_location_id' => $otherLocation->id,
+            'transfer_date' => now()->toDateString(),
+        ]);
+
+        $response->assertStatus(201);
+        $this->assertDatabaseHas('asset_transfers', ['id' => $response->json('id'), 'status' => 'pending_approval']);
     }
 
     public function test_opm_cannot_reject_their_own_transfer_request(): void
@@ -210,11 +255,11 @@ class RolePermissionMatrixTest extends TestCase
             'to_location_id' => $otherLocation->id,
             'requested_by' => $opm->id,
             'transfer_date' => now(),
-            'status' => 'pending',
+            'status' => 'pending_approval',
         ]);
 
         $this->actingAs($opm)->postJson("/api/asset-transfers/{$transfer->id}/reject")->assertStatus(403);
-        $this->assertDatabaseHas('asset_transfers', ['id' => $transfer->id, 'status' => 'pending']);
+        $this->assertDatabaseHas('asset_transfers', ['id' => $transfer->id, 'status' => 'pending_approval']);
 
         $otherOpm = User::factory()->create(['role' => 'operations_hr_manager']);
         $this->actingAs($otherOpm)->postJson("/api/asset-transfers/{$transfer->id}/reject")->assertStatus(200);

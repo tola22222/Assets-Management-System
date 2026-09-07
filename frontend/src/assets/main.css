@@ -470,18 +470,96 @@
 
   /* Square icon button for table row actions: outlined and neutral at rest,
      picking up the brand (or red, for destructive) on hover. */
+  /* Table row actions.
+     ------------------------------------------------------------------
+     Every action icon carries its meaning in colour at rest, not only on
+     hover: a row of identical grey squares makes the user read six tooltips
+     to find Delete. The variant says what KIND of action it is, so the same
+     colour means the same thing on every screen:
+
+       view     amber    look, don't touch
+       edit     brand    change this record
+       success  emerald  approve / accept / complete
+       info     sky      move, hand over, export
+       admin    violet   account control (lock, reset password)
+       danger   red      delete, reject, cancel
+
+     .btn-icon itself stays neutral for genuinely non-semantic controls such
+     as the pagination arrows. */
   .btn-icon,
+  .btn-icon-view,
+  .btn-icon-edit,
+  .btn-icon-success,
+  .btn-icon-info,
+  .btn-icon-admin,
   .btn-icon-danger {
-    @apply w-8 h-8 rounded-md border border-line bg-surface text-muted
-           inline-flex items-center justify-center flex-shrink-0 transition
-           focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/30
-           disabled:opacity-40 disabled:cursor-not-allowed;
+    @apply w-8 h-8 rounded-md border inline-flex items-center justify-center
+           flex-shrink-0 transition focus:outline-none focus-visible:ring-2
+           focus-visible:ring-brand/30 disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+
+  .btn-icon {
+    @apply border-line bg-surface text-muted;
   }
   .btn-icon:hover:not(:disabled) {
     @apply bg-surface-2 text-brand border-brand;
   }
+
+  .btn-icon-view {
+    @apply bg-amber-50 text-amber-600 border-amber-200
+           dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/30;
+  }
+  .btn-icon-view:hover:not(:disabled) {
+    @apply bg-amber-100 text-amber-700 border-amber-400
+           dark:bg-amber-500/20 dark:text-amber-300 dark:border-amber-500/60;
+  }
+
+  /* brand-200 rather than -300 in dark: the brand scale is a desaturated sage,
+     so the darker shades read noticeably dimmer than the amber/violet/red
+     beside them and the row loses its even visual weight. */
+  .btn-icon-edit {
+    @apply bg-brand-50 text-brand-600 border-brand-200
+           dark:bg-brand-500/10 dark:text-brand-200 dark:border-brand-500/40;
+  }
+  .btn-icon-edit:hover:not(:disabled) {
+    @apply bg-brand-100 text-brand-700 border-brand-400
+           dark:bg-brand-500/25 dark:text-brand-100 dark:border-brand-500/70;
+  }
+
+  .btn-icon-success {
+    @apply bg-emerald-50 text-emerald-600 border-emerald-200
+           dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/30;
+  }
+  .btn-icon-success:hover:not(:disabled) {
+    @apply bg-emerald-100 text-emerald-700 border-emerald-400
+           dark:bg-emerald-500/20 dark:text-emerald-300 dark:border-emerald-500/60;
+  }
+
+  .btn-icon-info {
+    @apply bg-sky-50 text-sky-600 border-sky-200
+           dark:bg-sky-500/10 dark:text-sky-400 dark:border-sky-500/30;
+  }
+  .btn-icon-info:hover:not(:disabled) {
+    @apply bg-sky-100 text-sky-700 border-sky-400
+           dark:bg-sky-500/20 dark:text-sky-300 dark:border-sky-500/60;
+  }
+
+  .btn-icon-admin {
+    @apply bg-violet-50 text-violet-600 border-violet-200
+           dark:bg-violet-500/10 dark:text-violet-400 dark:border-violet-500/30;
+  }
+  .btn-icon-admin:hover:not(:disabled) {
+    @apply bg-violet-100 text-violet-700 border-violet-400
+           dark:bg-violet-500/20 dark:text-violet-300 dark:border-violet-500/60;
+  }
+
+  .btn-icon-danger {
+    @apply bg-red-50 text-red-600 border-red-200
+           dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/30;
+  }
   .btn-icon-danger:hover:not(:disabled) {
-    @apply bg-red-50 text-red-600 border-red-400 dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/50;
+    @apply bg-red-100 text-red-700 border-red-400
+           dark:bg-red-500/20 dark:text-red-300 dark:border-red-500/60;
   }
 
   /* Overlay + modal */

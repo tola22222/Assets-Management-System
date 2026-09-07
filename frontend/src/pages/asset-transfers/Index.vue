@@ -33,9 +33,18 @@ const { sortKey, sortDir, toggleSort, sorted: sortedTransfers } = useTableSort(s
 const viewing = ref(null)
 const deletingId = ref(null)
 
-// The server refuses to delete an approved transfer (422) because the asset has
-// already been relocated, so the button goes dead once it is approved.
-const canDelete = (r) => r.status !== 'approved'
+// Once the destination has been asked to accept it the request is theirs to
+// answer, and the server refuses the delete (422) — rejecting is the
+// audit-visible way to kill it.
+const canDelete = (r) => r.status === 'pending_approval' || r.status === 'rejected'
+
+// can_confirm / can_decline / can_return come from the API. Who answers for a
+// site runs through School → Program → Responsible Staff, which the SPA can't
+// work out on its own; the server re-checks every one of these on the action.
+const returning = ref(null)
+const returnForm = reactive({ reason: '', transfer_date: '' })
+const rejecting = ref(null)
+const rejectForm = reactive({ rejection_reason: '' })
 
 const viewRows = computed(() => {
   const r = viewing.value
@@ -48,6 +57,10 @@ const viewRows = computed(() => {
     { label: t('asset_transfers.requester'), value: r.requester?.name },
     { label: t('common.date'), value: (r.transfer_date || '').slice(0, 10) },
     { label: t('asset_transfers.reason'), value: r.reason, type: 'multiline' },
+    { label: t('asset_transfers.reject_reason'), value: r.rejection_reason, type: 'multiline' },
+    // Who signed for it, and when — blank until the destination accepts.
+    { label: t('asset_transfers.received_by'), value: r.receiver?.name },
+    { label: t('asset_transfers.received_at'), value: (r.received_at || '').slice(0, 10) },
     { label: t('common.status'), value: r.status, type: 'status' },
   ]
 })
@@ -107,13 +120,52 @@ async function approve(id) {
   }
 }
 
-async function reject(id) {
+// Two different rejections share one dialog: OPM refusing to release a request
+// (/reject), and the destination refusing to take the asset (/decline). The
+// row's own state says which endpoint applies.
+function openReject(row) {
+  rejectForm.rejection_reason = ''
+  rejecting.value = row
+}
+
+async function submitReject() {
+  const row = rejecting.value
+  const endpoint = row.status === 'pending_approval' ? 'reject' : 'decline'
   try {
-    await http.post(`/asset-transfers/${id}/reject`)
+    await http.post(`/asset-transfers/${row.id}/${endpoint}`, rejectForm)
     toast.success(t('asset_transfers.rejected'))
+    rejecting.value = null
     await fetchAll()
   } catch (e) {
     toast.error(errorMessage(e, t('asset_transfers.reject_failed')))
+  }
+}
+
+// Accepting is what actually moves the asset in the register, so the row only
+// leaves "pending" once the destination's responsible staff acts.
+async function confirmReceipt(id) {
+  try {
+    await http.post(`/asset-transfers/${id}/confirm`)
+    toast.success(t('asset_transfers.received'))
+    await fetchAll()
+  } catch (e) {
+    toast.error(errorMessage(e, t('asset_transfers.confirm_failed')))
+  }
+}
+
+function openReturn(row) {
+  Object.assign(returnForm, { reason: '', transfer_date: new Date().toISOString().slice(0, 10) })
+  returning.value = row
+}
+
+async function submitReturn() {
+  try {
+    await http.post(`/asset-transfers/${returning.value.id}/return`, returnForm)
+    toast.success(t('asset_transfers.return_submitted'))
+    returning.value = null
+    await fetchAll()
+  } catch (e) {
+    toast.error(errorMessage(e, t('asset_transfers.return_failed')))
   }
 }
 
@@ -174,26 +226,50 @@ const { page, rowsPerPage, total, paged } = usePagination(sortedTransfers)
                      the row-management actions on the right. -->
                 <td class="whitespace-nowrap">
                   <div class="flex items-center gap-1.5">
-                    <template v-if="t2.status === 'pending' && auth.user?.role === 'operations_hr_manager' && t2.requester?.id !== auth.user?.id">
-                      <button @click="approve(t2.id)" :title="t('common.approve')" :aria-label="t('common.approve')" class="btn-icon">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    <!-- OPM releasing a request that has not reached the
+                         destination yet. -->
+                    <!-- OPM releasing a request that has not reached the
+                         destination yet: tick to release, cross to refuse. -->
+                    <template v-if="t2.status === 'pending_approval' && auth.user?.role === 'operations_hr_manager' && t2.requester?.id !== auth.user?.id">
+                      <button @click="approve(t2.id)" :title="t('common.approve')" :aria-label="t('common.approve')" class="btn-icon-success">
+                        <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12.75 11.25 15 15 9.75" /><circle cx="12" cy="12" r="9" /></svg>
                       </button>
-                      <button @click="reject(t2.id)" :title="t('common.reject')" :aria-label="t('common.reject')" class="btn-icon-danger">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                      <button @click="openReject(t2)" :title="t('common.reject')" :aria-label="t('common.reject')" class="btn-icon-danger">
+                        <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="m9.75 9.75 4.5 4.5m0-4.5-4.5 4.5" /><circle cx="12" cy="12" r="9" /></svg>
                       </button>
                     </template>
+                    <!-- The receiving site answers. Accept is an arrow into a
+                         tray and Return is the same arrow coming back out — a
+                         matched pair, so the two directions read at a glance
+                         and neither can be mistaken for the plain tick above. -->
+                    <template v-else-if="t2.can_confirm || t2.can_decline">
+                      <button v-if="t2.can_confirm" @click="confirmReceipt(t2.id)" :title="t('asset_transfers.confirm_receipt')" :aria-label="t('asset_transfers.confirm_receipt')" class="btn-icon-success">
+                        <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v9m0 0 3.5-3.5M12 12 8.5 8.5" /><path d="M3.5 14.5h4l1.2 2.2h6.6l1.2-2.2h4" /><path d="M3.5 14.5 5.8 19a2 2 0 0 0 1.8 1.1h8.8a2 2 0 0 0 1.8-1.1l2.3-4.5" /></svg>
+                      </button>
+                      <!-- Plain x-circle rather than a crossed-out tray: at
+                           18px the cross and the tray fought each other and
+                           neither resolved. Refusing means the same thing here
+                           as it does above, so it looks the same. -->
+                      <button v-if="t2.can_decline" @click="openReject(t2)" :title="t('asset_transfers.reject_delivery')" :aria-label="t('asset_transfers.reject_delivery')" class="btn-icon-danger">
+                        <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="m9.75 9.75 4.5 4.5m0-4.5-4.5 4.5" /><circle cx="12" cy="12" r="9" /></svg>
+                      </button>
+                    </template>
+                    <!-- Finished with it: send it back where it came from. -->
+                    <button v-else-if="t2.can_return" @click="openReturn(t2)" :title="t('asset_transfers.return_asset')" :aria-label="t('asset_transfers.return_asset')" class="btn-icon-info">
+                      <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M12 12V3m0 0L8.5 6.5M12 3l3.5 3.5" /><path d="M3.5 14.5h4l1.2 2.2h6.6l1.2-2.2h4" /><path d="M3.5 14.5 5.8 19a2 2 0 0 0 1.8 1.1h8.8a2 2 0 0 0 1.8-1.1l2.3-4.5" /></svg>
+                    </button>
                     <span v-else class="text-faint">—</span>
                   </div>
                 </td>
                 <td class="text-right whitespace-nowrap">
                   <div class="flex items-center justify-end gap-1.5">
-                    <button @click="viewing = t2" :title="t('common.view')" :aria-label="t('common.view')" class="btn-icon">
+                    <button @click="viewing = t2" :title="t('common.view')" :aria-label="t('common.view')" class="btn-icon-view">
                       <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
                     </button>
                     <button
                       @click="deletingId = t2.id"
                       :disabled="!canDelete(t2)"
-                      :title="canDelete(t2) ? t('common.delete') : t('asset_transfers.delete_approved_blocked')"
+                      :title="canDelete(t2) ? t('common.delete') : t('asset_transfers.delete_dispatched_blocked')"
                       :aria-label="t('common.delete')"
                       class="btn-icon-danger"
                     >
@@ -211,6 +287,46 @@ const { page, rowsPerPage, total, paged } = usePagination(sortedTransfers)
         <TablePagination v-model:page="page" v-model:rows-per-page="rowsPerPage" :count="total" />
       </div>
     </div>
+
+    <Modal v-if="rejecting" :title="t('asset_transfers.reject_modal_title')" @close="rejecting = null">
+      <form class="modal-form" @submit.prevent="submitReject">
+        <div class="modal-body space-y-4">
+          <p class="text-sm text-muted">
+            {{ t('asset_transfers.reject_explainer', { asset: rejecting.asset?.name || t('common.n_a') }) }}
+          </p>
+          <div class="form-group">
+            <label class="label">{{ t('asset_transfers.reject_reason') }}</label>
+            <textarea v-model="rejectForm.rejection_reason" rows="2" class="textarea" :placeholder="t('asset_transfers.reject_reason_placeholder')"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-ghost" @click="rejecting = null">{{ t('common.cancel') }}</button>
+          <button type="submit" class="btn-danger">{{ t('common.reject') }}</button>
+        </div>
+      </form>
+    </Modal>
+
+    <Modal v-if="returning" :title="t('asset_transfers.return_modal_title')" @close="returning = null">
+      <form class="modal-form" @submit.prevent="submitReturn">
+        <div class="modal-body space-y-4">
+          <p class="text-sm text-muted">
+            {{ t('asset_transfers.return_explainer', { asset: returning.asset?.name || t('common.n_a'), location: returning.from_location?.name || t('common.n_a') }) }}
+          </p>
+          <div class="form-group">
+            <label class="label">{{ t('asset_transfers.transfer_date_required') }}</label>
+            <input v-model="returnForm.transfer_date" type="date" required class="input" />
+          </div>
+          <div class="form-group">
+            <label class="label">{{ t('asset_transfers.return_reason') }}</label>
+            <textarea v-model="returnForm.reason" rows="2" class="textarea" :placeholder="t('asset_transfers.return_reason_placeholder')"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-ghost" @click="returning = null">{{ t('common.cancel') }}</button>
+          <button type="submit" class="btn-primary">{{ t('asset_transfers.return_submit') }}</button>
+        </div>
+      </form>
+    </Modal>
 
     <Modal v-if="showModal" :title="t('asset_transfers.modal_title')" @close="showModal = false">
       <form class="modal-form" @submit.prevent="handleSubmit">

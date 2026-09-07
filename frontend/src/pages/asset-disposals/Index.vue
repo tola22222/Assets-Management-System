@@ -185,11 +185,11 @@ const { page, rowsPerPage, total, paged } = usePagination(sortedDisposals)
                 <td><StatusBadge :status="d.status" /></td>
                 <td class="text-right whitespace-nowrap">
                   <div class="flex items-center justify-end gap-1.5">
-                    <button @click="viewing = d" :title="t('common.view')" :aria-label="t('common.view')" class="btn-icon">
+                    <button @click="viewing = d" :title="t('common.view')" :aria-label="t('common.view')" class="btn-icon-view">
                       <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
                     </button>
                     <template v-if="d.status === 'pending' && canApprove()">
-                      <button @click="approve(d.id)" :title="t('common.approve')" :aria-label="t('common.approve')" class="btn-icon">
+                      <button @click="approve(d.id)" :title="t('common.approve')" :aria-label="t('common.approve')" class="btn-icon-success">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                       </button>
                       <button @click="reject(d.id)" :title="t('common.reject')" :aria-label="t('common.reject')" class="btn-icon-danger">
