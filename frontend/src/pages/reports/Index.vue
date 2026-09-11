@@ -5,7 +5,6 @@ import http, { errorMessage } from '../../api/http'
 import AppLayout from '../../layouts/AppLayout.vue'
 import Modal from '../../components/ui/Modal.vue'
 import TableSortIcon from '../../components/ui/TableSortIcon.vue'
-import FilterPills from '../../components/ui/FilterPills.vue'
 import StatCard from '../../components/ui/StatCard.vue'
 import DonutChart from '../../components/ui/DonutChart.vue'
 import LocationPillCards from '../../components/ui/LocationPillCards.vue'
@@ -75,6 +74,23 @@ const columns = computed(() => ({
   'by-model': [['name', t('reports.col_model')], ['category', t('reports.col_category'), (r) => r.category?.name], ['total', t('reports.col_total_units')], ['stock_level', t('reports.col_stock_level')]],
 }))
 
+// The CSV/Excel file carries more detail than fits in the on-screen table.
+// Reports not listed here export exactly their table columns.
+const exportColumns = computed(() => ({
+  inventory: [
+    ['asset_code', t('reports.col_code')],
+    ['name', t('reports.col_name')],
+    ['category', t('reports.col_category'), (r) => r.category?.name],
+    ['location', t('reports.col_location'), (r) => r.location?.name],
+    ['created_at', t('reports.col_registered'), (r) => dayKey(r.created_at)],
+    ['purchase_date', t('reports.col_purchase_date'), (r) => dayKey(r.purchase_date)],
+    ['condition', t('reports.col_condition')],
+    ['status', t('common.status')],
+    ['current_user', t('reports.col_current_user')],
+    ['purchase_price', t('reports.col_purchase_price')],
+  ],
+}))
+
 // Which field represents "when" for each report — drives the Day/Month/Year
 // filter below. Reports with no natural date (aggregate/summary reports)
 // simply don't get the filter; it's hidden for those.
@@ -100,16 +116,44 @@ const hasDateField = computed(() => !!dateFields[selected.value])
 const granularity = ref('all') // all | day | month | year
 const periodValue = ref('')
 const today = new Date()
-const years = Array.from({ length: 6 }, (_, i) => today.getFullYear() - i)
-const yearOptions = years.map((y) => ({ value: String(y), label: String(y) }))
+
+// YYYY-MM-DD in the viewer's local timezone. toISOString() is UTC, which in
+// Cambodia (UTC+7) puts anything between 00:00 and 07:00 on the previous day.
+function localDateKey(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+// Calendar day (YYYY-MM-DD) of a date/datetime value, or null if unparseable.
+// A bare date (e.g. an uncast assigned_date) is already a calendar day;
+// parsing it would make it UTC midnight and shift it in some timezones.
+function dayKey(raw) {
+  if (!raw) return null
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw
+  const d = new Date(raw)
+  return isNaN(d) ? null : localDateKey(d)
+}
 
 function defaultPeriodValue(g) {
-  if (g === 'day') return today.toISOString().slice(0, 10)
-  if (g === 'month') return today.toISOString().slice(0, 7)
+  if (g === 'day') return localDateKey(today)
+  if (g === 'month') return localDateKey(today).slice(0, 7)
   if (g === 'year') return String(today.getFullYear())
   return ''
 }
 watch(granularity, (g) => { periodValue.value = defaultPeriodValue(g) })
+
+// Optional day within the selected month ('' = whole month). Cleared whenever
+// the month or granularity changes, since day 31 may not exist in the new one.
+const dayValue = ref('')
+watch([granularity, periodValue], () => { dayValue.value = '' })
+const dayOptions = computed(() => {
+  if (granularity.value !== 'month' || !periodValue.value) return []
+  const [y, m] = periodValue.value.split('-').map(Number)
+  return Array.from({ length: new Date(y, m, 0).getDate() }, (_, i) => String(i + 1).padStart(2, '0'))
+})
+// The period actually being filtered on: YYYY-MM-DD, YYYY-MM or YYYY.
+const activePeriod = computed(() =>
+  granularity.value === 'month' && dayValue.value ? `${periodValue.value}-${dayValue.value}` : periodValue.value,
+)
 watch(selected, load)
 
 // ---------------------------------------------------------------------------
@@ -270,13 +314,12 @@ const filteredRows = computed(() => {
   if (!field || granularity.value === 'all' || !periodValue.value) return rows.value
 
   return rows.value.filter((row) => {
-    const raw = row[field]
-    if (!raw) return false
-    const d = new Date(raw)
-    if (isNaN(d)) return false
-    if (granularity.value === 'day') return d.toISOString().slice(0, 10) === periodValue.value
-    if (granularity.value === 'month') return d.toISOString().slice(0, 7) === periodValue.value
-    if (granularity.value === 'year') return String(d.getFullYear()) === periodValue.value
+    const key = dayKey(row[field])
+    if (!key) return false
+    if (granularity.value === 'day') return key === periodValue.value
+    if (granularity.value === 'month') return dayValue.value ? key === activePeriod.value : key.slice(0, 7) === periodValue.value
+    // String(): v-model on a number input hands back a Number, not '2026'.
+    if (granularity.value === 'year') return key.slice(0, 4) === String(periodValue.value)
     return true
   })
 })
@@ -319,16 +362,26 @@ const { page, rowsPerPage, total, paged } = usePagination(sortedRows)
 watch(selected, () => { page.value = 0 })
 
 function exportCsv() {
-  const cols = columns.value[selected.value]
-  const lines = [cols.map((c) => c[1]).join(',')]
+  const cols = exportColumns.value[selected.value] ?? columns.value[selected.value]
+  const csvCell = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`
+  const lines = [cols.map((c) => csvCell(c[1])).join(',')]
   sortedRows.value.forEach((row) => {
-    lines.push(cols.map((c) => `"${String(cell(row, c) ?? '').replace(/"/g, '""')}"`).join(','))
+    lines.push(cols.map((c) => csvCell(cell(row, c))).join(','))
   })
-  const blob = new Blob([lines.join('\n')], { type: 'text/csv' })
+  // Total row: record count up front, plus the summed purchase price when the
+  // report has that column.
+  const priceTotal = sortedRows.value.reduce((sum, r) => sum + (Number(r.purchase_price) || 0), 0)
+  lines.push(cols.map((c, i) => {
+    if (i === 0) return csvCell(`${t('reports.total_row')}: ${sortedRows.value.length}`)
+    if (c[0] === 'purchase_price') return csvCell(priceTotal.toFixed(2))
+    return '""'
+  }).join(','))
+  // The BOM makes Excel read the file as UTF-8 — without it Khmer names are garbled.
+  const blob = new Blob([String.fromCharCode(0xfeff) + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  const suffix = granularity.value !== 'all' && periodValue.value ? `-${periodValue.value}` : ''
+  const suffix = granularity.value !== 'all' && activePeriod.value ? `-${activePeriod.value}` : ''
   a.download = `${selected.value}-report${suffix}-${new Date().toISOString().slice(0, 10)}.csv`
   a.click()
   URL.revokeObjectURL(url)
@@ -449,7 +502,15 @@ onMounted(() => {
             </div>
             <input v-if="granularity === 'day'" v-model="periodValue" type="date" class="filter-select" />
             <input v-else-if="granularity === 'month'" v-model="periodValue" type="month" class="filter-select" />
-            <FilterPills v-else-if="granularity === 'year'" v-model="periodValue" :options="yearOptions" hide-all />
+            <input
+              v-else-if="granularity === 'year'" v-model="periodValue"
+              type="number" min="1900" max="2100" step="1" :placeholder="String(today.getFullYear())"
+              class="filter-select w-28"
+            />
+            <select v-if="dayOptions.length" v-model="dayValue" class="filter-select">
+              <option value="">{{ t('reports.all_days') }}</option>
+              <option v-for="d in dayOptions" :key="d" :value="d">{{ Number(d) }}</option>
+            </select>
           </template>
           <button @click="exportCsv" class="btn-ghost btn-sm sm:ml-auto flex-shrink-0">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
@@ -467,7 +528,7 @@ onMounted(() => {
             <p class="font-display text-2xl font-bold text-fg leading-none">{{ sortedRows.length }}</p>
             <p class="text-xs text-muted mt-1">{{ granularity === 'all' ? t('reports.showing') : t('reports.matching_period') }}</p>
           </div>
-          <p class="sm:ml-auto text-sm text-muted">{{ reportTypes.find((rt) => rt.key === selected)?.label }}{{ granularity !== 'all' && periodValue ? ` — ${periodValue}` : '' }}</p>
+          <p class="sm:ml-auto text-sm text-muted">{{ reportTypes.find((rt) => rt.key === selected)?.label }}{{ granularity !== 'all' && activePeriod ? ` — ${activePeriod}` : '' }}</p>
         </div>
 
         <!-- Assets by location — horizontal bar breakdown, no raw table needed. -->

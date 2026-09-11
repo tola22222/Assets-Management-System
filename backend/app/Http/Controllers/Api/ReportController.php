@@ -75,13 +75,25 @@ class ReportController extends Controller
 
     public function inventory(Request $request)
     {
-        $query = Asset::with(['category', 'stocks.location']);
+        $query = Asset::with([
+            'category',
+            'stocks.location',
+            'location:id,name,code',
+            // Who holds it now — the same assigned/active pair AssetAssignmentController
+            // treats as "already assigned" when refusing a second assignment.
+            'assignments' => fn ($q) => $q->whereIn('status', ['assigned', 'active'])->latest(),
+        ]);
 
         if ($request->filled('category_id')) $query->where('category_id', $request->category_id);
         if ($request->filled('status')) $query->where('status', $request->status);
         if ($request->filled('condition')) $query->where('condition', $request->condition);
 
-        return response()->json($query->latest()->get());
+        $assets = $query->latest()->get()->each(function ($asset) {
+            $asset->current_user = $asset->assignments->first()?->recipient_name;
+            $asset->unsetRelation('assignments');
+        });
+
+        return response()->json($assets);
     }
 
     public function assignments(Request $request)
