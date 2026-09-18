@@ -218,6 +218,9 @@ class QrScanFlowTest extends TestCase
         foreach ($rows as $row) {
             $this->assertSame('Sokha Staff', $row['user']['name']);
             $this->assertSame($asset->asset_code, $row['asset_code']);
+            // `message` is the one field the Reports table actually prints.
+            $this->assertStringContainsString('Sokha Staff', $row['message']);
+            $this->assertStringContainsString($asset->asset_code, $row['message']);
         }
 
         // Staff still cannot pull reports, this one included.

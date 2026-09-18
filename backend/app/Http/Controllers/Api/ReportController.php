@@ -35,7 +35,7 @@ class ReportController extends Controller
         try {
             Mail::to($request->email)->send(new ScheduledAssetReportMail($summary, $periodLabel));
         } catch (\Throwable $e) {
-            Log::error('Manual report email failed for ' . $request->email . ': ' . $e->getMessage());
+            Log::error('Manual report email failed for '.$request->email.': '.$e->getMessage());
 
             return response()->json(['message' => 'Could not send the email — check the mail server configuration.'], 422);
         }
@@ -84,9 +84,15 @@ class ReportController extends Controller
             'assignments' => fn ($q) => $q->whereIn('status', ['assigned', 'active'])->latest(),
         ]);
 
-        if ($request->filled('category_id')) $query->where('category_id', $request->category_id);
-        if ($request->filled('status')) $query->where('status', $request->status);
-        if ($request->filled('condition')) $query->where('condition', $request->condition);
+        if ($request->filled('category_id')) {
+            $query->where('category_id', $request->category_id);
+        }
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+        if ($request->filled('condition')) {
+            $query->where('condition', $request->condition);
+        }
 
         $assets = $query->latest()->get()->each(function ($asset) {
             $asset->current_user = $asset->assignments->first()?->recipient_name;
@@ -100,8 +106,12 @@ class ReportController extends Controller
     {
         $query = AssetAssignment::with(['asset', 'location']);
 
-        if ($request->filled('status')) $query->where('status', $request->status);
-        if ($request->filled('assigned_to_type')) $query->where('assigned_to_type', $request->assigned_to_type);
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+        if ($request->filled('assigned_to_type')) {
+            $query->where('assigned_to_type', $request->assigned_to_type);
+        }
 
         return response()->json($query->latest()->get());
     }
@@ -110,7 +120,9 @@ class ReportController extends Controller
     {
         $query = AssetTransfer::with(['asset', 'fromLocation', 'toLocation', 'requester']);
 
-        if ($request->filled('status')) $query->where('status', $request->status);
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
 
         return response()->json($query->latest()->get());
     }
@@ -119,7 +131,9 @@ class ReportController extends Controller
     {
         $query = AssetVerification::with(['asset', 'location', 'verifiedBy']);
 
-        if ($request->filled('condition')) $query->where('condition', $request->condition);
+        if ($request->filled('condition')) {
+            $query->where('condition', $request->condition);
+        }
 
         return response()->json($query->latest()->get());
     }
@@ -128,7 +142,9 @@ class ReportController extends Controller
     {
         $query = AssetReturn::with(['asset', 'assignment', 'returnedBy']);
 
-        if ($request->filled('status')) $query->where('status', $request->status);
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
 
         return response()->json($query->latest()->get());
     }
@@ -154,6 +170,11 @@ class ReportController extends Controller
             AssetScan::with(['user:id,name,role', 'asset:id,asset_code,name', 'location:id,name', 'previousLocation:id,name'])
                 ->latest()
                 ->get()
+                // The Reports page renders this report as two columns, `message`
+                // and `created_at` — the shape it had when scans were notification
+                // rows. The sentence carries who/what/where so that table needs no
+                // change; the structured fields ride along for anything that wants them.
+                ->each(fn (AssetScan $scan) => $scan->setAttribute('message', $scan->summary()))
         );
     }
 
@@ -170,10 +191,17 @@ class ReportController extends Controller
             ->get()
             ->map(function ($asset) {
                 $missing = [];
-                if (is_null($asset->purchase_price)) $missing[] = 'Purchase Price';
-                if (is_null($asset->purchase_date)) $missing[] = 'Purchase Date';
-                if (blank($asset->serial_number)) $missing[] = 'Serial Number';
+                if (is_null($asset->purchase_price)) {
+                    $missing[] = 'Purchase Price';
+                }
+                if (is_null($asset->purchase_date)) {
+                    $missing[] = 'Purchase Date';
+                }
+                if (blank($asset->serial_number)) {
+                    $missing[] = 'Serial Number';
+                }
                 $asset->missing_fields = implode(', ', $missing);
+
                 return $asset;
             });
 
