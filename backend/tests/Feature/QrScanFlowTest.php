@@ -241,4 +241,64 @@ class QrScanFlowTest extends TestCase
 
         $this->assertDatabaseHas('asset_scans', ['asset_id' => null, 'asset_code' => 'PEY-SR-FAF-0001', 'asset_name' => 'Office Chair']);
     }
+
+    /**
+     * Signs in the way a device does — a real bearer token from /api/login —
+     * rather than actingAs(), because these tests are about the token itself.
+     */
+    private function signInOnDevice(User $user): string
+    {
+        return $this->postJson('/api/login', [
+            'email' => $user->email,
+            'password' => 'password123',
+            'remember' => true, // what the login page sends for anyone arriving from a scan
+        ])->assertOk()->json('token');
+    }
+
+    /** Each call is a fresh request from a device: drop the user the last one resolved. */
+    private function scanWithToken(string $token, string $assetCode)
+    {
+        $this->app['auth']->forgetGuards();
+
+        return $this->withToken($token)->postJson('/api/qr-scan', ['asset_code' => $assetCode]);
+    }
+
+    public function test_one_scan_login_covers_every_scan_for_thirty_days(): void
+    {
+        $first = $this->makeAsset('PEY-SR-FAF-0001');
+        $second = $this->makeAsset('PEY-SR-FAF-0002');
+        $staff = User::factory()->create(['role' => 'staff', 'name' => 'Sokha Staff', 'password' => \Illuminate\Support\Facades\Hash::make('password123')]);
+
+        $token = $this->signInOnDevice($staff);
+
+        $this->scanWithToken($token, $first->asset_code)->assertOk();
+
+        // Three weeks later, a different asset, same phone: no new login.
+        $this->travel(21)->days();
+        $this->scanWithToken($token, $second->asset_code)->assertOk();
+
+        foreach ([$first, $second] as $asset) {
+            $this->assertDatabaseHas('asset_scans', ['asset_id' => $asset->id, 'user_id' => $staff->id, 'user_name' => 'Sokha Staff']);
+        }
+
+        // Past the 30 days the token is dead and the next scan has to sign in again.
+        $this->travel(10)->days();
+        $this->scanWithToken($token, $first->asset_code)->assertStatus(401);
+    }
+
+    public function test_signing_out_on_one_device_leaves_other_devices_signed_in(): void
+    {
+        $asset = $this->makeAsset();
+        $staff = User::factory()->create(['role' => 'staff', 'password' => \Illuminate\Support\Facades\Hash::make('password123')]);
+
+        $phone = $this->signInOnDevice($staff);
+        $tablet = $this->signInOnDevice($staff);
+
+        $this->app['auth']->forgetGuards();
+        $this->withToken($phone)->postJson('/api/logout')->assertOk();
+
+        // The phone must sign in again on its next scan; the tablet carries on.
+        $this->scanWithToken($phone, $asset->asset_code)->assertStatus(401);
+        $this->scanWithToken($tablet, $asset->asset_code)->assertOk();
+    }
 }
