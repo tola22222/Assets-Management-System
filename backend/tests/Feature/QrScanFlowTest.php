@@ -48,11 +48,15 @@ class QrScanFlowTest extends TestCase
     {
         $asset = $this->makeAsset();
 
+        // The Report Condition form is on the page but starts hidden, has no web
+        // action to post to, and the visible call to action is the sign-in link
+        // that returns here afterwards.
         $this->get("/asset/{$asset->asset_code}")
             ->assertOk()
             ->assertSee('Office Chair')
-            ->assertSee('/app/qr-scan/'.$asset->asset_code)
-            ->assertDontSee('<form', false);
+            ->assertSee('/app/login?return='.urlencode('/asset/'.$asset->asset_code), false)
+            ->assertSee('<div id="verify-form-card" hidden', false)
+            ->assertDontSee('action=', false);
     }
 
     public function test_nobody_can_change_an_asset_without_signing_in(): void

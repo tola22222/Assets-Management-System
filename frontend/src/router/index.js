@@ -53,6 +53,18 @@ const router = createRouter({
   routes,
 })
 
+/**
+ * The public asset page (/asset/{code}, a Blade page outside this SPA) sends
+ * people to /login?return=/asset/{code} so they come back to it signed in.
+ * It sits outside the router's /app base, so it needs a real navigation rather
+ * than router.push — and because that leaves the app, the target is held to
+ * exactly that one shape: never a host, never another path.
+ */
+export function assetReturnUrl(query) {
+  const match = typeof query.return === 'string' && query.return.match(/^\/asset\/([^/\\?#]+)$/)
+  return match ? `/asset/${encodeURIComponent(match[1])}` : null
+}
+
 router.beforeEach((to) => {
   const isAuthenticated = !!localStorage.getItem('token')
 
@@ -63,6 +75,13 @@ router.beforeEach((to) => {
   }
 
   if (to.meta.guest && isAuthenticated) {
+    // Already signed in (e.g. the scan page's link was opened twice): go
+    // straight back to the asset instead of stranding them on the dashboard.
+    const back = assetReturnUrl(to.query)
+    if (back) {
+      window.location.assign(back)
+      return false
+    }
     return { name: 'dashboard' }
   }
 

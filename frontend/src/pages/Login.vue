@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
+import { assetReturnUrl } from '../router'
 import AuthLayout from '../layouts/AuthLayout.vue'
 import logoUrl from '../assets/logo/Official PEPY Logo_Green.png'
 import { useBranding } from '../composables/useBranding'
@@ -35,6 +36,12 @@ async function handleSubmit() {
   loading.value = true
   try {
     await auth.login(email.value, password.value, remember.value)
+    // Came from a scanned tag's public page: hand them back to it, now signed in.
+    const back = assetReturnUrl(route.query)
+    if (back) {
+      window.location.assign(back)
+      return
+    }
     router.push(redirectTarget() || { name: 'dashboard' })
   } catch (e) {
     error.value = e.response?.data?.message || t('login.error')
