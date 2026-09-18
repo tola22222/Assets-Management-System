@@ -46,7 +46,8 @@ class StockItemController extends Controller
                 'location_id' => $location->id,
                 'name' => $location->name,
                 'code' => $location->code,
-                'total' => (int) ($counts[$location->id] ?? 0),
+                'total' => $total = (int) ($counts[$location->id] ?? 0),
+                'level' => self::levelFor($total),
             ])
             ->sortByDesc('total')
             ->values()
@@ -55,10 +56,22 @@ class StockItemController extends Controller
         $unplaced = Asset::where('status', '!=', 'disposed')->whereNull('location_id')->count();
 
         if ($unplaced > 0) {
-            $rows[] = ['location_id' => null, 'name' => null, 'code' => null, 'total' => $unplaced];
+            $rows[] = ['location_id' => null, 'name' => null, 'code' => null, 'total' => $unplaced, 'level' => self::levelFor($unplaced)];
         }
 
         return response()->json($rows);
+    }
+
+    /**
+     * Same thresholds as the "Assets by Model" report (Asset::stockLevelFor),
+     * with its 'medium' named 'normal' to match the Stock page's Low / Normal /
+     * High filter and the sidebar's ?status= links.
+     */
+    private static function levelFor(int $total): string
+    {
+        $level = Asset::stockLevelFor($total);
+
+        return $level === 'medium' ? 'normal' : $level;
     }
 
     public function show(StockItem $stock_item)

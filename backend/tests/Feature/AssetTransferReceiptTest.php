@@ -210,6 +210,47 @@ class AssetTransferReceiptTest extends TestCase
         ])->assertStatus(422);
     }
 
+    public function test_the_executive_director_can_approve_and_reject_a_transfer_request(): void
+    {
+        $ed = User::factory()->create(['role' => 'executive_director']);
+        $finance = User::factory()->create(['role' => 'finance_manager']);
+        $this->responsibleUserAt($this->school);
+        $requester = User::factory()->create(['role' => 'staff']);
+        $asset = $this->makeAsset();
+
+        $request = fn () => $this->actingAs($requester)->postJson('/api/asset-transfers', [
+            'asset_id' => $asset->id,
+            'from_location_id' => $this->office->id,
+            'to_location_id' => $this->school->id,
+            'transfer_date' => now()->toDateString(),
+        ])->assertStatus(201)->json('id');
+
+        $first = $request();
+        $this->actingAs($finance)->postJson("/api/asset-transfers/{$first}/approve")->assertStatus(403);
+        $this->actingAs($ed)->postJson("/api/asset-transfers/{$first}/approve")->assertStatus(200);
+        $this->assertDatabaseHas('asset_transfers', ['id' => $first, 'status' => 'pending', 'approved_by' => $ed->id]);
+
+        $second = $request();
+        $this->actingAs($ed)->postJson("/api/asset-transfers/{$second}/reject", ['rejection_reason' => 'Not needed'])->assertStatus(200);
+        $this->assertDatabaseHas('asset_transfers', ['id' => $second, 'status' => 'rejected']);
+    }
+
+    public function test_the_executive_director_cannot_approve_their_own_transfer_request(): void
+    {
+        $ed = $this->responsibleUserAt($this->office, 'Director', 'executive_director');
+        $this->responsibleUserAt($this->school);
+        $asset = $this->makeAsset();
+
+        $id = $this->actingAs($ed)->postJson('/api/asset-transfers', [
+            'asset_id' => $asset->id,
+            'from_location_id' => $this->office->id,
+            'to_location_id' => $this->school->id,
+            'transfer_date' => now()->toDateString(),
+        ])->assertStatus(201)->json('id');
+
+        $this->actingAs($ed)->postJson("/api/asset-transfers/{$id}/approve")->assertStatus(403);
+    }
+
     public function test_a_non_opm_request_waits_on_approval_then_on_the_destination(): void
     {
         $opm = User::factory()->create(['role' => 'operations_hr_manager']);

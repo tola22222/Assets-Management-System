@@ -132,42 +132,21 @@
         </div>
         @endif
 
-        {{-- Report Condition --}}
-        @if(session('success'))
-        <div class="bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 rounded-2xl text-sm flex items-center gap-2.5 mb-4">
-            <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-            {{ session('success') }}
-        </div>
-        @endif
-
+        {{-- Verify / update location — signed-in only.
+             This page never changes anything itself. The button hands over to the
+             SPA, which asks for a login if there is no session and then records the
+             scan, the verification and any location change against that account. --}}
         <div class="bg-white rounded-2xl card-shadow overflow-hidden mb-4 no-print">
             <div class="px-5 py-4">
-                <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-3">Report Condition</p>
-                <form method="POST" action="{{ route('asset.public.update-condition', $asset->asset_code) }}" class="space-y-3">
-                    @csrf
-                    <div class="grid grid-cols-2 gap-2.5">
-                        <select name="condition" required
-                            class="w-full bg-gray-50 border-0 rounded-xl px-3.5 py-2.5 text-sm font-medium text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#128a43]/30 transition">
-                            <option value="good" {{ $asset->condition === 'good' ? 'selected' : '' }}>Good</option>
-                            <option value="fair" {{ $asset->condition === 'fair' ? 'selected' : '' }}>Fair</option>
-                            <option value="broken" {{ $asset->condition === 'broken' ? 'selected' : '' }}>Broken</option>
-                            <option value="lost" {{ $asset->condition === 'lost' ? 'selected' : '' }}>Lost</option>
-                        </select>
-                        <select name="location_id" required
-                            class="w-full bg-gray-50 border-0 rounded-xl px-3.5 py-2.5 text-sm font-medium text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#128a43]/30 transition">
-                            <option value="" disabled selected>Location</option>
-                            @foreach($locations as $location)
-                                <option value="{{ $location->id }}">{{ $location->name }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <textarea name="remark" rows="2" placeholder="Add a remark (optional)..."
-                        class="w-full bg-gray-50 border-0 rounded-xl px-3.5 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#128a43]/30 transition resize-none placeholder-gray-400"></textarea>
-                    <button type="submit"
-                        class="w-full py-3 bg-[#128a43] text-white text-sm font-bold rounded-xl hover:brightness-110 active:brightness-90 transition shadow-sm">
-                        Update Condition
-                    </button>
-                </form>
+                <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Verify this asset</p>
+                <p class="text-sm text-gray-500 leading-relaxed mb-3">
+                    Sign in to confirm this asset's condition or update its location. Your name is recorded with the scan.
+                </p>
+                <a href="{{ url('/app/qr-scan/'.rawurlencode($asset->asset_code)) }}"
+                    class="flex items-center justify-center gap-2 w-full py-3 bg-[#128a43] text-white text-sm font-bold rounded-xl hover:brightness-110 active:brightness-90 transition shadow-sm">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/></svg>
+                    Sign in to verify or update location
+                </a>
             </div>
         </div>
 

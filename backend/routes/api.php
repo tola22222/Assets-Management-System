@@ -46,6 +46,7 @@ Route::name('api.')->group(function () {
         Route::get('/dashboard/by-period', [DashboardController::class, 'byPeriod']);
 
         Route::post('/assets/{asset}/regenerate-qr', [AssetController::class, 'regenerateQr']);
+        Route::get('/assets/{asset}/qr-code/download', [AssetController::class, 'downloadQr']);
         Route::post('/assets/{asset}/flag', [AssetController::class, 'flagIssue']);
         Route::apiResource('assets', AssetController::class)->only(['index', 'show']);
 
@@ -76,8 +77,8 @@ Route::name('api.')->group(function () {
         });
 
         // approve/reject act on a request that has not reached the destination
-        // yet, so they stay OPM-only.
-        Route::middleware('role:operations_hr_manager')->group(function () {
+        // yet, so they stay with the managers: OPM or the Executive Director.
+        Route::middleware('role:operations_hr_manager,executive_director')->group(function () {
             Route::post('/asset-transfers/{asset_transfer}/approve', [AssetTransferController::class, 'approve']);
             Route::post('/asset-transfers/{asset_transfer}/reject', [AssetTransferController::class, 'reject']);
         });

@@ -20,7 +20,12 @@ http.interceptors.response.use(
     if (error.response?.status === 401) {
       localStorage.removeItem('token')
       localStorage.removeItem('user')
-      router.push({ name: 'login' })
+      // An expired token is the usual way a QR scan ends up here (the guard only
+      // checks that a token exists), so carry the page across the sign-in.
+      const current = router.currentRoute.value
+      if (current.name !== 'login') {
+        router.push({ name: 'login', query: current.fullPath === '/' ? {} : { redirect: current.fullPath } })
+      }
     }
     return Promise.reject(error)
   }

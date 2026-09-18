@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import AuthLayout from '../layouts/AuthLayout.vue'
 import logoUrl from '../assets/logo/Official PEPY Logo_Green.png'
@@ -21,13 +21,21 @@ const displayLogo = computed(() => brandLogoUrl.value || logoUrl)
 
 const auth = useAuthStore()
 const router = useRouter()
+const route = useRoute()
+
+// Only ever an in-app path. "//host" and "/\host" are how a crafted login link
+// would bounce a freshly signed-in user to another site.
+function redirectTarget() {
+  const target = route.query.redirect
+  return typeof target === 'string' && /^\/(?![/\\])/.test(target) ? target : null
+}
 
 async function handleSubmit() {
   error.value = ''
   loading.value = true
   try {
     await auth.login(email.value, password.value, remember.value)
-    router.push({ name: 'dashboard' })
+    router.push(redirectTarget() || { name: 'dashboard' })
   } catch (e) {
     error.value = e.response?.data?.message || t('login.error')
   } finally {

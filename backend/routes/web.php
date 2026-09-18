@@ -4,13 +4,12 @@ use App\Http\Controllers\AssetController;
 use Illuminate\Support\Facades\Route;
 
 // --- PUBLIC ROUTES ---
-// These serve the QR-code scan flow (report a condition on a scanned asset) and are
-// used regardless of which frontend the rest of the app runs — not part of the
-// removed legacy Blade admin UI. Keep them working.
+// The landing page every printed QR code points at — not part of the removed
+// legacy Blade admin UI. Keep it working. It is read-only: the anonymous
+// "update condition" POST that used to live here is gone, because a change
+// nobody can be named for is not an audit trail. Acting on a scanned asset now
+// means signing in to the SPA's /app/qr-scan/{code} page (Api\QrScanController).
 Route::get('/asset/{assetCode}', [AssetController::class, 'publicShow'])->name('asset.public.show');
-Route::post('/asset/{assetCode}/update-condition', [AssetController::class, 'publicUpdateCondition'])
-    ->middleware('throttle:10,1')
-    ->name('asset.public.update-condition');
 Route::get('/asset/{assetCode}/update-condition', fn ($code) => redirect()->route('asset.public.show', $code));
 
 // --- VUE 3 SPA ---

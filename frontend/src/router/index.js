@@ -41,7 +41,8 @@ const routes = [
   { path: '/settings', name: 'settings', component: SettingsIndex, meta: { requiresAuth: true, adminOnly: true } },
   { path: '/activity-logs', name: 'activity-logs', component: ActivityLogsIndex, meta: { requiresAuth: true, adminOnly: true } },
   { path: '/reports', name: 'reports', component: ReportsIndex, meta: { requiresAuth: true } },
-  { path: '/qr-scan', name: 'qr-scan', component: QrScanIndex, meta: { requiresAuth: true } },
+  // :code is what a printed QR tag's public page links to (/app/qr-scan/PEY-SR-FAF-0928).
+  { path: '/qr-scan/:code?', name: 'qr-scan', component: QrScanIndex, meta: { requiresAuth: true } },
   { path: '/search', name: 'search', component: SearchIndex, meta: { requiresAuth: true } },
   { path: '/notifications', name: 'notifications', component: NotificationsIndex, meta: { requiresAuth: true } },
   { path: '/profile', name: 'profile', component: ProfileIndex, meta: { requiresAuth: true } },
@@ -56,7 +57,9 @@ router.beforeEach((to) => {
   const isAuthenticated = !!localStorage.getItem('token')
 
   if (to.meta.requiresAuth && !isAuthenticated) {
-    return { name: 'login' }
+    // Remember where they were headed: someone who scanned a QR tag must land
+    // back on that asset after signing in, not on the dashboard.
+    return { name: 'login', query: to.fullPath === '/' ? {} : { redirect: to.fullPath } }
   }
 
   if (to.meta.guest && isAuthenticated) {

@@ -1,28 +1,23 @@
 <script setup>
-import { ref, computed, onMounted, reactive, watch } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import http from '../../api/http'
 import AppLayout from '../../layouts/AppLayout.vue'
 import Modal from '../../components/ui/Modal.vue'
-import ConfirmDialog from '../../components/ui/ConfirmDialog.vue'
 import SearchInput from '../../components/ui/SearchInput.vue'
 import FilterPills from '../../components/ui/FilterPills.vue'
 import TableSortIcon from '../../components/ui/TableSortIcon.vue'
 import { useTableSearch } from '../../composables/useTableSearch'
 import { useTableSort } from '../../composables/useTableSort'
 import { useTableFilter } from '../../composables/useTableFilter'
-import { useBulkSelect } from '../../composables/useBulkSelect'
-import { useToastStore } from '../../stores/toast'
-import { useAuthStore } from '../../stores/auth'
 import TablePagination from '../../components/ui/TablePagination.vue'
 import { usePagination } from '../../composables/usePagination'
 
+// Read-only register: stock rows are recorded through the Asset create/import
+// flow, so this page only views them — no issue or delete actions.
 const { t } = useI18n()
-const toast = useToastStore()
-const auth = useAuthStore()
 const route = useRoute()
-const canManage = computed(() => ['operations_hr_manager', 'finance_manager'].includes(auth.user?.role))
 
 const items = ref([])
 const locations = ref([])
@@ -47,22 +42,15 @@ async function loadLocationStats() {
 // ---- Total Assets by Location ------------------------------------------
 // A live tally of the Asset Register per site (already sorted busiest-first
 // server-side), not a stored balance — so it always matches the register.
-const totalAssets = computed(() => locationStats.value.reduce((sum, l) => sum + l.total, 0))
-
-// Status is computed server-side per item, but sorting it "LOW first" needs
-// a numeric rank — alphabetical ('high' < 'low' < 'normal') would put High first.
-const STATUS_RANK = { low: 0, normal: 1, high: 2 }
-const rankedItems = computed(() => items.value.map((i) => ({ ...i, status_rank: STATUS_RANK[i.status] ?? 1 })))
-
-const { search, filtered: searched } = useTableSearch(rankedItems, ['name', 'stock_code', 'category'])
-const { sortKey, sortDir, toggleSort, sorted: sortedItems } = useTableSort(searched, {
-  defaultKey: 'status_rank', defaultDir: 'asc',
-  paths: { location: 'location.name', balance: 'balance', threshold: 'min_threshold', updated: 'updated_at' },
-})
-const { filters, filtered: visible } = useTableFilter(sortedItems, {
-  status: (row, val) => row.status === val,
+// The filter bar narrows this card: search by site name/code, pick one site,
+// or a count level. `level` comes from the server (Low < 5, Normal 5–19,
+// High 20+ — the same thresholds as the Assets by Model report).
+const { search, filtered: searchedSites } = useTableSearch(locationStats, ['name', 'code'])
+const { filters, filtered: visibleSites } = useTableFilter(searchedSites, {
   location: (row, val) => String(row.location_id) === String(val),
+  status: (row, val) => row.level === val,
 })
+const totalAssets = computed(() => visibleSites.value.reduce((sum, l) => sum + l.total, 0))
 const statusOptions = computed(() => [
   { value: 'low', label: t('stock.low') },
   { value: 'normal', label: t('stock.normal') },
@@ -74,68 +62,22 @@ const statusOptions = computed(() => [
 // them without a full page reload (Vue Router reuses this component instance).
 watch(() => route.query.status, (v) => { filters.status = v || '' }, { immediate: true })
 
-const { selectedIds, allSelected, toggleSelectAll, toggleSelect, clearSelection } = useBulkSelect(visible)
-const confirmingBulkDelete = ref(false)
+// ---- Consumables table ----------------------------------------------------
+// Status is computed server-side per item, but sorting it "LOW first" needs
+// a numeric rank — alphabetical ('high' < 'low' < 'normal') would put High first.
+const STATUS_RANK = { low: 0, normal: 1, high: 2 }
+const rankedItems = computed(() => items.value.map((i) => ({ ...i, status_rank: STATUS_RANK[i.status] ?? 1 })))
 
-const locationFilterLabel = computed(() => {
-  const loc = locations.value.find((l) => String(l.id) === String(filters.location))
-  return loc?.name
+const { sortKey, sortDir, toggleSort, sorted: visible } = useTableSort(rankedItems, {
+  defaultKey: 'status_rank', defaultDir: 'asc',
+  paths: { location: 'location.name', balance: 'balance', threshold: 'min_threshold', updated: 'updated_at' },
 })
-
-// ---- Issue Stock --------------------------------------------------------
-const issuing = ref(null) // the stock item being issued
-const issueSubmitting = ref(false)
-const issueForm = reactive({ quantity: '', reason: '', transaction_date: new Date().toISOString().slice(0, 10) })
-
-function openIssue(item) {
-  issuing.value = item
-  Object.assign(issueForm, { quantity: '', reason: '', transaction_date: new Date().toISOString().slice(0, 10) })
-}
-
-async function submitIssue() {
-  issueSubmitting.value = true
-  try {
-    await http.post(`/stock-items/${issuing.value.id}/issue`, issueForm)
-    toast.success(t('stock.issued_message', { quantity: issueForm.quantity, unit: issuing.value.unit, name: issuing.value.name }))
-    issuing.value = null
-    await fetchAll()
-  } catch (e) {
-    toast.error(e.response?.data?.message || t('stock.issue_failed'))
-  } finally {
-    issueSubmitting.value = false
-  }
-}
 
 // ---- Detail / transaction history ---------------------------------------
 const viewing = ref(null)
 async function openDetail(item) {
   const { data } = await http.get(`/stock-items/${item.id}`)
   viewing.value = data
-}
-
-// ---- Delete ---------------------------------------------------------------
-const deletingId = ref(null)
-async function confirmDelete() {
-  try {
-    await http.delete(`/stock-items/${deletingId.value}`)
-    toast.success(t('stock.item_deleted'))
-    await fetchAll()
-  } catch (e) {
-    toast.error(e.response?.data?.message || t('stock.delete_failed'))
-  } finally {
-    deletingId.value = null
-  }
-}
-
-async function confirmBulkDelete() {
-  confirmingBulkDelete.value = false
-  const ids = selectedIds.value
-  const results = await Promise.allSettled(ids.map((id) => http.delete(`/stock-items/${id}`)))
-  const failed = results.filter((r) => r.status === 'rejected').length
-  if (failed) toast.error(t('stock.bulk_delete_partial_failed', { count: failed }))
-  toast.success(t('stock.bulk_deleted', { count: ids.length - failed }))
-  clearSelection()
-  await fetchAll()
 }
 
 // ---- CSV export -----------------------------------------------------------
@@ -190,10 +132,6 @@ const { page, rowsPerPage, total, paged } = usePagination(visible)
           <p class="text-muted text-sm mt-1">{{ t('stock.subtitle') }}</p>
         </div>
         <div class="flex items-center gap-2 flex-shrink-0">
-          <button v-if="canManage && selectedIds.length" @click="confirmingBulkDelete = true" class="btn-danger btn-sm">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /></svg>
-            {{ t('stock.delete_selected', { count: selectedIds.length }) }}
-          </button>
           <button @click="exportCsv" class="btn-ghost btn-sm">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M7.5 12L12 16.5m0 0l4.5-4.5M12 16.5V3" /></svg>
             {{ t('stock.export_csv') }}
@@ -212,9 +150,21 @@ const { page, rowsPerPage, total, paged } = usePagination(visible)
           </div>
         </div>
 
-        <div v-if="locationStats.length" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-1">
+        <div class="flex flex-wrap items-center gap-3 mb-5">
+          <div class="flex-1 min-w-[260px]">
+            <SearchInput v-model="search" :placeholder="t('stock.search_sites_placeholder')" />
+          </div>
+          <select v-model="filters.location" class="filter-select">
+            <option value="">{{ t('stock.all_locations') }}</option>
+            <option v-for="l in locations" :key="l.id" :value="l.id">{{ l.name }}</option>
+          </select>
+          <FilterPills v-model="filters.status" :options="statusOptions" />
+        </div>
+        <p class="text-xs text-faint -mt-3 mb-4">{{ t('stock.level_hint') }}</p>
+
+        <div v-if="visibleSites.length" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-1">
           <div
-            v-for="l in locationStats"
+            v-for="l in visibleSites"
             :key="l.location_id ?? 'unplaced'"
             class="flex items-center justify-between gap-3 px-2.5 py-2 rounded-lg border-b border-line/60"
           >
@@ -224,32 +174,22 @@ const { page, rowsPerPage, total, paged } = usePagination(visible)
                 {{ l.name || t('stock.no_location') }}
               </span>
             </span>
-            <span class="text-sm font-bold flex-shrink-0" :class="l.total ? 'text-fg' : 'text-faint'">{{ l.total }}</span>
+            <span class="flex items-center gap-2 flex-shrink-0">
+              <span class="badge" :class="{ 'badge-danger': l.level === 'low', 'badge-success': l.level === 'normal', 'badge-warning': l.level === 'high' }">{{ t(`stock.${l.level}`) }}</span>
+              <span class="text-sm font-bold w-8 text-right" :class="l.total ? 'text-fg' : 'text-faint'">{{ l.total }}</span>
+            </span>
           </div>
         </div>
-        <p v-else class="text-sm text-faint">{{ t('stock.no_locations') }}</p>
+        <p v-else class="text-sm text-faint">{{ locationStats.length ? t('stock.no_sites_match') : t('stock.no_locations') }}</p>
       </div>
 
       <!-- Grid -->
       <div class="card p-6 sm:p-8">
-        <div class="flex flex-wrap items-center gap-3 mb-6">
-          <div class="flex-1 min-w-[260px]">
-            <SearchInput v-model="search" :placeholder="t('stock.search_placeholder')" />
-          </div>
-          <select v-model="filters.location" class="filter-select">
-            <option value="">{{ t('stock.all_locations') }}</option>
-            <option v-for="l in locations" :key="l.id" :value="l.id">{{ l.name }}</option>
-          </select>
-          <FilterPills v-model="filters.status" :options="statusOptions" />
-        </div>
 
         <div class="overflow-x-auto">
           <table class="data-table">
             <thead>
               <tr>
-                <th v-if="canManage" class="w-10">
-                  <input type="checkbox" :checked="allSelected" @change="toggleSelectAll" class="rounded border-line text-brand focus:ring-brand/30" />
-                </th>
                 <th>{{ t('stock.stock_id') }}</th>
                 <th class="th-sort" @click="toggleSort('name')">{{ t('stock.item_name') }}<TableSortIcon :active="sortKey === 'name'" :direction="sortDir" /></th>
                 <th>{{ t('stock.category') }}</th>
@@ -259,14 +199,10 @@ const { page, rowsPerPage, total, paged } = usePagination(visible)
                 <th class="th-sort text-center" @click="toggleSort('status_rank')">{{ t('common.status') }}<TableSortIcon :active="sortKey === 'status_rank'" :direction="sortDir" /></th>
                 <th class="th-sort text-right" @click="toggleSort('threshold')">{{ t('stock.min_threshold') }}<TableSortIcon :active="sortKey === 'threshold'" :direction="sortDir" /></th>
                 <th class="th-sort" @click="toggleSort('updated')">{{ t('stock.last_transaction') }}<TableSortIcon :active="sortKey === 'updated'" :direction="sortDir" /></th>
-                <th class="text-right">{{ t('common.actions') }}</th>
               </tr>
             </thead>
             <tbody>
               <tr v-for="i in paged" :key="i.id" class="cursor-pointer" @click="openDetail(i)">
-                <td v-if="canManage" @click.stop>
-                  <input type="checkbox" :checked="selectedIds.includes(i.id)" @change="toggleSelect(i.id)" class="rounded border-line text-brand focus:ring-brand/30" />
-                </td>
                 <td class="whitespace-nowrap"><span class="id-chip">{{ i.stock_code }}</span></td>
                 <td class="font-medium text-fg">{{ i.name }}</td>
                 <td><span class="tag">{{ i.category || '—' }}</span></td>
@@ -280,21 +216,10 @@ const { page, rowsPerPage, total, paged } = usePagination(visible)
                 </td>
                 <td class="text-right text-muted">{{ i.min_threshold ?? '—' }}</td>
                 <td class="text-muted whitespace-nowrap">{{ formatDate(i.updated_at) }}</td>
-                <td class="text-right" @click.stop>
-                  <div v-if="canManage" class="flex items-center justify-end gap-1.5">
-                    <button @click="openIssue(i)" :title="t('stock.issue')" class="btn-icon-info">
-                      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" /></svg>
-                    </button>
-                    <button @click="deletingId = i.id" :title="t('common.delete')" class="btn-icon-danger">
-                      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /></svg>
-                    </button>
-                  </div>
-                  <span v-else class="text-faint text-xs">—</span>
-                </td>
               </tr>
               <tr v-if="!loading && !visible.length">
-                <td :colspan="canManage ? 11 : 10" class="py-10 text-center text-faint">
-                  {{ locationFilterLabel ? t('stock.empty_for_location', { location: locationFilterLabel }) : (search || filters.status ? t('stock.empty_search') : t('stock.empty')) }}
+                <td colspan="9" class="py-10 text-center text-faint">
+                  {{ t('stock.empty') }}
                 </td>
               </tr>
             </tbody>
@@ -303,33 +228,6 @@ const { page, rowsPerPage, total, paged } = usePagination(visible)
         <TablePagination v-model:page="page" v-model:rows-per-page="rowsPerPage" :count="total" />
       </div>
     </div>
-
-    <!-- Issue Stock -->
-    <Modal v-if="issuing" :title="t('stock.issue_stock')" @close="issuing = null">
-      <form class="modal-form" @submit.prevent="submitIssue">
-        <div class="modal-body space-y-4">
-          <p class="text-sm text-muted">{{ issuing.name }} <span class="font-mono text-xs text-faint">({{ issuing.stock_code }})</span> — {{ t('stock.on_hand', { balance: issuing.balance, unit: issuing.unit }) }}</p>
-          <div class="form-group">
-            <label class="label">{{ t('stock.quantity_to_issue') }} <span class="text-red-500">*</span></label>
-            <input v-model="issueForm.quantity" type="number" step="0.01" min="0.01" :max="issuing.balance" required class="input" />
-          </div>
-          <div class="form-group">
-            <label class="label">{{ t('stock.issued_to') }}</label>
-            <input v-model="issueForm.reason" class="input" :placeholder="t('stock.issued_to_placeholder')" />
-          </div>
-          <div class="form-group">
-            <label class="label">{{ t('common.date') }}</label>
-            <input v-model="issueForm.transaction_date" type="date" class="input" />
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn-ghost" @click="issuing = null">{{ t('common.cancel') }}</button>
-          <button type="submit" :disabled="issueSubmitting" class="btn-primary">
-            {{ issueSubmitting ? t('stock.saving') : t('stock.issue_stock') }}
-          </button>
-        </div>
-      </form>
-    </Modal>
 
     <!-- Detail / transaction history -->
     <Modal v-if="viewing" :title="t('stock.transaction_history')" wide @close="viewing = null">
@@ -378,13 +276,5 @@ const { page, rowsPerPage, total, paged } = usePagination(visible)
       </div>
     </Modal>
 
-    <ConfirmDialog v-if="deletingId" @confirm="confirmDelete" @cancel="deletingId = null" />
-    <ConfirmDialog
-      v-if="confirmingBulkDelete"
-      :title="t('stock.confirm_bulk_delete_title', { count: selectedIds.length })"
-      :message="t('stock.items_with_history_skipped')"
-      @confirm="confirmBulkDelete"
-      @cancel="confirmingBulkDelete = false"
-    />
   </AppLayout>
 </template>

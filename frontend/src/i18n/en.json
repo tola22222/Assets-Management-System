@@ -157,7 +157,7 @@
     "cannot_be_undone": "This cannot be undone."
   },
   "status": {
-    "pending": "AWAITING SITE",
+    "pending": "PENDING",
     "approved": "APPROVED",
     "active": "ACTIVE",
     "completed": "COMPLETED",
@@ -242,6 +242,7 @@
     "delete_confirm_message": "This cannot be undone.",
     "delete_failed": "Could not delete asset.",
     "qr_failed": "Could not regenerate the QR code.",
+    "qr_download_failed": "Could not download the QR code.",
     "options_failed": "Could not load categories and locations."
   },
   "import": {
@@ -806,6 +807,9 @@
     "total_assets": "Total assets",
     "no_location": "No location assigned",
     "no_locations": "No locations set up yet.",
+    "no_sites_match": "No sites match these filters.",
+    "search_sites_placeholder": "Search by site name or code…",
+    "level_hint": "Low: under 5 assets · Normal: 5–19 · High: 20 or more",
     "load_failed": "Could not load stock items.",
     "detail_failed": "Could not load the transaction history."
   },
@@ -900,7 +904,14 @@
     "uncategorized": "Uncategorized",
     "total_label_assets": "assets",
     "total_label_value": "total value",
-    "stock_failed": "Could not load the stock summary."
+    "stock_failed": "Could not load the stock summary.",
+    "report_type": "Report type",
+    "col_scanned_by": "Scanned By",
+    "col_scan_action": "Activity",
+    "col_scanned_at": "Scanned At",
+    "scan_action_scanned": "Scanned",
+    "scan_action_verified": "Verified",
+    "scan_action_location_updated": "Location updated"
   },
   "profile": {
     "title": "My Profile",
@@ -929,8 +940,8 @@
   },
   "qr_scan": {
     "title": "QR Scanner",
-    "subtitle": "Enter or scan an asset code to look it up",
-    "code_placeholder": "Enter asset code, e.g. IT-2026-000001",
+    "subtitle": "Scan an asset tag or enter its code. Every scan is recorded under your name.",
+    "code_placeholder": "Enter asset code, e.g. PEY-SR-FAF-0928",
     "searching": "Searching…",
     "look_up": "Look Up",
     "uncategorized": "Uncategorized",
@@ -948,7 +959,22 @@
     "confirm_verification": "Confirm Verification",
     "not_found": "Asset not found.",
     "verified": "Asset verified successfully via QR scan.",
-    "record_failed": "Could not record verification."
+    "record_failed": "Could not record verification.",
+    "location_label": "Location:",
+    "model_label": "Model:",
+    "serial_label": "Serial no.:",
+    "no_location": "No location",
+    "scan_recorded": "Scan recorded — {name}, {time}",
+    "record_verification_hint": "Confirm where this asset is and what state it is in. Choosing a different location updates the register.",
+    "location_locked_hint": "You can verify assets at your own site. Moving an asset to another site needs a transfer.",
+    "location_change_warning": "Saving will move this asset from {from} to {to}.",
+    "confirm_with_location": "Verify and Update Location",
+    "location_updated": "Asset verified and its location updated.",
+    "recent_activity": "Recent scan activity",
+    "activity_scanned": "scanned the QR code",
+    "activity_verified": "verified it — condition {condition}",
+    "activity_location_updated": "moved it from {from} to {to}",
+    "unknown_user": "Unknown user"
   },
   "activity_logs": {
     "title": "Activity Logs",

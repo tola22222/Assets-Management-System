@@ -246,6 +246,23 @@ async function submitFlag() {
   }
 }
 
+// Fetched as a blob through /api rather than an <a download> on the storage
+// URL: browsers ignore `download` for cross-origin links (Vite on :5173,
+// backend on :8000), so the old link only opened the image.
+async function downloadQr(asset) {
+  try {
+    const { data } = await http.get(`/assets/${asset.id}/qr-code/download`, { responseType: 'blob' })
+    const url = URL.createObjectURL(data)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `qr-${asset.asset_code}.png`
+    link.click()
+    URL.revokeObjectURL(url)
+  } catch (e) {
+    toast.error(errorMessage(e, t('assets.qr_download_failed')))
+  }
+}
+
 function printQr(asset) {
   if (!asset.qr_code_url) return
   const w = window.open('', '_blank', 'width=420,height=560')
@@ -318,6 +335,7 @@ const { page, rowsPerPage, total, paged } = usePagination(visible)
                 <th v-if="isOpm" class="w-10">
                   <input type="checkbox" :checked="allSelected" @change="toggleSelectAll" class="rounded border-line text-brand focus:ring-brand/30" />
                 </th>
+                <th class="w-14">{{ t('assets.photo') }}</th>
                 <th class="th-sort" @click="toggleSort('code')">{{ t('assets.id_col') }}<TableSortIcon :active="sortKey === 'code'" :direction="sortDir" /></th>
                 <th class="th-sort" @click="toggleSort('name')">{{ t('assets.description_col') }}<TableSortIcon :active="sortKey === 'name'" :direction="sortDir" /></th>
                 <th class="th-sort text-center" @click="toggleSort('category')">{{ t('assets.category') }}<TableSortIcon :active="sortKey === 'category'" :direction="sortDir" /></th>
@@ -332,6 +350,12 @@ const { page, rowsPerPage, total, paged } = usePagination(visible)
               <tr v-for="asset in paged" :key="asset.id">
                 <td v-if="isOpm">
                   <input type="checkbox" :checked="selectedIds.includes(asset.id)" @change="toggleSelect(asset.id)" class="rounded border-line text-brand focus:ring-brand/30" />
+                </td>
+                <td>
+                  <img v-if="asset.image_url" :src="asset.image_url" :alt="asset.name" loading="lazy" class="w-10 h-10 rounded-lg object-cover border border-line" />
+                  <div v-else class="w-10 h-10 rounded-lg bg-surface-2 border border-line flex items-center justify-center text-faint">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg>
+                  </div>
                 </td>
                 <td class="whitespace-nowrap"><span class="id-chip">{{ asset.asset_code }}</span></td>
                 <td>
@@ -360,7 +384,7 @@ const { page, rowsPerPage, total, paged } = usePagination(visible)
                 </td>
               </tr>
               <tr v-if="!loading && !visible.length">
-                <td :colspan="isOpm ? 9 : 8" class="py-12 text-center">
+                <td :colspan="isOpm ? 10 : 9" class="py-12 text-center">
                   <div class="flex flex-col items-center gap-2">
                     <svg class="w-10 h-10 text-line-strong" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
                     <p class="text-muted text-sm font-medium">{{ (search || catFilters.category) ? t('assets.empty_search') : t('assets.empty') }}</p>
@@ -473,7 +497,7 @@ const { page, rowsPerPage, total, paged } = usePagination(visible)
             <div class="flex items-center justify-center gap-2 mt-1.5 text-xs font-semibold">
               <button @click="printQr(viewing)" class="text-brand-600 dark:text-brand-300 hover:underline">{{ t('assets.print') }}</button>
               <span class="text-line-strong">|</span>
-              <a :href="viewing.qr_code_url" :download="`qr-${viewing.asset_code}.png`" class="text-brand-600 dark:text-brand-300 hover:underline">{{ t('common.download') }}</a>
+              <button @click="downloadQr(viewing)" class="text-brand-600 dark:text-brand-300 hover:underline">{{ t('common.download') }}</button>
             </div>
           </div>
         </div>
@@ -490,10 +514,19 @@ const { page, rowsPerPage, total, paged } = usePagination(visible)
           <p class="text-xs font-semibold text-faint uppercase tracking-wide mb-1">{{ t('common.description') }}</p>
           <p class="text-sm text-muted">{{ viewing.description }}</p>
         </div>
-        <div class="flex items-center justify-end gap-3 pt-2">
-          <button @click="openFlag(viewing)" class="btn-ghost btn-sm text-amber-600 dark:text-amber-400">{{ t('assets.flag_issue') }}</button>
-          <button @click="regenerateQr(viewing)" class="btn-ghost btn-sm">{{ t('assets.regenerate_qr') }}</button>
-          <button v-if="canEdit" @click="openEdit(viewing); viewing = null" class="btn-primary btn-sm">{{ t('assets.edit_asset') }}</button>
+        <div class="flex flex-wrap items-center justify-end gap-2 pt-4 border-t border-line">
+          <button @click="openFlag(viewing)" class="btn-warning">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" /><line x1="4" y1="22" x2="4" y2="15" /></svg>
+            {{ t('assets.flag_issue') }}
+          </button>
+          <button @click="regenerateQr(viewing)" class="btn-ghost">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10" /><polyline points="1 20 1 14 7 14" /><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" /></svg>
+            {{ t('assets.regenerate_qr') }}
+          </button>
+          <button v-if="canEdit" @click="openEdit(viewing); viewing = null" class="btn-primary">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" /></svg>
+            {{ t('assets.edit_asset') }}
+          </button>
         </div>
       </div>
     </Modal>

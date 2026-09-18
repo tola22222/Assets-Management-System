@@ -179,6 +179,21 @@ class AssetController extends Controller
         return response()->json($asset->fresh());
     }
 
+    /**
+     * Serve the QR PNG as an attachment through the API. A plain <a download>
+     * on the /storage URL is ignored whenever the SPA runs on a different
+     * origin than the backend (Vite dev server), so the browser just opened it.
+     */
+    public function downloadQr(Asset $asset)
+    {
+        if (! $asset->qr_code_path || ! Storage::disk('public')->exists($asset->qr_code_path)) {
+            AssetCodeService::generateQrCode($asset);
+            $asset->refresh();
+        }
+
+        return Storage::disk('public')->download($asset->qr_code_path, 'qr-'.$asset->asset_code.'.png');
+    }
+
     private function validateAsset(Request $request, ?Asset $asset): array
     {
         return $request->validate([

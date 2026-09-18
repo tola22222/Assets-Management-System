@@ -6,9 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Asset;
 use App\Models\AssetAssignment;
 use App\Models\AssetCategory;
-use App\Models\AssetDisposal;
 use App\Models\AssetReturn;
-use App\Models\AssetTransfer;
+use App\Models\AssetScan;
 use App\Models\AssetVerification;
 use App\Models\Location;
 use App\Models\Notification;
@@ -149,7 +148,18 @@ class DashboardController extends Controller
             'my_assignments' => $myAssignments,
             'pending_returns' => AssetReturn::where('returned_by', $user->id)->where('status', 'pending')->count(),
             'upcoming_verifications' => AssetVerification::where('verified_by', $user->id)->whereNull('verified_at')->count(),
-            'recent_scans' => Notification::where('user_id', $user->id)->where('type', 'qr_scan')->latest()->take(5)->get(),
+            // Same {id, message, created_at} shape Dashboard.vue rendered back when
+            // scans were notification rows, now read from the scan log itself.
+            'recent_scans' => AssetScan::where('user_id', $user->id)->latest()->take(5)->get()
+                ->map(fn (AssetScan $scan) => [
+                    'id' => $scan->id,
+                    'message' => match ($scan->action) {
+                        AssetScan::ACTION_VERIFIED => 'Verified: ',
+                        AssetScan::ACTION_LOCATION_UPDATED => 'Location updated: ',
+                        default => 'QR scanned: ',
+                    }.$scan->asset_name.' ('.$scan->asset_code.')',
+                    'created_at' => $scan->created_at,
+                ]),
         ];
     }
 }

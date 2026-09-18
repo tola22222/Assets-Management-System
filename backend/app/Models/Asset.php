@@ -72,6 +72,11 @@ class Asset extends Model
         return $this->hasMany(AssetVerification::class);
     }
 
+    public function scans()
+    {
+        return $this->hasMany(AssetScan::class);
+    }
+
     public function transfers()
     {
         return $this->hasMany(AssetTransfer::class);

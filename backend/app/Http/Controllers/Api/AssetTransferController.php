@@ -132,7 +132,7 @@ class AssetTransferController extends Controller
         return response()->json($asset_transfer->fresh(self::WITH));
     }
 
-    /** OPM refuses a request before it ever reaches the destination. */
+    /** OPM or the ED refuses a request before it ever reaches the destination. */
     public function reject(Request $request, AssetTransfer $asset_transfer)
     {
         $validated = $request->validate(['rejection_reason' => 'nullable|string']);
@@ -377,7 +377,7 @@ class AssetTransferController extends Controller
     /** Tell OPM a request is waiting on their approval. */
     private function notifyApprovers(AssetTransfer $transfer): void
     {
-        User::where('role', 'operations_hr_manager')
+        User::whereIn('role', ['operations_hr_manager', 'executive_director'])
             ->where('id', '!=', $transfer->requested_by)
             ->get()
             ->each(fn (User $admin) => Notification::create([

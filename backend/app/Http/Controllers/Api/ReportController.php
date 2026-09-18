@@ -8,10 +8,10 @@ use App\Models\ActivityLog;
 use App\Models\Asset;
 use App\Models\AssetAssignment;
 use App\Models\AssetReturn;
+use App\Models\AssetScan;
 use App\Models\AssetTransfer;
 use App\Models\AssetVerification;
 use App\Models\Location;
-use App\Models\Notification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -150,7 +150,11 @@ class ReportController extends Controller
 
     public function qrScans()
     {
-        return response()->json(Notification::where('type', 'qr_scan')->with('user')->latest()->get());
+        return response()->json(
+            AssetScan::with(['user:id,name,role', 'asset:id,asset_code,name', 'location:id,name', 'previousLocation:id,name'])
+                ->latest()
+                ->get()
+        );
     }
 
     public function dataCompleteness()

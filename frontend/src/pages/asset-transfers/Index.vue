@@ -21,6 +21,8 @@ const { t } = useI18n()
 const { items: transfers, loading, fetchAll, destroy } = useApiCrud('/asset-transfers', { entityName: t('asset_transfers.entity') })
 const toast = useToastStore()
 const auth = useAuthStore()
+// Mirrors the role: guard on /approve and /reject.
+const canApprove = computed(() => ['operations_hr_manager', 'executive_director'].includes(auth.user?.role))
 
 const { search, filtered: searched } = useTableSearch(transfers, [(r) => r.asset?.name, (r) => r.asset?.asset_code, (r) => r.requester?.name])
 const { sortKey, sortDir, toggleSort, sorted: sortedTransfers } = useTableSort(searched, {
@@ -211,7 +213,6 @@ const { page, rowsPerPage, total, paged } = usePagination(sortedTransfers)
                 <th class="th-sort" @click="toggleSort('to')">{{ t('asset_transfers.to') }}<TableSortIcon :active="sortKey === 'to'" :direction="sortDir" /></th>
                 <th class="th-sort" @click="toggleSort('requester')">{{ t('asset_transfers.requester') }}<TableSortIcon :active="sortKey === 'requester'" :direction="sortDir" /></th>
                 <th class="th-sort" @click="toggleSort('status')">{{ t('common.status') }}<TableSortIcon :active="sortKey === 'status'" :direction="sortDir" /></th>
-                <th>{{ t('common.status_actions') }}</th>
                 <th class="text-right">{{ t('common.actions') }}</th>
               </tr>
             </thead>
@@ -222,15 +223,13 @@ const { page, rowsPerPage, total, paged } = usePagination(sortedTransfers)
                 <td>{{ t2.to_location?.name || t('common.n_a') }}</td>
                 <td>{{ t2.requester?.name || t('common.n_a') }}</td>
                 <td><StatusBadge :status="t2.status" /></td>
-                <!-- Status actions: the approval transitions, kept apart from
-                     the row-management actions on the right. -->
-                <td class="whitespace-nowrap">
-                  <div class="flex items-center gap-1.5">
-                    <!-- OPM releasing a request that has not reached the
-                         destination yet. -->
-                    <!-- OPM releasing a request that has not reached the
-                         destination yet: tick to release, cross to refuse. -->
-                    <template v-if="t2.status === 'pending_approval' && auth.user?.role === 'operations_hr_manager' && t2.requester?.id !== auth.user?.id">
+                <!-- One Actions column: the workflow step this viewer may take
+                     (if any) first, then View / Delete. -->
+                <td class="text-right whitespace-nowrap">
+                  <div class="flex items-center justify-end gap-1.5">
+                    <!-- OPM or the ED releasing a request that has not reached
+                         the destination yet: tick to release, cross to refuse. -->
+                    <template v-if="t2.status === 'pending_approval' && canApprove && t2.requester?.id !== auth.user?.id">
                       <button @click="approve(t2.id)" :title="t('common.approve')" :aria-label="t('common.approve')" class="btn-icon-success">
                         <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12.75 11.25 15 15 9.75" /><circle cx="12" cy="12" r="9" /></svg>
                       </button>
@@ -239,9 +238,7 @@ const { page, rowsPerPage, total, paged } = usePagination(sortedTransfers)
                       </button>
                     </template>
                     <!-- The receiving site answers. Accept is an arrow into a
-                         tray and Return is the same arrow coming back out — a
-                         matched pair, so the two directions read at a glance
-                         and neither can be mistaken for the plain tick above. -->
+                         tray, so it can't be mistaken for the plain tick above. -->
                     <template v-else-if="t2.can_confirm || t2.can_decline">
                       <button v-if="t2.can_confirm" @click="confirmReceipt(t2.id)" :title="t('asset_transfers.confirm_receipt')" :aria-label="t('asset_transfers.confirm_receipt')" class="btn-icon-success">
                         <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v9m0 0 3.5-3.5M12 12 8.5 8.5" /><path d="M3.5 14.5h4l1.2 2.2h6.6l1.2-2.2h4" /><path d="M3.5 14.5 5.8 19a2 2 0 0 0 1.8 1.1h8.8a2 2 0 0 0 1.8-1.1l2.3-4.5" /></svg>
@@ -254,15 +251,12 @@ const { page, rowsPerPage, total, paged } = usePagination(sortedTransfers)
                         <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="m9.75 9.75 4.5 4.5m0-4.5-4.5 4.5" /><circle cx="12" cy="12" r="9" /></svg>
                       </button>
                     </template>
-                    <!-- Finished with it: send it back where it came from. -->
+                    <!-- Finished with it: send it back where it came from.
+                         A U-turn arrow, so it reads as "go back" rather than
+                         as another variant of the Accept tray. -->
                     <button v-else-if="t2.can_return" @click="openReturn(t2)" :title="t('asset_transfers.return_asset')" :aria-label="t('asset_transfers.return_asset')" class="btn-icon-info">
-                      <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M12 12V3m0 0L8.5 6.5M12 3l3.5 3.5" /><path d="M3.5 14.5h4l1.2 2.2h6.6l1.2-2.2h4" /><path d="M3.5 14.5 5.8 19a2 2 0 0 0 1.8 1.1h8.8a2 2 0 0 0 1.8-1.1l2.3-4.5" /></svg>
+                      <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5" /><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" /></svg>
                     </button>
-                    <span v-else class="text-faint">—</span>
-                  </div>
-                </td>
-                <td class="text-right whitespace-nowrap">
-                  <div class="flex items-center justify-end gap-1.5">
                     <button @click="viewing = t2" :title="t('common.view')" :aria-label="t('common.view')" class="btn-icon-view">
                       <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
                     </button>
@@ -279,7 +273,7 @@ const { page, rowsPerPage, total, paged } = usePagination(sortedTransfers)
                 </td>
               </tr>
               <tr v-if="!loading && !sortedTransfers.length">
-                <td colspan="7" class="py-10 text-center text-faint">{{ t('asset_transfers.empty') }}</td>
+                <td colspan="6" class="py-10 text-center text-faint">{{ t('asset_transfers.empty') }}</td>
               </tr>
             </tbody>
           </table>

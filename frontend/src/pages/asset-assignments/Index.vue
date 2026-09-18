@@ -16,7 +16,6 @@ import { useToastStore } from '../../stores/toast'
 import { useAuthStore } from '../../stores/auth'
 import TablePagination from '../../components/ui/TablePagination.vue'
 import { usePagination } from '../../composables/usePagination'
-import ImageField from '../../components/ui/ImageField.vue'
 
 const { t } = useI18n()
 const { items: assignments, loading, fetchAll, update, destroy } = useApiCrud('/asset-assignments', { entityName: t('asset_assignments.entity') })
@@ -99,10 +98,6 @@ const locations = ref([])
 const staffList = ref([])
 const programs = ref([])
 const showModal = ref(false)
-const returningId = ref(null)
-const returnCondition = ref('good')
-const returnRemark = ref('')
-const returnImageFile = ref(null)
 
 const form = reactive({ asset_id: '', assigned_to_type: 'staff', assigned_to_id: '', location_id: '', quantity: 1, assigned_date: '', due_date: '' })
 
@@ -133,32 +128,6 @@ async function handleSubmit() {
     await fetchAll()
   } catch (e) {
     toast.error(errorMessage(e, t('asset_assignments.assign_failed')))
-  }
-}
-
-async function cancelAssignment(id) {
-  try {
-    await http.post(`/asset-assignments/${id}/cancel`)
-    toast.success(t('asset_assignments.cancelled'))
-    await fetchAll()
-  } catch (e) {
-    toast.error(errorMessage(e, t('asset_assignments.cancel_failed')))
-  }
-}
-
-async function submitReturn() {
-  const fd = new FormData()
-  fd.append('condition', returnCondition.value)
-  fd.append('remark', returnRemark.value)
-  if (returnImageFile.value) fd.append('image', returnImageFile.value)
-  try {
-    await http.post(`/asset-assignments/${returningId.value}/return`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })
-    toast.success(t('asset_assignments.returned_successfully'))
-    returningId.value = null
-    await fetchAll()
-  } catch (e) {
-    // Keep the modal open so the entered condition and remark are not lost.
-    toast.error(errorMessage(e, t('asset_assignments.return_failed')))
   }
 }
 
@@ -205,7 +174,6 @@ const { page, rowsPerPage, total, paged } = usePagination(sortedAssignments)
                 <th class="th-sort" @click="toggleSort('quantity')">{{ t('asset_assignments.qty') }}<TableSortIcon :active="sortKey === 'quantity'" :direction="sortDir" /></th>
                 <th>{{ t('asset_assignments.photo') }}</th>
                 <th class="th-sort" @click="toggleSort('status')">{{ t('common.status') }}<TableSortIcon :active="sortKey === 'status'" :direction="sortDir" /></th>
-                <th>{{ t('common.status_actions') }}</th>
                 <th class="text-right">{{ t('common.actions') }}</th>
               </tr>
             </thead>
@@ -220,22 +188,6 @@ const { page, rowsPerPage, total, paged } = usePagination(sortedAssignments)
                   <span v-else class="text-faint">—</span>
                 </td>
                 <td><StatusBadge :status="a.status" /></td>
-                <!-- Status actions: the transitions that move this assignment
-                     through its lifecycle, kept apart from the row-management
-                     actions on the right. -->
-                <td class="whitespace-nowrap">
-                  <div class="flex items-center gap-1.5">
-                    <template v-if="a.status !== 'returned' && canManage">
-                      <button @click="returningId = a.id; returnCondition = 'good'; returnRemark = ''; returnImageFile = null" :title="t('common.return')" :aria-label="t('common.return')" class="btn-icon-info">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" /></svg>
-                      </button>
-                      <button @click="cancelAssignment(a.id)" :title="t('common.cancel')" :aria-label="t('common.cancel')" class="btn-icon-danger">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-                      </button>
-                    </template>
-                    <span v-else class="text-faint">—</span>
-                  </div>
-                </td>
                 <td class="text-right whitespace-nowrap">
                   <div class="flex items-center justify-end gap-1.5">
                     <button @click="viewing = a" :title="t('common.view')" :aria-label="t('common.view')" class="btn-icon-view">
@@ -258,7 +210,7 @@ const { page, rowsPerPage, total, paged } = usePagination(sortedAssignments)
                 </td>
               </tr>
               <tr v-if="!loading && !sortedAssignments.length">
-                <td colspan="8" class="py-10 text-center text-faint">{{ t('asset_assignments.empty') }}</td>
+                <td colspan="7" class="py-10 text-center text-faint">{{ t('asset_assignments.empty') }}</td>
               </tr>
             </tbody>
           </table>
@@ -327,33 +279,6 @@ const { page, rowsPerPage, total, paged } = usePagination(sortedAssignments)
       </form>
     </Modal>
 
-    <Modal v-if="returningId" :title="t('asset_assignments.return_title')" @close="returningId = null">
-      <form class="modal-form" @submit.prevent="submitReturn">
-        <div class="modal-body space-y-4">
-          <div class="form-group">
-            <label class="label">{{ t('asset_assignments.condition_required') }}</label>
-            <select v-model="returnCondition" class="input">
-              <option value="good">{{ t('asset_assignments.condition_good') }}</option>
-              <option value="fair">{{ t('asset_assignments.condition_fair') }}</option>
-              <option value="broken">{{ t('asset_assignments.condition_broken') }}</option>
-              <option value="lost">{{ t('asset_assignments.condition_lost') }}</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label class="label">{{ t('asset_assignments.remark') }}</label>
-            <textarea v-model="returnRemark" rows="2" class="textarea"></textarea>
-          </div>
-          <div class="form-group">
-            <label class="label">{{ t('asset_assignments.photo_reference') }}</label>
-            <ImageField v-model="returnImageFile" :hint="t('image.field_hint')" />
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn-ghost" @click="returningId = null">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary">{{ t('asset_assignments.confirm_return') }}</button>
-        </div>
-      </form>
-    </Modal>
     <DetailModal
       v-if="viewing"
       :title="t('common.details')"

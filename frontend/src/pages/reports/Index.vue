@@ -69,7 +69,18 @@ const columns = computed(() => ({
   disposed: [['asset_code', t('reports.col_code')], ['name', t('reports.col_name')], ['condition', t('reports.col_condition')]],
   lost: [['asset_code', t('reports.col_code')], ['name', t('reports.col_name')], ['updated_at', t('reports.col_last_updated')]],
   locations: [['name', t('reports.col_name')], ['type', t('reports.col_type')], ['assets_count', t('reports.col_assets')]],
-  'qr-scans': [['message', t('reports.col_scan')], ['created_at', t('common.date')]],
+  // Who scanned what, what they did with it, and where the asset ended up.
+  // asset_code/asset_name/user_name are snapshots on the scan row, so a scan
+  // still reads correctly after its asset or account has been deleted.
+  'qr-scans': [
+    ['asset_code', t('reports.col_code')],
+    ['asset_name', t('reports.col_name')],
+    ['scanned_by', t('reports.col_scanned_by'), (r) => r.user?.name || r.user_name],
+    ['action', t('reports.col_scan_action'), (r) => t(`reports.scan_action_${r.action}`)],
+    ['condition', t('reports.col_condition')],
+    ['location', t('reports.col_location'), scanLocation],
+    ['created_at', t('reports.col_scanned_at'), (r) => dateTimeKey(r.created_at)],
+  ],
   'data-completeness': [['asset_code', t('reports.col_code')], ['name', t('reports.col_name')], ['category', t('reports.col_category'), (r) => r.category?.name], ['missing_fields', t('reports.col_missing_fields')]],
   'by-model': [['name', t('reports.col_model')], ['category', t('reports.col_category'), (r) => r.category?.name], ['total', t('reports.col_total_units')], ['stock_level', t('reports.col_stock_level')]],
 }))
@@ -131,6 +142,19 @@ function dayKey(raw) {
   if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw
   const d = new Date(raw)
   return isNaN(d) ? null : localDateKey(d)
+}
+
+// Local "YYYY-MM-DD HH:mm" — readable, and still sorts correctly as a string.
+function dateTimeKey(raw) {
+  const d = new Date(raw)
+  if (!raw || isNaN(d)) return ''
+  return `${localDateKey(d)} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+}
+
+// "Office → School" when the scan moved the asset, otherwise just where it was.
+function scanLocation(r) {
+  const to = r.location?.name || ''
+  return r.action === 'location_updated' ? `${r.previous_location?.name || '—'} → ${to}` : to
 }
 
 function defaultPeriodValue(g) {
@@ -355,10 +379,7 @@ const sortedRows = computed(() => {
 // deliberately keep reading sortedRows, so they still cover every row.
 const { page, rowsPerPage, total, paged } = usePagination(sortedRows)
 // Switching report type swaps the whole dataset, so page 3 of the old one is
-// meaningless in the new one. Nothing assigns `selected` in the template today
-// (the type picker isn't wired up — reportTypes only feeds a label), so this
-// never fires as things stand; it is here so pagination stays correct if the
-// picker comes back.
+// meaningless in the new one.
 watch(selected, () => { page.value = 0 })
 
 function exportCsv() {
@@ -489,6 +510,12 @@ onMounted(() => {
       <div class="card p-6 sm:p-8">
         <!-- Date filter + export -->
         <div class="flex flex-wrap items-center gap-3 mb-6">
+          <!-- Report type. Without this only the default inventory report was
+               reachable — every other entry in reportTypes, QR Scans included,
+               had an endpoint and columns but no way to open it. -->
+          <select v-model="selected" class="filter-select" :aria-label="t('reports.report_type')">
+            <option v-for="rt in reportTypes" :key="rt.key" :value="rt.key">{{ rt.label }}</option>
+          </select>
           <template v-if="hasDateField">
             <div class="flex items-center gap-1 bg-surface-2 rounded-xl p-1">
               <button
