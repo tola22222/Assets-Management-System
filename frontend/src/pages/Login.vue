@@ -31,6 +31,13 @@ function redirectTarget() {
   return typeof target === 'string' && /^\/(?![/\\])/.test(target) ? target : null
 }
 
+// Someone sent here by scanning an asset tag signs in once and then scans for
+// 30 days: the "remember me" login (a 30-day token instead of the 12-hour one)
+// is switched on for them. The checkbox shows it ticked, so what the screen says
+// is what happens — and unticking it on a shared phone is still respected.
+const cameFromScan = !!assetReturnUrl(route.query) || (redirectTarget() || '').startsWith('/qr-scan')
+remember.value = cameFromScan
+
 async function handleSubmit() {
   error.value = ''
   loading.value = true
