@@ -43,7 +43,7 @@ async function handleSubmit() {
   loading.value = true
   try {
     await auth.login(email.value, password.value, remember.value)
-    // Came from a scanned tag's public page: hand them back to it, now signed in.
+    // Came from a  tag's public page: hand them back to it, now signed in.
     const back = assetReturnUrl(route.query)
     if (back) {
       window.location.assign(back)
