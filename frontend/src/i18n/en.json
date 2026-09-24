@@ -978,7 +978,6 @@
   "notifications": {
     "title": "Notifications",
     "subtitle": "Recent activity relevant to you",
-    "new_title": "New notification",
     "empty": "No notifications yet.",
     "marked_all_read": "All notifications marked as read.",
     "mark_failed": "Could not update this notification.",

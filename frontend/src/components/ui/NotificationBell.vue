@@ -1,71 +1,37 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
-import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import http from '../../api/http'
-import { useToastStore } from '../../stores/toast'
 
-const { t } = useI18n()
 const router = useRouter()
-const toast = useToastStore()
 const count = ref(0)
 let timer = null
 
-// Highest notification id already seen. The first check only records it, so
-// opening the app doesn't replay the backlog as a burst of toasts — only
-// notifications that arrive while the app is open pop up.
-let lastSeenId = null
-let checking = false
-
-async function check() {
-  if (checking) return
-  checking = true
+async function loadCount() {
   try {
     const { data } = await http.get('/notifications/unread-count')
-    const previous = count.value
     count.value = data.count
-
-    // Only fetch the list when the unread count grew (or on the first check,
-    // to set the baseline) — the cheap count call is the regular poll.
-    if (lastSeenId === null || data.count > previous) {
-      const { data: page } = await http.get('/notifications')
-      const items = page.data || []
-      const newest = items.reduce((max, n) => Math.max(max, n.id), 0)
-      if (lastSeenId !== null) {
-        items
-          .filter((n) => n.id > lastSeenId && !n.is_read)
-          .sort((a, b) => a.id - b.id)
-          .slice(-3) // a bulk action can create many; show the latest few
-          .forEach((n) => toast.info(n.message, t('notifications.new_title')))
-      }
-      lastSeenId = Math.max(lastSeenId ?? 0, newest)
-    }
-  } catch {
+  } catch (e) {
     // ignore transient failures; the next poll retries
-  } finally {
-    checking = false
   }
 }
 
 // Saves elsewhere in the app announce themselves (see api/http.js), so a
-// notification caused by your own action shows up right away rather than on
-// the next poll.
-function onRefresh() {
-  check()
-}
+// notification caused by your own action updates the badge right away rather
+// than on the next poll. Coming back to the tab also refreshes it.
 function onVisible() {
-  if (document.visibilityState === 'visible') check()
+  if (document.visibilityState === 'visible') loadCount()
 }
 
 onMounted(() => {
-  check()
-  timer = setInterval(check, 12000)
-  window.addEventListener('notifications:refresh', onRefresh)
+  loadCount()
+  timer = setInterval(loadCount, 12000)
+  window.addEventListener('notifications:refresh', loadCount)
   document.addEventListener('visibilitychange', onVisible)
 })
 onUnmounted(() => {
   clearInterval(timer)
-  window.removeEventListener('notifications:refresh', onRefresh)
+  window.removeEventListener('notifications:refresh', loadCount)
   document.removeEventListener('visibilitychange', onVisible)
 })
 </script>
