@@ -96,7 +96,7 @@ class StockItemController extends Controller
             return response()->json(['message' => $e->getMessage()], 422);
         }
 
-        ActivityLog::create([
+        ActivityLog::createAndNotify([
             'user_id' => Auth::id(),
             'action' => 'Stock Out',
             'description' => "Issued {$validated['quantity']} {$item->unit} of \"{$item->name}\" ({$item->stock_code})".
@@ -114,7 +114,7 @@ class StockItemController extends Controller
 
         $stock_item->delete();
 
-        ActivityLog::create([
+        ActivityLog::createAndNotify([
             'user_id' => Auth::id(),
             'action' => 'Delete',
             'description' => "Deleted stock item: {$stock_item->name} ({$stock_item->stock_code}).",

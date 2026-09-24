@@ -50,17 +50,12 @@ class AssetVerificationController extends Controller
         // The counted condition is the asset's condition now, good or bad.
         Asset::where('id', $validated['asset_id'])->update(['condition' => $validated['condition']]);
 
-        ActivityLog::create([
+        // One entry: the activity log, plus the same line in the bell for the
+        // admins and the verifier (this used to notify only the verifier).
+        ActivityLog::createAndNotify([
             'user_id' => Auth::id(),
             'action' => 'Verification',
-            'description' => 'Verified asset: '.($verification->asset->name ?? ''),
-        ]);
-
-        Notification::create([
-            'user_id' => Auth::id(),
-            'type' => 'asset_verified',
-            'message' => 'Verified asset: '.($verification->asset->name ?? '').' ('.$validated['condition'].')',
-            'url' => null,
+            'description' => 'Verified asset: '.($verification->asset->name ?? '').' ('.$validated['condition'].')',
         ]);
 
         return response()->json($verification->fresh(['asset', 'location']), 201);

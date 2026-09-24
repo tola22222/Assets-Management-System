@@ -243,7 +243,7 @@ class RoleController extends Controller
 
     private function log(string $action, string $description): void
     {
-        ActivityLog::create([
+        ActivityLog::createAndNotify([
             'user_id' => Auth::id(),
             'action' => $action,
             'description' => $description,

@@ -31,7 +31,7 @@ class UserController extends Controller
         $validated['password'] = Hash::make($validated['password']);
         $user = User::create($validated);
 
-        ActivityLog::create([
+        ActivityLog::createAndNotify([
             'user_id' => Auth::id(),
             'action' => 'Create',
             'description' => 'Created user: '.$user->name,
@@ -68,7 +68,7 @@ class UserController extends Controller
             $user->tokens()->delete();
         }
 
-        ActivityLog::create([
+        ActivityLog::createAndNotify([
             'user_id' => Auth::id(),
             'action' => 'Update',
             'description' => 'Updated user: '.$user->name,
@@ -95,7 +95,7 @@ class UserController extends Controller
             $user->tokens()->delete();
         }
 
-        ActivityLog::create([
+        ActivityLog::createAndNotify([
             'user_id' => Auth::id(),
             'action' => 'Update',
             'description' => ($user->is_locked ? 'Locked' : 'Unlocked').' user: '.$user->name,
@@ -116,7 +116,7 @@ class UserController extends Controller
         // existing session out.
         $user->tokens()->delete();
 
-        ActivityLog::create([
+        ActivityLog::createAndNotify([
             'user_id' => Auth::id(),
             'action' => 'Password Reset',
             'description' => 'Reset password for user: '.$user->name,
@@ -143,7 +143,7 @@ class UserController extends Controller
         $after = $user->roles()->pluck('name')->sort()->implode(', ') ?: 'none';
 
         if ($before !== $after) {
-            ActivityLog::create([
+            ActivityLog::createAndNotify([
                 'user_id' => Auth::id(),
                 'action' => 'Update',
                 'description' => "Changed roles for {$user->name}: {$before} → {$after}.",
@@ -254,7 +254,7 @@ class UserController extends Controller
             ], 422);
         }
 
-        ActivityLog::create([
+        ActivityLog::createAndNotify([
             'user_id' => Auth::id(),
             'action' => 'Delete',
             'description' => 'Deleted user: '.$name,

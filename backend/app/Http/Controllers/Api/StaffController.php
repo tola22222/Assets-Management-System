@@ -48,7 +48,7 @@ class StaffController extends Controller
 
         $staff = Staff::create($data);
 
-        ActivityLog::create([
+        ActivityLog::createAndNotify([
             'user_id' => Auth::id(),
             'action' => 'Create',
             'description' => 'Added staff member: '.$staff->full_name,
@@ -93,7 +93,7 @@ class StaffController extends Controller
 
         $staff->update($data);
 
-        ActivityLog::create([
+        ActivityLog::createAndNotify([
             'user_id' => Auth::id(),
             'action' => 'Update',
             'description' => 'Updated details for staff: '.$staff->full_name,
@@ -130,7 +130,7 @@ class StaffController extends Controller
 
         $staff->delete();
 
-        ActivityLog::create([
+        ActivityLog::createAndNotify([
             'user_id' => Auth::id(),
             'action' => 'Delete',
             'description' => 'Removed staff member: '.$name,

@@ -133,7 +133,7 @@ class SettingController extends Controller
             }
         }
 
-        ActivityLog::create([
+        ActivityLog::createAndNotify([
             'user_id' => Auth::id(),
             'action' => 'Update',
             'description' => 'Updated system settings',
@@ -176,7 +176,7 @@ class SettingController extends Controller
             ], 422);
         }
 
-        ActivityLog::create([
+        ActivityLog::createAndNotify([
             'user_id' => Auth::id(),
             'action' => 'Update',
             'description' => 'Sent a test email to '.$validated['email'],
@@ -252,7 +252,7 @@ class SettingController extends Controller
             }
         }
 
-        ActivityLog::create([
+        ActivityLog::createAndNotify([
             'user_id' => Auth::id(),
             'action' => 'Backup',
             'description' => 'Created database backup: '.$filename,
@@ -301,7 +301,7 @@ class SettingController extends Controller
 
         $file->move($backupPath, $name);
 
-        ActivityLog::create([
+        ActivityLog::createAndNotify([
             'user_id' => Auth::id(),
             'action' => 'Backup',
             'description' => 'Uploaded database backup: '.$name,
@@ -393,7 +393,7 @@ class SettingController extends Controller
             }
         }
 
-        ActivityLog::create([
+        ActivityLog::createAndNotify([
             'user_id' => Auth::id(),
             'action' => 'Restore',
             'description' => 'Restored database from backup: '.$filename,
@@ -411,7 +411,7 @@ class SettingController extends Controller
 
         unlink($backupPath);
 
-        ActivityLog::create([
+        ActivityLog::createAndNotify([
             'user_id' => Auth::id(),
             'action' => 'Delete',
             'description' => 'Deleted database backup: '.$filename,

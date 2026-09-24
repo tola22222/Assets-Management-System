@@ -71,17 +71,10 @@ class AssetController extends Controller
         $asset = Asset::create($validated);
         AssetCodeService::generateQrCode($asset);
 
-        ActivityLog::create([
+        ActivityLog::createAndNotify([
             'user_id' => Auth::id(),
             'action' => 'Create',
             'description' => 'Registered asset: '.$asset->name.' ('.$asset->asset_code.')',
-        ]);
-
-        Notification::create([
-            'user_id' => Auth::id(),
-            'type' => 'asset_registered',
-            'message' => 'Asset registered: '.$asset->name.' ('.$asset->asset_code.')',
-            'url' => null,
         ]);
 
         return response()->json($asset->fresh(['category', 'location']), 201);
@@ -121,7 +114,7 @@ class AssetController extends Controller
             AssetCodeService::generateQrCode($asset);
         }
 
-        ActivityLog::create([
+        ActivityLog::createAndNotify([
             'user_id' => Auth::id(),
             'action' => 'Update',
             'description' => 'Updated asset: '.$asset->name,
@@ -156,7 +149,7 @@ class AssetController extends Controller
             Storage::disk('public')->delete($path);
         }
 
-        ActivityLog::create([
+        ActivityLog::createAndNotify([
             'user_id' => Auth::id(),
             'action' => 'Delete',
             'description' => 'Deleted asset: '.$asset->name,

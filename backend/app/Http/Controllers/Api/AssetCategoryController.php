@@ -31,7 +31,7 @@ class AssetCategoryController extends Controller
 
         $category = AssetCategory::create($validated);
 
-        ActivityLog::create([
+        ActivityLog::createAndNotify([
             'user_id' => Auth::id(),
             'action' => 'Create',
             'description' => 'Created category: '.$category->name,
@@ -54,7 +54,7 @@ class AssetCategoryController extends Controller
 
         $category->update($validated);
 
-        ActivityLog::create([
+        ActivityLog::createAndNotify([
             'user_id' => Auth::id(),
             'action' => 'Update',
             'description' => 'Updated category: '.$category->name,
@@ -74,7 +74,7 @@ class AssetCategoryController extends Controller
 
         $category->delete();
 
-        ActivityLog::create([
+        ActivityLog::createAndNotify([
             'user_id' => Auth::id(),
             'action' => 'Delete',
             'description' => 'Deleted category: '.$category->name,

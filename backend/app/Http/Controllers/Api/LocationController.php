@@ -37,7 +37,7 @@ class LocationController extends Controller
     {
         $location = Location::create($this->validateLocation($request));
 
-        ActivityLog::create([
+        ActivityLog::createAndNotify([
             'user_id' => Auth::id(),
             'action' => 'Create',
             'description' => 'Created location: '.$location->name,
@@ -50,7 +50,7 @@ class LocationController extends Controller
     {
         $location->update($this->validateLocation($request, $location));
 
-        ActivityLog::create([
+        ActivityLog::createAndNotify([
             'user_id' => Auth::id(),
             'action' => 'Update',
             'description' => 'Updated location: '.$location->name,
@@ -96,7 +96,7 @@ class LocationController extends Controller
 
         $location->delete();
 
-        ActivityLog::create([
+        ActivityLog::createAndNotify([
             'user_id' => Auth::id(),
             'action' => 'Delete',
             'description' => 'Deleted location: '.$location->name,

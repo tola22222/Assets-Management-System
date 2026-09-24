@@ -25,7 +25,7 @@ class SupplierController extends Controller
 
         $supplier = Supplier::create($data);
 
-        ActivityLog::create([
+        ActivityLog::createAndNotify([
             'user_id' => Auth::id(),
             'action' => 'Create',
             'description' => 'Added new supplier: ' . $supplier->name,
@@ -44,7 +44,7 @@ class SupplierController extends Controller
 
         $supplier->update($data);
 
-        ActivityLog::create([
+        ActivityLog::createAndNotify([
             'user_id' => Auth::id(),
             'action' => 'Update',
             'description' => 'Updated supplier: ' . $supplier->name,
@@ -58,7 +58,7 @@ class SupplierController extends Controller
         $name = $supplier->name;
         $supplier->delete();
 
-        ActivityLog::create([
+        ActivityLog::createAndNotify([
             'user_id' => Auth::id(),
             'action' => 'Delete',
             'description' => 'Removed supplier: ' . $name,

@@ -51,7 +51,7 @@ class AssetImportController extends Controller
             ], 422);
         }
 
-        ActivityLog::create([
+        ActivityLog::createAndNotify([
             'user_id' => $request->user()->id,
             'action' => 'Import',
             'description' => "Imported asset register: {$result['created']} added, {$result['updated']} updated"

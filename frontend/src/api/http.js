@@ -15,7 +15,17 @@ http.interceptors.request.use((config) => {
 })
 
 http.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // A successful save may have created a notification (the backend notifies
+    // admins on register changes), so tell the bell to check now instead of
+    // waiting for its next poll. Reads, and the bell's own mark-read calls,
+    // don't count.
+    const method = (response.config.method || 'get').toLowerCase()
+    if (method !== 'get' && !String(response.config.url || '').startsWith('/notifications')) {
+      setTimeout(() => window.dispatchEvent(new Event('notifications:refresh')), 300)
+    }
+    return response
+  },
   (error) => {
     if (error.response?.status === 401) {
       localStorage.removeItem('token')

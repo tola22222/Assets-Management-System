@@ -3,10 +3,12 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
 use App\Models\Program;
 use App\Models\Staff;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
@@ -38,6 +40,12 @@ class ProgramController extends Controller
 
         $program = Program::create($validated);
 
+        ActivityLog::createAndNotify([
+            'user_id' => Auth::id(),
+            'action' => 'Create',
+            'description' => 'Created program: '.$program->name,
+        ]);
+
         return response()->json($program->fresh(['location', 'responsibleStaff']), 201);
     }
 
@@ -47,6 +55,12 @@ class ProgramController extends Controller
         $this->assertStaffBelongsToSchool($validated);
 
         $program->update($validated);
+
+        ActivityLog::createAndNotify([
+            'user_id' => Auth::id(),
+            'action' => 'Update',
+            'description' => 'Updated program: '.$program->name,
+        ]);
 
         return response()->json($program->fresh(['location', 'responsibleStaff']));
     }
@@ -58,6 +72,12 @@ class ProgramController extends Controller
         }
 
         $program->delete();
+
+        ActivityLog::createAndNotify([
+            'user_id' => Auth::id(),
+            'action' => 'Delete',
+            'description' => 'Deleted program: '.$program->name,
+        ]);
 
         return response()->json(['message' => 'Program deleted.']);
     }

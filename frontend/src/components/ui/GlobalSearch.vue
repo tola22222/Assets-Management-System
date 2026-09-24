@@ -174,17 +174,16 @@ onBeforeUnmount(() => {
   wideQuery.removeEventListener('change', onWideChange)
 })
 
-const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || '')
 </script>
 
 <template>
   <!-- Sits on the left of the header, beside the menu button. Wide: the field
-       takes three quarters of the header's leftover space (basis 0, grows; the
-       layout's spacer takes the rest), between an 11rem floor and a 28rem cap,
+       takes four fifths of the header's leftover space (basis 0, grows; the
+       layout's spacer takes the rest), between a 14rem floor and a 36rem cap,
        so the fixed controls on the right are sized first. Narrow: just an
        icon; its panel is positioned against the (sticky) header, since neither
        wrapper here is positioned. -->
-  <div :class="wide ? 'grow-[3] basis-0 min-w-[11rem] max-w-md' : 'flex-shrink-0'">
+  <div :class="wide ? 'grow-[4] basis-0 min-w-[14rem] max-w-xl' : 'flex-shrink-0'">
     <div ref="root" :class="wide ? 'relative w-full' : ''">
       <button
         v-if="!wide"
@@ -218,18 +217,13 @@ const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigat
             :aria-expanded="open && term.length >= 2"
             aria-controls="global-search-results"
             autocomplete="off"
-            class="input !h-9 !pl-9 shadow-[var(--shadow-card)] [&::-webkit-search-cancel-button]:hidden"
-            :class="wide ? '!pr-14' : '!pr-9'"
+            class="input !h-9 !pl-9 !pr-9 !border-0 bg-surface-2 focus:!ring-2 focus:ring-brand/15 [&::-webkit-search-cancel-button]:hidden"
             @focus="open = true"
             @input="open = true"
             @keydown="onKeydown"
           />
-          <kbd
-            v-if="wide && !q"
-            class="absolute inset-y-0 right-2 my-auto h-5 px-1.5 flex items-center rounded border border-line bg-surface-2 text-[10px] font-medium text-faint pointer-events-none"
-          >{{ isMac ? '⌘' : 'Ctrl' }} K</kbd>
           <button
-            v-else-if="q"
+            v-if="q"
             type="button"
             class="absolute inset-y-0 right-0 flex items-center pr-3 text-faint hover:text-fg"
             :aria-label="t('search.clear')"
