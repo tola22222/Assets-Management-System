@@ -462,6 +462,16 @@
            transition-colors duration-150
            focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/10;
   }
+  /* As a <select> it drops the browser's own arrow (a different glyph on every
+     OS, and near-invisible in dark mode) for the same chevron .select uses.
+     Scoped to the element because Reports also puts .filter-select on
+     date/month inputs, whose native picker controls must stay. */
+  select.filter-select {
+    @apply appearance-none bg-no-repeat pr-9 cursor-pointer;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2397a29a' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-position: right 0.75rem center;
+    background-size: 1rem;
+  }
   /* Cell text sits at 13px in the main foreground colour — the reference puts
      row content one step darker than the header, not greyed out. */
   .data-table tbody td {

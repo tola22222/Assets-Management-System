@@ -49,11 +49,24 @@ class UserController extends Controller
             'staff_id' => 'nullable|exists:staff,id',
         ]);
 
+        $roleChanged = $validated['role'] !== $user->role;
+
+        if ($roleChanged && $user->id === Auth::id()) {
+            return response()->json(['message' => 'You cannot change your own role. Ask another Operations & HR Manager.'], 422);
+        }
+
         if ($guard = $this->lastAdministratorGuard($user, $validated['role'])) {
             return response()->json(['message' => $guard], 422);
         }
 
         $user->update($validated);
+
+        if ($roleChanged) {
+            // A signed-in session keeps the role it logged in with; ending it
+            // makes the new role take effect at the next sign-in instead of
+            // leaving the app running on stale access.
+            $user->tokens()->delete();
+        }
 
         ActivityLog::create([
             'user_id' => Auth::id(),
@@ -98,6 +111,10 @@ class UserController extends Controller
         ]);
 
         $user->update(['password' => Hash::make($request->password)]);
+
+        // A reset is usually because the old password leaked: sign every
+        // existing session out.
+        $user->tokens()->delete();
 
         ActivityLog::create([
             'user_id' => Auth::id(),
@@ -185,25 +202,24 @@ class UserController extends Controller
      */
     private function lastAdministratorGuard(User $user, ?string $newRole): ?string
     {
-        $isAdminNow = $user->hasPermission('users', 'update') && $user->hasPermission('roles', 'update');
-
-        if (! $isAdminNow) {
+        // Only the Operations & HR Manager role can reach /users, /roles and
+        // /settings (role:operations_hr_manager on every one of them), so that
+        // role — not a custom-role permission grant — is what makes someone an
+        // administrator.
+        if (! $user->isOperationsHrManager()) {
             return null;   // Not an administrator, so nothing to protect.
         }
 
         // Would they still be one afterwards?
-        if ($newRole !== null) {
-            $after = PermissionRegistry::baselineFor($newRole);
-            if (in_array('update', $after['users'] ?? [], true) && in_array('update', $after['roles'] ?? [], true)) {
-                return null;
-            }
+        if ($newRole === 'operations_hr_manager') {
+            return null;
         }
 
         $othersRemain = User::where('id', '!=', $user->id)
+            ->where('role', 'operations_hr_manager')
             ->where('is_active', true)
             ->where('is_locked', false)
-            ->get()
-            ->contains(fn (User $u) => $u->hasPermission('users', 'update') && $u->hasPermission('roles', 'update'));
+            ->exists();
 
         if ($othersRemain) {
             return null;

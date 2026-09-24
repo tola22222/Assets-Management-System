@@ -45,7 +45,7 @@ Route::name('api.')->group(function () {
         Route::get('/dashboard', [DashboardController::class, 'index']);
         Route::get('/dashboard/by-period', [DashboardController::class, 'byPeriod']);
 
-        Route::post('/assets/{asset}/regenerate-qr', [AssetController::class, 'regenerateQr']);
+        Route::post('/assets/{asset}/regenerate-qr', [AssetController::class, 'regenerateQr'])->middleware('role:operations_hr_manager');
         Route::get('/assets/{asset}/qr-code/download', [AssetController::class, 'downloadQr']);
         Route::post('/assets/{asset}/flag', [AssetController::class, 'flagIssue']);
         Route::apiResource('assets', AssetController::class)->only(['index', 'show']);

@@ -40,5 +40,13 @@ export const useAuthStore = defineStore('auth', {
       this.user = user
       localStorage.setItem('user', JSON.stringify(user))
     },
+
+    // The cached copy in localStorage is whatever the account looked like at
+    // sign-in. Re-read it on boot so a role change made since then applies.
+    async refreshUser() {
+      if (!this.token) return
+      const { data } = await http.get('/me')
+      this.setUser(data.user ?? data)
+    },
   },
 })

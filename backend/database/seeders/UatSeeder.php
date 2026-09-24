@@ -19,6 +19,7 @@ use App\Models\StockItem;
 use App\Models\StockTransaction;
 use App\Models\Supplier;
 use App\Models\User;
+use Database\Seeders\Uat\SystemRoleSeeder;
 use Database\Seeders\Uat\UatAssetSeeder;
 use Database\Seeders\Uat\UatNotificationSeeder;
 use Database\Seeders\Uat\UatReferenceSeeder;

@@ -34,7 +34,7 @@ class AssetCategoryController extends Controller
         ActivityLog::create([
             'user_id' => Auth::id(),
             'action' => 'Create',
-            'description' => 'Created category: ' . $category->name,
+            'description' => 'Created category: '.$category->name,
         ]);
 
         return response()->json($category, 201);
@@ -45,7 +45,7 @@ class AssetCategoryController extends Controller
         $request->merge(['short_name' => $this->normalizeCode($request->short_name)]);
 
         $validated = $request->validate([
-            'name' => 'required|string|max:255|unique:asset_categories,name,' . $category->id,
+            'name' => 'required|string|max:255|unique:asset_categories,name,'.$category->id,
             'short_name' => ['nullable', 'regex:'.AssetCodeService::CODE_FORMAT, Rule::unique('asset_categories', 'short_name')->ignore($category->id)],
             'description' => 'nullable|string',
         ], [
@@ -57,7 +57,7 @@ class AssetCategoryController extends Controller
         ActivityLog::create([
             'user_id' => Auth::id(),
             'action' => 'Update',
-            'description' => 'Updated category: ' . $category->name,
+            'description' => 'Updated category: '.$category->name,
         ]);
 
         return response()->json($category);
@@ -65,12 +65,19 @@ class AssetCategoryController extends Controller
 
     public function destroy(AssetCategory $category)
     {
+        $assets = $category->assets()->count();
+        if ($assets > 0) {
+            return response()->json([
+                'message' => "Cannot delete this category: {$assets} asset(s) belong to it. Move them to another category first.",
+            ], 422);
+        }
+
         $category->delete();
 
         ActivityLog::create([
             'user_id' => Auth::id(),
             'action' => 'Delete',
-            'description' => 'Deleted category: ' . $category->name,
+            'description' => 'Deleted category: '.$category->name,
         ]);
 
         return response()->json(['message' => 'Category deleted.']);

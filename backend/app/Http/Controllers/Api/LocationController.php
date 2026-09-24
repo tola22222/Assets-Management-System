@@ -4,8 +4,13 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
+use App\Models\AssetAssignment;
+use App\Models\AssetTransfer;
+use App\Models\AssetVerification;
 use App\Models\Location;
+use App\Models\Program;
 use App\Models\Staff;
+use App\Models\StockItem;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
@@ -17,8 +22,12 @@ class LocationController extends Controller
         return response()->json(Location::withCount('assets')->orderBy('name')->get());
     }
 
-    public function show(Location $location)
+    public function show(Request $request, Location $location)
     {
+        // The site list itself is shared, but the assets at another site are
+        // not a staff member's to browse.
+        abort_unless($request->user()->canAccessLocation($location->id), 404);
+
         $location->load(['assets.category']);
 
         return response()->json($location);
@@ -65,6 +74,23 @@ class LocationController extends Controller
         if ($staffCount > 0) {
             return response()->json([
                 'message' => "Cannot delete this site: {$staffCount} staff member(s) are assigned to it. Move them to another site first.",
+            ], 422);
+        }
+
+        // Transfers and assignments cascade on delete and verifications / stock
+        // restrict it — either way a site with history must stay.
+        $references = array_filter([
+            'transfers' => AssetTransfer::where('from_location_id', $location->id)->orWhere('to_location_id', $location->id)->count(),
+            'assignments' => AssetAssignment::where('location_id', $location->id)->count(),
+            'verifications' => AssetVerification::where('location_id', $location->id)->count(),
+            'stock items' => StockItem::where('location_id', $location->id)->count(),
+            'programs' => Program::where('location_id', $location->id)->count(),
+        ]);
+        if ($references) {
+            $list = implode(', ', array_map(fn ($n, $what) => "{$n} {$what}", $references, array_keys($references)));
+
+            return response()->json([
+                'message' => "Cannot delete this site: it still has {$list} on record.",
             ], 422);
         }
 

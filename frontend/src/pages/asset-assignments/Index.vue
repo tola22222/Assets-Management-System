@@ -9,8 +9,10 @@ import DetailModal from '../../components/ui/DetailModal.vue'
 import ConfirmDialog from '../../components/ui/ConfirmDialog.vue'
 import SearchInput from '../../components/ui/SearchInput.vue'
 import TableSortIcon from '../../components/ui/TableSortIcon.vue'
+import LocationFilter from '../../components/ui/LocationFilter.vue'
 import { useApiCrud } from '../../composables/useApiCrud'
 import { useTableSearch } from '../../composables/useTableSearch'
+import { useTableFilter } from '../../composables/useTableFilter'
 import { useTableSort } from '../../composables/useTableSort'
 import { useToastStore } from '../../stores/toast'
 import { useAuthStore } from '../../stores/auth'
@@ -24,7 +26,11 @@ const auth = useAuthStore()
 const canManage = computed(() => ['operations_hr_manager', 'finance_manager'].includes(auth.user?.role))
 
 const { search, filtered: searched } = useTableSearch(assignments, [(a) => a.asset?.name, (a) => a.asset?.asset_code, 'recipient_name'])
-const { sortKey, sortDir, toggleSort, sorted: sortedAssignments } = useTableSort(searched, {
+// Location filter (the drop-down beside search), applied after search and before sort.
+const { filters, filtered: filteredAssignments } = useTableFilter(searched, {
+  location: (a, v) => String(a.location_id) === v,
+})
+const { sortKey, sortDir, toggleSort, sorted: sortedAssignments } = useTableSort(filteredAssignments, {
   defaultKey: 'assigned_date', defaultDir: 'desc',
   paths: { asset: 'asset.name', location: 'location.name' },
 })
@@ -162,6 +168,7 @@ const { page, rowsPerPage, total, paged } = usePagination(sortedAssignments)
           <div class="flex-1 min-w-[260px]">
             <SearchInput v-model="search" :placeholder="t('common.search')" />
           </div>
+          <LocationFilter v-model="filters.location" />
         </div>
 
         <div class="overflow-x-auto">

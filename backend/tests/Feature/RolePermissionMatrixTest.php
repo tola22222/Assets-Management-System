@@ -182,7 +182,10 @@ class RolePermissionMatrixTest extends TestCase
         ]);
         $this->makeReceivable($otherLocation);
 
-        foreach (['staff', 'finance_manager', 'executive_director'] as $role) {
+        // OPM and the Executive Director release requests (route
+        // role:operations_hr_manager,executive_director — the ED's own path is
+        // covered in AssetTransferReceiptTest); nobody else may.
+        foreach (['staff', 'finance_manager'] as $role) {
             $user = User::factory()->create(['role' => $role]);
             $this->actingAs($user)->postJson("/api/asset-transfers/{$transfer->id}/approve")->assertStatus(403);
             $this->actingAs($user)->postJson("/api/asset-transfers/{$transfer->id}/reject")->assertStatus(403);

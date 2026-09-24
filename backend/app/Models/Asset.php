@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -17,6 +18,35 @@ class Asset extends Model
     ];
 
     protected $appends = ['image_url', 'qr_code_url'];
+
+    /** Lifecycle status. `disposed` is only ever set by an approved disposal. */
+    public const STATUSES = ['active', 'disposed'];
+
+    public const CONDITIONS = ['good', 'fair', 'broken', 'lost'];
+
+    /**
+     * Assets this user may see: every asset for OPM/Finance/ED, only their own
+     * site for staff (all sites while a staff account has no site set yet —
+     * see User::canAccessLocation()).
+     */
+    public function scopeVisibleTo(Builder $query, User $user): Builder
+    {
+        if (! $user->isSiteScoped()) {
+            return $query;
+        }
+
+        $site = $user->siteLocationId();
+
+        return $site === null
+            ? $query
+            : $query->where($query->qualifyColumn('location_id'), $site);
+    }
+
+    /** Still on the register — i.e. not written off. */
+    public function scopeOnRegister(Builder $query): Builder
+    {
+        return $query->where($query->qualifyColumn('status'), '!=', 'disposed');
+    }
 
     /** Thresholds for the "Assets by Model" grouped report's stock-level badge. */
     public const STOCK_LEVEL_MEDIUM_MIN = 5;

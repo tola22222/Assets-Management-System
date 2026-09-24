@@ -88,7 +88,7 @@
             </div>
             <div class="px-5 py-3.5 flex items-center justify-between">
                 <span class="text-sm text-gray-500">Purchase Price</span>
-                <span class="text-sm font-semibold text-gray-900">{{ $asset->purchase_price ? '$'.number_format($asset->purchase_price, 2) : 'N/A' }}</span>
+                <span class="text-sm font-semibold text-gray-900" data-private="price">Sign in to view</span>
             </div>
         </div>
 
@@ -117,7 +117,7 @@
                 @foreach($asset->assignments as $assignment)
                 <div class="bg-blue-50/60 border border-blue-100 rounded-xl px-4 py-3 space-y-1.5">
                     <div class="flex items-center justify-between gap-2">
-                        <p class="text-sm font-semibold text-gray-800">{{ $assignment->assignee->full_name ?? $assignment->assignee->name ?? 'N/A' }}</p>
+                        <p class="text-sm font-semibold text-gray-800" data-private="assignee" data-assignment-id="{{ $assignment->id }}">Sign in to view</p>
                         @if($assignment->status === 'active')
                             <span class="shrink-0 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-600">Active</span>
                         @else
@@ -126,7 +126,7 @@
                     </div>
                     <p class="text-xs text-gray-500">
                         From {{ $assignment->assigned_date ?? 'N/A' }}
-                        @if($assignment->expected_return_date) &middot; Due {{ $assignment->expected_return_date }} @endif
+                        @if($assignment->due_date) &middot; Due {{ $assignment->due_date }} @endif
                     </p>
                 </div>
                 @endforeach
@@ -263,6 +263,33 @@
             });
         }
 
+        function get(path) {
+            return fetch('/api' + path, {
+                headers: { Accept: 'application/json', Authorization: 'Bearer ' + token },
+            });
+        }
+
+        // Price and who holds the asset are shown to signed-in users only;
+        // the server-rendered page carries a placeholder instead.
+        function revealPrivate() {
+            get('/qr-scan/' + encodeURIComponent(code)).then(function (res) {
+                if (!res.ok) return null;
+                return res.json();
+            }).then(function (asset) {
+                if (!asset) return;
+                var price = document.querySelector('[data-private="price"]');
+                if (price) {
+                    price.textContent = asset.purchase_price
+                        ? '$' + Number(asset.purchase_price).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                        : 'N/A';
+                }
+                (asset.assignments || []).forEach(function (a) {
+                    var el = document.querySelector('[data-private="assignee"][data-assignment-id="' + a.id + '"]');
+                    if (el) el.textContent = a.recipient_name || 'N/A';
+                });
+            }).catch(function () {});
+        }
+
         function messageFrom(data, fallback) {
             var first = data && data.errors && Object.values(data.errors)[0];
             return (first && first[0]) || (data && data.message) || fallback;
@@ -285,7 +312,15 @@
             if (res.status === 404) {
                 formCard.hidden = true;
                 fail('This asset belongs to another site, so you cannot update it.');
+                return;
             }
+            if (res.status === 403) {
+                formCard.hidden = true;
+                return res.json().catch(function () { return null; }).then(function (data) {
+                    fail(messageFrom(data, 'You cannot update this asset.'));
+                });
+            }
+            if (res.ok) revealPrivate();
         }).catch(function () {});
 
         form.addEventListener('submit', function (event) {

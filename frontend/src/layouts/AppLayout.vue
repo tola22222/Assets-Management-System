@@ -6,6 +6,7 @@ import { useAuthStore } from '../stores/auth'
 import NotificationBell from '../components/ui/NotificationBell.vue'
 import ThemeToggle from '../components/ui/ThemeToggle.vue'
 import Breadcrumbs from '../components/ui/Breadcrumbs.vue'
+import GlobalSearch from '../components/ui/GlobalSearch.vue'
 import logoUrl from '../assets/logo/Official PEPY Logo_Green.png'
 import { useBranding } from '../composables/useBranding'
 import { usePermissions } from '../composables/usePermissions'
@@ -61,10 +62,10 @@ const I = {
 }
 
 // Top-level (ungrouped) links — quick-access tools, always visible regardless of role.
-// /qr-scan and /search are deliberately NOT listed here: both routes still exist
-// in router/index.js and render fine, they just have no sidebar entry — and no
-// other in-app link either, so they're reachable by URL only. Their breadcrumb
-// labels stay registered below so the header still names them when visited.
+// /qr-scan and /search are deliberately NOT listed here: neither has a sidebar
+// entry. /search is reached from the header's GlobalSearch ("See all results",
+// or the search icon on phones); /qr-scan is reachable by URL only. Their
+// breadcrumb labels stay registered below so the page still names them.
 const topLinks = computed(() => [
   { to: '/', label: t('nav.dashboard'), icon: I.home, exact: true },
 ])
@@ -75,6 +76,10 @@ const topLinks = computed(() => [
 const myAssetsGroup = computed(() => ({
   key: 'my-assets', title: t('nav.my_assets'), icon: I.clipboard,
   items: [
+    // Every role can open the register (staff see their own site only), but
+    // it sat only in the admin group — Finance, who edits assets, and the ED
+    // had no way to reach it.
+    { to: '/assets', label: t('nav.asset_register') },
     { to: '/asset-assignments', label: t('nav.assignments') },
     { to: '/asset-transfers', label: t('nav.transfer_requests') },
     { to: '/asset-verifications', label: t('nav.verification') },
@@ -346,7 +351,7 @@ function initials(name) {
             <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M4 6h16M4 12h16M4 18h16" /></svg>
           </button>
 
-          <Breadcrumbs :section="breadcrumb?.section" :page="breadcrumb?.page" />
+          <GlobalSearch />
           <div class="flex-1"></div>
 
           <ThemeToggle />
@@ -368,6 +373,15 @@ function initials(name) {
         </header>
 
         <main class="flex-1 min-w-0">
+          <!-- The trail belongs to the page, not the sticky header: it scrolls
+               away with the content. Its gutter matches the p-6 sm:p-8 most
+               pages open with, and the negative bottom margin eats into that
+               page's top padding so the gap to the title stays 16px. It is
+               `relative` so it paints above that overlapping padding and its
+               links stay clickable. -->
+          <div v-if="breadcrumb?.page" class="relative px-6 sm:px-8 pt-5 sm:pt-6 -mb-2 sm:-mb-4">
+            <Breadcrumbs :section="breadcrumb.section" :page="breadcrumb.page" />
+          </div>
           <slot />
         </main>
       </div>

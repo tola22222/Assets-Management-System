@@ -140,7 +140,9 @@ function openTarget(n) {
   if (!n.is_read) markRead(n)
   if (!n.url) return
   try {
-    router.push(new URL(n.url, window.location.origin).pathname)
+    const path = new URL(n.url, window.location.origin).pathname
+    // Stored urls carry the /app base the router already adds.
+    router.push(path.replace(/^\/app(?=\/|$)/, '') || '/')
   } catch {
     // A malformed stored url should do nothing, not throw mid-click.
   }

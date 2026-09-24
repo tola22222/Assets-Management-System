@@ -1,16 +1,20 @@
 <script setup>
-import { ref, computed, onMounted, reactive } from 'vue'
+import { ref, computed, onMounted, reactive, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import http, { errorMessage } from '../../api/http'
 import AppLayout from '../../layouts/AppLayout.vue'
 import Modal from '../../components/ui/Modal.vue'
 import ConfirmDialog from '../../components/ui/ConfirmDialog.vue'
 import SearchInput from '../../components/ui/SearchInput.vue'
 import TableSortIcon from '../../components/ui/TableSortIcon.vue'
+import LocationFilter from '../../components/ui/LocationFilter.vue'
 import { useApiCrud } from '../../composables/useApiCrud'
 import { useTableSearch } from '../../composables/useTableSearch'
+import { useTableFilter } from '../../composables/useTableFilter'
 import { useTableSort } from '../../composables/useTableSort'
 import { useBulkSelect } from '../../composables/useBulkSelect'
 import { useAuthStore } from '../../stores/auth'
+import { useToastStore } from '../../stores/toast'
 import TablePagination from '../../components/ui/TablePagination.vue'
 import { usePagination } from '../../composables/usePagination'
 
@@ -19,7 +23,37 @@ const auth = useAuthStore()
 const isOpm = computed(() => auth.user?.role === 'operations_hr_manager')
 const { items: categories, loading, fetchAll, create, update, destroy, destroyMany } = useApiCrud('/categories', { entityName: t('categories.entity') })
 const { search, filtered: searched } = useTableSearch(categories, ['name', 'short_name', 'description'])
-const { sortKey, sortDir, toggleSort, sorted: filtered } = useTableSort(searched, { defaultKey: 'name', paths: { count: 'assets_count' } })
+
+// Location filter (the drop-down beside search). A category belongs to no site and only carries a register-wide
+// assets_count, so picking a site loads the register once and counts that
+// site's assets per category: the list keeps the categories present there,
+// and the count column shows that site's number rather than the total.
+const toast = useToastStore()
+const siteCounts = ref(null) // { [locationId]: { [categoryId]: count } }
+async function loadSiteCounts() {
+  if (siteCounts.value) return
+  try {
+    const { data } = await http.get('/assets')
+    const counts = {}
+    for (const a of data) {
+      if (a.location_id === null || a.location_id === undefined) continue
+      const byCategory = (counts[a.location_id] ??= {})
+      byCategory[a.category_id] = (byCategory[a.category_id] || 0) + 1
+    }
+    siteCounts.value = counts
+  } catch (e) {
+    toast.error(errorMessage(e))
+  }
+}
+const countAt = (cat, locationId) => (locationId ? (siteCounts.value?.[locationId]?.[cat.id] ?? 0) : (cat.assets_count ?? 0))
+
+const { filters, filtered: filteredCategories } = useTableFilter(searched, {
+  location: (c, v) => countAt(c, v) > 0,
+})
+watch(() => filters.location, (v) => { if (v) loadSiteCounts() })
+// The count shown (and sorted on) follows the site filter.
+const counted = computed(() => filteredCategories.value.map((c) => ({ ...c, shown_count: countAt(c, filters.location) })))
+const { sortKey, sortDir, toggleSort, sorted: filtered } = useTableSort(counted, { defaultKey: 'name', paths: { count: 'shown_count' } })
 const { selectedIds, allSelected, toggleSelectAll, toggleSelect, clearSelection } = useBulkSelect(filtered)
 const confirmingBulkDelete = ref(false)
 
@@ -109,6 +143,7 @@ const { page, rowsPerPage, total, paged } = usePagination(filtered)
           <div class="flex-1 min-w-[260px]">
             <SearchInput v-model="search" :placeholder="t('categories.search_placeholder')" />
           </div>
+          <LocationFilter v-model="filters.location" />
         </div>
 
         <div class="overflow-x-auto">
@@ -131,7 +166,7 @@ const { page, rowsPerPage, total, paged } = usePagination(filtered)
                 </td>
                 <td class="font-medium text-fg">{{ cat.name }}</td>
                 <td>{{ cat.short_name || '—' }}</td>
-                <td>{{ cat.assets_count ?? 0 }}</td>
+                <td>{{ cat.shown_count }}</td>
                 <td class="text-right">
                   <div v-if="isOpm" class="flex items-center justify-end gap-1.5">
                     <button @click="openEdit(cat)" :title="t('common.edit')" class="btn-icon-edit">

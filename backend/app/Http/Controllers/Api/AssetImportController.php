@@ -6,39 +6,60 @@ use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Services\AssetImportService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 
 class AssetImportController extends Controller
 {
     public function store(Request $request, AssetImportService $service)
     {
-        // Images are intentionally NOT validated as `image|mimes:...` here: a
+        // Photos are intentionally NOT validated here — not even for size: a
         // single bad/oversized/misnamed photo in a bulk batch would otherwise
         // 422 the entire request before the spreadsheet is even read. Instead
         // each photo is checked individually in the import service, so one bad
-        // file is skipped (and reported) without blocking everything else.
+        // file is skipped (and reported in images_rejected) without blocking
+        // everything else. The spreadsheet itself stays strictly validated.
         $request->validate([
             'file' => 'required|file|mimes:xlsx,xls,csv,txt|max:10240',
             'images' => 'nullable|array',
-            'images.*' => 'file|max:8192',
         ]);
 
         try {
+            // The service runs the whole import in one transaction: if it
+            // throws, nothing from this file was saved.
             $result = $service->import(
                 $request->file('file'),
                 $request->boolean('generate_qr', true),
-                $request->file('images', [])
+                Arr::wrap($request->file('images'))
             );
+        } catch (ValidationException $e) {
+            // Problems with the file itself (unreadable, empty, no header
+            // row) — written for the user, so they go back as-is.
+            throw $e;
         } catch (\Throwable $e) {
-            return response()->json(['message' => $e->getMessage()], 422);
+            // Anything else is unexpected and its message may carry SQL,
+            // bindings or server paths: log it, show a generic message.
+            Log::error('Asset register import failed and was rolled back', [
+                'user_id' => $request->user()?->id,
+                'file' => $request->file('file')?->getClientOriginalName(),
+                'exception' => $e,
+            ]);
+
+            return response()->json([
+                'message' => 'The import could not be completed, so nothing from this file was saved. Check the file and try again; if it keeps failing, contact your system administrator.',
+            ], 422);
         }
 
         ActivityLog::create([
             'user_id' => $request->user()->id,
             'action' => 'Import',
             'description' => "Imported asset register: {$result['created']} added, {$result['updated']} updated"
-                . ($result['skipped'] ? ", {$result['skipped']} skipped" : '')
-                . ($result['images_attached'] ? ", {$result['images_attached']} photo(s) attached" : '')
-                . (count($result['errors']) ? ', ' . count($result['errors']) . ' error(s)' : ''),
+                .($result['unchanged'] ? ", {$result['unchanged']} unchanged" : '')
+                .($result['skipped'] ? ", {$result['skipped']} skipped" : '')
+                .($result['images_attached'] ? ", {$result['images_attached']} photo(s) attached" : '')
+                .(count($result['errors']) ? ', '.count($result['errors']).' error(s)' : '')
+                .(count($result['warnings']) ? ', '.count($result['warnings']).' warning(s)' : ''),
         ]);
 
         return response()->json($result);

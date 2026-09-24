@@ -20,7 +20,7 @@ const abilities = ref([])
 const loading = ref(true)
 const loadError = ref('')
 
-const { search, filtered } = useTableSearch(roles, ['name', 'description'])
+const { search, filtered } = useTableSearch(roles, ['name', 'description'], { fromQuery: false })
 
 const showModal = ref(false)
 const editing = ref(null)

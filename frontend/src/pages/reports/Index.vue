@@ -8,6 +8,8 @@ import TableSortIcon from '../../components/ui/TableSortIcon.vue'
 import StatCard from '../../components/ui/StatCard.vue'
 import DonutChart from '../../components/ui/DonutChart.vue'
 import LocationPillCards from '../../components/ui/LocationPillCards.vue'
+import LocationFilter from '../../components/ui/LocationFilter.vue'
+import { useTableFilter } from '../../composables/useTableFilter'
 import { useToastStore } from '../../stores/toast'
 import { useAuthStore } from '../../stores/auth'
 import TablePagination from '../../components/ui/TablePagination.vue'
@@ -324,6 +326,23 @@ const filteredRows = computed(() => {
   })
 })
 
+// Location filter, applied on top of the period filter. Report rows place
+// themselves differently — an asset or assignment has location_id, a transfer
+// has two sites, a disposal only via its asset — so a row matches if any of
+// those is the chosen site.
+const rowLocationIds = (r) =>
+  [r.location_id, r.from_location_id, r.to_location_id, r.asset?.location_id]
+    .filter((v) => v !== null && v !== undefined)
+    .map(String)
+const { filters: reportFilters, filtered: scopedRows, clearFilters: clearReportFilters } = useTableFilter(filteredRows, {
+  location: (r, v) => rowLocationIds(r).includes(v),
+})
+// Offered only where it can narrow something: the locations report is one row
+// per site already, and some reports' rows carry no site at all.
+const showLocationFilter = computed(() => selected.value !== 'locations' && rows.value.some((r) => rowLocationIds(r).length))
+// A site picked for one report means nothing in the next.
+watch(selected, () => clearReportFilters())
+
 const sortKey = ref(null)
 const sortDir = ref('asc')
 function toggleSort(colKey) {
@@ -336,11 +355,11 @@ function toggleSort(colKey) {
 }
 
 const sortedRows = computed(() => {
-  if (!sortKey.value) return filteredRows.value
+  if (!sortKey.value) return scopedRows.value
   const col = columns.value[selected.value].find((c) => c[0] === sortKey.value)
-  if (!col) return filteredRows.value
+  if (!col) return scopedRows.value
 
-  return [...filteredRows.value].sort((a, b) => {
+  return [...scopedRows.value].sort((a, b) => {
     let av = cell(a, col) ?? ''
     let bv = cell(b, col) ?? ''
     if (typeof av === 'string') av = av.toLowerCase()
@@ -355,10 +374,7 @@ const sortedRows = computed(() => {
 // deliberately keep reading sortedRows, so they still cover every row.
 const { page, rowsPerPage, total, paged } = usePagination(sortedRows)
 // Switching report type swaps the whole dataset, so page 3 of the old one is
-// meaningless in the new one. Nothing assigns `selected` in the template today
-// (the type picker isn't wired up — reportTypes only feeds a label), so this
-// never fires as things stand; it is here so pagination stays correct if the
-// picker comes back.
+// meaningless in the new one — go back to the first page on every switch.
 watch(selected, () => { page.value = 0 })
 
 function exportCsv() {
@@ -489,6 +505,9 @@ onMounted(() => {
       <div class="card p-6 sm:p-8">
         <!-- Date filter + export -->
         <div class="flex flex-wrap items-center gap-3 mb-6">
+          <select v-model="selected" class="filter-select" :aria-label="t('reports.report_type')" :title="t('reports.report_type')">
+            <option v-for="rt in reportTypes" :key="rt.key" :value="rt.key">{{ rt.label }}</option>
+          </select>
           <template v-if="hasDateField">
             <div class="flex items-center gap-1 bg-surface-2 rounded-xl p-1">
               <button
@@ -512,6 +531,7 @@ onMounted(() => {
               <option v-for="d in dayOptions" :key="d" :value="d">{{ Number(d) }}</option>
             </select>
           </template>
+          <LocationFilter v-if="showLocationFilter" v-model="reportFilters.location" />
           <button @click="exportCsv" class="btn-ghost btn-sm sm:ml-auto flex-shrink-0">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
             {{ t('reports.export_csv') }}

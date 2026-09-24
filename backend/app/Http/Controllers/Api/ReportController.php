@@ -161,7 +161,8 @@ class ReportController extends Controller
 
     public function locations()
     {
-        return response()->json(Location::withCount('assets')->get());
+        // Assets still on the register, as on the dashboard.
+        return response()->json(Location::withCount(['assets' => fn ($q) => $q->where('status', '!=', 'disposed')])->get());
     }
 
     public function qrScans()

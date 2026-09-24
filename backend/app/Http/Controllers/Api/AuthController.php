@@ -7,10 +7,15 @@ use App\Models\ActivityLog;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
+    private const MAX_LOGIN_ATTEMPTS = 5;
+
     public function login(Request $request)
     {
         $credentials = $request->validate([
@@ -19,13 +24,30 @@ class AuthController extends Controller
             'remember' => ['nullable', 'boolean'],
         ]);
 
+        // Five wrong passwords per account per IP per minute, then a pause —
+        // enough for a typo, far too few for guessing.
+        $throttleKey = 'login:'.Str::lower($credentials['email']).'|'.$request->ip();
+
+        if (RateLimiter::tooManyAttempts($throttleKey, self::MAX_LOGIN_ATTEMPTS)) {
+            $seconds = RateLimiter::availableIn($throttleKey);
+
+            throw ValidationException::withMessages([
+                'email' => "Too many sign-in attempts. Please try again in {$seconds} seconds.",
+            ])->status(429);
+        }
+
         $user = User::where('email', $credentials['email'])->first();
 
         if (! $user || ! Hash::check($credentials['password'], $user->password)) {
+            RateLimiter::hit($throttleKey, 60);
+            Log::warning('Failed sign-in attempt', ['email' => $credentials['email'], 'ip' => $request->ip()]);
+
             throw ValidationException::withMessages([
                 'email' => 'The provided credentials do not match our records.',
             ]);
         }
+
+        RateLimiter::clear($throttleKey);
 
         if (! $user->is_active) {
             throw ValidationException::withMessages([
@@ -155,6 +177,10 @@ class AuthController extends Controller
         }
 
         $user->update(['password' => Hash::make($request->password)]);
+
+        // Keep this session, sign every other device out.
+        $current = $user->currentAccessToken();
+        $user->tokens()->when($current?->id, fn ($q, $id) => $q->where('id', '!=', $id))->delete();
 
         ActivityLog::create([
             'user_id' => $user->id,

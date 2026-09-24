@@ -9,8 +9,10 @@ import DetailModal from '../../components/ui/DetailModal.vue'
 import ConfirmDialog from '../../components/ui/ConfirmDialog.vue'
 import SearchInput from '../../components/ui/SearchInput.vue'
 import TableSortIcon from '../../components/ui/TableSortIcon.vue'
+import LocationFilter from '../../components/ui/LocationFilter.vue'
 import { useApiCrud } from '../../composables/useApiCrud'
 import { useTableSearch } from '../../composables/useTableSearch'
+import { useTableFilter } from '../../composables/useTableFilter'
 import { useTableSort } from '../../composables/useTableSort'
 import { useToastStore } from '../../stores/toast'
 import { useAuthStore } from '../../stores/auth'
@@ -25,7 +27,13 @@ const auth = useAuthStore()
 const canApprove = computed(() => ['operations_hr_manager', 'executive_director'].includes(auth.user?.role))
 
 const { search, filtered: searched } = useTableSearch(transfers, [(r) => r.asset?.name, (r) => r.asset?.asset_code, (r) => r.requester?.name])
-const { sortKey, sortDir, toggleSort, sorted: sortedTransfers } = useTableSort(searched, {
+// Location filter (the drop-down beside search), applied after search and
+// before sort. A transfer touches two sites, so picking one shows everything
+// leaving it and everything headed to it.
+const { filters, filtered: filteredTransfers } = useTableFilter(searched, {
+  location: (r, v) => String(r.from_location_id) === v || String(r.to_location_id) === v,
+})
+const { sortKey, sortDir, toggleSort, sorted: sortedTransfers } = useTableSort(filteredTransfers, {
   defaultKey: 'transfer_date', defaultDir: 'desc',
   paths: { asset: 'asset.name', from: 'from_location.name', to: 'to_location.name', requester: 'requester.name' },
 })
@@ -38,7 +46,9 @@ const deletingId = ref(null)
 // Once the destination has been asked to accept it the request is theirs to
 // answer, and the server refuses the delete (422) — rejecting is the
 // audit-visible way to kill it.
-const canDelete = (r) => r.status === 'pending_approval' || r.status === 'rejected'
+// The server says per row whether this viewer may delete it (requester or
+// OPM, and only while awaiting approval or rejected).
+const canDelete = (r) => r.can_delete ?? (r.status === 'pending_approval' || r.status === 'rejected')
 
 // can_confirm / can_decline / can_return come from the API. Who answers for a
 // site runs through School → Program → Responsible Staff, which the SPA can't
@@ -202,6 +212,7 @@ const { page, rowsPerPage, total, paged } = usePagination(sortedTransfers)
           <div class="flex-1 min-w-[260px]">
             <SearchInput v-model="search" :placeholder="t('common.search')" />
           </div>
+          <LocationFilter v-model="filters.location" />
         </div>
 
         <div class="overflow-x-auto">

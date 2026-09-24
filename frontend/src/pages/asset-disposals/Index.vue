@@ -9,8 +9,10 @@ import DetailModal from '../../components/ui/DetailModal.vue'
 import ConfirmDialog from '../../components/ui/ConfirmDialog.vue'
 import SearchInput from '../../components/ui/SearchInput.vue'
 import TableSortIcon from '../../components/ui/TableSortIcon.vue'
+import LocationFilter from '../../components/ui/LocationFilter.vue'
 import { useApiCrud } from '../../composables/useApiCrud'
 import { useTableSearch } from '../../composables/useTableSearch'
+import { useTableFilter } from '../../composables/useTableFilter'
 import { useTableSort } from '../../composables/useTableSort'
 import { useToastStore } from '../../stores/toast'
 import { useAuthStore } from '../../stores/auth'
@@ -24,7 +26,12 @@ const toast = useToastStore()
 const auth = useAuthStore()
 
 const { search, filtered: searched } = useTableSearch(disposals, [(d) => d.asset?.name, (d) => d.asset?.asset_code, (d) => d.requester?.name, 'reason'])
-const { sortKey, sortDir, toggleSort, sorted: sortedDisposals } = useTableSort(searched, {
+// Location filter (the drop-down beside search), applied after search and
+// before sort. A disposal has no site of its own; it sits wherever the asset does.
+const { filters, filtered: filteredDisposals } = useTableFilter(searched, {
+  location: (d, v) => String(d.asset?.location_id) === v,
+})
+const { sortKey, sortDir, toggleSort, sorted: sortedDisposals } = useTableSort(filteredDisposals, {
   defaultKey: 'created_at', defaultDir: 'desc',
   paths: { asset: 'asset.name', action: 'recommended_action', requester: 'requester.name' },
 })
@@ -36,7 +43,9 @@ const deletingId = ref(null)
 
 // The server refuses to delete anything already reviewed (422), so the button
 // is only live while the request is still pending.
-const canDelete = (d) => d.status === 'pending'
+// Per-row flags from the server: only the requester or OPM may delete, and
+// the ED may not review a request they submitted themselves.
+const canDelete = (d) => d.can_delete ?? d.status === 'pending'
 
 const viewRows = computed(() => {
   const d = viewing.value
@@ -72,7 +81,7 @@ const form = reactive({ asset_id: '', recommended_action: 'disposal', reason: ''
 // canApproveDisposal() on the backend is ED-only, not "OPM or ED" — the manual requires
 // OPM to submit a disposal report to the ED for independent review, so OPM approving its
 // own submission would defeat that check. Don't offer buttons that would 403.
-const canApprove = () => auth.user?.role === 'executive_director'
+const canApprove = (d) => d?.can_review ?? auth.user?.role === 'executive_director'
 
 async function loadAssets() {
   try {
@@ -157,6 +166,7 @@ const { page, rowsPerPage, total, paged } = usePagination(sortedDisposals)
           <div class="flex-1 min-w-[260px]">
             <SearchInput v-model="search" :placeholder="t('common.search')" />
           </div>
+          <LocationFilter v-model="filters.location" />
         </div>
 
         <div class="overflow-x-auto">
@@ -188,7 +198,7 @@ const { page, rowsPerPage, total, paged } = usePagination(sortedDisposals)
                     <button @click="viewing = d" :title="t('common.view')" :aria-label="t('common.view')" class="btn-icon-view">
                       <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
                     </button>
-                    <template v-if="d.status === 'pending' && canApprove()">
+                    <template v-if="d.status === 'pending' && canApprove(d)">
                       <button @click="approve(d.id)" :title="t('common.approve')" :aria-label="t('common.approve')" class="btn-icon-success">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                       </button>

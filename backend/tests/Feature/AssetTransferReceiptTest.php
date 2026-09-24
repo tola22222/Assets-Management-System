@@ -214,7 +214,7 @@ class AssetTransferReceiptTest extends TestCase
     {
         $ed = User::factory()->create(['role' => 'executive_director']);
         $finance = User::factory()->create(['role' => 'finance_manager']);
-        $this->responsibleUserAt($this->school);
+        $lead = $this->responsibleUserAt($this->school);
         $requester = User::factory()->create(['role' => 'staff']);
         $asset = $this->makeAsset();
 
@@ -229,6 +229,10 @@ class AssetTransferReceiptTest extends TestCase
         $this->actingAs($finance)->postJson("/api/asset-transfers/{$first}/approve")->assertStatus(403);
         $this->actingAs($ed)->postJson("/api/asset-transfers/{$first}/approve")->assertStatus(200);
         $this->assertDatabaseHas('asset_transfers', ['id' => $first, 'status' => 'pending', 'approved_by' => $ed->id]);
+
+        // One open transfer per asset: the school answers the first before
+        // anyone can raise another for the same asset.
+        $this->actingAs($lead)->postJson("/api/asset-transfers/{$first}/decline")->assertStatus(200);
 
         $second = $request();
         $this->actingAs($ed)->postJson("/api/asset-transfers/{$second}/reject", ['rejection_reason' => 'Not needed'])->assertStatus(200);

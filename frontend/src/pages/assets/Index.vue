@@ -1,12 +1,12 @@
 <script setup>
 import { ref, computed, onMounted, reactive } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import http, { errorMessage } from '../../api/http'
 import AppLayout from '../../layouts/AppLayout.vue'
 import Modal from '../../components/ui/Modal.vue'
 import ConfirmDialog from '../../components/ui/ConfirmDialog.vue'
 import SearchInput from '../../components/ui/SearchInput.vue'
-import FilterPills from '../../components/ui/FilterPills.vue'
 import TableSortIcon from '../../components/ui/TableSortIcon.vue'
 import { useApiCrud } from '../../composables/useApiCrud'
 import { useTableSearch } from '../../composables/useTableSearch'
@@ -20,6 +20,8 @@ import { usePagination } from '../../composables/usePagination'
 import ImageField from '../../components/ui/ImageField.vue'
 
 const { t } = useI18n()
+const route = useRoute()
+const router = useRouter()
 const { items: assetsList, loading, fetchAll, destroy, destroyMany } = useApiCrud('/assets', { entityName: t('assets.entity') })
 const toast = useToastStore()
 const auth = useAuthStore()
@@ -55,11 +57,11 @@ const { sortKey, sortDir, toggleSort, sorted: filtered } = useTableSort(searched
   defaultKey: 'name',
   paths: { category: 'category.name', location: 'location.name', price: 'purchase_price', code: 'asset_code' },
 })
-// Category filter pills, layered on top of the search+sort pipeline.
+// Category filter (the drop-down in the filter bar), layered on top of the
+// search+sort pipeline.
 const { filters: catFilters, filtered: visible } = useTableFilter(filtered, {
   category: (row, val) => String(row.category_id) === String(val),
 })
-const categoryOptions = computed(() => categories.value.map((c) => ({ value: c.id, label: c.name })))
 const { selectedIds, allSelected, toggleSelectAll, toggleSelect, clearSelection } = useBulkSelect(visible)
 const confirmingBulkDelete = ref(false)
 
@@ -156,7 +158,11 @@ function openEdit(asset) {
 function buildFormData() {
   const fd = new FormData()
   Object.entries(form).forEach(([key, value]) => {
-    if (value !== null && value !== '') fd.append(key, value)
+    if (value === null || value === undefined) return
+    // On edit an emptied field is sent empty (the server stores it as null),
+    // so clearing a serial number or price actually clears it.
+    if (value === '' && !editingId.value) return
+    fd.append(key, value)
   })
   if (imageFile.value) fd.append('image', imageFile.value)
   return fd
@@ -263,15 +269,22 @@ async function downloadQr(asset) {
   }
 }
 
+// Asset names are user input: escape them before they go into the print
+// window's markup, which shares this origin (and so the login token).
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
+}
+
 function printQr(asset) {
   if (!asset.qr_code_url) return
   const w = window.open('', '_blank', 'width=420,height=560')
+  const code = escapeHtml(asset.asset_code)
   w.document.write(`
-    <html><head><title>QR — ${asset.asset_code}</title>
+    <html><head><title>QR — ${code}</title>
     <style>body{font-family:system-ui,sans-serif;text-align:center;padding:32px}
     img{width:260px;height:260px}h2{margin:8px 0 0}p{color:#666;font-family:monospace;margin:4px 0 0}</style>
     </head><body onload="window.print()">
-    <img src="${asset.qr_code_url}" /><h2>${asset.name}</h2><p>${asset.asset_code}</p>
+    <img src="${escapeHtml(asset.qr_code_url)}" /><h2>${escapeHtml(asset.name)}</h2><p>${code}</p>
     </body></html>`)
   w.document.close()
 }
@@ -279,6 +292,11 @@ function printQr(asset) {
 onMounted(() => {
   fetchAll().catch(() => {})
   loadOptions()
+  // The dashboard's "Add asset" button lands here with ?create=1.
+  if (route.query.create && isOpm.value) {
+    openCreate()
+    router.replace({ query: { ...route.query, create: undefined } })
+  }
 })
 
 // Pagination is the last step, applied to the finished list, so search
@@ -321,7 +339,12 @@ const { page, rowsPerPage, total, paged } = usePagination(visible)
           <div class="flex-1 min-w-[260px]">
             <SearchInput v-model="search" :placeholder="t('assets.search_placeholder')" />
           </div>
-          <FilterPills v-model="catFilters.category" :options="categoryOptions" />
+          <!-- This page's filter drop-down is by category — the register's own
+               grouping — where the other list pages filter by location. -->
+          <select v-model="catFilters.category" class="filter-select" :aria-label="t('assets.all_categories')">
+            <option value="">{{ t('assets.all_categories') }}</option>
+            <option v-for="c in categories" :key="c.id" :value="String(c.id)">{{ c.name }}</option>
+          </select>
         </div>
 
         <div class="flex items-center justify-between gap-3 mb-2">
@@ -519,7 +542,7 @@ const { page, rowsPerPage, total, paged } = usePagination(visible)
             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" /><line x1="4" y1="22" x2="4" y2="15" /></svg>
             {{ t('assets.flag_issue') }}
           </button>
-          <button @click="regenerateQr(viewing)" class="btn-ghost">
+          <button v-if="isOpm" @click="regenerateQr(viewing)" class="btn-ghost">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10" /><polyline points="1 20 1 14 7 14" /><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" /></svg>
             {{ t('assets.regenerate_qr') }}
           </button>

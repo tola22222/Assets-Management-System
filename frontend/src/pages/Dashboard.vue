@@ -15,7 +15,8 @@ import StatusBadge from '../components/ui/StatusBadge.vue'
 const { t } = useI18n()
 const auth = useAuthStore()
 const toast = useToastStore()
-const isStaff = computed(() => auth.user?.role === 'staff')
+const isStaff = computed(() => (stats.value ? Array.isArray(stats.value.my_assignments) : auth.user?.role === 'staff'))
+const isOpm = computed(() => auth.user?.role === 'operations_hr_manager')
 const stats = ref(null)
 const loading = ref(true)
 const error = ref('')
@@ -118,7 +119,7 @@ onBeforeUnmount(() => {
           <h1 class="font-display text-3xl sm:text-4xl font-semibold text-fg tracking-tight">{{ greeting }}, {{ auth.user?.name?.split(' ')[0] || auth.user?.name }}</h1>
           <p class="text-muted text-sm mt-2">{{ t('dashboard.subtitle') }}</p>
         </div>
-        <RouterLink to="/assets" class="btn-primary flex-shrink-0 mt-1 sm:mt-0">
+        <RouterLink v-if="isOpm" :to="{ path: '/assets', query: { create: 1 } }" class="btn-primary flex-shrink-0 mt-1 sm:mt-0">
           <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
           {{ t('dashboard.add_asset') }}
         </RouterLink>
@@ -226,12 +227,17 @@ onBeforeUnmount(() => {
               </div>
               <p class="text-sm text-faint">{{ t('dashboard.registered_over_time_subtitle') }}</p>
             </div>
-            <div class="flex items-center gap-1 bg-surface-2 rounded-xl p-1 flex-shrink-0">
+            <!-- Segmented period switch: a bordered pill track, the active option a
+                 filled brand pill; the others lift to the card surface on hover. -->
+            <div class="inline-flex items-center gap-0.5 p-1 rounded-full bg-surface-2 border border-line flex-shrink-0 self-start sm:self-auto" role="group">
               <button
                 v-for="p in ['day', 'month', 'year']" :key="p"
+                type="button"
                 @click="trendPeriod = p"
-                class="px-3 py-1.5 rounded-lg text-xs font-semibold transition"
-                :class="trendPeriod === p ? 'bg-brand text-white' : 'text-muted hover:text-fg'"
+                :aria-pressed="trendPeriod === p"
+                class="min-w-[4rem] px-3.5 py-1.5 rounded-full text-xs font-semibold transition-colors duration-150
+                       focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/30"
+                :class="trendPeriod === p ? 'bg-brand text-white shadow-sm' : 'text-muted hover:text-fg hover:bg-surface'"
               >
                 {{ t(`dashboard.period_${p}`) }}
               </button>

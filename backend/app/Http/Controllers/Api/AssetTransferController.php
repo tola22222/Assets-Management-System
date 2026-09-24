@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
+use App\Models\Asset;
 use App\Models\AssetTransfer;
 use App\Models\Location;
 use App\Models\Notification;
@@ -34,8 +35,21 @@ class AssetTransferController extends Controller
 
     public function index(Request $request)
     {
-        $transfers = AssetTransfer::with([...self::WITH, 'returnTransfer'])->latest()->get();
         $user = $request->user();
+        $query = AssetTransfer::with([...self::WITH, 'returnTransfer'])->latest();
+
+        // Staff see the transfers that touch their own site, or that they
+        // raised (all of them while their site is not set yet).
+        if ($user->isSiteScoped() && $user->siteLocationId() !== null) {
+            $site = $user->siteLocationId();
+            $query->where(function ($q) use ($user, $site) {
+                $q->where('requested_by', $user->id)
+                    ->orWhere('from_location_id', $site)
+                    ->orWhere('to_location_id', $site);
+            });
+        }
+
+        $transfers = $query->get();
 
         // One lookup for the whole page: site id => user ids who may answer
         // for it. Doing this per row would re-query the program table 50 times.
@@ -51,6 +65,7 @@ class AssetTransferController extends Controller
             $transfer->can_confirm = $mine && $transfer->status === 'pending';
             $transfer->can_decline = $mine && $transfer->status === 'pending';
             $transfer->can_return = $mine && $transfer->status === 'received' && $transfer->returnTransfer === null;
+            $transfer->can_delete = $this->canDelete($user, $transfer);
         });
 
         return response()->json($transfers);
@@ -66,9 +81,31 @@ class AssetTransferController extends Controller
             'transfer_date' => 'required|date',
         ]);
 
+        $user = $request->user();
+        $asset = Asset::findOrFail($validated['asset_id']);
+
+        // Staff may only ask to move what is at their own site.
+        abort_unless($user->canAccessLocation($asset->location_id), 403, 'You can only request transfers for assets at your own site.');
+
+        abort_if($asset->status === 'disposed', 422, 'This asset has been disposed and cannot be transferred.');
+
+        // The transfer starts where the asset actually is, not where the form says.
+        abort_if(
+            $asset->location_id !== null && (int) $validated['from_location_id'] !== (int) $asset->location_id,
+            422,
+            'This asset is at '.($asset->location->name ?? 'another site').', not at the selected "from" location.'
+        );
+
+        // One open transfer per asset: two could both be accepted and the
+        // second acceptance would silently overwrite the first.
+        abort_if(
+            AssetTransfer::where('asset_id', $asset->id)->whereIn('status', AssetTransfer::OPEN_STATUSES)->exists(),
+            422,
+            'This asset already has an open transfer. Wait for it to be accepted or rejected first.'
+        );
+
         $this->assertDestinationCanReceive($validated['to_location_id']);
 
-        $user = $request->user();
         $dispatchedByOpm = $user->isOperationsHrManager();
 
         $validated['requested_by'] = $user->id;
@@ -249,6 +286,17 @@ class AssetTransferController extends Controller
         abort_unless($asset_transfer->status === 'received', 422, 'Only an accepted transfer can be returned.');
         abort_if($asset_transfer->returnTransfer()->exists(), 422, 'This transfer has already been returned.');
 
+        // A return sends the asset back from where this leg delivered it. If
+        // it has since moved on, returning this leg would teleport it.
+        $asset = $asset_transfer->asset;
+        abort_if($asset === null || (int) $asset->location_id !== (int) $asset_transfer->to_location_id, 422, 'This asset is no longer at '.($asset_transfer->toLocation->name ?? 'this site').', so this transfer cannot be returned.');
+        abort_if($asset->status === 'disposed', 422, 'This asset has been disposed and cannot be returned.');
+        abort_if(
+            AssetTransfer::where('asset_id', $asset->id)->whereIn('status', AssetTransfer::OPEN_STATUSES)->exists(),
+            422,
+            'This asset already has an open transfer.'
+        );
+
         $this->assertDestinationCanReceive($asset_transfer->from_location_id);
 
         $return = AssetTransfer::create([
@@ -273,8 +321,10 @@ class AssetTransferController extends Controller
         return response()->json($return->fresh(self::WITH), 201);
     }
 
-    public function destroy(AssetTransfer $asset_transfer)
+    public function destroy(Request $request, AssetTransfer $asset_transfer)
     {
+        abort_unless($this->canDelete($request->user(), $asset_transfer, false), 403, 'Only the person who raised this request, or the Operations & HR Manager, can delete it.');
+
         // Once the destination has been asked to accept it, the request is
         // theirs to answer — rejecting is the audit-visible way to kill it.
         if (! in_array($asset_transfer->status, ['pending_approval', 'rejected'])) {
@@ -337,7 +387,11 @@ class AssetTransferController extends Controller
             ->whereNotNull('responsible_staff_id')
             ->get(['location_id', 'responsible_staff_id']);
 
+        // A locked or deactivated account cannot sign in to accept anything,
+        // so it must not count as someone who can answer for a site.
         $userIdsByStaff = User::whereIn('staff_id', $staffByLocation->pluck('responsible_staff_id')->unique())
+            ->where('is_active', true)
+            ->where('is_locked', false)
             ->get(['id', 'staff_id'])
             ->groupBy('staff_id')
             ->map(fn ($users) => $users->pluck('id')->all());
@@ -351,6 +405,16 @@ class AssetTransferController extends Controller
         }
 
         return array_map('array_unique', $out);
+    }
+
+    /** Requester or OPM, and (when $checkStatus) only while the request is deletable. */
+    private function canDelete(User $user, AssetTransfer $transfer, bool $checkStatus = true): bool
+    {
+        if ($checkStatus && ! in_array($transfer->status, ['pending_approval', 'rejected'], true)) {
+            return false;
+        }
+
+        return $user->isOperationsHrManager() || (int) $transfer->requested_by === (int) $user->id;
     }
 
     private function canReceive(User $user, AssetTransfer $transfer): bool

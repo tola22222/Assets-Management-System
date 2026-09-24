@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Asset;
+use App\Models\AssetAssignment;
 use App\Models\Location;
 
 class AssetController extends Controller
@@ -17,10 +18,12 @@ class AssetController extends Controller
      */
     public function publicShow($assetCode)
     {
+        // Only the assignment the asset is out on now — past (returned)
+        // assignments are history, not "current".
         $asset = Asset::with(['category', 'location', 'assignments' => function ($q) {
-            $q->with('assignee')->latest();
+            $q->whereIn('status', AssetAssignment::CURRENT_STATUSES)->latest();
         }])->where('asset_code', $assetCode)->firstOrFail();
-        $locations = Location::all();
+        $locations = Location::orderBy('name')->get();
 
         return view('assets.public-show', compact('asset', 'locations'));
     }

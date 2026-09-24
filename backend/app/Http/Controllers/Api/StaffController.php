@@ -4,16 +4,28 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
+use App\Models\AssetAssignment;
+use App\Models\Program;
 use App\Models\Staff;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 
 class StaffController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        return response()->json(Staff::latest()->get());
+        $user = $request->user();
+
+        // Staff see colleagues at their own site (everyone, while their own
+        // site is not set yet — the same fail-open rule as the register).
+        $query = Staff::latest();
+        if ($user->isSiteScoped() && $user->siteLocationId() !== null) {
+            $query->where('location_id', $user->siteLocationId());
+        }
+
+        return response()->json($query->get());
     }
 
     public function store(Request $request)
@@ -39,7 +51,7 @@ class StaffController extends Controller
         ActivityLog::create([
             'user_id' => Auth::id(),
             'action' => 'Create',
-            'description' => 'Added staff member: ' . $staff->full_name,
+            'description' => 'Added staff member: '.$staff->full_name,
         ]);
 
         return response()->json($staff, 201);
@@ -51,7 +63,7 @@ class StaffController extends Controller
 
         $data = $request->validate([
             'full_name' => 'required|string|max:255',
-            'email' => 'nullable|email|unique:staff,email,' . $staff->id,
+            'email' => 'nullable|email|unique:staff,email,'.$staff->id,
             'phone' => 'nullable|string|max:20',
             'position' => 'nullable|string|max:100',
             'hire_date' => 'nullable|date',
@@ -59,6 +71,18 @@ class StaffController extends Controller
             'location_id' => 'nullable|exists:locations,id',
             'photo' => 'nullable|image|mimes:jpeg,png,jpg|max:5120',
         ]);
+
+        // A program lead answers for their school's transfers; moving them to
+        // another site would leave that school with a lead who is not there.
+        if (array_key_exists('location_id', $data) && (int) $data['location_id'] !== (int) $staff->location_id) {
+            $led = Program::where('responsible_staff_id', $staff->id)->first();
+            if ($led && (int) $led->location_id !== (int) $data['location_id']) {
+                return response()->json([
+                    'message' => "{$staff->full_name} leads the program \"{$led->name}\" at another site. Choose a new lead for that program before moving them.",
+                    'errors' => ['location_id' => ['This staff member leads a program at their current site.']],
+                ], 422);
+            }
+        }
 
         if ($request->hasFile('photo')) {
             if ($staff->photo_path) {
@@ -72,7 +96,7 @@ class StaffController extends Controller
         ActivityLog::create([
             'user_id' => Auth::id(),
             'action' => 'Update',
-            'description' => 'Updated details for staff: ' . $staff->full_name,
+            'description' => 'Updated details for staff: '.$staff->full_name,
         ]);
 
         return response()->json($staff->fresh());
@@ -84,6 +108,22 @@ class StaffController extends Controller
 
         $name = $staff->full_name;
 
+        // Deleting quietly unlinks all of these (nullOnDelete) — a school
+        // loses the lead who accepts its transfers, a login loses its site.
+        $blockers = array_filter([
+            'leads a program' => Program::where('responsible_staff_id', $staff->id)->exists(),
+            'has a login account' => User::where('staff_id', $staff->id)->exists(),
+            'has assets assigned' => AssetAssignment::where('assigned_to_type', 'staff')
+                ->where('assigned_to_id', $staff->id)
+                ->whereIn('status', AssetAssignment::CURRENT_STATUSES)
+                ->exists(),
+        ]);
+        if ($blockers) {
+            return response()->json([
+                'message' => "Cannot delete {$name}: this staff member ".implode(', ', array_keys($blockers)).'. Reassign or remove those first, or mark them inactive.',
+            ], 422);
+        }
+
         if ($staff->photo_path) {
             Storage::disk('public')->delete($staff->photo_path);
         }
@@ -93,7 +133,7 @@ class StaffController extends Controller
         ActivityLog::create([
             'user_id' => Auth::id(),
             'action' => 'Delete',
-            'description' => 'Removed staff member: ' . $name,
+            'description' => 'Removed staff member: '.$name,
         ]);
 
         return response()->json(['message' => 'Staff member deleted.']);

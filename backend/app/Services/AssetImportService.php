@@ -7,7 +7,11 @@ use App\Models\Asset;
 use App\Models\AssetCategory;
 use App\Models\Location;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 
 /**
@@ -22,8 +26,19 @@ use PhpOffice\PhpSpreadsheet\IOFactory;
  *      brand, serial_number, purchase_date, purchase_price, condition, status.
  *      Here codes are auto-generated and the category is matched by name.
  *
- * Re-importing is safe: rows are upserted by asset code, so the same file can be
- * loaded twice without creating duplicates.
+ * Re-importing the PEPY layout is safe: rows are matched by asset code, and a
+ * row that matches an asset already on the register only FILLS fields that
+ * are still blank on it. It never touches the asset's status, condition or
+ * location — those are owned by the disposal, damage-flag and transfer
+ * workflows, and a re-import of an old spreadsheet must not undo them. (The
+ * template layout has no asset code to match on, so re-importing it creates
+ * new assets each time.)
+ *
+ * The whole import runs in one database transaction: an unexpected failure on
+ * row 500 rolls back rows 1-499 too, and any photos stored for them are
+ * deleted, rather than leaving half a register behind. Per-row data problems
+ * (unknown category, unknown location in the template layout) are not
+ * failures — those rows are skipped and reported in `errors`, as before.
  *
  * Optionally accepts a batch of photo files alongside the sheet. With exactly
  * one photo, it's applied to every row in the import — no renaming needed,
@@ -35,7 +50,12 @@ use PhpOffice\PhpSpreadsheet\IOFactory;
  */
 class AssetImportService
 {
-    /** Category codes found in PEPY asset IDs → friendly names (auto-created if missing). */
+    /**
+     * Legacy category codes found in the historical PEPY register → friendly
+     * names. Only consulted when a code's category segment matches no
+     * asset_categories.short_name in the database; the category is then
+     * created with this name.
+     */
     private const CATEGORY_NAMES = [
         'MOV' => 'Motor & Vehicle',
         'FAF' => 'Fixture & Furniture',
@@ -44,27 +64,66 @@ class AssetImportService
         'EQU' => 'Equipment Unit',
     ];
 
+    /** Register typos that stand for another category code. */
+    private const CATEGORY_ALIASES = ['FVF' => 'FAF'];
+
+    /**
+     * A well-formed tag: PEY-[SITE]-[CATEGORY]-[####]. The category segment
+     * follows AssetCodeService::CODE_FORMAT (2-6 letters/digits). The site
+     * segment is accepted at the same width; real site codes are 2-4 (see
+     * LocationController), so a longer one simply matches no location.
+     */
+    private const CODE_PATTERN = '/^PEY-([A-Z0-9]{2,6})-([A-Z0-9]{2,6})-(\d+)$/';
+
+    /** Largest photo accepted, in bytes. */
+    private const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
+
+    /** Existing-asset fields a re-import may fill in when they are blank. */
+    private const FILLABLE_ON_REIMPORT = [
+        'name', 'serial_number', 'model', 'brand', 'purchase_date', 'purchase_price', 'description',
+    ];
+
+    /** Category-code segment (upper-cased) → category, or null when it matches none. */
     private array $categoryCache = [];
 
     private array $locationCache = [];
 
+    private ?Collection $allLocations = null;
+
+    /** Photos written to the public disk by the current run — deleted again if it rolls back. */
+    private array $storedFiles = [];
+
     /**
      * @param  UploadedFile[]  $images  Optional photo files, matched to rows by filename.
+     *
+     * @throws ValidationException for problems with the file itself (unreadable,
+     *                             empty, no header row, no locations to assign
+     *                             to). Anything else thrown is unexpected and
+     *                             has already been rolled back.
      */
     public function import(UploadedFile $file, bool $generateQr = true, array $images = []): array
     {
         @set_time_limit(0);
 
+        $this->categoryCache = [];
+        $this->locationCache = [];
+        $this->allLocations = null;
+        $this->storedFiles = [];
+
         // Checked per-file (not via the request validator) so one bad photo in
         // a bulk batch — wrong type, corrupted, oversized — is skipped and
         // reported instead of aborting the whole import.
+        $uploadedCount = 0;
         $validImages = [];
         $rejectedImages = [];
         foreach ($images as $imageFile) {
-            if (! $imageFile->isValid()
-                || ! in_array(strtolower($imageFile->getClientOriginalExtension()), ['jpg', 'jpeg', 'png'], true)
-                || $imageFile->getSize() > 8 * 1024 * 1024) {
-                $rejectedImages[] = $imageFile->getClientOriginalName();
+            if (! $imageFile instanceof UploadedFile) {
+                continue;
+            }
+            $uploadedCount++;
+            $reason = $this->imageRejectionReason($imageFile);
+            if ($reason !== null) {
+                $rejectedImages[] = ['name' => $imageFile->getClientOriginalName(), 'reason' => $reason];
 
                 continue;
             }
@@ -73,8 +132,11 @@ class AssetImportService
 
         // A single photo is applied to every row in this import — no renaming
         // needed. Filename-based per-row matching only kicks in once there's
-        // more than one photo to tell apart.
-        $sharedImage = count($validImages) === 1 ? $validImages[0] : null;
+        // more than one photo to tell apart. Decided by how many photos were
+        // UPLOADED, not how many survived the checks above: two photos named
+        // after two assets, one of them oversized, must not turn the other into
+        // a placeholder stamped on every row.
+        $sharedImage = $uploadedCount === 1 && count($validImages) === 1 ? $validImages[0] : null;
 
         // Filename (without extension) → uploaded photo, for the multi-photo
         // case. Whitespace-stripped/uppercased so "PEY-SR-COM-0212.jpg"
@@ -89,8 +151,6 @@ class AssetImportService
                 }
             }
         }
-        $usedImageKeys = [];
-        $imagesAttached = 0;
 
         try {
             $rows = $this->readRows($file);
@@ -99,26 +159,100 @@ class AssetImportService
             // errors) and leak the server's temp file path — never show them
             // to the user directly. This is what a renamed/corrupted file, or
             // a non-Excel file given an .xlsx/.xls extension, looks like.
-            throw new \RuntimeException(
+            throw $this->fileError(
                 'Could not read this file as a spreadsheet. Make sure it\'s a valid, unmodified .xlsx, .xls, or .csv export — not a renamed or corrupted file — then try again.'
             );
         }
 
         if (empty($rows)) {
-            throw new \RuntimeException('The file appears to be empty.');
+            throw $this->fileError('The file appears to be empty.');
         }
 
         [$map, $headerIndex] = $this->detectHeader($rows);
         if ($map === null) {
-            throw new \RuntimeException('Could not find a header row. Expected a "Description"/"Asset ID" or "name"/"category" column.');
+            throw $this->fileError('Could not find a header row. Expected a "Description"/"Asset ID" or "name"/"category" column.');
         }
 
+        try {
+            $run = DB::transaction(fn () => $this->importRows($rows, $map, $headerIndex, $sharedImage, $imagesByKey));
+        } catch (\Throwable $e) {
+            // The rows are gone with the rollback; the photos stored for them
+            // are not, so remove them too.
+            $this->deleteFiles($this->storedFiles);
+            throw $e;
+        }
+
+        // Only once the rows are committed: a photo replaced by a re-import is
+        // deleted now, not before — a rollback would otherwise have left the
+        // asset pointing at a file that no longer exists.
+        $this->deleteFiles($run['superseded_files']);
+
+        $warnings = $run['warnings'];
+
+        // Outside the transaction and best-effort: a QR failure must not abort
+        // (or roll back) a 900-row import. Each failure is still counted, so
+        // the user learns which tags will need regenerating.
+        if ($generateQr) {
+            $failed = 0;
+            $firstError = null;
+            foreach ($run['created_assets'] as $asset) {
+                try {
+                    AssetCodeService::generateQrCode($asset);
+                } catch (\Throwable $e) {
+                    $failed++;
+                    $firstError ??= $e;
+                }
+            }
+            if ($failed > 0) {
+                Log::warning('Asset import: QR code generation failed', ['count' => $failed, 'exception' => $firstError]);
+                $warnings[] = "QR codes could not be generated for {$failed} new asset(s). Use \"Regenerate QR\" on each asset once the problem is fixed.";
+            }
+        }
+
+        return [
+            'created' => $run['created'],
+            'updated' => $run['updated'],
+            'skipped' => $run['skipped'],
+            'errors' => $run['errors'],
+            'total_rows' => count($rows) - $headerIndex - 1,
+            'images_attached' => $run['images_attached'],
+            'images_unmatched' => array_values(array_merge(
+                array_column($rejectedImages, 'name'),
+                array_diff_key(
+                    array_map(fn (UploadedFile $f) => $f->getClientOriginalName(), $imagesByKey),
+                    $run['used_image_keys']
+                )
+            )),
+            // Added alongside the keys above, which are unchanged:
+            // rows that matched an existing asset with nothing blank to fill,
+            'unchanged' => $run['unchanged'],
+            // rows imported with a fallback the user should check (location
+            // guessed from the site code or defaulted, QR failures),
+            'warnings' => $warnings,
+            // and photos refused before matching, with the reason (their names
+            // are also still listed in images_unmatched).
+            'images_rejected' => $rejectedImages,
+        ];
+    }
+
+    /**
+     * The row loop. Runs inside the import's transaction, so anything it
+     * throws undoes every row written before it.
+     */
+    private function importRows(array $rows, array $map, int $headerIndex, ?UploadedFile $sharedImage, array $imagesByKey): array
+    {
         $preserveCodes = isset($map['code']); // PEPY layout preserves IDs; template does not
 
         $created = 0;
         $updated = 0;
+        $unchanged = 0;
         $skipped = 0;
         $errors = [];
+        $warnings = [];
+        $createdAssets = [];
+        $supersededFiles = [];
+        $usedImageKeys = [];
+        $imagesAttached = 0;
 
         foreach ($rows as $i => $row) {
             if ($i <= $headerIndex) {
@@ -130,12 +264,14 @@ class AssetImportService
 
             $name = $get('name');
             $code = $this->normalizeCode($get('code'));
+            $parsedCode = $preserveCodes ? $this->parseCode($code) : null;
 
             // In the PEPY layout, only rows with a real asset code are assets.
             // Section headers ("Motor & Vehicle ( MOV )" → code "PEY-SR-MOV", no
-            // sequence) and subtotal rows ("Total MOV" → code "Till 0086") are skipped.
+            // sequence) and subtotal rows ("Total MOV" → code "Till 0086", no
+            // category) are skipped.
             if ($preserveCodes) {
-                if (! $this->isAssetCode($code) || $name === '') {
+                if ($name === '' || ! $this->hasSequence($code)) {
                     $skipped++;
 
                     continue;
@@ -147,38 +283,38 @@ class AssetImportService
             }
 
             // Resolve category
-            try {
-                $category = $preserveCodes
-                    ? $this->categoryFromCode($code)
-                    : $this->categoryByName($get('category'));
-            } catch (\RuntimeException $e) {
-                $errors[] = "Row {$lineNo}: ".$e->getMessage();
-
-                continue;
-            }
-
-            // The historical PEPY layout's location text is known to be messy
-            // (typos, blanks) across 900+ rows, so it deliberately falls back
-            // to PEPY Office rather than abort those rows — see resolveLocation().
-            // The template layout has no such excuse: location is a required
-            // field on the Register Asset form and in the database, so a
-            // missing/unrecognized one is a row error here, same as category.
             if ($preserveCodes) {
-                $location = $this->resolveLocation($get('location'));
+                $category = $this->categoryFromCode($code, $parsedCode);
+                if ($category === null) {
+                    if ($parsedCode === null) {
+                        // Not tag-shaped and no category segment: a subtotal
+                        // or note row, not an asset.
+                        $skipped++;
+                    } else {
+                        // A properly formed tag whose category nobody has set
+                        // up — say so instead of silently dropping the asset.
+                        $errors[] = "Row {$lineNo}: category code \"{$parsedCode['category']}\" in asset ID \"{$code}\" does not match any category. Add a category with that short code on the Categories screen, then import again.";
+                    }
+
+                    continue;
+                }
             } else {
                 try {
-                    $location = $this->requireLocation($get('location'));
-                } catch (\RuntimeException $e) {
+                    $category = $this->categoryByName($get('category'));
+                } catch (\UnexpectedValueException $e) {
                     $errors[] = "Row {$lineNo}: ".$e->getMessage();
 
                     continue;
                 }
             }
 
+            // Location is resolved per branch below: the PEPY layout only
+            // needs one for a NEW asset (an existing asset's location is never
+            // changed by an import), while the template layout requires one on
+            // every row.
             $payload = [
                 'name' => $name,
                 'category_id' => $category->id,
-                'location_id' => $location->id,
                 'serial_number' => $get('serial') ?: null,
                 'model' => $get('model') ?: null,
                 'brand' => $get('brand') ?: null,
@@ -208,38 +344,80 @@ class AssetImportService
             }
 
             if ($preserveCodes) {
-                $this->bumpSequenceFromCode($code);
+                $this->bumpSequenceFromCode($parsedCode, $category);
 
                 $existing = Asset::where('asset_code', $code)->first();
                 if ($existing) {
-                    if ($imageFile) {
-                        if ($existing->image_path) {
-                            Storage::disk('public')->delete($existing->image_path);
+                    // Fill blanks only. status, condition and location_id are
+                    // deliberately never written: a spreadsheet re-import must
+                    // not re-activate a disposed asset, clear a damage flag or
+                    // undo a transfer.
+                    $fill = [];
+                    foreach (self::FILLABLE_ON_REIMPORT as $field) {
+                        if ($this->isBlank($existing->getAttribute($field)) && ! $this->isBlank($payload[$field])) {
+                            $fill[$field] = $payload[$field];
                         }
-                        $payload['image_path'] = $imageFile->store('assets', 'public');
-                        if ($imageKey !== null) {
-                            $usedImageKeys[$imageKey] = true;
-                        }
-                        $imagesAttached++;
                     }
-                    $existing->update($payload);
-                    $updated++;
+
+                    // A photo named after this asset is an explicit request to
+                    // (re)place its photo; the one-photo-for-everything
+                    // placeholder only fills an asset that has none.
+                    if ($imageFile && ($imageKey !== null || $this->isBlank($existing->image_path))) {
+                        $stored = $this->storeImage($imageFile);
+                        if ($stored !== null) {
+                            if (! $this->isBlank($existing->image_path)) {
+                                $supersededFiles[] = $existing->image_path;
+                            }
+                            $fill['image_path'] = $stored;
+                            if ($imageKey !== null) {
+                                $usedImageKeys[$imageKey] = true;
+                            }
+                            $imagesAttached++;
+                        }
+                    }
+
+                    if ($fill) {
+                        $existing->update($fill);
+                        $updated++;
+                    } else {
+                        $unchanged++;
+                    }
 
                     continue;
                 }
-                if ($imageFile) {
-                    $payload['image_path'] = $imageFile->store('assets', 'public');
+
+                $location = $this->resolvePepyLocation(
+                    $get('location'),
+                    $this->siteSegment($code, $parsedCode),
+                    "Row {$lineNo} ({$code})",
+                    $warnings
+                );
+
+                if ($imageFile && ($stored = $this->storeImage($imageFile)) !== null) {
+                    $payload['image_path'] = $stored;
                     if ($imageKey !== null) {
                         $usedImageKeys[$imageKey] = true;
                     }
                     $imagesAttached++;
                 }
-                $asset = Asset::create($payload + ['asset_code' => $code]);
+                $asset = Asset::create($payload + ['location_id' => $location->id, 'asset_code' => $code]);
             } else {
+                // The template layout has no excuse for a missing location:
+                // it is a required field on the Register Asset form and in the
+                // database, so a missing/unrecognized one is a row error here,
+                // same as category.
+                try {
+                    $location = $this->requireLocation($get('location'));
+                } catch (\UnexpectedValueException $e) {
+                    $errors[] = "Row {$lineNo}: ".$e->getMessage();
+
+                    continue;
+                }
+
                 // Generated before the photo is stored so a rejected code
                 // leaves no orphaned file — and reported as a row error rather
                 // than allowed to escape, because an uncaught throw here would
-                // abort the whole upload half-imported over one site that is
+                // abort (and roll back) the whole upload over one site that is
                 // simply missing its code.
                 try {
                     $assetCode = AssetCodeService::nextCode($location->id, $category->id);
@@ -249,38 +427,85 @@ class AssetImportService
                     continue;
                 }
 
-                if ($imageFile) {
-                    $payload['image_path'] = $imageFile->store('assets', 'public');
+                if ($imageFile && ($stored = $this->storeImage($imageFile)) !== null) {
+                    $payload['image_path'] = $stored;
                     if ($imageKey !== null) {
                         $usedImageKeys[$imageKey] = true;
                     }
                     $imagesAttached++;
                 }
-                $asset = Asset::create($payload + ['asset_code' => $assetCode]);
+                $asset = Asset::create($payload + ['location_id' => $location->id, 'asset_code' => $assetCode]);
             }
 
-            if ($generateQr) {
-                try {
-                    AssetCodeService::generateQrCode($asset);
-                } catch (\Throwable $e) {
-                    // A QR failure must not abort a 900-row import.
-                }
-            }
+            $createdAssets[] = $asset;
             $created++;
         }
 
         return [
             'created' => $created,
             'updated' => $updated,
+            'unchanged' => $unchanged,
             'skipped' => $skipped,
             'errors' => $errors,
-            'total_rows' => count($rows) - $headerIndex - 1,
+            'warnings' => $warnings,
+            'created_assets' => $createdAssets,
+            'superseded_files' => $supersededFiles,
+            'used_image_keys' => $usedImageKeys,
             'images_attached' => $imagesAttached,
-            'images_unmatched' => array_values(array_merge($rejectedImages, array_diff_key(
-                array_map(fn (UploadedFile $f) => $f->getClientOriginalName(), $imagesByKey),
-                $usedImageKeys
-            ))),
         ];
+    }
+
+    /** Why a photo can't be used, or null when it can. */
+    private function imageRejectionReason(UploadedFile $file): ?string
+    {
+        if (! $file->isValid()) {
+            return 'the upload did not complete (it may be larger than the server allows)';
+        }
+        if ($file->getSize() > self::MAX_IMAGE_BYTES) {
+            return 'larger than 8 MB';
+        }
+        if (! in_array(strtolower($file->getClientOriginalExtension()), ['jpg', 'jpeg', 'png'], true)
+            || ! in_array($file->getMimeType(), ['image/jpeg', 'image/png'], true)) {
+            return 'not a JPG or PNG image';
+        }
+
+        return null;
+    }
+
+    /** Store a photo on the public disk, remembering it so a rollback can remove it again. */
+    private function storeImage(UploadedFile $file): ?string
+    {
+        $path = $file->store('assets', 'public');
+        if (! is_string($path) || $path === '') {
+            return null;
+        }
+        $this->storedFiles[] = $path;
+
+        return $path;
+    }
+
+    /** Best-effort delete: cleanup must never mask the outcome it follows. */
+    private function deleteFiles(array $paths): void
+    {
+        if (! $paths) {
+            return;
+        }
+        try {
+            Storage::disk('public')->delete($paths);
+        } catch (\Throwable $e) {
+            Log::warning('Asset import: could not delete photo files', ['paths' => $paths, 'exception' => $e]);
+        }
+    }
+
+    /** A problem with the uploaded file itself, surfaced as a normal 422 on the `file` field. */
+    private function fileError(string $message): ValidationException
+    {
+        return ValidationException::withMessages(['file' => $message]);
+    }
+
+    private function isBlank(mixed $value): bool
+    {
+        return $value === null || (is_string($value) && trim($value) === '');
     }
 
     /** Whitespace-stripped, uppercased key used to match a photo filename against an asset code or serial number. */
@@ -389,66 +614,138 @@ class AssetImportService
         return trim($c, '-');
     }
 
-    /** A real asset code carries a category segment AND a numeric sequence. */
-    private function isAssetCode(string $code): bool
+    /**
+     * Split a well-formed PEY-[SITE]-[CATEGORY]-[####] tag into its parts, or
+     * null when the code isn't in that exact shape.
+     *
+     * @return array{site: string, category: string, sequence: int}|null
+     */
+    private function parseCode(string $code): ?array
+    {
+        if (! preg_match(self::CODE_PATTERN, $code, $m)) {
+            return null;
+        }
+
+        return ['site' => $m[1], 'category' => $m[2], 'sequence' => (int) $m[3]];
+    }
+
+    /** A real asset code carries a numeric sequence (its category is checked separately). */
+    private function hasSequence(string $code): bool
     {
         if ($code === '') {
             return false;
         }
-        $segments = explode('-', $code);
-        $hasCategory = (bool) array_intersect($segments, array_keys(self::CATEGORY_NAMES));
-        $hasSequence = (bool) array_filter($segments, fn ($s) => preg_match('/^\d+$/', $s));
 
-        return $hasCategory && $hasSequence;
+        return (bool) array_filter(explode('-', $code), fn ($s) => preg_match('/^\d+$/', $s));
     }
 
-    /** Keep asset_code_sequences ahead of every preserved code so the next Register/Receive Asset call can't collide with it. */
-    private function bumpSequenceFromCode(string $code): void
+    /**
+     * The code's SITE segment, used to place a row whose Location cell is
+     * blank or unrecognised. For a code not in the exact tag shape, the
+     * segment after a leading "PEY" is used when it looks like a site code.
+     */
+    private function siteSegment(string $code, ?array $parsedCode): ?string
     {
-        if (! preg_match('/^PEY-[A-Z]{2,4}-([A-Z]{2,4})-(\d+)$/', $code, $m)) {
-            return;
+        if ($parsedCode !== null) {
+            return $parsedCode['site'];
         }
-        $categoryCode = $m[1] === 'FVF' ? 'FAF' : $m[1];
-        if (! in_array($categoryCode, AssetCodeService::CATEGORY_CODES, true)) {
-            return;
+        $segments = explode('-', $code);
+        if (($segments[0] ?? '') === 'PEY' && isset($segments[1]) && preg_match('/^[A-Z0-9]{2,6}$/', $segments[1])) {
+            return $segments[1];
         }
-        AssetCodeService::bumpSequenceIfHigher($categoryCode, (int) $m[2]);
+
+        return null;
     }
 
-    private function categoryFromCode(string $code): AssetCategory
+    /**
+     * Keep asset_code_sequences ahead of every preserved code so the next
+     * Register Asset call can't hand out a number already on a printed tag.
+     * The sequence row is the category's own short code — the same key
+     * AssetCodeService::nextCode() increments — so a custom category is kept
+     * ahead exactly like the original four.
+     */
+    private function bumpSequenceFromCode(?array $parsedCode, AssetCategory $category): void
     {
-        $segments = explode('-', $code);
-        $found = null;
-        foreach ($segments as $seg) {
-            if (isset(self::CATEGORY_NAMES[$seg])) {
-                $found = $seg;
-                break;
+        if ($parsedCode === null) {
+            return;
+        }
+        $categoryCode = strtoupper(trim((string) $category->short_name));
+        if (! preg_match(AssetCodeService::CODE_FORMAT, $categoryCode)) {
+            return;
+        }
+        AssetCodeService::bumpSequenceIfHigher($categoryCode, $parsedCode['sequence']);
+    }
+
+    /**
+     * The category an asset code belongs to, or null when it has none.
+     *
+     * For a well-formed tag the category is its third segment. Anything
+     * else falls back to the first segment that names a known category —
+     * how the historical register's irregular codes were always read.
+     */
+    private function categoryFromCode(string $code, ?array $parsedCode): ?AssetCategory
+    {
+        if ($parsedCode !== null) {
+            return $this->categoryForSegment($parsedCode['category']);
+        }
+
+        foreach (explode('-', $code) as $segment) {
+            if ($segment === 'PEY' || preg_match('/^\d+$/', $segment)) {
+                continue;
+            }
+            if ($category = $this->categoryForSegment($segment)) {
+                return $category;
             }
         }
-        if ($found === null) {
-            throw new \RuntimeException("could not determine category from code \"{$code}\".");
-        }
-        $shortName = $found === 'FVF' ? 'FAF' : $found;
 
-        return $this->resolveCategory($shortName, self::CATEGORY_NAMES[$found]);
+        return null;
+    }
+
+    /**
+     * Resolve a code's category segment: first against every category's
+     * short_name in the database (case-insensitive), so a category an admin
+     * added is recognised; then against the register's legacy codes, which
+     * create their category when it doesn't exist yet. Cached per run.
+     */
+    private function categoryForSegment(string $segment): ?AssetCategory
+    {
+        $segment = strtoupper($segment);
+        if (array_key_exists($segment, $this->categoryCache)) {
+            return $this->categoryCache[$segment];
+        }
+
+        $category = $this->categoryByShortName($segment);
+
+        if (! $category && isset(self::CATEGORY_NAMES[$segment])) {
+            $shortName = self::CATEGORY_ALIASES[$segment] ?? $segment;
+            $category = $this->categoryByShortName($shortName)
+                ?? AssetCategory::create(['name' => self::CATEGORY_NAMES[$segment], 'short_name' => $shortName]);
+        }
+
+        return $this->categoryCache[$segment] = $category;
+    }
+
+    private function categoryByShortName(string $shortName): ?AssetCategory
+    {
+        return AssetCategory::whereRaw('UPPER(TRIM(short_name)) = ?', [strtoupper($shortName)])->orderBy('id')->first();
     }
 
     private function categoryByName(string $name): AssetCategory
     {
         if ($name === '') {
-            throw new \RuntimeException('category is required.');
+            throw new \UnexpectedValueException('category is required.');
         }
         $existing = AssetCategory::whereRaw('LOWER(name) = ?', [strtolower($name)])->first();
         if (! $existing) {
-            throw new \RuntimeException("category \"{$name}\" not found.");
+            throw new \UnexpectedValueException("category \"{$name}\" not found.");
         }
 
         return $existing;
     }
 
     /**
-     * Strict counterpart to resolveLocation() for the template layout — see the
-     * call site for why.
+     * Strict counterpart to resolvePepyLocation() for the template layout — see
+     * the call site for why.
      *
      * Location names are not unique, and production has held a hand-made
      * duplicate of a seeded site sitting alongside the real one. Where several
@@ -458,7 +755,7 @@ class AssetImportService
     private function requireLocation(string $name): Location
     {
         if ($name === '') {
-            throw new \RuntimeException('location is required.');
+            throw new \UnexpectedValueException('location is required.');
         }
         $key = strtolower($name);
         if (isset($this->locationCache[$key])) {
@@ -466,50 +763,74 @@ class AssetImportService
         }
         $existing = Location::whereRaw('LOWER(name) = ?', [$key])->orderByRaw('code is null')->first();
         if (! $existing) {
-            throw new \RuntimeException("location \"{$name}\" not found.");
+            throw new \UnexpectedValueException("location \"{$name}\" not found.");
         }
 
         return $this->locationCache[$key] = $existing;
     }
 
-    /** Find a category by short_name, creating it if missing. Cached per run. */
-    private function resolveCategory(string $shortName, string $friendlyName): AssetCategory
+    /**
+     * Place a new asset from the PEPY register, whose free-text "Location"
+     * column is known to be messy (typos, blanks) across 900+ rows:
+     *
+     *   1. the Location cell, matched by name — case-insensitive, trimmed,
+     *      inner whitespace collapsed;
+     *   2. else the site whose code is the asset ID's SITE segment
+     *      (PEY-[SITE]-…), when exactly one site has that code;
+     *   3. else the PEPY Office (code SR), or failing that the first site.
+     *
+     * Steps 2 and 3 are guesses, so each one is recorded in $warnings for the
+     * user to check, rather than applied silently.
+     */
+    private function resolvePepyLocation(string $rawName, ?string $siteCode, string $rowLabel, array &$warnings): Location
     {
-        if (isset($this->categoryCache[$shortName])) {
-            return $this->categoryCache[$shortName];
+        $locations = $this->allLocations ??= Location::orderBy('id')->get();
+        $name = trim($rawName);
+
+        if ($name !== '') {
+            $key = $this->normalizeLocationName($name);
+            $matches = $locations->filter(fn (Location $l) => $this->normalizeLocationName((string) $l->name) === $key);
+            if ($matches->isNotEmpty()) {
+                // Duplicate names: the one this tag's site code points at,
+                // then any that has a site code, then the oldest.
+                return $matches->first(fn (Location $l) => $siteCode !== null && $this->locationCode($l) === $siteCode)
+                    ?? $matches->first(fn (Location $l) => $this->locationCode($l) !== '')
+                    ?? $matches->first();
+            }
         }
 
-        $category = AssetCategory::whereRaw('UPPER(short_name) = ?', [$shortName])->first()
-            ?? AssetCategory::create(['name' => $friendlyName, 'short_name' => $shortName]);
+        $given = $name === '' ? 'no location given' : "location \"{$name}\" not recognised";
 
-        return $this->categoryCache[$shortName] = $category;
+        if ($siteCode !== null) {
+            $bySite = $locations->filter(fn (Location $l) => $this->locationCode($l) === $siteCode);
+            if ($bySite->count() === 1) {
+                $location = $bySite->first();
+                $warnings[] = "{$rowLabel}: {$given}; assigned to \"{$location->name}\" from site code {$siteCode} in the asset ID.";
+
+                return $location;
+            }
+        }
+
+        $default = $locations->first(fn (Location $l) => $this->locationCode($l) === 'SR') ?? $locations->first();
+        if (! $default) {
+            throw $this->fileError('No locations exist to assign this asset to. Seed at least one site first.');
+        }
+
+        $warnings[] = "{$rowLabel}: {$given}"
+            .($siteCode !== null ? " and site code {$siteCode} matches no location" : '')
+            ."; assigned to the default site \"{$default->name}\".";
+
+        return $default;
     }
 
-    /**
-     * Match the register's free-text "Location" cell (e.g. "PEPY Office",
-     * "Kralanh HS") against a known site by name. Falls back to the PEPY
-     * Office site so a row with a blank/unrecognized location doesn't abort
-     * the whole import — the row is still flagged in its description.
-     */
-    private function resolveLocation(string $name): Location
+    private function normalizeLocationName(string $name): string
     {
-        $key = strtolower(trim($name));
-        if (isset($this->locationCache[$key])) {
-            return $this->locationCache[$key];
-        }
+        return strtolower(preg_replace('/\s+/', ' ', trim($name)));
+    }
 
-        $location = $key !== ''
-            ? Location::whereRaw('LOWER(name) = ?', [$key])->orderByRaw('code is null')->first()
-            : null;
-
-        $location ??= Location::whereRaw('UPPER(code) = ?', ['SR'])->first();
-        $location ??= Location::first();
-
-        if (! $location) {
-            throw new \RuntimeException('No locations exist to assign this asset to. Seed at least one site first.');
-        }
-
-        return $this->locationCache[$key] = $location;
+    private function locationCode(Location $location): string
+    {
+        return strtoupper(trim((string) $location->code));
     }
 
     private function parsePrice(string $raw): ?float

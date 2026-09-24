@@ -1,6 +1,7 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRoute } from 'vue-router'
 import http, { errorMessage } from '../../api/http'
 import AppLayout from '../../layouts/AppLayout.vue'
 import SearchInput from '../../components/ui/SearchInput.vue'
@@ -39,6 +40,15 @@ async function search() {
     loading.value = false
   }
 }
+
+// The header's global search lands here with ?q= ("See all results"); run it
+// straight away rather than making the user press Search a second time.
+const route = useRoute()
+watch(() => route.query.q, (value) => {
+  if (typeof value !== 'string' || value.trim().length < 2) return
+  q.value = value.trim()
+  search()
+}, { immediate: true })
 </script>
 
 <template>

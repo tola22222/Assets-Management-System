@@ -56,6 +56,8 @@
     "recent_scans_subtitle": "Latest condition reports from scanning your assets",
     "no_scans": "No recent scans.",
     "trend_failed": "Could not load the registration trend.",
+    "trend_tooltip": "{n} asset registered | {n} assets registered",
+    "trend_current": "Current period",
     "live": "Live",
     "last_updated": "Last updated {time}",
     "paused_hidden": "Paused while this tab is in the background"
@@ -99,6 +101,7 @@
   },
   "common": {
     "all": "All",
+    "all_locations": "All locations",
     "clear_filters": "Clear filters",
     "search": "Search…",
     "edit": "Edit",
@@ -178,6 +181,7 @@
     "subtitle": "Manage and track your organization's assets.",
     "register": "Register Asset",
     "search_placeholder": "Search assets…",
+    "all_categories": "All categories",
     "count_of": "{filtered} of {total} assets",
     "import": "Import",
     "asset_col": "Asset",
@@ -317,6 +321,7 @@
     "subtitle": "Offices, labs and program sites",
     "new": "New Location",
     "search_placeholder": "Search locations…",
+    "all_types": "All types",
     "code": "Site Code",
     "code_missing": "Not set",
     "code_missing_hint": "Assets cannot be registered or imported at this site until it has a site code.",
@@ -763,14 +768,12 @@
   },
   "stock": {
     "title": "Stock",
-    "subtitle": "Bulk consumables — toner, paper, cables, and other items with no individual tag",
     "delete_selected": "Delete Selected ({count})",
     "export_csv": "Export CSV",
     "low": "Low",
     "normal": "Normal",
     "high": "High",
     "search_placeholder": "Search by item name or Stock ID…",
-    "all_locations": "All locations",
     "stock_id": "Stock ID",
     "item_name": "Item Name",
     "category": "Category",
@@ -882,6 +885,7 @@
     "col_purchase_price": "Purchase Price",
     "col_current_user": "Currently Used By",
     "total_row": "Total",
+    "report_type": "Report type",
     "type_inventory": "Inventory",
     "type_by_model": "Assets by Model",
     "type_assignments": "Assignments",
@@ -991,7 +995,10 @@
     "type_locations": "Locations",
     "type_programs": "Programs",
     "type_users": "Users",
-    "failed": "Search failed. Please try again."
+    "failed": "Search failed. Please try again.",
+    "global_placeholder": "Search assets, staff…",
+    "view_all": "See all results for “{q}”",
+    "clear": "Clear search"
   },
   "errors": {
     "network": "Can't reach the server. Check your connection and try again.",

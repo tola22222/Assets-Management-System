@@ -25,8 +25,16 @@ Route::get('/app/{path?}', function (string $path = '') {
     $sibling = dirname(base_path()).'/frontend/dist';
     $dist = is_dir($sibling) ? $sibling : public_path('app');
 
-    // Serve a real built asset (js/css/img) with a correct Content-Type.
-    if ($path !== '' && is_file($dist.'/'.$path)) {
+    // Serve a real built asset (js/css/img) with a correct Content-Type — but
+    // only one that really lives inside the build: an encoded "../" in the
+    // path must never reach backend/.env or anything else outside $dist.
+    $root = realpath($dist);
+    $file = $path !== '' ? realpath($dist.'/'.$path) : false;
+    $insideBuild = $root !== false && $file !== false
+        && str_starts_with($file, $root.DIRECTORY_SEPARATOR);
+
+    if ($insideBuild && is_file($file)) {
+        $path = substr($file, strlen($root) + 1);
         $mimes = [
             'js' => 'application/javascript', 'mjs' => 'application/javascript',
             'css' => 'text/css', 'svg' => 'image/svg+xml', 'json' => 'application/json',

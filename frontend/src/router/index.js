@@ -40,7 +40,7 @@ const routes = [
   { path: '/users', name: 'users', component: UsersIndex, meta: { requiresAuth: true, adminOnly: true } },
   { path: '/settings', name: 'settings', component: SettingsIndex, meta: { requiresAuth: true, adminOnly: true } },
   { path: '/activity-logs', name: 'activity-logs', component: ActivityLogsIndex, meta: { requiresAuth: true, adminOnly: true } },
-  { path: '/reports', name: 'reports', component: ReportsIndex, meta: { requiresAuth: true } },
+  { path: '/reports', name: 'reports', component: ReportsIndex, meta: { requiresAuth: true, notStaff: true } },
   // :code is what a printed QR tag's public page links to (/app/qr-scan/PEY-SR-FAF-0928).
   { path: '/qr-scan/:code?', name: 'qr-scan', component: QrScanIndex, meta: { requiresAuth: true } },
   { path: '/search', name: 'search', component: SearchIndex, meta: { requiresAuth: true } },
@@ -88,6 +88,13 @@ router.beforeEach((to) => {
   if (to.meta.adminOnly) {
     const user = JSON.parse(localStorage.getItem('user') || 'null')
     if (user?.role !== 'operations_hr_manager') {
+      return { name: 'dashboard' }
+    }
+  }
+
+  if (to.meta.notStaff) {
+    const user = JSON.parse(localStorage.getItem('user') || 'null')
+    if (user?.role === 'staff') {
       return { name: 'dashboard' }
     }
   }

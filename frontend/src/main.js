@@ -6,6 +6,7 @@ import i18n from './i18n'
 import './composables/useThemeColor' // applies the persisted brand color before mount
 import { useBranding } from './composables/useBranding'
 import { loadPermissions } from './composables/usePermissions'
+import { useAuthStore } from './stores/auth'
 import './assets/main.css'
 
 const app = createApp(App)
@@ -17,6 +18,9 @@ app.use(i18n)
 app.mount('#app')
 
 useBranding().loadBranding()
+
+// A 401 here is handled by http.js (clears the session, back to login).
+useAuthStore().refreshUser().catch(() => {})
 
 // What the signed-in account may do, used to decide which menu entries and
 // buttons to render. Presentation only - every route is guarded server side.

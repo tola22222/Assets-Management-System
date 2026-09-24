@@ -18,6 +18,13 @@ use RuntimeException;
 
 class SettingController extends Controller
 {
+    /** Free-text settings an admin may blank out by saving the field empty. */
+    private const CLEARABLE = [
+        'organization_name', 'system_name', 'email', 'phone', 'address',
+        'report_recipient_email', 'mail_host', 'mail_username',
+        'mail_from_address', 'mail_from_name',
+    ];
+
     /** The only file types restore() knows how to load back. */
     private const BACKUP_EXTENSIONS = ['sql', 'sqlite'];
 
@@ -114,8 +121,15 @@ class SettingController extends Controller
         }
 
         foreach ($validated as $key => $value) {
-            if ($key !== 'logo' && $value !== null) {
+            if ($key === 'logo') {
+                continue;
+            }
+            if ($value !== null) {
                 Setting::updateOrCreate(['key' => $key], ['value' => $value]);
+            } elseif (in_array($key, self::CLEARABLE, true)) {
+                // Sent empty on purpose: clear it so the default applies again.
+                // Numeric/choice settings are never cleared this way.
+                Setting::where('key', $key)->delete();
             }
         }
 

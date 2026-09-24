@@ -8,6 +8,7 @@ import SearchInput from '../../components/ui/SearchInput.vue'
 import TableSortIcon from '../../components/ui/TableSortIcon.vue'
 import { useApiCrud } from '../../composables/useApiCrud'
 import { useTableSearch } from '../../composables/useTableSearch'
+import { useTableFilter } from '../../composables/useTableFilter'
 import { useTableSort } from '../../composables/useTableSort'
 import { useBulkSelect } from '../../composables/useBulkSelect'
 import { useToastStore } from '../../stores/toast'
@@ -18,7 +19,14 @@ import { usePagination } from '../../composables/usePagination'
 const { t } = useI18n()
 const { items: locations, loading, fetchAll, create, update, destroy, destroyMany } = useApiCrud('/locations', { entityName: t('locations.entity') })
 const { search, filtered: searched } = useTableSearch(locations, ['name', 'code', 'type', 'description'])
-const { sortKey, sortDir, toggleSort, sorted: filtered } = useTableSort(searched, { defaultKey: 'name', paths: { count: 'assets_count' } })
+// Type filter (the drop-down beside search): Office / Lab / Program. This page
+// is the list of sites itself, so the "All locations" drop-down the other
+// pages carry would only narrow it to the one row picked.
+const LOCATION_TYPES = ['office', 'lab', 'program']
+const { filters, filtered: filteredLocations } = useTableFilter(searched, {
+  type: (l, v) => l.type === v,
+})
+const { sortKey, sortDir, toggleSort, sorted: filtered } = useTableSort(filteredLocations, { defaultKey: 'name', paths: { count: 'assets_count' } })
 const { selectedIds, allSelected, toggleSelectAll, toggleSelect, clearSelection } = useBulkSelect(filtered)
 const confirmingBulkDelete = ref(false)
 const toast = useToastStore()
@@ -110,6 +118,10 @@ const { page, rowsPerPage, total, paged } = usePagination(filtered)
           <div class="flex-1 min-w-[260px]">
             <SearchInput v-model="search" :placeholder="t('locations.search_placeholder')" />
           </div>
+          <select v-model="filters.type" class="filter-select" :aria-label="t('locations.all_types')">
+            <option value="">{{ t('locations.all_types') }}</option>
+            <option v-for="type in LOCATION_TYPES" :key="type" :value="type">{{ t(`locations.type_${type}`) }}</option>
+          </select>
         </div>
 
         <div class="overflow-x-auto">

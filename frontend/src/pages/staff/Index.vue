@@ -7,8 +7,10 @@ import Modal from '../../components/ui/Modal.vue'
 import ConfirmDialog from '../../components/ui/ConfirmDialog.vue'
 import SearchInput from '../../components/ui/SearchInput.vue'
 import TableSortIcon from '../../components/ui/TableSortIcon.vue'
+import LocationFilter from '../../components/ui/LocationFilter.vue'
 import { useApiCrud } from '../../composables/useApiCrud'
 import { useTableSearch } from '../../composables/useTableSearch'
+import { useTableFilter } from '../../composables/useTableFilter'
 import { useTableSort } from '../../composables/useTableSort'
 import { useBulkSelect } from '../../composables/useBulkSelect'
 import { useToastStore } from '../../stores/toast'
@@ -25,7 +27,12 @@ const auth = useAuthStore()
 const isOpm = computed(() => auth.user?.role === 'operations_hr_manager')
 const { items: staffList, loading, fetchAll, destroy, destroyMany } = useApiCrud('/staff', { entityName: t('staff.entity') })
 const { search, filtered: searched } = useTableSearch(staffList, ['full_name', 'position', 'phone', 'email'])
-const { sortKey, sortDir, toggleSort, sorted: filtered } = useTableSort(searched, { defaultKey: 'full_name' })
+// Location filter (the drop-down beside search): the site a person works at,
+// applied after search and before sort.
+const { filters, filtered: filteredStaff } = useTableFilter(searched, {
+  location: (s, v) => String(s.location_id) === v,
+})
+const { sortKey, sortDir, toggleSort, sorted: filtered } = useTableSort(filteredStaff, { defaultKey: 'full_name' })
 const { selectedIds, allSelected, toggleSelectAll, toggleSelect, clearSelection } = useBulkSelect(filtered)
 const confirmingBulkDelete = ref(false)
 const toast = useToastStore()
@@ -142,6 +149,7 @@ const { page, rowsPerPage, total, paged } = usePagination(filtered)
           <div class="flex-1 min-w-[260px]">
             <SearchInput v-model="search" :placeholder="t('staff.search_placeholder')" />
           </div>
+          <LocationFilter v-model="filters.location" />
         </div>
 
         <div class="overflow-x-auto">

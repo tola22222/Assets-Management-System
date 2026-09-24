@@ -27,7 +27,8 @@ class SearchController extends Controller
 
         $results = [];
 
-        $results['assets'] = Asset::where(function ($query) use ($q) {
+        // Staff find only what is at their own site, as on the register.
+        $results['assets'] = Asset::visibleTo($user)->where(function ($query) use ($q) {
             $query->where('asset_code', 'LIKE', "%{$q}%")
                 ->orWhere('name', 'LIKE', "%{$q}%")
                 ->orWhere('description', 'LIKE', "%{$q}%")

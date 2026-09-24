@@ -16,20 +16,13 @@ class AssetVerificationController extends Controller
     {
         $user = $request->user();
 
-        // Staff only ever see verifications for their own site once one is assigned —
-        // everyone else (OPM, Finance, ED) sees the full register. `staff.location_id`
-        // is unpopulated for most existing staff, so this must fail OPEN (show
-        // everything) rather than closed when it's unset, or staff lose all visibility
-        // until someone backfills their site.
-        $staffLocationId = $user->staff?->location_id;
-        if ($user->isStaff() && $staffLocationId !== null) {
-            $verifications = AssetVerification::where('location_id', $staffLocationId)
-                ->with(['asset', 'location', 'verifiedBy'])
-                ->latest()
-                ->get();
-        } else {
-            $verifications = AssetVerification::with(['asset', 'location', 'verifiedBy'])->latest()->get();
-        }
+        // Staff see verifications for their own site once one is assigned —
+        // everyone else (OPM, Finance, ED) sees every site. A staff account
+        // with no site set yet fails OPEN, the same rule as the register.
+        $verifications = AssetVerification::with(['asset', 'location', 'verifiedBy'])
+            ->when($user->isSiteScoped() && $user->siteLocationId() !== null, fn ($q) => $q->where('location_id', $user->siteLocationId()))
+            ->latest()
+            ->get();
 
         return response()->json($verifications);
     }
@@ -54,20 +47,19 @@ class AssetVerificationController extends Controller
 
         $verification = AssetVerification::create($validated);
 
-        if (in_array($validated['condition'], ['broken', 'lost'])) {
-            Asset::where('id', $validated['asset_id'])->update(['condition' => $validated['condition']]);
-        }
+        // The counted condition is the asset's condition now, good or bad.
+        Asset::where('id', $validated['asset_id'])->update(['condition' => $validated['condition']]);
 
         ActivityLog::create([
             'user_id' => Auth::id(),
             'action' => 'Verification',
-            'description' => 'Verified asset: ' . ($verification->asset->name ?? ''),
+            'description' => 'Verified asset: '.($verification->asset->name ?? ''),
         ]);
 
         Notification::create([
             'user_id' => Auth::id(),
             'type' => 'asset_verified',
-            'message' => 'Verified asset: ' . ($verification->asset->name ?? '') . ' (' . $validated['condition'] . ')',
+            'message' => 'Verified asset: '.($verification->asset->name ?? '').' ('.$validated['condition'].')',
             'url' => null,
         ]);
 
@@ -90,6 +82,7 @@ class AssetVerificationController extends Controller
     public function destroy(AssetVerification $asset_verification)
     {
         $asset_verification->delete();
+
         return response()->json(['message' => 'Verification deleted.']);
     }
 }

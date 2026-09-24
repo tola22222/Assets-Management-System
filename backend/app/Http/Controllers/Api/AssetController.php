@@ -6,6 +6,8 @@ use App\Exceptions\AssetCodeException;
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\Asset;
+use App\Models\AssetAssignment;
+use App\Models\AssetTransfer;
 use App\Models\Notification;
 use App\Models\User;
 use App\Services\AssetCodeService;
@@ -20,19 +22,17 @@ class AssetController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Asset::with(['category', 'location', 'assignments' => fn ($q) => $q->where('status', 'active')->latest('assigned_date')]);
-
-        // Staff only ever see their own site's assets; every other role sees all sites.
-        if ($request->user()->isStaff()) {
-            $query->where('location_id', $request->user()->staff?->location_id);
-        }
+        // Staff only ever see their own site's assets (none without a site);
+        // every other role sees all sites.
+        $query = Asset::visibleTo($request->user())
+            ->with(['category', 'location', 'assignments' => fn ($q) => $q->whereIn('status', AssetAssignment::CURRENT_STATUSES)->latest('assigned_date')]);
 
         return response()->json($query->latest()->get());
     }
 
     public function show(Request $request, Asset $asset)
     {
-        abort_if($request->user()->isStaff() && $asset->location_id !== $request->user()->staff?->location_id, 404);
+        abort_unless($request->user()->canAccessLocation($asset->location_id), 404);
 
         return response()->json($asset->load([
             'category',
@@ -45,6 +45,14 @@ class AssetController extends Controller
     public function store(Request $request)
     {
         $validated = $this->validateAsset($request, null);
+
+        // A new asset is always on the register; it can only leave it through
+        // a disposal request the Executive Director approves.
+        if ($validated['status'] !== 'active') {
+            throw ValidationException::withMessages([
+                'status' => 'A new asset must be registered as active. Disposal goes through a disposal request.',
+            ]);
+        }
 
         // Before the upload: a rejected code leaves no orphaned photo behind.
         try {
@@ -83,6 +91,23 @@ class AssetController extends Controller
     {
         $validated = $this->validateAsset($request, $asset);
 
+        // Writing an asset off (or bringing a written-off one back) is the
+        // Executive Director's decision via a disposal request, never an edit.
+        if ($validated['status'] !== $asset->status && in_array('disposed', [$validated['status'], $asset->status], true)) {
+            throw ValidationException::withMessages([
+                'status' => 'Disposal status can only change through an approved disposal request.',
+            ]);
+        }
+
+        // While a transfer is open the receiving site decides where the asset
+        // ends up; editing the location here would race that decision.
+        if ((int) $validated['location_id'] !== (int) $asset->location_id
+            && AssetTransfer::where('asset_id', $asset->id)->whereIn('status', AssetTransfer::OPEN_STATUSES)->exists()) {
+            throw ValidationException::withMessages([
+                'location_id' => 'This asset has an open transfer. Its location changes when the transfer is accepted.',
+            ]);
+        }
+
         if ($request->hasFile('image')) {
             if ($asset->image_path) {
                 Storage::disk('public')->delete($asset->image_path);
@@ -107,13 +132,29 @@ class AssetController extends Controller
 
     public function destroy(Asset $asset)
     {
-        if ($asset->qr_code_path) {
-            Storage::disk('public')->delete($asset->qr_code_path);
+        // Deleting would erase (or, for counts, fail on) the asset's audit
+        // trail. An asset with any history leaves the register by disposal.
+        $history = [
+            'assignments' => $asset->assignments()->exists(),
+            'transfers' => $asset->transfers()->exists(),
+            'disposal requests' => $asset->disposals()->exists(),
+            'verifications' => $asset->verifications()->exists(),
+        ];
+        $has = array_keys(array_filter($history));
+        if ($has) {
+            return response()->json([
+                'message' => 'This asset has '.implode(', ', $has).' on record and cannot be deleted. Submit a disposal request instead.',
+            ], 422);
         }
-        if ($asset->image_path) {
-            Storage::disk('public')->delete($asset->image_path);
-        }
+
+        $files = array_filter([$asset->qr_code_path, $asset->image_path]);
         $asset->delete();
+
+        // Files go only once the row is gone, so a failed delete never leaves
+        // a live asset without its QR code or photo.
+        foreach ($files as $path) {
+            Storage::disk('public')->delete($path);
+        }
 
         ActivityLog::create([
             'user_id' => Auth::id(),
@@ -126,6 +167,8 @@ class AssetController extends Controller
 
     public function flagIssue(Request $request, Asset $asset)
     {
+        abort_unless($request->user()->canAccessLocation($asset->location_id), 404);
+
         $validated = $request->validate([
             'note' => 'required|string|max:1000',
             'condition' => 'nullable|string|in:broken,lost',
@@ -184,8 +227,10 @@ class AssetController extends Controller
      * on the /storage URL is ignored whenever the SPA runs on a different
      * origin than the backend (Vite dev server), so the browser just opened it.
      */
-    public function downloadQr(Asset $asset)
+    public function downloadQr(Request $request, Asset $asset)
     {
+        abort_unless($request->user()->canAccessLocation($asset->location_id), 404);
+
         if (! $asset->qr_code_path || ! Storage::disk('public')->exists($asset->qr_code_path)) {
             AssetCodeService::generateQrCode($asset);
             $asset->refresh();
@@ -202,12 +247,12 @@ class AssetController extends Controller
             'location_id' => 'required|exists:locations,id',
             'purchase_date' => 'nullable|date',
             'purchase_price' => 'nullable|numeric',
-            'status' => 'required|string',
+            'status' => ['required', 'string', Rule::in(Asset::STATUSES)],
             'description' => 'nullable|string',
             'model' => 'nullable|string',
             'brand' => 'nullable|string',
             'serial_number' => ['nullable', 'string', Rule::unique('assets', 'serial_number')->ignore($asset?->id)],
-            'condition' => 'nullable|string',
+            'condition' => ['nullable', 'string', Rule::in(Asset::CONDITIONS)],
             'image' => 'nullable|image|mimes:jpeg,png,jpg|max:5120',
         ], [
             'serial_number.unique' => 'This serial number is already registered to another asset.',

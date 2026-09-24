@@ -5,10 +5,14 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\Asset;
+use App\Models\AssetAssignment;
 use App\Models\AssetScan;
 use App\Models\AssetTransfer;
 use App\Models\AssetVerification;
 use App\Models\Location;
+use App\Models\Notification;
+use App\Models\User;
+use App\Services\AssetNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -65,7 +69,7 @@ class QrScanController extends Controller
     {
         $asset = Asset::with([
             'category', 'location',
-            'assignments' => fn ($q) => $q->where('status', 'active'),
+            'assignments' => fn ($q) => $q->whereIn('status', AssetAssignment::CURRENT_STATUSES),
             'verifications' => fn ($q) => $q->latest(),
             'scans' => fn ($q) => $q->with(['user:id,name', 'location:id,name', 'previousLocation:id,name'])->latest()->take(10),
         ])->where('asset_code', $assetCode)->firstOrFail();
@@ -91,6 +95,7 @@ class QrScanController extends Controller
         $newLocationId = (int) $validated['location_id'];
         $previousLocationId = $asset->location_id !== null ? (int) $asset->location_id : null;
         $locationChanged = $previousLocationId !== $newLocationId;
+        $previousCondition = $asset->condition;
 
         // A site-scoped staff member can confirm an asset is at their own site,
         // never send it somewhere else: moving an asset onto another site is
@@ -126,8 +131,10 @@ class QrScanController extends Controller
                 'verified_at' => now(),
             ]);
 
+            // What the person standing next to the asset reports is its
+            // condition now — including good/fair after a repair.
             $changes = [];
-            if (in_array($validated['condition'], ['broken', 'lost'])) {
+            if ($validated['condition'] !== $asset->condition) {
                 $changes['condition'] = $validated['condition'];
             }
             if ($locationChanged) {
@@ -160,6 +167,12 @@ class QrScanController extends Controller
             return [$verification, $scan];
         });
 
+        // Damage or loss found during a scan must reach OPM the same way a
+        // Flag does, not wait for the weekly discrepancy digest.
+        if (in_array($validated['condition'], ['broken', 'lost'], true) && $previousCondition !== $validated['condition']) {
+            $this->reportDamage($asset->fresh(['location', 'category']), $user, $validated['condition'], $validated['remark'] ?? null);
+        }
+
         return response()->json([
             'verification' => $verification->fresh(['asset', 'location']),
             'scan' => $scan,
@@ -180,23 +193,48 @@ class QrScanController extends Controller
     }
 
     /** The site a staff-role user is restricted to, or null when nothing restricts them. */
-    private function staffSiteId($user): ?int
+    private function staffSiteId(User $user): ?int
     {
-        $siteId = $user->isStaff() ? $user->staff?->location_id : null;
-
-        return $siteId !== null ? (int) $siteId : null;
+        return $user->isSiteScoped() ? $user->siteLocationId() : null;
     }
 
     /**
      * Staff are scoped to their own site once one is assigned. `staff.location_id` is
-     * nullable and unpopulated for most existing staff, so this must fail OPEN (no
-     * restriction) rather than closed when it's unset — otherwise every staff user
-     * loses QR scan/verify access entirely until someone backfills their site.
+     * nullable and unpopulated for most existing staff, so this fails OPEN (no
+     * restriction) rather than closed when it's unset — see User::canAccessLocation().
      */
-    private function outsideStaffSite($user, Asset $asset): bool
+    private function outsideStaffSite(User $user, Asset $asset): bool
     {
-        $staffSiteId = $this->staffSiteId($user);
+        return ! $user->canAccessLocation($asset->location_id);
+    }
 
-        return $staffSiteId !== null && (int) $asset->location_id !== $staffSiteId;
+    private function reportDamage(Asset $asset, User $reporter, string $condition, ?string $remark): void
+    {
+        $note = 'Reported '.$condition.' during a QR scan'.($remark ? ': '.$remark : '.');
+
+        User::whereIn('role', ['operations_hr_manager', 'executive_director', 'finance_manager'])
+            ->where('id', '!=', $reporter->id)
+            ->get()
+            ->each(fn (User $recipient) => Notification::create([
+                'user_id' => $recipient->id,
+                'type' => 'asset_flagged',
+                'message' => $reporter->name.' reported '.$asset->name.' ('.$asset->asset_code.') as '.$condition.($remark ? ': '.$remark : '.'),
+                'url' => null,
+            ]));
+
+        (new AssetNotificationService)->send('DAMAGE_FLAGGED', [
+            'assetId' => $asset->asset_code,
+            'assetDbId' => $asset->id,
+            'description' => $asset->name,
+            'location' => $asset->location->name ?? null,
+            'category' => $asset->category->name ?? null,
+            'flaggedBy' => $reporter,
+            'note' => $note,
+            'url' => route('asset.public.show', $asset->asset_code),
+            'extraData' => [
+                'status' => $condition,
+                'flaggedAt' => now()->format('d M Y, H:i'),
+            ],
+        ]);
     }
 }

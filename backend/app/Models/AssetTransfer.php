@@ -17,6 +17,9 @@ class AssetTransfer extends Model
 {
     protected $table = 'asset_transfers';
 
+    /** Still waiting on someone — OPM (pending_approval) or the destination (pending). */
+    public const OPEN_STATUSES = ['pending_approval', 'pending'];
+
     protected $fillable = [
         'asset_id', 'from_location_id', 'to_location_id',
         'requested_by', 'reason', 'rejection_reason', 'status', 'approved_by', 'transfer_date',

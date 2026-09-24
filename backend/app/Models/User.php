@@ -70,6 +70,43 @@ class User extends Authenticatable
         return $this->isExecutiveDirector();
     }
 
+    // ---- Site scope ------------------------------------------------------
+    //
+    // Staff only ever see and act on their own site; OPM, Finance and the ED
+    // see every site. A staff account with no site set yet is unrestricted
+    // until someone sets it (fail OPEN, by design — failing closed would
+    // strand every staff user whose site was never filled in). Every
+    // staff-facing query goes through these helpers so that rule is the same
+    // on the register, search, QR scan and the lists.
+
+    public function isSiteScoped(): bool
+    {
+        return $this->isStaff();
+    }
+
+    /** The staff member's site, or null (only meaningful when isSiteScoped()). */
+    public function siteLocationId(): ?int
+    {
+        $locationId = $this->staff?->location_id;
+
+        return $locationId === null ? null : (int) $locationId;
+    }
+
+    /** True when this user may see/act on something located at $locationId. */
+    public function canAccessLocation(?int $locationId): bool
+    {
+        if (! $this->isSiteScoped()) {
+            return true;
+        }
+
+        $site = $this->siteLocationId();
+        if ($site === null) {
+            return true;
+        }
+
+        return $locationId !== null && $site === (int) $locationId;
+    }
+
     // ---- Roles & permissions -------------------------------------------
     //
     // `role` (the string column above) stays the primary authorisation input
