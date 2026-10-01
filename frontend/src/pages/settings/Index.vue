@@ -5,18 +5,19 @@ import http, { errorMessage } from '../../api/http'
 import AppLayout from '../../layouts/AppLayout.vue'
 import ConfirmDialog from '../../components/ui/ConfirmDialog.vue'
 import { useToastStore } from '../../stores/toast'
+import { useAuthStore } from '../../stores/auth'
 import { useLocale } from '../../composables/useLocale'
 import { useTheme } from '../../composables/useTheme'
 import { useThemeColor } from '../../composables/useThemeColor'
 import { useBranding } from '../../composables/useBranding'
 
 const { t } = useI18n()
-const { setLocale } = useLocale()
+const { locale: currentLocale, setLocale } = useLocale()
 // Light/dark is a per-browser preference held in localStorage, not a row in
 // `settings` — the same as the old Blade screen's toggle. It applies on click
 // rather than on Save, so it deliberately sits outside the settings form.
 const { isDark, setDark, setLight } = useTheme()
-const { applyThemeColor } = useThemeColor()
+const { themeColor: currentThemeColor, applyThemeColor } = useThemeColor()
 const { systemName, organizationName, logoUrl, refreshBranding } = useBranding()
 
 // Icon paths for the section rail, drawn from the same 24x24 outline set the
@@ -44,8 +45,17 @@ const tabs = [
   { id: 'mail', label: 'settings.tab_mail', icon: I.paperAirplane },
   { id: 'backup', label: 'settings.tab_backup', icon: I.cloudUp },
 ]
-const activeTab = ref('general')
-const currentTab = computed(() => tabs.find((tab) => tab.id === activeTab.value) || tabs[0])
+// The Accountant has HR's access everywhere except here: System Settings shows
+// them the Appearance tab only (the server also narrows what they read/save).
+const auth = useAuthStore()
+const isHr = computed(() => auth.user?.role === 'operations_hr_manager')
+// Staff get the Appearance tab too, but for their own browser only: the saved
+// theme colour and language are organisation defaults (HR's Settings page
+// applies them on load), so a staff member's choice must never be saved there.
+const isStaffUser = computed(() => auth.user?.role === 'staff')
+const visibleTabs = computed(() => (isHr.value ? tabs : tabs.filter((tab) => tab.id === 'appearance')))
+const activeTab = ref(isHr.value ? 'general' : 'appearance')
+const currentTab = computed(() => visibleTabs.value.find((tab) => tab.id === activeTab.value) || visibleTabs.value[0])
 
 // Logo upload. The backend has always accepted this (SettingController::update
 // validates and stores a `logo`), but no control existed to send one.
@@ -103,6 +113,13 @@ const loadError = ref('')
 
 async function loadSettings() {
   loadError.value = ''
+  // Staff: show what their own browser is using; nothing comes from the server.
+  if (isStaffUser.value) {
+    form.theme_color = currentThemeColor.value
+    form.locale = currentLocale.value
+    loading.value = false
+    return
+  }
   try {
     const { data } = await http.get('/settings')
     applySettingsPayload(data)
@@ -143,6 +160,14 @@ function onThemeColorText() {
 const saving = ref(false)
 
 async function handleSubmit() {
+  // Staff: apply to this browser only (remembered there), never saved as the
+  // organisation's default.
+  if (isStaffUser.value) {
+    setLocale(form.locale)
+    applyThemeColor(form.theme_color)
+    toast.success(t('settings.updated'))
+    return
+  }
   saving.value = true
   try {
     // A file can't ride along in a JSON body, so switch to multipart only when
@@ -314,7 +339,8 @@ function formatSize(bytes) {
 
 onMounted(() => {
   loadSettings()
-  loadBackups()
+  // Backups are HR's; the Accountant never sees that tab (and the API refuses).
+  if (isHr.value) loadBackups()
 })
 </script>
 
@@ -343,7 +369,7 @@ onMounted(() => {
           :aria-label="t('settings.title')"
         >
           <button
-            v-for="tab in tabs"
+            v-for="tab in visibleTabs"
             :key="tab.id"
             type="button"
             @click="activeTab = tab.id"

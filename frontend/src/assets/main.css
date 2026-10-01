@@ -141,19 +141,16 @@
   .dark body::before {
     mix-blend-mode: overlay;
   }
+  /* Scrollbars are hidden everywhere — pages, tables, dialogs, dropdowns —
+     while every area still scrolls by wheel, touch, trackpad and keyboard. */
   * {
-    scrollbar-width: thin;
-    scrollbar-color: var(--color-line-strong) transparent;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
   }
   *::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
-  }
-  *::-webkit-scrollbar-thumb {
-    background: var(--color-line-strong);
-    border-radius: 999px;
-    border: 3px solid transparent;
-    background-clip: content-box;
+    display: none;
+    width: 0;
+    height: 0;
   }
   ::selection {
     background: color-mix(in srgb, var(--color-brand) 22%, transparent);
@@ -184,7 +181,9 @@
   .btn-subtle,
   .btn-danger,
   .btn-success,
-  .btn-warning {
+  .btn-warning,
+  .btn-accept,
+  .btn-reject {
     @apply inline-flex items-center justify-center gap-2 font-semibold text-[13px] h-[38px] px-4
            rounded-lg transition-colors duration-150 disabled:opacity-60 disabled:cursor-not-allowed
            focus:outline-none focus-visible:ring-4;
@@ -210,6 +209,15 @@
   }
   .btn-warning {
     @apply border border-amber-600 text-amber-600 bg-surface hover:bg-amber-600 hover:text-white focus-visible:ring-amber-500/20;
+  }
+  /* Accept / Reject for the person answering an incoming transfer: Accept in
+     the brand colour (it follows the Settings theme picker), Reject in red. */
+  .btn-accept {
+    @apply bg-brand text-white shadow-sm hover:bg-brand-dark focus-visible:ring-brand/20
+           dark:bg-brand-200 dark:text-brand-900 dark:hover:bg-brand-100;
+  }
+  .btn-reject {
+    @apply bg-red-600 text-white shadow-sm hover:bg-red-700 focus-visible:ring-red-500/25;
   }
   .btn-sm {
     @apply h-8 px-3 text-xs rounded-md;

@@ -7,6 +7,7 @@ import Modal from '../../components/ui/Modal.vue'
 import ConfirmDialog from '../../components/ui/ConfirmDialog.vue'
 import SearchInput from '../../components/ui/SearchInput.vue'
 import TableSortIcon from '../../components/ui/TableSortIcon.vue'
+import SearchSelect from '../../components/ui/SearchSelect.vue'
 import { useApiCrud } from '../../composables/useApiCrud'
 import { useTableSearch } from '../../composables/useTableSearch'
 import { useTableSort } from '../../composables/useTableSort'
@@ -22,7 +23,7 @@ const { t } = useI18n()
 const auth = useAuthStore()
 const { items: users, loading, fetchAll, create, update, destroy, destroyMany } = useApiCrud('/users', { entityName: t('users.entity') })
 const { search, filtered: searched } = useTableSearch(users, ['name', 'email', 'role'])
-const { sortKey, sortDir, toggleSort, sorted: filtered } = useTableSort(searched, { defaultKey: 'name' })
+const { sortKey, sortDir, toggleSort, sorted: filtered } = useTableSort(searched, { defaultKey: 'created_at', defaultDir: 'desc' })
 const { selectedIds, allSelected, toggleSelectAll, toggleSelect, clearSelection } = useBulkSelect(filtered)
 const confirmingBulkDelete = ref(false)
 const toast = useToastStore()
@@ -415,10 +416,8 @@ const { page, rowsPerPage, total, paged } = usePagination(filtered)
             </div>
             <div>
               <label class="label">{{ t('users.link_to_staff') }}</label>
-              <select v-model="form.staff_id" class="select">
-                <option value="">{{ t('users.none') }}</option>
-                <option v-for="s in staffList" :key="s.id" :value="s.id">{{ s.full_name }}</option>
-              </select>
+              <SearchSelect v-model="form.staff_id" :empty-label="t('users.none')"
+                :options="staffList.map((s) => ({ value: s.id, label: s.full_name }))" />
             </div>
           </div>
 
@@ -428,9 +427,12 @@ const { page, rowsPerPage, total, paged } = usePagination(filtered)
             <label class="label">{{ t('users.additional_roles') }}</label>
             <p class="text-xs text-faint">{{ t('users.additional_roles_hint') }}</p>
             <div v-if="!allRoles.length" class="text-xs text-faint py-2">{{ t('users.no_custom_roles') }}</div>
-            <div v-else class="max-h-44 overflow-y-auto rounded-xl border border-line divide-y divide-line mt-1">
+            <!-- Same rows as the transfer code lists: a ticked role takes the
+                 brand border and tint. -->
+            <div v-else class="max-h-56 overflow-y-auto grid grid-cols-1 gap-2 mt-2">
               <label v-for="r in allRoles" :key="r.id"
-                class="flex items-start gap-2.5 px-3 py-2 text-sm cursor-pointer hover:bg-surface-2 transition">
+                class="flex items-start gap-2.5 px-3 py-2.5 rounded-lg border text-sm cursor-pointer transition-colors duration-150"
+                :class="selectedRoleIds.includes(r.id) ? 'border-brand bg-brand/5 dark:border-brand-200' : 'border-line bg-surface hover:bg-surface-2'">
                 <input type="checkbox" :checked="selectedRoleIds.includes(r.id)" @change="toggleRole(r.id)"
                   class="mt-0.5 rounded border-line text-brand focus:ring-brand/30" />
                 <span class="min-w-0">

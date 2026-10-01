@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\AssetCategory;
 use App\Models\Location;
+use App\Models\Supplier;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -88,6 +89,52 @@ class AssetImportServiceTest extends TestCase
             'purchase_date' => '2026-01-15',
             'purchase_price' => 650,
         ]);
+    }
+
+    public function test_the_template_supplier_column_is_matched_by_name(): void
+    {
+        $user = User::factory()->create(['role' => 'operations_hr_manager']);
+        AssetCategory::create(['name' => 'Computer Equipment', 'short_name' => 'COM']);
+        $shop = Supplier::create(['name' => 'ABC Computer Shop']);
+
+        // The downloadable template's own header row, including the supplier.
+        $template = $this->actingAs($user)->get('/api/assets/import/template')->assertOk()->getContent();
+        $this->assertStringContainsString(',supplier,', strtok($template, "\n"));
+
+        $csv = "name,category,location,supplier,serial_number\n"
+            ."Laptop One,Computer Equipment,PEPY Office,abc computer shop,SN-AAA\n"
+            ."Laptop Two,Computer Equipment,PEPY Office,Unknown Traders,SN-BBB\n"
+            ."Laptop Three,Computer Equipment,PEPY Office,,SN-CCC\n";
+
+        $response = $this->actingAs($user)->postJson('/api/assets/import', [
+            'file' => UploadedFile::fake()->createWithContent('register.csv', $csv), 'generate_qr' => '0',
+        ]);
+
+        // An unknown supplier never skips the row — it imports without one and warns.
+        $response->assertOk()->assertJson(['created' => 3, 'errors' => []]);
+        $this->assertStringContainsString('Unknown Traders', implode(' ', $response->json('warnings')));
+        $this->assertDatabaseHas('assets', ['serial_number' => 'SN-AAA', 'supplier_id' => $shop->id]);
+        $this->assertDatabaseHas('assets', ['serial_number' => 'SN-BBB', 'supplier_id' => null]);
+        $this->assertDatabaseHas('assets', ['serial_number' => 'SN-CCC', 'supplier_id' => null]);
+    }
+
+    public function test_the_add_asset_form_saves_a_supplier(): void
+    {
+        $user = User::factory()->create(['role' => 'operations_hr_manager']);
+        $category = AssetCategory::create(['name' => 'Computer Equipment', 'short_name' => 'COM']);
+        $shop = Supplier::create(['name' => 'ABC Computer Shop']);
+
+        $this->actingAs($user)->postJson('/api/assets', [
+            'name' => 'Dell Laptop', 'category_id' => $category->id,
+            'location_id' => Location::where('code', 'SR')->value('id'),
+            'supplier_id' => $shop->id, 'status' => 'active',
+        ])->assertCreated()->assertJsonPath('supplier.name', 'ABC Computer Shop');
+
+        $this->actingAs($user)->postJson('/api/assets', [
+            'name' => 'Dell Laptop', 'category_id' => $category->id,
+            'location_id' => Location::where('code', 'SR')->value('id'),
+            'supplier_id' => 999999, 'status' => 'active',
+        ])->assertStatus(422)->assertJsonValidationErrors('supplier_id');
     }
 
     public function test_a_single_uploaded_photo_attaches_to_every_row(): void

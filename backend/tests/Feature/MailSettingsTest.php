@@ -100,12 +100,22 @@ class MailSettingsTest extends TestCase
 
     public function test_only_opm_can_read_or_change_mail_settings(): void
     {
-        foreach (['staff', 'finance_manager', 'executive_director'] as $role) {
+        foreach (['staff', 'executive_director'] as $role) {
             $user = User::factory()->create(['role' => $role]);
             $this->actingAs($user)->getJson('/api/settings')->assertStatus(403);
             $this->actingAs($user)->postJson('/api/settings', $this->payload())->assertStatus(403);
             $this->actingAs($user)->postJson('/api/settings/test-mail', ['email' => 'a@b.com'])->assertStatus(403);
         }
+
+        // The Accountant opens System Settings but only its Appearance part:
+        // mail settings are neither shown nor saved, and test-mail is refused.
+        $accountant = User::factory()->create(['role' => 'finance_manager']);
+        $this->actingAs($accountant)->postJson('/api/settings', $this->payload() + ['theme_color' => '#112233', 'locale' => 'km'])
+            ->assertOk()->assertExactJson(['theme_color' => '#112233', 'locale' => 'km']);
+        $this->assertDatabaseMissing('settings', ['key' => 'mail_host']);
+        $this->actingAs($accountant)->getJson('/api/settings')->assertOk()->assertJsonMissingPath('mail_host');
+        $this->actingAs($accountant)->postJson('/api/settings/test-mail', ['email' => 'a@b.com'])->assertStatus(403);
+        $this->actingAs($accountant)->getJson('/api/settings/backups')->assertStatus(403);
     }
 
     public function test_test_mail_refuses_to_pretend_it_sent_when_the_driver_is_log(): void

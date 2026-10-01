@@ -17,18 +17,36 @@ use Illuminate\Validation\Rule;
 
 class LocationController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        return response()->json(Location::withCount('assets')->orderBy('name')->get());
+        $user = $request->user();
+
+        // ?scope=destinations is the transfer form's "To" list: every site's
+        // name, so staff can request a transfer out of their site — but only
+        // names, nothing about what sits at those sites.
+        if ($request->query('scope') === 'destinations') {
+            return response()->json(Location::latest()->latest('id')->get(['id', 'name', 'code', 'type']));
+        }
+
+        // Everything else (Locations page, filters): staff get only their own
+        // site — none until HR sets it — and counts only cover what they may see.
+        return response()->json(
+            Location::withCount(['assets' => fn ($q) => $q->visibleTo($user)])
+                ->when($user->isSiteScoped(), fn ($q) => $q->whereKey($user->siteLocationIds()))
+                // Newest first, like every list in the app.
+                ->latest()
+                ->latest('id')
+                ->get()
+        );
     }
 
     public function show(Request $request, Location $location)
     {
-        // The site list itself is shared, but the assets at another site are
-        // not a staff member's to browse.
-        abort_unless($request->user()->canAccessLocation($location->id), 404);
+        // Staff may open only their own site.
+        $user = $request->user();
+        abort_unless($user->canAccessLocation($location->id), 404);
 
-        $location->load(['assets.category']);
+        $location->load(['assets' => fn ($q) => $q->visibleTo($user)->with('category')]);
 
         return response()->json($location);
     }
@@ -84,7 +102,7 @@ class LocationController extends Controller
             'assignments' => AssetAssignment::where('location_id', $location->id)->count(),
             'verifications' => AssetVerification::where('location_id', $location->id)->count(),
             'stock items' => StockItem::where('location_id', $location->id)->count(),
-            'programs' => Program::where('location_id', $location->id)->count(),
+            'programs' => Program::whereHas('locations', fn ($q) => $q->whereKey($location->id))->count(),
         ]);
         if ($references) {
             $list = implode(', ', array_map(fn ($n, $what) => "{$n} {$what}", $references, array_keys($references)));

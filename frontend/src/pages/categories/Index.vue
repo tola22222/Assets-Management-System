@@ -20,7 +20,8 @@ import { usePagination } from '../../composables/usePagination'
 
 const { t } = useI18n()
 const auth = useAuthStore()
-const isOpm = computed(() => auth.user?.role === 'operations_hr_manager')
+// HR or the Accountant (same access; see User::isAdministrator on the server).
+const isOpm = computed(() => ['operations_hr_manager', 'finance_manager'].includes(auth.user?.role))
 const { items: categories, loading, fetchAll, create, update, destroy, destroyMany } = useApiCrud('/categories', { entityName: t('categories.entity') })
 const { search, filtered: searched } = useTableSearch(categories, ['name', 'short_name', 'description'])
 
@@ -53,7 +54,7 @@ const { filters, filtered: filteredCategories } = useTableFilter(searched, {
 watch(() => filters.location, (v) => { if (v) loadSiteCounts() })
 // The count shown (and sorted on) follows the site filter.
 const counted = computed(() => filteredCategories.value.map((c) => ({ ...c, shown_count: countAt(c, filters.location) })))
-const { sortKey, sortDir, toggleSort, sorted: filtered } = useTableSort(counted, { defaultKey: 'name', paths: { count: 'shown_count' } })
+const { sortKey, sortDir, toggleSort, sorted: filtered } = useTableSort(counted, { defaultKey: 'created_at', defaultDir: 'desc', paths: { count: 'shown_count' } })
 const { selectedIds, allSelected, toggleSelectAll, toggleSelect, clearSelection } = useBulkSelect(filtered)
 const confirmingBulkDelete = ref(false)
 

@@ -28,8 +28,18 @@ class SettingController extends Controller
     /** The only file types restore() knows how to load back. */
     private const BACKUP_EXTENSIONS = ['sql', 'sqlite'];
 
-    public function index()
+    /**
+     * The settings the Accountant may see and change: the Appearance tab (theme
+     * colour and language). Everything else in System Settings is HR's.
+     */
+    private const APPEARANCE_KEYS = ['theme_color', 'locale'];
+
+    public function index(Request $request)
     {
+        if (! $request->user()->isOperationsHrManager()) {
+            return response()->json(Setting::whereIn('key', self::APPEARANCE_KEYS)->pluck('value', 'key'));
+        }
+
         $settings = Setting::pluck('value', 'key');
 
         // The SMTP password is stored encrypted and must never travel to the
@@ -78,6 +88,27 @@ class SettingController extends Controller
 
     public function update(Request $request)
     {
+        // The Accountant changes the Appearance tab only; anything else they
+        // send is ignored rather than refused, since the SPA posts the whole form.
+        if (! $request->user()->isOperationsHrManager()) {
+            $validated = $request->validate([
+                'theme_color' => 'nullable|string|max:7',
+                'locale' => 'nullable|in:en,km',
+            ]);
+
+            foreach (array_filter($validated, fn ($value) => $value !== null) as $key => $value) {
+                Setting::updateOrCreate(['key' => $key], ['value' => $value]);
+            }
+
+            ActivityLog::createAndNotify([
+                'user_id' => Auth::id(),
+                'action' => 'Update',
+                'description' => 'Updated appearance settings',
+            ]);
+
+            return $this->index($request);
+        }
+
         $validated = $request->validate([
             'organization_name' => 'nullable|string|max:255',
             'system_name' => 'nullable|string|max:255',
@@ -143,7 +174,7 @@ class SettingController extends Controller
         // uses what was just saved, without waiting for a restart.
         MailConfigService::apply(true);
 
-        return $this->index();
+        return $this->index($request);
     }
 
     /**

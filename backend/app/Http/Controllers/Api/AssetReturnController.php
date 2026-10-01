@@ -17,10 +17,10 @@ class AssetReturnController extends Controller
     {
         $user = $request->user();
 
-        if ($user->isOperationsHrManager()) {
-            $returns = AssetReturn::with(['asset', 'assignment', 'returnedBy'])->latest()->get();
+        if ($user->isAdministrator()) {
+            $returns = AssetReturn::with(['asset', 'assignment', 'returnedBy'])->latest()->latest('id')->get();
         } else {
-            $returns = AssetReturn::where('returned_by', $user->id)->with(['asset', 'assignment'])->latest()->get();
+            $returns = AssetReturn::where('returned_by', $user->id)->with(['asset', 'assignment'])->latest()->latest('id')->get();
         }
 
         return response()->json($returns);

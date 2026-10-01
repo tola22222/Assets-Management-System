@@ -119,7 +119,7 @@ class AuditFixesTest extends TestCase
         ]);
 
         $this->actingAs($this->staffUserAt($this->office))->deleteJson("/api/asset-disposals/{$disposal->id}")->assertForbidden();
-        $this->actingAs($this->user('finance_manager'))->deleteJson("/api/asset-disposals/{$disposal->id}")->assertForbidden();
+        $this->actingAs($this->user('executive_director'))->deleteJson("/api/asset-disposals/{$disposal->id}")->assertForbidden();
         $this->assertDatabaseHas('asset_disposals', ['id' => $disposal->id]);
 
         $this->actingAs($opm)->deleteJson("/api/asset-disposals/{$disposal->id}")->assertOk();
@@ -159,11 +159,11 @@ class AuditFixesTest extends TestCase
 
     public function test_only_the_requester_or_opm_can_delete_a_transfer_request(): void
     {
-        $finance = $this->user('finance_manager');
+        $requester = $this->user('executive_director'); // a requester whose request still awaits approval
         $this->leadAt($this->school);
         $asset = $this->asset();
 
-        $id = $this->actingAs($finance)->postJson('/api/asset-transfers', [
+        $id = $this->actingAs($requester)->postJson('/api/asset-transfers', [
             'asset_id' => $asset->id, 'from_location_id' => $this->office->id,
             'to_location_id' => $this->school->id, 'transfer_date' => now()->toDateString(),
         ])->assertCreated()->json('id');
@@ -171,7 +171,7 @@ class AuditFixesTest extends TestCase
         $this->actingAs($this->staffUserAt($this->office))->deleteJson("/api/asset-transfers/{$id}")->assertForbidden();
         $this->assertDatabaseHas('asset_transfers', ['id' => $id]);
 
-        $this->actingAs($finance)->deleteJson("/api/asset-transfers/{$id}")->assertOk();
+        $this->actingAs($requester)->deleteJson("/api/asset-transfers/{$id}")->assertOk();
     }
 
     public function test_an_asset_can_only_have_one_open_transfer(): void
@@ -235,7 +235,7 @@ class AuditFixesTest extends TestCase
         $asset->update(['location_id' => Location::whereNotIn('id', [$this->office->id, $this->school->id])->value('id')]);
         $this->leadAt($this->office);
 
-        $this->actingAs($lead)->postJson("/api/asset-transfers/{$leg->id}/return")->assertStatus(422);
+        $this->actingAs($this->user('operations_hr_manager'))->postJson("/api/asset-transfers/{$leg->id}/return")->assertStatus(422);
     }
 
     // ---- Assets ----------------------------------------------------------
@@ -294,10 +294,15 @@ class AuditFixesTest extends TestCase
     {
         $staff = $this->staffUserAt($this->office);
         $this->asset($this->office, ['name' => 'Projector Office']);
+        $this->asset($this->office, ['name' => 'Projector Spare']);
         $this->asset($this->school, ['name' => 'Projector School']);
 
+        // Everything at their own site, nothing from another.
         $names = collect($this->actingAs($staff)->getJson('/api/search?q=Projector')->assertOk()->json('assets'))->pluck('name');
-        $this->assertEquals(['Projector Office'], $names->all());
+        $this->assertEqualsCanonicalizing(['Projector Office', 'Projector Spare'], $names->all());
+
+        $atSite = collect($this->actingAs($staff)->getJson("/api/locations/{$this->office->id}")->assertOk()->json('assets'))->pluck('name');
+        $this->assertEqualsCanonicalizing(['Projector Office', 'Projector Spare'], $atSite->all());
 
         $this->actingAs($staff)->getJson("/api/locations/{$this->school->id}")->assertNotFound();
     }

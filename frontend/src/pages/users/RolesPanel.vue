@@ -324,10 +324,18 @@ defineExpose({ reload: load, openCreate })
             </div>
             <div class="form-group">
               <label class="label">{{ t('common.status') }}</label>
-              <label class="flex items-center gap-2.5 text-sm text-muted h-[42px]">
+              <!-- A field-height row like the other controls; ticked (active)
+                   takes the brand border and tint, as the checklists do. -->
+              <label
+                class="flex items-center gap-2.5 h-[42px] px-3 rounded-lg border text-sm transition-colors duration-150"
+                :class="[
+                  form.is_active ? 'border-brand bg-brand/5 text-fg dark:border-brand-200' : 'border-line bg-surface text-muted',
+                  editing?.is_system ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:bg-surface-2',
+                ]"
+              >
                 <input type="checkbox" v-model="form.is_active" :disabled="editing?.is_system"
                   class="rounded border-line text-brand focus:ring-brand/30 disabled:opacity-50" />
-                <span>{{ t('roles.is_active_hint') }}</span>
+                <span class="truncate">{{ t('roles.is_active_hint') }}</span>
               </label>
             </div>
           </div>

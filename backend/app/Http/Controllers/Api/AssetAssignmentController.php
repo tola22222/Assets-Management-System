@@ -10,8 +10,10 @@ use App\Models\Notification;
 use App\Models\Program;
 use App\Models\Staff;
 use App\Models\User;
+use App\Services\AssetStockService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class AssetAssignmentController extends Controller
 {
@@ -20,21 +22,28 @@ class AssetAssignmentController extends Controller
         $user = $request->user();
 
         // OPM, Finance (who create and edit assignments) and the ED see every
-        // assignment; staff see the ones made to them.
+        // assignment; staff see the ones made to them, plus those made to the
+        // program they coordinate.
         if (! $user->isStaff()) {
-            $assignments = AssetAssignment::with(['asset', 'location'])->latest()->get();
+            $assignments = AssetAssignment::with(['asset', 'location'])->latest()->latest('id')->get();
         } else {
-            $assignments = AssetAssignment::where('assigned_to_type', 'staff')
-                ->where('assigned_to_id', $user->staff_id)
+            $programIds = $user->ledProgramIds();
+            $assignments = AssetAssignment::where(function ($q) use ($user, $programIds) {
+                $q->where(fn ($s) => $s->where('assigned_to_type', 'staff')->where('assigned_to_id', $user->staff_id));
+                if ($programIds) {
+                    $q->orWhere(fn ($p) => $p->where('assigned_to_type', 'program')->whereIn('assigned_to_id', $programIds));
+                }
+            })
                 ->with(['asset', 'location'])
                 ->latest()
+                ->latest('id')
                 ->get();
         }
 
         return response()->json($assignments);
     }
 
-    public function store(Request $request)
+    public function store(Request $request, AssetStockService $stock)
     {
         $validated = $request->validate([
             'asset_id' => 'required|exists:assets,id',
@@ -61,7 +70,25 @@ class AssetAssignmentController extends Controller
         }
 
         $validated['status'] = 'assigned';
-        $assignment = AssetAssignment::create($validated);
+
+        // A location assigns only what it holds: the asset must be at the
+        // assignment's location (it gets there through a transfer).
+        $asset = Asset::with('location')->findOrFail($validated['asset_id']);
+        if ($asset->location_id !== null && (int) $asset->location_id !== (int) $validated['location_id']) {
+            return response()->json([
+                'message' => 'This asset is at '.($asset->location->name ?? 'another location').'. Transfer it to the location first, then assign it there.',
+                'errors' => ['location_id' => ['This asset is at '.($asset->location->name ?? 'another location').'.']],
+            ], 422);
+        }
+
+        // Same stock rule as a transfer: never more than that location has
+        // available of this model, checked under a lock in the same
+        // transaction as the insert.
+        $assignment = DB::transaction(function () use ($stock, $asset, $validated) {
+            $stock->assertAvailable($asset, $validated['quantity'], 'quantity', null, [(int) $validated['location_id']]);
+
+            return AssetAssignment::create($validated);
+        });
 
         ActivityLog::create([
             'user_id' => Auth::id(),
@@ -92,13 +119,22 @@ class AssetAssignmentController extends Controller
         return response()->json($assignment->fresh(['asset', 'location']), 201);
     }
 
-    public function update(Request $request, AssetAssignment $assetAssignment)
+    public function update(Request $request, AssetAssignment $assetAssignment, AssetStockService $stock)
     {
         $validated = $request->validate([
             'location_id' => 'required|exists:locations,id',
             'due_date' => 'nullable|date',
             'status' => 'required|in:assigned,active,returned',
         ]);
+
+        // An assignment is where its asset is; moving it is a transfer.
+        $at = $assetAssignment->asset?->location_id;
+        if ($at !== null && (int) $validated['location_id'] !== (int) $at && (int) $validated['location_id'] !== (int) $assetAssignment->location_id) {
+            return response()->json([
+                'message' => 'This asset is at '.($assetAssignment->asset->location->name ?? 'another location').'. Use a transfer to move it.',
+                'errors' => ['location_id' => ['Use a transfer to move this asset.']],
+            ], 422);
+        }
 
         // Re-opening a returned assignment must not give the asset two holders.
         if ($assetAssignment->status === 'returned' && $validated['status'] !== 'returned'
@@ -109,7 +145,16 @@ class AssetAssignmentController extends Controller
             return response()->json(['message' => 'This asset is already assigned to someone else, so this assignment cannot be re-opened.'], 422);
         }
 
-        $assetAssignment->update($validated);
+        DB::transaction(function () use ($stock, $assetAssignment, $validated) {
+            // Re-opening takes its units out of stock again, so they must
+            // still be there — the same check as a new assignment.
+            if ($assetAssignment->status === 'returned' && $validated['status'] !== 'returned' && $assetAssignment->asset) {
+                $at = $assetAssignment->asset->location_id;
+                $stock->assertAvailable($assetAssignment->asset, (int) $assetAssignment->quantity, 'status', $assetAssignment->id, $at !== null ? [(int) $at] : null);
+            }
+
+            $assetAssignment->update($validated);
+        });
 
         ActivityLog::create([
             'user_id' => Auth::id(),
@@ -165,7 +210,7 @@ class AssetAssignmentController extends Controller
     {
         $user = $request->user();
         $ownAssignment = $assetAssignment->assigned_to_type === 'staff' && (int) $assetAssignment->assigned_to_id === (int) $user->staff_id;
-        abort_unless($ownAssignment || $user->canAccessLocation($assetAssignment->asset?->location_id), 404);
+        abort_unless($ownAssignment || $user->canAccessAsset($assetAssignment->asset), 404);
 
         $history = AssetAssignment::where('asset_id', $assetAssignment->asset_id)
             ->with(['location'])

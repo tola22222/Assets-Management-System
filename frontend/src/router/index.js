@@ -5,7 +5,6 @@ import AssetsIndex from '../pages/assets/Index.vue'
 import AssetsImport from '../pages/assets/Import.vue'
 import CategoriesIndex from '../pages/categories/Index.vue'
 import LocationsIndex from '../pages/locations/Index.vue'
-import AssetAssignmentsIndex from '../pages/asset-assignments/Index.vue'
 import AssetTransfersIndex from '../pages/asset-transfers/Index.vue'
 import AssetVerificationsIndex from '../pages/asset-verifications/Index.vue'
 import AssetDisposalsIndex from '../pages/asset-disposals/Index.vue'
@@ -29,7 +28,10 @@ const routes = [
   { path: '/assets/import', name: 'assets-import', component: AssetsImport, meta: { requiresAuth: true, adminOnly: true } },
   { path: '/categories', name: 'categories', component: CategoriesIndex, meta: { requiresAuth: true } },
   { path: '/locations', name: 'locations', component: LocationsIndex, meta: { requiresAuth: true } },
-  { path: '/asset-assignments', name: 'asset-assignments', component: AssetAssignmentsIndex, meta: { requiresAuth: true } },
+  // There is no separate Assignment screen: assigning happens through a
+  // transfer that names a staff member or program. Old links and "assigned to
+  // you" notifications land on Transfers.
+  { path: '/asset-assignments', redirect: '/asset-transfers' },
   { path: '/asset-transfers', name: 'asset-transfers', component: AssetTransfersIndex, meta: { requiresAuth: true } },
   { path: '/asset-verifications', name: 'asset-verifications', component: AssetVerificationsIndex, meta: { requiresAuth: true } },
   { path: '/asset-disposals', name: 'asset-disposals', component: AssetDisposalsIndex, meta: { requiresAuth: true } },
@@ -37,9 +39,11 @@ const routes = [
   { path: '/programs', name: 'programs', component: ProgramsIndex, meta: { requiresAuth: true } },
   { path: '/staff', name: 'staff', component: StaffIndex, meta: { requiresAuth: true } },
   { path: '/suppliers', name: 'suppliers', component: SuppliersIndex, meta: { requiresAuth: true } },
-  { path: '/users', name: 'users', component: UsersIndex, meta: { requiresAuth: true, adminOnly: true } },
-  { path: '/settings', name: 'settings', component: SettingsIndex, meta: { requiresAuth: true, adminOnly: true } },
-  { path: '/activity-logs', name: 'activity-logs', component: ActivityLogsIndex, meta: { requiresAuth: true, adminOnly: true } },
+  { path: '/users', name: 'users', component: UsersIndex, meta: { requiresAuth: true, adminOnly: true, hrOnly: true } },
+  // Staff reach it too — their Settings page is the Appearance tab, applied to
+  // their own browser only.
+  { path: '/settings', name: 'settings', component: SettingsIndex, meta: { requiresAuth: true, adminOnly: true, staffToo: true } },
+  { path: '/activity-logs', name: 'activity-logs', component: ActivityLogsIndex, meta: { requiresAuth: true, adminOnly: true, hrOnly: true } },
   { path: '/reports', name: 'reports', component: ReportsIndex, meta: { requiresAuth: true, notStaff: true } },
   // :code is what a printed QR tag's public page links to (/app/qr-scan/PEY-SR-FAF-0928).
   { path: '/qr-scan/:code?', name: 'qr-scan', component: QrScanIndex, meta: { requiresAuth: true } },
@@ -85,9 +89,16 @@ router.beforeEach((to) => {
     return { name: 'dashboard' }
   }
 
-  if (to.meta.adminOnly) {
-    const user = JSON.parse(localStorage.getItem('user') || 'null')
-    if (user?.role !== 'operations_hr_manager') {
+  const signedIn = JSON.parse(localStorage.getItem('user') || 'null')
+  if (to.meta.adminOnly && !(to.meta.staffToo && signedIn?.role === 'staff')) {
+    const user = signedIn
+    // HR or the Accountant (same access; the Accountant's Settings page shows
+    // Appearance only).
+    if (!['operations_hr_manager', 'finance_manager'].includes(user?.role)) {
+      return { name: 'dashboard' }
+    }
+    // Administration pages the Accountant doesn't get (Users, Activity Logs).
+    if (to.meta.hrOnly && user?.role !== 'operations_hr_manager') {
       return { name: 'dashboard' }
     }
   }

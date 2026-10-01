@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, reactive } from 'vue'
+import { ref, computed, onMounted, reactive, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import http, { errorMessage } from '../../api/http'
 import AppLayout from '../../layouts/AppLayout.vue'
@@ -9,6 +9,7 @@ import DetailModal from '../../components/ui/DetailModal.vue'
 import ConfirmDialog from '../../components/ui/ConfirmDialog.vue'
 import TableSortIcon from '../../components/ui/TableSortIcon.vue'
 import LocationFilter from '../../components/ui/LocationFilter.vue'
+import SearchSelect from '../../components/ui/SearchSelect.vue'
 import { useApiCrud } from '../../composables/useApiCrud'
 import { useTableSearch } from '../../composables/useTableSearch'
 import { useTableFilter } from '../../composables/useTableFilter'
@@ -34,7 +35,7 @@ const { filters, filtered: filteredVerifications } = useTableFilter(searched, {
   location: (v, val) => String(v.location_id) === val,
 })
 const { sortKey, sortDir, toggleSort, sorted: sortedVerifications } = useTableSort(filteredVerifications, {
-  defaultKey: 'verified_at', defaultDir: 'desc',
+  defaultKey: 'created_at', defaultDir: 'desc',
   paths: { asset: 'asset.name', location: 'location.name', verified_by: 'verified_by.name' },
 })
 
@@ -43,9 +44,9 @@ const { sortKey, sortDir, toggleSort, sorted: sortedVerifications } = useTableSo
 const viewing = ref(null)
 const deletingId = ref(null)
 
-// destroy sits behind role:operations_hr_manager, so only OPM gets the button
+// destroy sits behind role:operations_hr_manager,finance_manager, so only HR / the Accountant get the button
 // at all; there is no status guard on the server side for this one.
-const canDelete = computed(() => auth.user?.role === 'operations_hr_manager')
+const canDelete = computed(() => ['operations_hr_manager', 'finance_manager'].includes(auth.user?.role))
 
 const viewRows = computed(() => {
   const v = viewing.value
@@ -78,6 +79,12 @@ const locations = ref([])
 const showModal = ref(false)
 const imageFile = ref(null)
 const form = reactive({ asset_id: '', location_id: '', quantity_verified: 1, condition: 'good', remark: '' })
+// An asset is verified where the register has it (moving it is a transfer),
+// so picking one fills in its location. The server refuses a mismatch.
+watch(() => form.asset_id, (id) => {
+  const at = assets.value.find((a) => String(a.id) === String(id))?.location_id
+  if (at) form.location_id = at
+})
 
 async function loadOptions() {
   try {
@@ -219,18 +226,14 @@ const { page, rowsPerPage, total, paged } = usePagination(sortedVerifications)
         <div class="modal-body space-y-4">
           <div class="form-group">
             <label class="label">{{ t('asset_verifications.asset_required') }}</label>
-            <select v-model="form.asset_id" required class="input">
-              <option value="">{{ t('common.select_asset') }}</option>
-              <option v-for="a in assets" :key="a.id" :value="a.id">{{ a.name }} ({{ a.asset_code }})</option>
-            </select>
+            <SearchSelect v-model="form.asset_id" required input-class="input" :placeholder="t('common.select_asset')"
+              :options="assets.map((a) => ({ value: a.id, label: a.name, sub: a.asset_code }))" />
           </div>
           <div class="grid grid-cols-2 gap-4">
             <div class="form-group">
               <label class="label">{{ t('asset_verifications.location_required') }}</label>
-              <select v-model="form.location_id" required class="input">
-                <option value="">{{ t('common.select_location') }}</option>
-                <option v-for="l in locations" :key="l.id" :value="l.id">{{ l.name }}</option>
-              </select>
+              <SearchSelect v-model="form.location_id" required input-class="input" :placeholder="t('common.select_location')"
+                :options="locations.map((l) => ({ value: l.id, label: l.name }))" />
             </div>
             <div class="form-group">
               <label class="label">{{ t('asset_verifications.quantity_verified_required') }}</label>

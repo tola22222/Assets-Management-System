@@ -8,6 +8,7 @@ import ConfirmDialog from '../../components/ui/ConfirmDialog.vue'
 import SearchInput from '../../components/ui/SearchInput.vue'
 import TableSortIcon from '../../components/ui/TableSortIcon.vue'
 import LocationFilter from '../../components/ui/LocationFilter.vue'
+import SearchSelect from '../../components/ui/SearchSelect.vue'
 import { useApiCrud } from '../../composables/useApiCrud'
 import { useTableSearch } from '../../composables/useTableSearch'
 import { useTableFilter } from '../../composables/useTableFilter'
@@ -24,15 +25,18 @@ const auth = useAuthStore()
 // Staff records are OPM-only to write. The restriction is enforced by
 // abort_unless() inside Api\StaffController (not by role: middleware in
 // api.php), so it is easy to miss when reading the route file alone.
-const isOpm = computed(() => auth.user?.role === 'operations_hr_manager')
+// HR or the Accountant (same access; see User::isAdministrator on the server).
+const isOpm = computed(() => ['operations_hr_manager', 'finance_manager'].includes(auth.user?.role))
 const { items: staffList, loading, fetchAll, destroy, destroyMany } = useApiCrud('/staff', { entityName: t('staff.entity') })
 const { search, filtered: searched } = useTableSearch(staffList, ['full_name', 'position', 'phone', 'email'])
-// Location filter (the drop-down beside search): the site a person works at,
-// applied after search and before sort.
+// Location filter (the drop-down beside search): anyone whose program covers
+// that school (or, before they have a program, whose old site it is).
 const { filters, filtered: filteredStaff } = useTableFilter(searched, {
-  location: (s, v) => String(s.location_id) === v,
+  location: (s, v) => (s.program?.locations?.length
+    ? s.program.locations.some((l) => String(l.id) === String(v))
+    : String(s.location_id) === v),
 })
-const { sortKey, sortDir, toggleSort, sorted: filtered } = useTableSort(filteredStaff, { defaultKey: 'full_name' })
+const { sortKey, sortDir, toggleSort, sorted: filtered } = useTableSort(filteredStaff, { defaultKey: 'created_at', defaultDir: 'desc' })
 const { selectedIds, allSelected, toggleSelectAll, toggleSelect, clearSelection } = useBulkSelect(filtered)
 const confirmingBulkDelete = ref(false)
 const toast = useToastStore()
@@ -44,16 +48,20 @@ const photoFile = ref(null)
 // The staff photo already on the record; shown while editing so it is clear a
 // person already has one.
 const existingPhoto = ref(null)
-const locations = ref([])
-const emptyForm = () => ({ full_name: '', email: '', phone: '', position: '', hire_date: '', status: 'active', location_id: '' })
+// A staff member belongs to ONE program, picked first; the schools they can
+// see and manage come from it — no school is picked for them directly.
+const programs = ref([])
+const emptyForm = () => ({ program_id: '', full_name: '', email: '', phone: '', position: '', hire_date: '', status: 'active' })
 const form = reactive(emptyForm())
+const chosenProgram = computed(() => programs.value.find((p) => String(p.id) === String(form.program_id)))
+const chosenSchools = computed(() => (chosenProgram.value?.locations || []).map((l) => l.name).join(', '))
 
-async function loadLocations() {
+async function loadPrograms() {
   try {
-    const { data } = await http.get('/locations')
-    locations.value = data
+    const { data } = await http.get('/programs')
+    programs.value = data
   } catch {
-    locations.value = []
+    programs.value = []
   }
 }
 
@@ -68,9 +76,9 @@ function openCreate() {
 function openEdit(staff) {
   editingId.value = staff.id
   Object.assign(form, {
+    program_id: staff.program_id || '',
     full_name: staff.full_name, email: staff.email || '', phone: staff.phone || '',
     position: staff.position || '', hire_date: staff.hire_date || '', status: staff.status || 'active',
-    location_id: staff.location_id || '',
   })
   photoFile.value = null
   existingPhoto.value = staff.photo_path_url || null
@@ -116,7 +124,7 @@ async function confirmBulkDelete() {
 
 onMounted(() => {
   fetchAll()
-  loadLocations()
+  loadPrograms()
 })
 
 // Pagination is the last step, applied to the finished list, so search
@@ -207,6 +215,14 @@ const { page, rowsPerPage, total, paged } = usePagination(filtered)
     <Modal v-if="showModal" :title="editingId ? t('staff.edit_title') : t('staff.create_title')" @close="showModal = false">
       <form class="modal-form" @submit.prevent="handleSubmit">
         <div class="modal-body space-y-4">
+          <!-- Program first: a staff member belongs to ONE program and can see
+               and manage every school linked to it. -->
+          <div class="form-group">
+            <label class="label">{{ t('staff.program') }} <span class="text-red-500">*</span></label>
+            <SearchSelect v-model="form.program_id" required input-class="input" :placeholder="t('staff.select_program')"
+              :options="programs.map((p) => ({ value: p.id, label: p.name }))" />
+            <p v-if="chosenSchools" class="text-xs text-muted mt-1">{{ t('staff.program_schools', { schools: chosenSchools }) }}</p>
+          </div>
           <div class="form-group">
             <label class="label">{{ t('staff.full_name') }}</label>
             <input v-model="form.full_name" required class="input" />
@@ -230,13 +246,6 @@ const { page, rowsPerPage, total, paged } = usePagination(filtered)
               <label class="label">{{ t('staff.hire_date') }}</label>
               <input v-model="form.hire_date" type="date" class="input" />
             </div>
-          </div>
-          <div class="form-group">
-            <label class="label">{{ t('staff.site') }}</label>
-            <select v-model="form.location_id" class="input">
-              <option value="">{{ t('common.select_location') }}</option>
-              <option v-for="l in locations" :key="l.id" :value="l.id">{{ l.name }}</option>
-            </select>
           </div>
           <div v-if="editingId" class="form-group">
             <label class="label">{{ t('staff.status_required') }}</label>

@@ -15,7 +15,7 @@ class UserController extends Controller
 {
     public function index()
     {
-        return response()->json(User::with(['staff', 'roles:id,name,slug,is_active'])->latest()->get());
+        return response()->json(User::with(['staff', 'roles:id,name,slug,is_active'])->latest()->latest('id')->get());
     }
 
     public function store(Request $request)

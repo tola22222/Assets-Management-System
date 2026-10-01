@@ -19,7 +19,7 @@ const auth = useAuthStore()
 const canManage = computed(() => ['operations_hr_manager', 'finance_manager'].includes(auth.user?.role))
 const { items: suppliers, loading, fetchAll, create, update, destroy, destroyMany } = useApiCrud('/suppliers', { entityName: t('suppliers.entity') })
 const { search, filtered: searched } = useTableSearch(suppliers, ['name', 'phone', 'address'])
-const { sortKey, sortDir, toggleSort, sorted: filtered } = useTableSort(searched, { defaultKey: 'name' })
+const { sortKey, sortDir, toggleSort, sorted: filtered } = useTableSort(searched, { defaultKey: 'created_at', defaultDir: 'desc' })
 const { selectedIds, allSelected, toggleSelectAll, toggleSelect, clearSelection } = useBulkSelect(filtered)
 const confirmingBulkDelete = ref(false)
 

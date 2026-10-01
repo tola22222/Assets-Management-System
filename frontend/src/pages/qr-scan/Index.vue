@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import http, { errorMessage } from '../../api/http'
 import AppLayout from '../../layouts/AppLayout.vue'
+import SearchSelect from '../../components/ui/SearchSelect.vue'
 import { useToastStore } from '../../stores/toast'
 
 const { t } = useI18n()
@@ -115,10 +116,8 @@ function reset() {
           <form @submit.prevent="submitVerification" class="space-y-4">
             <div class="form-group">
               <label class="label">{{ t('qr_scan.location_required') }}</label>
-              <select v-model="verifyForm.location_id" required class="input">
-                <option value="">{{ t('common.select_location') }}</option>
-                <option v-for="l in locations" :key="l.id" :value="l.id">{{ l.name }}</option>
-              </select>
+              <SearchSelect v-model="verifyForm.location_id" required input-class="input" :placeholder="t('common.select_location')"
+                :options="locations.map((l) => ({ value: l.id, label: l.name }))" />
             </div>
             <div class="form-group">
               <label class="label">{{ t('qr_scan.condition_required') }}</label>

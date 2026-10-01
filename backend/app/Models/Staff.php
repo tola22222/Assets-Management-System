@@ -15,6 +15,9 @@ class Staff extends Model
         'hire_date',
         'status',
         'location_id',
+        // The one program this person belongs to. It decides which schools
+        // they can see and manage (User::siteLocationIds()).
+        'program_id',
     ];
 
     protected $appends = ['photo_path_url'];
@@ -30,6 +33,12 @@ class Staff extends Model
     }
 
     /** The login account for this person, if they have one. */
+    /** The program this staff member belongs to (at most one). */
+    public function program()
+    {
+        return $this->belongsTo(Program::class);
+    }
+
     public function user()
     {
         return $this->hasOne(User::class, 'staff_id');

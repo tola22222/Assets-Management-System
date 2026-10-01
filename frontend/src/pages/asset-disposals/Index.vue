@@ -10,6 +10,7 @@ import ConfirmDialog from '../../components/ui/ConfirmDialog.vue'
 import SearchInput from '../../components/ui/SearchInput.vue'
 import TableSortIcon from '../../components/ui/TableSortIcon.vue'
 import LocationFilter from '../../components/ui/LocationFilter.vue'
+import SearchSelect from '../../components/ui/SearchSelect.vue'
 import { useApiCrud } from '../../composables/useApiCrud'
 import { useTableSearch } from '../../composables/useTableSearch'
 import { useTableFilter } from '../../composables/useTableFilter'
@@ -233,15 +234,12 @@ const { page, rowsPerPage, total, paged } = usePagination(sortedDisposals)
         <div class="modal-body space-y-4">
           <div class="form-group">
             <label class="label">{{ t('asset_disposals.asset_required') }}</label>
-            <select v-model="form.asset_id" required class="input">
-              <option value="">{{ t('common.select_asset') }}</option>
-              <option v-for="a in assets" :key="a.id" :value="a.id">{{ a.name }} ({{ a.asset_code }})</option>
-            </select>
+            <SearchSelect v-model="form.asset_id" required input-class="input" :placeholder="t('common.select_asset')"
+              :options="assets.map((a) => ({ value: a.id, label: a.name, sub: a.asset_code }))" />
           </div>
           <div class="form-group">
             <label class="label">{{ t('asset_disposals.recommended_action_required') }}</label>
             <select v-model="form.recommended_action" class="input">
-              <option value="repair">{{ t('asset_disposals.action_repair') }}</option>
               <option value="disposal">{{ t('asset_disposals.action_disposal') }}</option>
               <option value="replacement">{{ t('asset_disposals.action_replacement') }}</option>
             </select>

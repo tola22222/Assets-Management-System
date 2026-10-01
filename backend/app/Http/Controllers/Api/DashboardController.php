@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Models\Asset;
 use App\Models\AssetAssignment;
 use App\Models\AssetCategory;
-use App\Models\AssetScan;
 use App\Models\Location;
 use App\Models\Notification;
 use App\Models\User;
@@ -18,13 +17,10 @@ class DashboardController extends Controller
 {
     public function index(Request $request)
     {
-        $user = $request->user();
-
-        if ($user->isStaff()) {
-            return response()->json($this->staffDashboard($user));
-        }
-
-        return response()->json($this->adminDashboard($user));
+        // One dashboard for every role. Staff get the same layout as HR, with
+        // every figure counted over their own location only (Asset::visibleTo),
+        // so nothing from another site shows.
+        return response()->json($this->dashboard($request->user()));
     }
 
     /**
@@ -32,11 +28,10 @@ class DashboardController extends Controller
      * rather than a raw SQL date-format function, since the dev DB is
      * sqlite and production is MySQL and their date functions differ.
      * Empty buckets in range are pre-filled with 0 so the chart has no gaps.
+     * Staff see their own location's registrations only.
      */
     public function byPeriod(Request $request)
     {
-        abort_if($request->user()->isStaff(), 403);
-
         $period = in_array($request->query('period'), ['day', 'month', 'year'], true)
             ? $request->query('period')
             : 'month';
@@ -52,7 +47,8 @@ class DashboardController extends Controller
             $buckets[$cursor->format($format)] = 0;
         }
 
-        Asset::where('created_at', '>=', $since)
+        Asset::visibleTo($request->user())
+            ->where('created_at', '>=', $since)
             ->get(['created_at'])
             ->each(function ($asset) use (&$buckets, $format) {
                 $key = $asset->created_at->format($format);
@@ -69,13 +65,16 @@ class DashboardController extends Controller
 
     /**
      * Every figure here counts assets still on the register — a written-off
-     * (disposed) asset is no longer part of what PEPY holds or its value.
+     * (disposed) asset is no longer part of what PEPY holds or its value —
+     * and only the assets this user may see: all sites for OPM / Finance /
+     * the ED, their own location for staff (none until HR sets it).
      */
-    private function adminDashboard(User $user): array
+    private function dashboard(User $user): array
     {
-        $totalAssets = Asset::onRegister()->count();
+        $assets = fn () => Asset::onRegister()->visibleTo($user);
+        $totalAssets = $assets()->count();
 
-        $byCategory = Asset::onRegister()->select('category_id', DB::raw('count(*) as count'))
+        $byCategory = $assets()->select('category_id', DB::raw('count(*) as count'))
             ->with('category:id,name,short_name')
             ->groupBy('category_id')
             ->get()
@@ -87,7 +86,7 @@ class DashboardController extends Controller
             ->sortByDesc('count')
             ->values();
 
-        $byLocation = Asset::onRegister()->select('location_id', DB::raw('count(*) as total'))
+        $byLocation = $assets()->select('location_id', DB::raw('count(*) as total'))
             ->whereNotNull('location_id')
             ->with('location:id,name')
             ->groupBy('location_id')
@@ -112,86 +111,39 @@ class DashboardController extends Controller
                 ]);
             }
         };
-        $add(Asset::onRegister()->where('condition', 'lost'), 'lost', 'danger');
-        $add(Asset::onRegister()->where('condition', 'broken'), 'damaged', 'danger');
-        $add(Asset::whereNull('purchase_price')->where('status', 'active'), 'no price', 'warning');
-        $add(Asset::whereNull('purchase_date')->where('status', 'active'), 'no date', 'warning');
-        $add(Asset::whereNull('serial_number')->where('status', 'active'), 'no serial', 'info');
+        $add($assets()->where('condition', 'lost'), 'lost', 'danger');
+        $add($assets()->where('condition', 'broken'), 'damaged', 'danger');
+        $add($assets()->whereNull('purchase_price'), 'no price', 'warning');
+        $add($assets()->whereNull('purchase_date'), 'no date', 'warning');
+        $add($assets()->whereNull('serial_number'), 'no serial', 'info');
         $needsAttention = $needsAttention->unique('code')->take(6)->values();
 
-        $pricedCount = Asset::onRegister()->whereNotNull('purchase_price')->count();
+        $pricedCount = $assets()->whereNotNull('purchase_price')->count();
 
         return [
-            'total_locations' => Location::count(),
+            'total_locations' => $user->isSiteScoped()
+                ? count($user->siteLocationIds())
+                : Location::count(),
             'total_assets' => $totalAssets,
-            'total_categories' => AssetCategory::count(),
-            'recorded_value' => (float) Asset::onRegister()->sum('purchase_price'),
+            'total_categories' => $user->isSiteScoped()
+                ? AssetCategory::whereHas('assets', fn ($q) => $q->onRegister()->visibleTo($user))->count()
+                : AssetCategory::count(),
+            'recorded_value' => (float) $assets()->sum('purchase_price'),
             'priced_percentage' => $totalAssets > 0 ? round($pricedCount / $totalAssets * 100) : 0,
             'missing_price_count' => $totalAssets - $pricedCount,
-            'assets_in_use' => AssetAssignment::whereIn('status', AssetAssignment::CURRENT_STATUSES)->count(),
-            'assets_lost' => Asset::onRegister()->where('condition', 'lost')->count(),
+            'assets_in_use' => AssetAssignment::whereIn('status', AssetAssignment::CURRENT_STATUSES)
+                ->whereHas('asset', fn ($q) => $q->visibleTo($user))
+                ->count(),
+            'assets_lost' => $assets()->where('condition', 'lost')->count(),
             'assets_by_category' => $byCategory,
             'assets_by_location' => $byLocation,
             'needs_attention' => $needsAttention,
-            'recent_assets' => Asset::with('category')->latest()->take(5)->get(),
+            'recent_assets' => Asset::visibleTo($user)->with('category')->latest()->take(5)->get(),
             // The activity log is OPM-only everywhere else; so it is here.
             'recent_activity' => $user->isOperationsHrManager()
                 ? \App\Models\ActivityLog::with('user:id,name')->latest()->take(5)->get()
                 : [],
             'unread_notifications' => Notification::where('user_id', $user->id)->where('is_read', false)->count(),
         ];
-    }
-
-    private function staffDashboard($user): array
-    {
-        $myAssignments = AssetAssignment::where('assigned_to_type', 'staff')
-            ->where('assigned_to_id', $user->staff_id)
-            ->whereIn('status', AssetAssignment::CURRENT_STATUSES)
-            ->with('asset')
-            ->latest()
-            ->get();
-
-        return [
-            'my_assignments' => $myAssignments,
-            // Assets they hold that are due back within a week, or overdue.
-            'pending_returns' => $myAssignments
-                ->filter(fn (AssetAssignment $a) => $a->due_date !== null && Carbon::parse($a->due_date)->lte(now()->addDays(7)))
-                ->count(),
-            // Assets at their site not yet verified in the current count
-            // period (the manual's counts run from 1 Feb and 1 Aug).
-            'upcoming_verifications' => $this->unverifiedAtSite($user),
-            // Same {id, message, created_at} shape Dashboard.vue rendered back when
-            // scans were notification rows, now read from the scan log itself.
-            'recent_scans' => AssetScan::where('user_id', $user->id)->latest()->take(5)->get()
-                ->map(fn (AssetScan $scan) => [
-                    'id' => $scan->id,
-                    'message' => match ($scan->action) {
-                        AssetScan::ACTION_VERIFIED => 'Verified: ',
-                        AssetScan::ACTION_LOCATION_UPDATED => 'Location updated: ',
-                        default => 'QR scanned: ',
-                    }.$scan->asset_name.' ('.$scan->asset_code.')',
-                    'created_at' => $scan->created_at,
-                ]),
-        ];
-    }
-
-    private function unverifiedAtSite(User $user): int
-    {
-        $site = $user->siteLocationId();
-        if ($site === null) {
-            return 0;
-        }
-
-        $today = now();
-        $periodStart = $today->month >= 8
-            ? $today->copy()->setDate($today->year, 8, 1)->startOfDay()
-            : ($today->month >= 2
-                ? $today->copy()->setDate($today->year, 2, 1)->startOfDay()
-                : $today->copy()->setDate($today->year - 1, 8, 1)->startOfDay());
-
-        return Asset::onRegister()
-            ->where('location_id', $site)
-            ->whereDoesntHave('verifications', fn ($q) => $q->where('verified_at', '>=', $periodStart))
-            ->count();
     }
 }

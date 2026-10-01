@@ -37,7 +37,9 @@ async function handleLogout() {
   router.push({ name: 'login' })
 }
 
-const isAdmin = computed(() => auth.user?.role === 'operations_hr_manager')
+// HR or the Accountant — same asset/people sidebar. (Administration differs:
+// the Accountant sees Appearance only — see settingGroup.)
+const isAdmin = computed(() => ['operations_hr_manager', 'finance_manager'].includes(auth.user?.role))
 // Staff are the one role the API refuses every /reports endpoint to
 // (backend/routes/api.php: "Staff cannot pull reports"), so the link is hidden
 // rather than leading them to a page that can only 403.
@@ -70,64 +72,47 @@ const topLinks = computed(() => [
   { to: '/', label: t('nav.dashboard'), icon: I.home, exact: true },
 ])
 
-// Non-admin collapsible "My Assets" group (replaces the Asset Management
-// group) — same accordion mechanism as the admin groups below, not a
-// special-cased flat list.
-const myAssetsGroup = computed(() => ({
-  key: 'my-assets', title: t('nav.my_assets'), icon: I.clipboard,
+// Sidebar groups, in the order the work flows:
+//   1. Organization — who and where: schools, the programs that run at them,
+//      and the staff assigned to a program (Program → Schools → Staff).
+//   2. Assets — what you hold: set up categories, add assets,
+//      see the split across sites. Staff see it as "My Assets".
+//      Then what you do with them: transfer (and assign), verify.
+//   then Reports and Setting (rendered separately below).
+// Every role gets the same groups; canSee() drops what an account can't open.
+// /asset-disposals is deliberately not in the sidebar (hidden at the user's
+// request) — the page and the ED approval flow still work via notifications.
+const organizationGroup = computed(() => ({
+  key: 'organization', title: t('nav.people_programs'), icon: I.users,
   items: [
-    // Every role can open the register (staff see their own site only), but
-    // it sat only in the admin group — Finance, who edits assets, and the ED
-    // had no way to reach it.
-    { to: '/assets', label: t('nav.asset_register') },
-    { to: '/asset-assignments', label: t('nav.assignments') },
-    { to: '/asset-transfers', label: t('nav.transfer_requests') },
-    { to: '/asset-verifications', label: t('nav.verification') },
-    // Same reasoning as the disposals entry below: every role holds at least
-    // view/read on stock-items, but /stock sat only in the admin-only inventory
-    // group, so Finance/ED/Staff had no way to reach a page they can open.
-    // Receive/issue/delete stay OPM+Finance-only, enforced server side.
-    { to: '/stock', label: t('nav.stock') },
-    // The Executive Director is the ONLY role that can approve a disposal, but
-    // the disposals page lived solely in the admin-only inventory group — the
-    // sole approver had no way to reach the approval screen. The API's
-    // asset-disposals index is open to every authenticated role, so this is
-    // safe for Finance/Staff too (they see the list; approve/reject stays ED-only).
-    { to: '/asset-disposals', label: t('nav.disposals') },
-  ],
-}))
-
-const inventoryGroup = computed(() => ({
-  key: 'inventory', title: t('nav.asset_management'), icon: I.assets,
-  items: [
-    { to: '/assets', label: t('nav.asset_register') },
-    { to: '/stock', label: t('nav.stock') },
-    { to: '/asset-assignments', label: t('nav.assignments') },
-    { to: '/asset-transfers', label: t('nav.transfers') },
-    { to: '/asset-verifications', label: t('nav.verification') },
-    { to: '/asset-disposals', label: t('nav.disposals') },
-  ],
-}))
-const peopleGroup = computed(() => ({
-  key: 'people', title: t('nav.people_programs'), icon: I.users,
-  items: [
-    { to: '/staff', label: t('nav.staff_directory') },
-    { to: '/programs', label: t('nav.programs') },
-  ],
-}))
-const systemSetupGroup = computed(() => ({
-  key: 'asset-setup', title: t('nav.system_setup'), icon: I.setup,
-  items: [
-    { to: '/categories', label: t('nav.categories') },
     { to: '/locations', label: t('nav.locations') },
+    { to: '/programs', label: t('nav.programs') },
+    { to: '/staff', label: t('nav.staff_directory') },
     { to: '/suppliers', label: t('nav.suppliers') },
   ],
 }))
+
+const assetsGroup = computed(() => ({
+  key: 'inventory', title: isAdmin.value ? t('nav.asset_management') : t('nav.my_assets'),
+  icon: isAdmin.value ? I.assets : I.clipboard,
+  items: [
+    { to: '/categories', label: t('nav.categories') },
+    { to: '/assets', label: t('nav.asset_register') },
+    { to: '/stock', label: t('nav.stock') },
+    // Then what you do with them: transfer (and assign), verify.
+    { to: '/asset-transfers', label: t('nav.transfers') },
+    { to: '/asset-verifications', label: t('nav.verification') },
+  ],
+}))
+// Administration. The Accountant holds none of these permissions except
+// System Settings, which for them is only its Appearance tab — so their one
+// link is labelled "Appearance". Users / Activity Logs drop out via canSee().
+const isHr = computed(() => auth.user?.role === 'operations_hr_manager')
 const settingGroup = computed(() => ({
   key: 'setting', title: t('nav.setting'), icon: I.cog,
   items: [
     { to: '/users', label: t('nav.user_management') },
-    { to: '/settings', label: t('nav.system_settings') },
+    { to: '/settings', label: isHr.value ? t('nav.system_settings') : t('settings.tab_appearance') },
     { to: '/activity-logs', label: t('nav.activity_logs') },
   ],
 }))
@@ -155,21 +140,17 @@ function moduleFor(path) {
 }
 
 const mainGroups = computed(() =>
-  isAdmin.value
-    ? [inventoryGroup.value, peopleGroup.value, systemSetupGroup.value].map(visible).filter((g) => g.items.length)
-    : [myAssetsGroup.value, peopleGroup.value, systemSetupGroup.value].map(visible).filter((g) => g.items.length)
+  [organizationGroup.value, assetsGroup.value].map(visible).filter((g) => g.items.length)
 )
 
 function isActive(to) {
   return route.path === to || route.path.startsWith(to + '/')
 }
 
-// Single-open accordion that follows the active route. Mirrors mainGroups'
-// admin/non-admin split so inventoryGroup and myAssetsGroup — which share
-// several routes — never both map the same breadcrumb entry at once.
+// Single-open accordion that follows the active route; also the source of the
+// breadcrumb's section names. Each route sits in exactly one group.
 const allGroups = computed(() => [
-  ...(isAdmin.value ? [inventoryGroup.value] : [myAssetsGroup.value]),
-  peopleGroup.value, systemSetupGroup.value, settingGroup.value,
+  organizationGroup.value, assetsGroup.value, settingGroup.value,
 ])
 const activeGroupKey = computed(() => {
   for (const g of allGroups.value) {
@@ -196,7 +177,8 @@ const breadcrumbMap = computed(() => {
   add('/profile', t('nav.my_profile'))
   add('/notifications', t('nav.notifications'))
   add('/assets/import', t('import.title'), t('nav.asset_management'))
-
+  // No sidebar entry any more, but the page is still reachable — keep its name.
+  add('/asset-disposals', t('nav.disposals'), t('nav.asset_management'))
   allGroups.value.forEach((group) => {
     group.items.forEach((item) => add(item.to, item.label, group.title))
   })
@@ -301,7 +283,9 @@ function initials(name) {
 
           <!-- Pinned bottom: Setting group (admin) + logout -->
           <div class="px-3 py-3 border-t border-white/10 space-y-0.5">
-            <div v-if="isAdmin">
+            <!-- Administration: HR sees it all; the Accountant and Staff only
+                 get Appearance (canSee() filters the rest out). -->
+            <div v-if="isAdmin || isStaff">
               <button
                 class="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm text-white/70 border-l-[3px] border-solid border-transparent hover:bg-white/10 hover:text-white active:bg-white/20 active:scale-[0.98] transition-[background-color,color,transform,border-color] duration-150"
                 :class="openGroup === settingGroup.key ? 'bg-black/20 text-white' : ''"
@@ -327,7 +311,10 @@ function initials(name) {
               </div>
             </div>
 
-            <RouterLink v-if="!isAdmin" to="/profile" class="nav-link" active-class="nav-link-active" @click="mobileOpen = false">
+            <!-- Profile shortcut for roles without the Setting group (the ED).
+                 Staff have the group now, and everyone reaches Profile from
+                 the avatar in the header. -->
+            <RouterLink v-if="!isAdmin && !isStaff" to="/profile" class="nav-link" active-class="nav-link-active" @click="mobileOpen = false">
               <svg class="w-[18px] h-[18px] flex-shrink-0" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :d="I.cog" /></svg>
               <span class="truncate">{{ t('nav.setting') }}</span>
             </RouterLink>

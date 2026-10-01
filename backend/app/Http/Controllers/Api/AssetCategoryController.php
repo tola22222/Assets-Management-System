@@ -12,9 +12,21 @@ use Illuminate\Validation\Rule;
 
 class AssetCategoryController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        return response()->json(AssetCategory::withCount('assets')->orderBy('name')->get());
+        // Staff see only the categories of assets at their own site, counted
+        // at that site (none until HR sets their location); everyone else
+        // sees every category with its full count.
+        $user = $request->user();
+
+        return response()->json(
+            AssetCategory::withCount(['assets' => fn ($q) => $q->visibleTo($user)])
+                ->when($user->isSiteScoped(), fn ($q) => $q->whereHas('assets', fn ($a) => $a->visibleTo($user)))
+                // Newest first, like every list in the app.
+                ->latest()
+                ->latest('id')
+                ->get()
+        );
     }
 
     public function store(Request $request)

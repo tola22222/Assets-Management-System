@@ -311,9 +311,42 @@ class StockServiceTest extends TestCase
         $this->assertSame('SR', $row['code']);
     }
 
+    public function test_verifying_an_asset_lost_or_broken_removes_it_from_available_stock(): void
+    {
+        $opm = User::factory()->create(['role' => 'operations_hr_manager']);
+        $category = AssetCategory::create(['name' => 'Computer', 'short_name' => 'COM']);
+        $office = $this->location('SR');
+
+        $laptops = collect(range(1, 5))->map(fn ($i) => Asset::create([
+            'asset_code' => sprintf('PEY-SR-COM-%04d', $i), 'name' => 'Dell Laptop', 'category_id' => $category->id,
+            'location_id' => $office->id, 'status' => 'active', 'condition' => 'good',
+        ]));
+
+        $verify = fn (Asset $asset, string $condition) => $this->actingAs($opm)->postJson('/api/asset-verifications', [
+            'asset_id' => $asset->id, 'location_id' => $office->id, 'quantity_verified' => 1, 'condition' => $condition,
+        ])->assertCreated();
+
+        $verify($laptops[0], 'lost');
+        $verify($laptops[1], 'broken');
+
+        $site = collect($this->actingAs($opm)->getJson('/api/stock-items/by-location')->json())->firstWhere('location_id', $office->id);
+        $this->assertSame(3, $site['total']);
+
+        $model = collect($this->actingAs($opm)->getJson('/api/reports/by-model')->json())->firstWhere('name', 'Dell Laptop');
+        $this->assertSame(5, $model['total']);
+        $this->assertSame(2, $model['lost_broken']);
+        $this->assertSame(3, $model['available']);
+
+        // Found and repaired: verified good again, it is back in stock.
+        $verify($laptops[0], 'good');
+
+        $site = collect($this->actingAs($opm)->getJson('/api/stock-items/by-location')->json())->firstWhere('location_id', $office->id);
+        $this->assertSame(4, $site['total']);
+    }
+
     public function test_by_location_lists_every_site_including_ones_holding_nothing(): void
     {
-        $staff = User::factory()->create(['role' => 'staff']);
+        $staff = User::factory()->create(['role' => 'operations_hr_manager']);
 
         $response = $this->actingAs($staff)->getJson('/api/stock-items/by-location');
 
@@ -325,7 +358,7 @@ class StockServiceTest extends TestCase
 
     public function test_by_location_appends_an_unplaced_bucket_only_when_assets_have_no_site(): void
     {
-        $staff = User::factory()->create(['role' => 'staff']);
+        $staff = User::factory()->create(['role' => 'operations_hr_manager']);
         $category = AssetCategory::create(['name' => 'Computer', 'short_name' => 'COM']);
 
         $withoutSite = fn () => collect($this->actingAs($staff)->getJson('/api/stock-items/by-location')->json())
@@ -340,7 +373,7 @@ class StockServiceTest extends TestCase
 
     public function test_by_location_sorts_the_busiest_site_first(): void
     {
-        $staff = User::factory()->create(['role' => 'staff']);
+        $staff = User::factory()->create(['role' => 'operations_hr_manager']);
         $category = AssetCategory::create(['name' => 'Computer', 'short_name' => 'COM']);
         $busy = $this->location('KL');
 

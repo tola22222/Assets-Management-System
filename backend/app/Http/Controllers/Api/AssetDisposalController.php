@@ -20,10 +20,11 @@ class AssetDisposalController extends Controller
     {
         $user = $request->user();
 
-        // Staff see requests about assets at their own site only.
+        // Staff see requests about assets at their own site (Asset::visibleTo).
         $disposals = AssetDisposal::with(['asset', 'requester', 'reviewer'])
             ->when($user->isSiteScoped(), fn ($q) => $q->whereHas('asset', fn ($a) => $a->visibleTo($user)))
             ->latest()
+            ->latest('id')
             ->get()
             ->each(function (AssetDisposal $disposal) use ($user) {
                 // UX hints only — every action re-checks server-side.
@@ -48,7 +49,7 @@ class AssetDisposalController extends Controller
         $asset = Asset::findOrFail($validated['asset_id']);
 
         // Staff may only raise a request about something at their own site.
-        abort_unless($request->user()->canAccessLocation($asset->location_id), 403, 'You can only submit requests for assets at your own site.');
+        abort_unless($request->user()->canAccessAsset($asset), 403, 'You can only submit requests for assets at your own site.');
 
         if ($asset->status === 'disposed') {
             return response()->json(['message' => 'This asset has already been disposed.'], 422);
@@ -66,7 +67,7 @@ class AssetDisposalController extends Controller
         $disposal = AssetDisposal::create($validated);
 
         User::where(function ($q) {
-            $q->where('role', 'operations_hr_manager')->orWhere('role', 'executive_director');
+            $q->whereIn('role', ['operations_hr_manager', 'finance_manager', 'executive_director']);
         })->get()->each(function ($approver) use ($disposal) {
             Notification::create([
                 'user_id' => $approver->id,
@@ -109,7 +110,7 @@ class AssetDisposalController extends Controller
         // A write-off while the asset is mid-transfer would leave the
         // receiving site accepting something that no longer exists.
         if ($asset_disposal->recommended_action === 'disposal'
-            && AssetTransfer::where('asset_id', $asset_disposal->asset_id)->whereIn('status', AssetTransfer::OPEN_STATUSES)->exists()) {
+            && AssetTransfer::involvingAsset($asset_disposal->asset_id)->whereIn('status', AssetTransfer::OPEN_STATUSES)->exists()) {
             abort(422, 'This asset has an open transfer. It must be accepted or rejected before the asset can be disposed.');
         }
 
@@ -205,6 +206,7 @@ class AssetDisposalController extends Controller
 
     private function isOwnerOrOpm(User $user, AssetDisposal $disposal): bool
     {
-        return $user->isOperationsHrManager() || (int) $disposal->requested_by === (int) $user->id;
+        return $user->isAdministrator() || $user->hasCustomPermission('asset-disposals', 'delete')
+            || (int) $disposal->requested_by === (int) $user->id;
     }
 }

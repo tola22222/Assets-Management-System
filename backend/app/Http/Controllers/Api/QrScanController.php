@@ -61,7 +61,7 @@ class QrScanController extends Controller
         return response()->json([
             'asset' => $asset,
             'scan' => $scan,
-            'can_change_location' => $this->staffSiteId($user) === null,
+            'can_change_location' => ! $user->isSiteScoped(),
         ]);
     }
 
@@ -97,15 +97,15 @@ class QrScanController extends Controller
         $locationChanged = $previousLocationId !== $newLocationId;
         $previousCondition = $asset->condition;
 
-        // A site-scoped staff member can confirm an asset is at their own site,
-        // never send it somewhere else: moving an asset onto another site is
-        // what the transfer workflow exists for, and that needs the receiving
-        // site's own people to accept it.
-        $staffSiteId = $this->staffSiteId($user);
-        if ($staffSiteId !== null && $newLocationId !== $staffSiteId) {
+        // A staff member confirms an asset where it is — one of their
+        // program's schools — and never sends it somewhere else, not even to
+        // another of their program's schools: moving an asset is what the
+        // transfer workflow exists for, and that needs the receiving site's own
+        // people to accept it.
+        if ($user->isSiteScoped() && $newLocationId !== $previousLocationId) {
             return response()->json([
-                'message' => 'You can only verify assets at your own site. Ask the Operations & HR Manager to raise a transfer to move this asset.',
-                'errors' => ['location_id' => ['You can only verify assets at your own site. Ask the Operations & HR Manager to raise a transfer to move this asset.']],
+                'message' => 'Confirm the asset where it is now. Ask the Operations & HR Manager to raise a transfer to move it.',
+                'errors' => ['location_id' => ['Confirm the asset where it is now. Ask the Operations & HR Manager to raise a transfer to move it.']],
             ], 422);
         }
 
@@ -113,7 +113,7 @@ class QrScanController extends Controller
         // confirmReceipt() will overwrite location_id when the destination
         // accepts. Moving it underneath that request would leave the two
         // disagreeing about where the asset started.
-        if ($locationChanged && AssetTransfer::where('asset_id', $asset->id)->whereIn('status', ['pending_approval', 'pending'])->exists()) {
+        if ($locationChanged && AssetTransfer::involvingAsset($asset->id)->whereIn('status', ['pending_approval', 'pending'])->exists()) {
             return response()->json([
                 'message' => 'This asset has a transfer in progress. Its location will update when the receiving site accepts it.',
                 'errors' => ['location_id' => ['This asset has a transfer in progress. Its location will update when the receiving site accepts it.']],
@@ -192,20 +192,15 @@ class QrScanController extends Controller
         ], $extra));
     }
 
-    /** The site a staff-role user is restricted to, or null when nothing restricts them. */
-    private function staffSiteId(User $user): ?int
-    {
-        return $user->isSiteScoped() ? $user->siteLocationId() : null;
-    }
-
     /**
-     * Staff are scoped to their own site once one is assigned. `staff.location_id` is
-     * nullable and unpopulated for most existing staff, so this fails OPEN (no
-     * restriction) rather than closed when it's unset — see User::canAccessLocation().
+     * Staff with a site set may only scan and verify the assets given to them
+     * (User::canAccessAsset()). `staff.location_id` is nullable and unpopulated
+     * for most existing staff, so this fails OPEN (no restriction) rather than
+     * closed when it's unset.
      */
     private function outsideStaffSite(User $user, Asset $asset): bool
     {
-        return ! $user->canAccessLocation($asset->location_id);
+        return ! $user->canAccessAsset($asset);
     }
 
     private function reportDamage(Asset $asset, User $reporter, string $condition, ?string $remark): void

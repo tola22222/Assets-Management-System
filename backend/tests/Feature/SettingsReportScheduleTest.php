@@ -67,10 +67,16 @@ class SettingsReportScheduleTest extends TestCase
     {
         Setting::create(['key' => 'last_scheduled_report_at', 'value' => '2026-08-15 07:46:04']);
 
-        foreach (['staff', 'finance_manager', 'executive_director'] as $role) {
+        foreach (['staff', 'executive_director'] as $role) {
             $this->actingAs(User::factory()->create(['role' => $role]))
                 ->getJson('/api/settings')
                 ->assertStatus(403);
         }
+
+        // The Accountant gets the Appearance part only — no report schedule.
+        $this->actingAs(User::factory()->create(['role' => 'finance_manager']))
+            ->getJson('/api/settings')->assertOk()
+            ->assertJsonMissingPath('next_report_due')
+            ->assertJsonMissingPath('last_scheduled_report_at');
     }
 }

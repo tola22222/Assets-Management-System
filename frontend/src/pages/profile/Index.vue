@@ -44,26 +44,6 @@ async function saveProfile() {
   }
 }
 
-const receiveReports = ref(auth.user?.receive_reports ?? true)
-const savingPreferences = ref(false)
-
-async function savePreferences() {
-  savingPreferences.value = true
-  try {
-    const fd = new FormData()
-    fd.append('name', auth.user?.name || '')
-    fd.append('phone', auth.user?.phone || '')
-    fd.append('receive_reports', receiveReports.value ? '1' : '0')
-    const { data } = await http.post('/profile', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
-    auth.setUser(data)
-    toast.success(t('profile.preference_saved'))
-  } catch (e) {
-    toast.error(errorMessage(e, t('profile.preference_save_failed')))
-  } finally {
-    savingPreferences.value = false
-  }
-}
-
 const passwordForm = reactive({ current_password: '', password: '', password_confirmation: '' })
 const savingPassword = ref(false)
 
@@ -126,26 +106,6 @@ async function changePassword() {
           {{ savingProfile ? t('profile.saving') : t('profile.save_changes') }}
         </button>
       </form>
-
-      <!-- Theme and language pickers were removed from here; light/dark lives in
-           the header toggle. The card now carries only the staff report opt-in,
-           so it renders for staff alone rather than as an empty heading. -->
-      <div v-if="auth.user?.role === 'staff'" class="card p-6 space-y-5">
-        <h2 class="font-bold text-fg">{{ t('profile.preferences') }}</h2>
-
-        <form @submit.prevent="savePreferences" class="space-y-3">
-          <label class="flex items-start gap-2.5 text-sm text-muted select-none cursor-pointer">
-            <input type="checkbox" v-model="receiveReports" class="mt-0.5 rounded border-line text-brand focus:ring-brand/30" />
-            <span>
-              {{ t('profile.receive_reports') }}
-              <span class="block text-xs text-faint mt-0.5">{{ t('profile.receive_reports_hint') }}</span>
-            </span>
-          </label>
-          <button type="submit" :disabled="savingPreferences" class="btn-primary btn-sm">
-            {{ savingPreferences ? t('profile.saving') : t('profile.save_preference') }}
-          </button>
-        </form>
-      </div>
 
       <form @submit.prevent="changePassword" class="card p-6 space-y-5">
         <h2 class="font-bold text-fg">{{ t('profile.change_password') }}</h2>

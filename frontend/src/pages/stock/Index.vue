@@ -6,16 +6,71 @@ import AppLayout from '../../layouts/AppLayout.vue'
 import Modal from '../../components/ui/Modal.vue'
 import SearchInput from '../../components/ui/SearchInput.vue'
 import LocationFilter from '../../components/ui/LocationFilter.vue'
-import TableSortIcon from '../../components/ui/TableSortIcon.vue'
 import { useTableSearch } from '../../composables/useTableSearch'
 import { useTableSort } from '../../composables/useTableSort'
 import { useTableFilter } from '../../composables/useTableFilter'
 import TablePagination from '../../components/ui/TablePagination.vue'
 import { usePagination } from '../../composables/usePagination'
+import StatusBadge from '../../components/ui/StatusBadge.vue'
+import { useAuthStore } from '../../stores/auth'
 
 // Read-only register: stock rows are recorded through the Asset create/import
 // flow, so this page only views them — no issue or delete actions.
 const { t } = useI18n()
+const auth = useAuthStore()
+// HR and the Accountant see how stock moved through transfers.
+const isAdmin = computed(() => ['operations_hr_manager', 'finance_manager'].includes(auth.user?.role))
+
+// ---- Transfer history ------------------------------------------------------
+// Every transfer that took assets out of stock or brought them back, in the
+// order the flow runs: HR sends ticked asset codes → the receiver accepts all
+// or some of them (or rejects) → HR returns them, which puts them back in
+// stock. Read from /asset-transfers, which already carries each transfer's
+// codes and each code's outcome.
+const history = ref([])
+const historyLoading = ref(false)
+
+async function loadHistory() {
+  historyLoading.value = true
+  try {
+    const { data } = await http.get('/asset-transfers')
+    history.value = data.map((r) => {
+      const units = r.units?.length ? r.units : (r.asset ? [r.asset] : [])
+      const accepted = units.filter((u) => u.pivot?.status === 'accepted').length
+      const declined = units.filter((u) => u.pivot?.status === 'declined').length
+      const isReturn = !!r.parent_transfer_id
+      const status = r.status === 'received' ? (isReturn || r.return_transfer ? 'returned' : 'accepted') : r.status
+      return {
+        ...r,
+        units,
+        isReturn,
+        historyStatus: status,
+        sent: r.quantity || units.length || 1,
+        accepted,
+        declined,
+        date: (r.received_at || r.transfer_date || r.created_at || '').slice(0, 10),
+      }
+    })
+  } catch {
+    history.value = []
+  } finally {
+    historyLoading.value = false
+  }
+}
+
+const { search: historySearch, filtered: historySearched } = useTableSearch(history, [
+  (r) => r.asset?.name, (r) => r.asset?.asset_code, 'recipient_name',
+  (r) => r.from_location?.name, (r) => r.to_location?.name,
+  (r) => r.units.map((u) => u.asset_code).join(' '),
+  (r) => r.requester?.name,
+])
+// Newest transfer first (by when it was created), like every list in the app.
+const historySorted = computed(() => [...historySearched.value].sort((a, b) => (b.created_at || '').localeCompare(a.created_at || '') || b.id - a.id))
+const { page: historyPage, rowsPerPage: historyRows, total: historyTotal, paged: historyPaged } = usePagination(historySorted)
+
+// The asset codes on one transfer, and what happened to each.
+const historyViewing = ref(null)
+const codeState = (u) => (u.pivot?.status === 'declined' ? 'declined' : u.pivot?.status === 'accepted' ? 'accepted' : null)
 
 const items = ref([])
 const locationStats = ref([])
@@ -45,23 +100,18 @@ const { filters, filtered: visibleSites } = useTableFilter(searchedSites, {
 })
 const totalAssets = computed(() => visibleSites.value.reduce((sum, l) => sum + l.total, 0))
 
-// ---- Consumables table ----------------------------------------------------
-// Status is computed server-side per item, but sorting it "LOW first" needs
-// a numeric rank — alphabetical ('high' < 'low' < 'normal') would put High first.
+// ---- Consumables (CSV export only) ----------------------------------------
+// The consumables table was removed from this page; the header's Export CSV
+// still downloads the list, LOW first. Status is computed server-side per
+// item, but sorting it "LOW first" needs a numeric rank — alphabetical
+// ('high' < 'low' < 'normal') would put High first.
 const STATUS_RANK = { low: 0, normal: 1, high: 2 }
 const rankedItems = computed(() => items.value.map((i) => ({ ...i, status_rank: STATUS_RANK[i.status] ?? 1 })))
 
-const { sortKey, sortDir, toggleSort, sorted: visible } = useTableSort(rankedItems, {
+const { sorted: visible } = useTableSort(rankedItems, {
   defaultKey: 'status_rank', defaultDir: 'asc',
   paths: { location: 'location.name', balance: 'balance', threshold: 'min_threshold', updated: 'updated_at' },
 })
-
-// ---- Detail / transaction history ---------------------------------------
-const viewing = ref(null)
-async function openDetail(item) {
-  const { data } = await http.get(`/stock-items/${item.id}`)
-  viewing.value = data
-}
 
 // ---- CSV export -----------------------------------------------------------
 function exportCsv() {
@@ -89,30 +139,11 @@ function exportCsv() {
   URL.revokeObjectURL(url)
 }
 
-function formatDate(v) {
-  return v ? new Date(v).toLocaleString() : '—'
-}
-// The grid shows just the day, so the column stays narrow enough for the table
-// to fit its card; the full timestamp is kept in the cell's tooltip.
-function formatDay(v) {
-  return v ? new Date(v).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : '—'
-}
-// Quantities are stored as decimals (3.50), but most units are counted whole —
-// show "3.5" and "2" rather than "3.50" and "2.00".
-function formatQty(v) {
-  if (v === null || v === undefined || v === '') return '—'
-  const n = Number(v)
-  return Number.isFinite(n) ? n.toLocaleString(undefined, { maximumFractionDigits: 2 }) : v
-}
-
 onMounted(() => {
   fetchAll()
   loadLocationStats()
+  if (isAdmin.value) loadHistory()
 })
-
-// Pagination is the last step, applied to the finished list, so search
-// and sort still consider every row rather than just the page on screen.
-const { page, rowsPerPage, total, paged } = usePagination(visible)
 </script>
 
 <template>
@@ -178,66 +209,16 @@ const { page, rowsPerPage, total, paged } = usePagination(visible)
         <p v-else class="text-sm text-faint">{{ locationStats.length ? t('stock.no_sites_match') : t('stock.no_locations') }}</p>
       </div>
 
-      <!-- Grid -->
-      <div class="card p-6 sm:p-8">
-
-        <div class="overflow-x-auto">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>{{ t('stock.stock_id') }}</th>
-                <th class="th-sort" @click="toggleSort('name')">{{ t('stock.item_name') }}<TableSortIcon :active="sortKey === 'name'" :direction="sortDir" /></th>
-                <th>{{ t('stock.category') }}</th>
-                <th class="th-sort" @click="toggleSort('location')">{{ t('common.location') }}<TableSortIcon :active="sortKey === 'location'" :direction="sortDir" /></th>
-                <th class="th-sort text-right" @click="toggleSort('balance')">{{ t('stock.balance') }}<TableSortIcon :active="sortKey === 'balance'" :direction="sortDir" /></th>
-                <th>{{ t('stock.unit') }}</th>
-                <th class="th-sort text-center" @click="toggleSort('status_rank')">{{ t('common.status') }}<TableSortIcon :active="sortKey === 'status_rank'" :direction="sortDir" /></th>
-                <th class="th-sort text-right" @click="toggleSort('threshold')">{{ t('stock.min_threshold') }}<TableSortIcon :active="sortKey === 'threshold'" :direction="sortDir" /></th>
-                <th class="th-sort" @click="toggleSort('updated')">{{ t('stock.last_transaction') }}<TableSortIcon :active="sortKey === 'updated'" :direction="sortDir" /></th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="i in paged" :key="i.id" class="cursor-pointer" @click="openDetail(i)">
-                <td class="whitespace-nowrap"><span class="id-chip">{{ i.stock_code }}</span></td>
-                <td class="font-medium text-fg min-w-[9rem]">{{ i.name }}</td>
-                <td class="whitespace-nowrap"><span class="tag">{{ i.category || '—' }}</span></td>
-                <td class="text-muted whitespace-nowrap">{{ i.location?.name || '—' }}</td>
-                <td class="font-medium text-fg text-right">{{ formatQty(i.balance) }}</td>
-                <td class="text-muted whitespace-nowrap">{{ i.unit }}</td>
-                <td class="text-center">
-                  <span class="badge" :class="{ 'badge-danger': i.status === 'low', 'badge-success': i.status === 'normal', 'badge-warning': i.status === 'high' }">
-                    {{ t(`stock.${i.status}`) }}
-                  </span>
-                </td>
-                <td class="text-right text-muted">{{ formatQty(i.min_threshold) }}</td>
-                <td class="text-muted whitespace-nowrap" :title="formatDate(i.updated_at)">{{ formatDay(i.updated_at) }}</td>
-              </tr>
-              <tr v-if="!loading && !visible.length">
-                <td colspan="9" class="py-10 text-center text-faint">
-                  {{ t('stock.empty') }}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <TablePagination v-model:page="page" v-model:rows-per-page="rowsPerPage" :count="total" />
-      </div>
-    </div>
-
-    <!-- Detail / transaction history -->
-    <Modal v-if="viewing" :title="t('stock.transaction_history')" wide @close="viewing = null">
-      <div class="modal-body space-y-6">
-        <div class="flex items-start justify-between gap-4">
+      <!-- Transfer history (HR / Accountant): stock going out on transfers
+           and coming back on returns, newest first. -->
+      <div v-if="isAdmin" class="card p-6 sm:p-8">
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
           <div>
-            <h4 class="text-xl font-bold text-fg">{{ viewing.name }}</h4>
-            <div class="mt-1.5 flex items-center gap-2">
-              <span class="id-chip">{{ viewing.stock_code }}</span>
-              <span class="badge" :class="{ 'badge-danger': viewing.status === 'low', 'badge-success': viewing.status === 'normal', 'badge-warning': viewing.status === 'high' }">{{ t(`stock.${viewing.status}`) }}</span>
-            </div>
+            <h3 class="font-display text-base font-bold text-fg">{{ t('stock.transfer_history') }}</h3>
+            <p class="text-xs text-faint mt-0.5">{{ t('stock.transfer_history_hint') }}</p>
           </div>
-          <div class="text-right flex-shrink-0">
-            <p class="font-display text-2xl font-bold text-fg">{{ formatQty(viewing.balance) }} {{ viewing.unit }}</p>
-            <p class="text-xs text-faint">{{ viewing.location?.name }}</p>
+          <div class="w-full sm:w-72">
+            <SearchInput v-model="historySearch" :placeholder="t('common.search')" />
           </div>
         </div>
 
@@ -246,28 +227,70 @@ const { page, rowsPerPage, total, paged } = usePagination(visible)
             <thead>
               <tr>
                 <th>{{ t('common.date') }}</th>
-                <th>{{ t('stock.type') }}</th>
-                <th class="text-right">{{ t('common.quantity') }}</th>
-                <th>{{ t('stock.source_reason') }}</th>
-                <th>{{ t('stock.recorded_by') }}</th>
+                <th>{{ t('stock.movement') }}</th>
+                <th>{{ t('common.asset') }}</th>
+                <th class="text-right">{{ t('stock.history_qty') }}</th>
+                <th>{{ t('stock.history_route') }}</th>
+                <th>{{ t('assets.assigned_to') }}</th>
+                <th>{{ t('common.status') }}</th>
+                <th class="text-right">{{ t('common.actions') }}</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="tx in viewing.transactions" :key="tx.id">
-                <td>{{ tx.transaction_date }}</td>
-                <td><span class="badge" :class="tx.type === 'in' ? 'badge-success' : 'badge-info'">{{ tx.type === 'in' ? t('stock.stock_in') : t('stock.stock_out') }}</span></td>
-                <td class="text-right font-medium" :class="tx.type === 'in' ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'">
-                  {{ tx.type === 'in' ? '+' : '-' }}{{ formatQty(tx.quantity) }}
+              <tr v-for="r in historyPaged" :key="r.id">
+                <td class="whitespace-nowrap text-muted">{{ r.date || '—' }}</td>
+                <td>
+                  <span class="badge" :class="r.isReturn ? 'badge-success' : 'badge-info'">
+                    {{ r.isReturn ? t('stock.movement_in') : t('stock.movement_out') }}
+                  </span>
                 </td>
-                <td>{{ tx.reason || '—' }}</td>
-                <td>{{ tx.recorded_by?.name || '—' }}</td>
+                <td class="font-medium text-fg">{{ r.asset?.name || '—' }}</td>
+                <td class="text-right whitespace-nowrap">
+                  <!-- Accepted of sent, when the receiver left some codes out. -->
+                  <template v-if="r.declined">{{ t('stock.accepted_of', { n: r.accepted, total: r.sent }) }}</template>
+                  <template v-else>{{ r.isReturn ? '+' : '−' }}{{ r.sent }}</template>
+                </td>
+                <td class="whitespace-nowrap text-muted">{{ r.from_location?.name || '—' }} → {{ r.to_location?.name || '—' }}</td>
+                <td>{{ r.recipient_name || '—' }}</td>
+                <td><StatusBadge :status="r.historyStatus" /></td>
+                <td class="text-right">
+                  <button @click="historyViewing = r" :title="t('asset_transfers.asset_codes')" :aria-label="t('asset_transfers.asset_codes')" class="btn-icon-view">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
+                  </button>
+                </td>
               </tr>
-              <tr v-if="!viewing.transactions?.length">
-                <td colspan="5" class="py-8 text-center text-faint">{{ t('stock.no_transactions') }}</td>
+              <tr v-if="!historyLoading && !historySorted.length">
+                <td colspan="8" class="py-10 text-center text-faint">{{ t('stock.no_transfer_history') }}</td>
               </tr>
             </tbody>
           </table>
         </div>
+        <TablePagination v-model:page="historyPage" v-model:rows-per-page="historyRows" :count="historyTotal" />
+      </div>
+
+    </div>
+
+    <!-- One transfer's asset codes, and what happened to each. -->
+    <Modal v-if="historyViewing" :title="t('asset_transfers.asset_codes')" @close="historyViewing = null">
+      <div class="modal-body space-y-4">
+        <div class="rounded-xl border border-line bg-surface-2 px-3.5 py-3 text-sm">
+          <div class="flex items-center justify-between gap-2">
+            <p class="font-semibold text-fg">{{ historyViewing.asset?.name }} × {{ historyViewing.sent }}</p>
+            <StatusBadge :status="historyViewing.historyStatus" />
+          </div>
+          <p class="text-muted text-[13px] mt-0.5">
+            {{ historyViewing.date }} · {{ historyViewing.from_location?.name }} → {{ historyViewing.to_location?.name }}<template v-if="historyViewing.recipient_name"> · {{ historyViewing.recipient_name }}</template><template v-if="historyViewing.requester?.name"> · {{ t('asset_transfers.requester') }}: {{ historyViewing.requester.name }}</template>
+          </p>
+          <p v-if="historyViewing.rejection_reason" class="text-[13px] text-muted mt-1">{{ historyViewing.rejection_reason }}</p>
+        </div>
+        <ul class="divide-y divide-line rounded-xl border border-line max-h-72 overflow-y-auto">
+          <li v-for="u in historyViewing.units" :key="u.id" class="flex items-center justify-between gap-3 px-3.5 py-2 text-sm">
+            <span class="font-mono text-[13px] text-fg">{{ u.asset_code }}</span>
+            <span v-if="codeState(u) === 'declined'" class="badge badge-danger">{{ t('asset_transfers.not_accepted') }}</span>
+            <span v-else-if="codeState(u) === 'accepted'" class="badge badge-success">{{ t('status.accepted') }}</span>
+            <span v-else class="text-xs text-faint">—</span>
+          </li>
+        </ul>
       </div>
     </Modal>
 

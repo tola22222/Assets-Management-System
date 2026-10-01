@@ -92,11 +92,11 @@ class RolePermissionMatrixTest extends TestCase
         }
     }
 
-    public function test_no_role_other_than_opm_can_delete_an_asset(): void
+    public function test_only_hr_or_the_accountant_can_delete_an_asset(): void
     {
         $asset = $this->makeAsset();
 
-        foreach (['staff', 'finance_manager', 'executive_director'] as $role) {
+        foreach (['staff', 'executive_director'] as $role) {
             $user = User::factory()->create(['role' => $role]);
             $response = $this->actingAs($user)->deleteJson("/api/assets/{$asset->id}");
             $response->assertStatus(403);
@@ -126,7 +126,40 @@ class RolePermissionMatrixTest extends TestCase
         }
     }
 
-    public function test_finance_manager_cannot_manage_locations(): void
+    public function test_the_accountants_administration_is_appearance_only(): void
+    {
+        $accountant = User::factory()->create(['role' => 'finance_manager']);
+
+        // Of the Administration modules, only System Settings (Appearance).
+        $modules = array_keys($this->actingAs($accountant)->getJson('/api/me/permissions')->json('permissions'));
+        $this->assertContains('settings', $modules);
+        foreach (['users', 'roles', 'activity-logs'] as $module) {
+            $this->assertNotContains($module, $modules);
+        }
+
+        $this->actingAs($accountant)->getJson('/api/users')->assertForbidden();
+        $this->actingAs($accountant)->getJson('/api/roles')->assertForbidden();
+        $this->actingAs($accountant)->getJson('/api/activity-logs')->assertForbidden();
+        $this->actingAs($accountant)->getJson('/api/dashboard')->assertJsonPath('recent_activity', []);
+        $this->assertArrayNotHasKey('users', $this->actingAs($accountant)->getJson('/api/search?q=ab')->json());
+
+        $this->actingAs($accountant)->getJson('/api/settings')->assertOk();
+    }
+
+    public function test_staff_see_appearance_but_cannot_change_organisation_settings(): void
+    {
+        $staff = User::factory()->create(['role' => 'staff']);
+
+        // The link shows (settings view) …
+        $this->assertContains('settings', array_keys($this->actingAs($staff)->getJson('/api/me/permissions')->json('permissions')));
+
+        // … but their Appearance is browser-only: the org-wide settings API stays closed.
+        $this->actingAs($staff)->getJson('/api/settings')->assertForbidden();
+        $this->actingAs($staff)->postJson('/api/settings', ['theme_color' => '#000000', 'locale' => 'km'])->assertForbidden();
+        $this->assertDatabaseMissing('settings', ['key' => 'locale', 'value' => 'km']);
+    }
+
+    public function test_the_accountant_can_manage_locations_like_hr(): void
     {
         $finance = User::factory()->create(['role' => 'finance_manager']);
 
@@ -136,7 +169,7 @@ class RolePermissionMatrixTest extends TestCase
             'type' => 'office',
         ]);
 
-        $response->assertStatus(403);
+        $response->assertStatus(201);
     }
 
     public function test_executive_director_cannot_manage_users(): void
@@ -166,7 +199,7 @@ class RolePermissionMatrixTest extends TestCase
         $this->actingAs($finance)->postJson("/api/asset-disposals/{$disposal->id}/approve")->assertStatus(403);
     }
 
-    public function test_only_opm_can_approve_or_reject_a_transfer(): void
+    public function test_only_hr_the_accountant_or_ed_can_approve_or_reject_a_transfer(): void
     {
         $asset = $this->makeAsset();
         $otherLocation = Location::where('code', '!=', 'SR')->firstOrFail();
@@ -182,17 +215,15 @@ class RolePermissionMatrixTest extends TestCase
         ]);
         $this->makeReceivable($otherLocation);
 
-        // OPM and the Executive Director release requests (route
-        // role:operations_hr_manager,executive_director — the ED's own path is
-        // covered in AssetTransferReceiptTest); nobody else may.
-        foreach (['staff', 'finance_manager'] as $role) {
+        // HR, the Accountant and the ED release requests; staff may not.
+        foreach (['staff'] as $role) {
             $user = User::factory()->create(['role' => $role]);
             $this->actingAs($user)->postJson("/api/asset-transfers/{$transfer->id}/approve")->assertStatus(403);
             $this->actingAs($user)->postJson("/api/asset-transfers/{$transfer->id}/reject")->assertStatus(403);
         }
         $this->assertDatabaseHas('asset_transfers', ['id' => $transfer->id, 'status' => 'pending_approval']);
 
-        $opm = User::factory()->create(['role' => 'operations_hr_manager']);
+        $opm = User::factory()->create(['role' => 'finance_manager']);
         $this->actingAs($opm)->postJson("/api/asset-transfers/{$transfer->id}/approve")->assertStatus(200);
         // Approval only hands the request to the destination; the asset does
         // not move until that site accepts it.
@@ -226,14 +257,32 @@ class RolePermissionMatrixTest extends TestCase
         $this->assertSame($asset->location_id, $asset->fresh()->location_id, 'Sending must not move the asset.');
     }
 
-    public function test_a_non_opm_request_still_waits_on_approval(): void
+    public function test_the_default_staff_role_cannot_create_a_transfer(): void
     {
         $asset = $this->makeAsset();
         $otherLocation = Location::where('code', '!=', 'SR')->firstOrFail();
         $this->makeReceivable($otherLocation);
         $staff = User::factory()->create(['role' => 'staff']);
 
-        $response = $this->actingAs($staff)->postJson('/api/asset-transfers', [
+        $this->actingAs($staff)->postJson('/api/asset-transfers', [
+            'asset_id' => $asset->id,
+            'from_location_id' => $asset->location_id,
+            'to_location_id' => $otherLocation->id,
+            'transfer_date' => now()->toDateString(),
+        ])->assertForbidden();
+
+        $this->assertDatabaseCount('asset_transfers', 0);
+        $this->assertNotContains('create', \App\Services\PermissionRegistry::BASELINE['staff']['asset-transfers']);
+    }
+
+    public function test_a_non_opm_request_still_waits_on_approval(): void
+    {
+        $asset = $this->makeAsset();
+        $otherLocation = Location::where('code', '!=', 'SR')->firstOrFail();
+        $this->makeReceivable($otherLocation);
+        $ed = User::factory()->create(['role' => 'executive_director']);
+
+        $response = $this->actingAs($ed)->postJson('/api/asset-transfers', [
             'asset_id' => $asset->id,
             'from_location_id' => $asset->location_id,
             'to_location_id' => $otherLocation->id,
@@ -269,7 +318,7 @@ class RolePermissionMatrixTest extends TestCase
         $this->assertDatabaseHas('asset_transfers', ['id' => $transfer->id, 'status' => 'rejected']);
     }
 
-    public function test_only_opm_can_approve_or_reject_a_return(): void
+    public function test_only_hr_or_the_accountant_can_approve_or_reject_a_return(): void
     {
         $asset = $this->makeAsset();
         $staffMember = \App\Models\Staff::create(['full_name' => 'Test Staff', 'phone' => '012345678']);
@@ -294,7 +343,7 @@ class RolePermissionMatrixTest extends TestCase
             'status' => 'pending',
         ]);
 
-        foreach (['staff', 'finance_manager', 'executive_director'] as $role) {
+        foreach (['staff', 'executive_director'] as $role) {
             $user = User::factory()->create(['role' => $role]);
             $this->actingAs($user)->postJson("/api/asset-returns/{$return->id}/approve")->assertStatus(403);
             $this->actingAs($user)->postJson("/api/asset-returns/{$return->id}/reject")->assertStatus(403);
@@ -394,7 +443,7 @@ class RolePermissionMatrixTest extends TestCase
         $this->assertDatabaseHas('asset_verifications', ['id' => $verification->id]);
     }
 
-    public function test_only_opm_can_finalize_a_verification(): void
+    public function test_only_hr_or_the_accountant_can_finalize_a_verification(): void
     {
         $asset = $this->makeAsset();
 
@@ -407,7 +456,7 @@ class RolePermissionMatrixTest extends TestCase
             'verified_at' => now(),
         ]);
 
-        $finance = User::factory()->create(['role' => 'finance_manager']);
+        $finance = User::factory()->create(['role' => 'executive_director']);
         $this->actingAs($finance)->postJson("/api/asset-verifications/{$verification->id}/complete")->assertStatus(403);
 
         $opm = User::factory()->create(['role' => 'operations_hr_manager']);
@@ -452,30 +501,23 @@ class RolePermissionMatrixTest extends TestCase
         $this->assertDatabaseMissing('asset_verifications', ['asset_id' => $otherAsset->id]);
     }
 
-    public function test_staff_with_no_site_assigned_yet_can_still_scan_and_verify_any_asset(): void
+    public function test_staff_with_no_site_assigned_see_and_scan_nothing(): void
     {
-        // staff.location_id is a new nullable column, unpopulated for most existing
-        // staff — until someone backfills it, scanning must fail OPEN, not closed.
+        // Fail CLOSED: until HR assigns a location a staff user sees no data
+        // at all — no assets, verifications or transfers from any site.
         $staffMember = \App\Models\Staff::create(['full_name' => 'Unassigned Staff']);
         $staffUser = User::factory()->create(['role' => 'staff', 'staff_id' => $staffMember->id]);
-        $otherSite = Location::where('code', '!=', 'SR')->firstOrFail();
-        $asset = Asset::create([
-            'asset_code' => 'PEY-OT-FAF-0012',
-            'name' => 'Some Chair',
-            'category_id' => $this->category()->id,
-            'location_id' => $otherSite->id,
-            'status' => 'active',
-            'condition' => 'good',
-        ]);
+        $asset = $this->makeAsset('PEY-SR-FAF-0012');
 
-        $this->actingAs($staffUser)->getJson('/api/qr-scan/'.$asset->asset_code)->assertStatus(200);
+        $this->actingAs($staffUser)->getJson('/api/qr-scan/'.$asset->asset_code)->assertStatus(404);
         $this->actingAs($staffUser)->postJson("/api/qr-scan/{$asset->asset_code}/verify", [
-            'location_id' => $otherSite->id,
+            'location_id' => $asset->location_id,
             'condition' => 'good',
-        ])->assertStatus(200);
+        ])->assertStatus(404);
 
-        $this->actingAs($staffUser)->getJson('/api/asset-verifications')->assertStatus(200)
-            ->assertJsonCount(1);
+        $this->actingAs($staffUser)->getJson('/api/assets')->assertOk()->assertJsonCount(0);
+        $this->actingAs($staffUser)->getJson('/api/asset-verifications')->assertOk()->assertJsonCount(0);
+        $this->actingAs($staffUser)->getJson('/api/locations')->assertOk()->assertJsonCount(0);
     }
 
     public function test_staff_only_sees_assets_at_their_own_site_in_the_register(): void

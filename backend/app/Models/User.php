@@ -6,6 +6,7 @@ use App\Services\PermissionRegistry;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
@@ -65,6 +66,16 @@ class User extends Authenticatable
         return $this->role === 'finance_manager';
     }
 
+    /**
+     * HR (Operations & HR Manager) or the Accountant (Finance Manager). The
+     * Accountant has the same access as HR everywhere except System Settings,
+     * where they only get Appearance (SettingController).
+     */
+    public function isAdministrator(): bool
+    {
+        return $this->isOperationsHrManager() || $this->isFinanceManager();
+    }
+
     public function canApproveDisposal(): bool
     {
         return $this->isExecutiveDirector();
@@ -72,24 +83,39 @@ class User extends Authenticatable
 
     // ---- Site scope ------------------------------------------------------
     //
-    // Staff only ever see and act on their own site; OPM, Finance and the ED
-    // see every site. A staff account with no site set yet is unrestricted
-    // until someone sets it (fail OPEN, by design — failing closed would
-    // strand every staff user whose site was never filled in). Every
-    // staff-facing query goes through these helpers so that rule is the same
-    // on the register, search, QR scan and the lists.
+    // Staff see and act on the schools of the ONE program HR assigned them to
+    // (staff.program_id → location_program) — every sidebar page, every
+    // lookup. OPM, Finance and the ED see every site. A staff account with no
+    // program (and no legacy site, below) sees nothing (fail CLOSED). Every
+    // staff-facing query goes through these helpers so the rule is the same on
+    // the register, transfers, search, QR scan and every list.
 
     public function isSiteScoped(): bool
     {
         return $this->isStaff();
     }
 
-    /** The staff member's site, or null (only meaningful when isSiteScoped()). */
-    public function siteLocationId(): ?int
+    /**
+     * The schools/locations this staff member can see and manage: every school
+     * linked to their program. A staff record not yet moved onto a program
+     * (created before programs had several schools) keeps its old single site
+     * until HR assigns a program. Empty means nothing (fail closed).
+     *
+     * @return int[]
+     */
+    public function siteLocationIds(): array
     {
-        $locationId = $this->staff?->location_id;
+        $staff = $this->staff;
+        if ($staff === null) {
+            return [];
+        }
 
-        return $locationId === null ? null : (int) $locationId;
+        if ($staff->program_id !== null) {
+            return DB::table('location_program')->where('program_id', $staff->program_id)
+                ->pluck('location_id')->map(fn ($id) => (int) $id)->all();
+        }
+
+        return $staff->location_id !== null ? [(int) $staff->location_id] : [];
     }
 
     /** True when this user may see/act on something located at $locationId. */
@@ -99,12 +125,29 @@ class User extends Authenticatable
             return true;
         }
 
-        $site = $this->siteLocationId();
-        if ($site === null) {
-            return true;
+        return $locationId !== null && in_array((int) $locationId, $this->siteLocationIds(), true);
+    }
+
+    /** True when this user may see/act on $asset — i.e. it is at one of their schools. */
+    public function canAccessAsset(?Asset $asset): bool
+    {
+        return ! $this->isSiteScoped() || ($asset !== null && $this->canAccessLocation($asset->location_id));
+    }
+
+    /**
+     * Programs this person coordinates (Project Coordinator): the ones naming
+     * their Staff record as Responsible Staff — at most one, unique index.
+     *
+     * @return int[]
+     */
+    public function ledProgramIds(): array
+    {
+        if ($this->staff_id === null) {
+            return [];
         }
 
-        return $locationId !== null && $site === (int) $locationId;
+        return Program::where('responsible_staff_id', $this->staff_id)
+            ->pluck('id')->map(fn ($id) => (int) $id)->all();
     }
 
     // ---- Roles & permissions -------------------------------------------
@@ -151,6 +194,46 @@ class User extends Authenticatable
         $permissions = $this->effectivePermissions();
 
         return in_array($ability, $permissions[$module] ?? [], true);
+    }
+
+    /**
+     * Only what this user's ACTIVE custom roles grant — not the base role's
+     * baseline. The role: route guard and the in-controller role checks use
+     * this to let a custom role add access on top of the base role, without
+     * ever reading the baseline as a second, looser copy of those same guards.
+     */
+    public function customPermissions(): array
+    {
+        // Once per request per user — list endpoints ask for every row. Keyed
+        // by the request object, so a role change shows on the next request
+        // even where the same User instance is reused (actingAs in tests).
+        self::$customPermissionsMemo ??= new WeakMap;
+        $request = request();
+        $memo = self::$customPermissionsMemo[$request] ?? [];
+        if (isset($memo[$this->id])) {
+            return $memo[$this->id];
+        }
+
+        $merged = [];
+
+        foreach ($this->activeRoles()->with('permissions')->get() as $role) {
+            foreach ($role->grants() as $module => $abilities) {
+                $merged[$module] = array_merge($merged[$module] ?? [], $abilities);
+            }
+        }
+
+        $memo[$this->id] = PermissionRegistry::normalise($merged);
+        self::$customPermissionsMemo[$request] = $memo;
+
+        return $memo[$this->id];
+    }
+
+    /** @var WeakMap<IlluminateHttpRequest, array<int, array>>|null */
+    private static ?WeakMap $customPermissionsMemo = null;
+
+    public function hasCustomPermission(string $module, string $ability): bool
+    {
+        return in_array($ability, $this->customPermissions()[$module] ?? [], true);
     }
 
     /**

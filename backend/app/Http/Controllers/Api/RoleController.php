@@ -34,8 +34,9 @@ class RoleController extends Controller
     {
         $roles = Role::with('permissions')
             ->withCount('users')
-            ->orderByDesc('is_system')
-            ->orderBy('name')
+            // Newest first, like every list in the app.
+            ->latest()
+            ->latest('id')
             ->get()
             ->map(fn (Role $role) => $this->present($role));
 

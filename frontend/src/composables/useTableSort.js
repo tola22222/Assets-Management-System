@@ -4,6 +4,18 @@ function getPath(obj, path) {
   return path.split('.').reduce((o, k) => (o == null ? undefined : o[k]), obj)
 }
 
+// Ties (and rows created in the same second) put the newest record first:
+// later created_at, then the higher id.
+function newestFirst(a, b) {
+  const ac = a?.created_at || ''
+  const bc = b?.created_at || ''
+  if (ac !== bc) return ac < bc ? 1 : -1
+  return (Number(b?.id) || 0) - (Number(a?.id) || 0)
+}
+
+// Tables open newest first (defaultKey 'created_at', 'desc') so a record
+// just added sits at the top; clicking a header still sorts by that column.
+//
 // Client-side click-to-sort over a list ref. `paths` optionally maps a sort
 // key to a dot-path for nested values (e.g. { category: 'category.name' });
 // keys not listed are read directly off the row.
@@ -36,7 +48,7 @@ export function useTableSort(itemsRef, { defaultKey = null, defaultDir = 'asc', 
       if (av < bv) return sortDir.value === 'asc' ? -1 : 1
       if (av > bv) return sortDir.value === 'asc' ? 1 : -1
 
-      return 0
+      return newestFirst(a, b)
     })
   })
 

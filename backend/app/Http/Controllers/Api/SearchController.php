@@ -23,7 +23,7 @@ class SearchController extends Controller
         }
 
         $user = $request->user();
-        $isAdmin = $user->isOperationsHrManager();
+        $isAdmin = $user->isAdministrator();
 
         $results = [];
 
@@ -44,7 +44,10 @@ class SearchController extends Controller
                     ->orWhere('phone', 'LIKE', "%{$q}%")
                     ->orWhere('position', 'LIKE', "%{$q}%");
             })->limit(5)->get();
+        }
 
+        // User accounts are Administration, which is HR's alone.
+        if ($user->isOperationsHrManager()) {
             $results['users'] = User::where(function ($query) use ($q) {
                 $query->where('name', 'LIKE', "%{$q}%")
                     ->orWhere('email', 'LIKE', "%{$q}%")
@@ -53,25 +56,31 @@ class SearchController extends Controller
             })->limit(5)->get();
         }
 
+        // Staff: only categories of assets at their own site, as on the
+        // Categories page.
         $results['categories'] = AssetCategory::where(function ($query) use ($q) {
             $query->where('name', 'LIKE', "%{$q}%")
                 ->orWhere('short_name', 'LIKE', "%{$q}%")
                 ->orWhere('description', 'LIKE', "%{$q}%");
-        })->limit(5)->get();
+        })->when($user->isSiteScoped(), fn ($query) => $query->whereHas('assets', fn ($a) => $a->visibleTo($user)))
+            ->limit(5)->get();
 
-        $results['suppliers'] = Supplier::where(function ($query) use ($q) {
+        // Suppliers only for accounts allowed to see them (not staff, by default).
+        $results['suppliers'] = ! $user->hasPermission('suppliers', 'view') ? [] : Supplier::where(function ($query) use ($q) {
             $query->where('name', 'LIKE', "%{$q}%")
                 ->orWhere('phone', 'LIKE', "%{$q}%")
                 ->orWhere('address', 'LIKE', "%{$q}%");
         })->limit(5)->get();
 
+        // Staff find only their program's schools and their own program,
+        // the same scope as the Programs page.
         $results['locations'] = Location::where(function ($query) use ($q) {
             $query->where('name', 'LIKE', "%{$q}%")
                 ->orWhere('type', 'LIKE', "%{$q}%")
                 ->orWhere('description', 'LIKE', "%{$q}%");
-        })->limit(5)->get();
+        })->when($user->isSiteScoped(), fn ($query) => $query->whereKey($user->siteLocationIds()))->limit(5)->get();
 
-        $results['programs'] = Program::where(function ($query) use ($q) {
+        $results['programs'] = Program::visibleTo($user)->where(function ($query) use ($q) {
             $query->where('name', 'LIKE', "%{$q}%")
                 ->orWhere('description', 'LIKE', "%{$q}%");
         })->limit(5)->get();

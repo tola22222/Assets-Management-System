@@ -9,6 +9,7 @@ import StatCard from '../../components/ui/StatCard.vue'
 import DonutChart from '../../components/ui/DonutChart.vue'
 import LocationPillCards from '../../components/ui/LocationPillCards.vue'
 import LocationFilter from '../../components/ui/LocationFilter.vue'
+import SearchSelect from '../../components/ui/SearchSelect.vue'
 import { useTableFilter } from '../../composables/useTableFilter'
 import { useToastStore } from '../../stores/toast'
 import { useAuthStore } from '../../stores/auth'
@@ -73,7 +74,7 @@ const columns = computed(() => ({
   locations: [['name', t('reports.col_name')], ['type', t('reports.col_type')], ['assets_count', t('reports.col_assets')]],
   'qr-scans': [['message', t('reports.col_scan')], ['created_at', t('common.date')]],
   'data-completeness': [['asset_code', t('reports.col_code')], ['name', t('reports.col_name')], ['category', t('reports.col_category'), (r) => r.category?.name], ['missing_fields', t('reports.col_missing_fields')]],
-  'by-model': [['name', t('reports.col_model')], ['category', t('reports.col_category'), (r) => r.category?.name], ['total', t('reports.col_total_units')], ['stock_level', t('reports.col_stock_level')]],
+  'by-model': [['name', t('reports.col_model')], ['category', t('reports.col_category'), (r) => r.category?.name], ['total', t('reports.col_total_units')], ['lost_broken', t('reports.col_lost_broken')], ['available', t('reports.col_available')], ['stock_level', t('reports.col_stock_level')]],
 }))
 
 // The CSV/Excel file carries more detail than fits in the on-screen table.
@@ -505,9 +506,9 @@ onMounted(() => {
       <div class="card p-6 sm:p-8">
         <!-- Date filter + export -->
         <div class="flex flex-wrap items-center gap-3 mb-6">
-          <select v-model="selected" class="filter-select" :aria-label="t('reports.report_type')" :title="t('reports.report_type')">
-            <option v-for="rt in reportTypes" :key="rt.key" :value="rt.key">{{ rt.label }}</option>
-          </select>
+          <SearchSelect v-model="selected" class="min-w-[15rem]" input-class="filter-select"
+            :aria-label="t('reports.report_type')" :title="t('reports.report_type')"
+            :options="reportTypes.map((rt) => ({ value: rt.key, label: rt.label }))" />
           <template v-if="hasDateField">
             <div class="flex items-center gap-1 bg-surface-2 rounded-xl p-1">
               <button
@@ -526,10 +527,8 @@ onMounted(() => {
               type="number" min="1900" max="2100" step="1" :placeholder="String(today.getFullYear())"
               class="filter-select w-28"
             />
-            <select v-if="dayOptions.length" v-model="dayValue" class="filter-select">
-              <option value="">{{ t('reports.all_days') }}</option>
-              <option v-for="d in dayOptions" :key="d" :value="d">{{ Number(d) }}</option>
-            </select>
+            <SearchSelect v-if="dayOptions.length" v-model="dayValue" class="w-36" input-class="filter-select"
+              :empty-label="t('reports.all_days')" :options="dayOptions.map((d) => ({ value: d, label: String(Number(d)) }))" />
           </template>
           <LocationFilter v-if="showLocationFilter" v-model="reportFilters.location" />
           <button @click="exportCsv" class="btn-ghost btn-sm sm:ml-auto flex-shrink-0">

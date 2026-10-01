@@ -10,7 +10,7 @@ class ActivityLogController extends Controller
 {
     public function index()
     {
-        return response()->json(ActivityLog::with('user')->latest()->paginate(20));
+        return response()->json(ActivityLog::with('user')->latest()->latest('id')->paginate(20));
     }
 
     public function show(ActivityLog $activity_log)

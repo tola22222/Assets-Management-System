@@ -45,14 +45,14 @@ Route::name('api.')->group(function () {
         Route::get('/dashboard', [DashboardController::class, 'index']);
         Route::get('/dashboard/by-period', [DashboardController::class, 'byPeriod']);
 
-        Route::post('/assets/{asset}/regenerate-qr', [AssetController::class, 'regenerateQr'])->middleware('role:operations_hr_manager');
+        Route::post('/assets/{asset}/regenerate-qr', [AssetController::class, 'regenerateQr'])->middleware('role:operations_hr_manager,finance_manager');
         Route::get('/assets/{asset}/qr-code/download', [AssetController::class, 'downloadQr']);
         Route::post('/assets/{asset}/flag', [AssetController::class, 'flagIssue']);
         Route::apiResource('assets', AssetController::class)->only(['index', 'show']);
 
         Route::apiResource('locations', LocationController::class)->only(['index', 'show']);
 
-        Route::middleware('role:operations_hr_manager')->group(function () {
+        Route::middleware('role:operations_hr_manager,finance_manager')->group(function () {
             // Bulk import — defined before the resource so "import" is not treated as an {asset}.
             Route::get('/assets/import/template', [AssetImportController::class, 'template']);
             Route::post('/assets/import', [AssetImportController::class, 'store']);
@@ -64,7 +64,7 @@ Route::name('api.')->group(function () {
         });
 
         Route::apiResource('categories', AssetCategoryController::class)->only(['index']);
-        Route::middleware('role:operations_hr_manager')->group(function () {
+        Route::middleware('role:operations_hr_manager,finance_manager')->group(function () {
             Route::apiResource('categories', AssetCategoryController::class)->only(['store', 'update', 'destroy']);
         });
 
@@ -78,7 +78,7 @@ Route::name('api.')->group(function () {
 
         // approve/reject act on a request that has not reached the destination
         // yet, so they stay with the managers: OPM or the Executive Director.
-        Route::middleware('role:operations_hr_manager,executive_director')->group(function () {
+        Route::middleware('role:operations_hr_manager,finance_manager,executive_director')->group(function () {
             Route::post('/asset-transfers/{asset_transfer}/approve', [AssetTransferController::class, 'approve']);
             Route::post('/asset-transfers/{asset_transfer}/reject', [AssetTransferController::class, 'reject']);
         });
@@ -87,36 +87,46 @@ Route::name('api.')->group(function () {
         // chain, not by role — so no role: guard here. Authorisation is
         // AssetTransferController::canReceive(), which OPM does not satisfy at
         // a school it runs no program for.
+        // Total / Transferred / Available for an asset's model — read-only,
+        // shown on both the Transfer and Assignment forms.
+        Route::get('/asset-transfers/stock', [AssetTransferController::class, 'stock']);
         Route::post('/asset-transfers/{asset_transfer}/confirm', [AssetTransferController::class, 'confirmReceipt']);
         Route::post('/asset-transfers/{asset_transfer}/decline', [AssetTransferController::class, 'decline']);
-        Route::post('/asset-transfers/{asset_transfer}/return', [AssetTransferController::class, 'returnAsset']);
+        // Returning an accepted transfer is HR's or the Accountant's call — staff
+        // cannot raise one. Accepting the return is still the origin site's.
+        Route::post('/asset-transfers/{asset_transfer}/return', [AssetTransferController::class, 'returnAsset'])
+            ->middleware('role:operations_hr_manager,finance_manager');
+        // The Edit dialog's "Assignment" part: change who holds an accepted
+        // transfer's assets. Same roles as returning.
+        Route::put('/asset-transfers/{asset_transfer}/assignment', [AssetTransferController::class, 'reassign'])
+            ->middleware('role:operations_hr_manager,finance_manager');
         Route::apiResource('asset-transfers', AssetTransferController::class)->only(['index', 'store', 'destroy']);
 
-        Route::middleware('role:operations_hr_manager')->group(function () {
+        Route::middleware('role:operations_hr_manager,finance_manager')->group(function () {
             Route::post('/asset-returns/{asset_return}/approve', [AssetReturnController::class, 'approve']);
             Route::post('/asset-returns/{asset_return}/reject', [AssetReturnController::class, 'reject']);
         });
         Route::apiResource('asset-returns', AssetReturnController::class)->only(['index', 'store']);
 
-        Route::post('/asset-verifications/{asset_verification}/complete', [AssetVerificationController::class, 'complete'])->middleware('role:operations_hr_manager');
+        Route::post('/asset-verifications/{asset_verification}/complete', [AssetVerificationController::class, 'complete'])->middleware('role:operations_hr_manager,finance_manager');
         Route::apiResource('asset-verifications', AssetVerificationController::class)->only(['index']);
         // Staff submit condition reports only through the QR scan flow (/qr-scan/{code}/verify
         // above), never this direct endpoint — it would let them bypass the own-site restriction.
         Route::middleware('role:operations_hr_manager,finance_manager')->group(function () {
             Route::apiResource('asset-verifications', AssetVerificationController::class)->only(['store']);
         });
-        Route::middleware('role:operations_hr_manager')->group(function () {
+        Route::middleware('role:operations_hr_manager,finance_manager')->group(function () {
             Route::apiResource('asset-verifications', AssetVerificationController::class)->only(['destroy']);
         });
 
-        Route::post('/asset-disposals/{asset_disposal}/approve', [AssetDisposalController::class, 'approve'])->middleware('role:operations_hr_manager,executive_director');
-        Route::post('/asset-disposals/{asset_disposal}/reject', [AssetDisposalController::class, 'reject'])->middleware('role:operations_hr_manager,executive_director');
+        Route::post('/asset-disposals/{asset_disposal}/approve', [AssetDisposalController::class, 'approve'])->middleware('role:operations_hr_manager,finance_manager,executive_director');
+        Route::post('/asset-disposals/{asset_disposal}/reject', [AssetDisposalController::class, 'reject'])->middleware('role:operations_hr_manager,finance_manager,executive_director');
         Route::apiResource('asset-disposals', AssetDisposalController::class)->only(['index', 'store', 'destroy']);
 
         Route::apiResource('programs', ProgramController::class)->only(['index']);
         Route::apiResource('suppliers', SupplierController::class)->only(['index']);
         Route::apiResource('staff', StaffController::class)->except(['create', 'show', 'edit']);
-        Route::middleware('role:operations_hr_manager')->group(function () {
+        Route::middleware('role:operations_hr_manager,finance_manager')->group(function () {
             Route::apiResource('programs', ProgramController::class)->only(['store', 'update', 'destroy']);
         });
         Route::middleware('role:operations_hr_manager,finance_manager')->group(function () {
@@ -156,6 +166,17 @@ Route::name('api.')->group(function () {
         // and it exposes nothing the user doesn't already hold.
         Route::get('/me/permissions', [AuthController::class, 'permissions']);
 
+        // System Settings: the Accountant reaches it too, but only its
+        // Appearance part — SettingController::index/update narrow what a
+        // non-HR admin reads and writes. Everything else below is HR's alone.
+        Route::middleware('role:operations_hr_manager,finance_manager')->group(function () {
+            Route::get('/settings', [SettingController::class, 'index']);
+            Route::post('/settings', [SettingController::class, 'update']);
+        });
+
+        // Administration — users, roles & permissions, mail/backup settings and
+        // the activity log. HR only: the Accountant's Administration section is
+        // just Appearance.
         Route::middleware('role:operations_hr_manager')->group(function () {
             Route::apiResource('users', UserController::class)->except(['create', 'show']);
             Route::post('/users/{user}/lock', [UserController::class, 'lock']);
@@ -177,8 +198,6 @@ Route::name('api.')->group(function () {
             Route::put('/roles/{role}', [RoleController::class, 'update'])->middleware('permission:roles,update');
             Route::delete('/roles/{role}', [RoleController::class, 'destroy'])->middleware('permission:roles,delete');
 
-            Route::get('/settings', [SettingController::class, 'index']);
-            Route::post('/settings', [SettingController::class, 'update']);
             Route::post('/settings/test-mail', [SettingController::class, 'testMail']);
             Route::post('/settings/backup', [SettingController::class, 'backup']);
             Route::post('/settings/backups/upload', [SettingController::class, 'uploadBackup']);

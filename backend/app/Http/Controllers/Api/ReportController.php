@@ -54,20 +54,29 @@ class ReportController extends Controller
      * tracked unit with its own tag, but this rolls same-name units up into
      * one line per model/category with a Low/Medium/High stock-level badge —
      * a read-only summary, not a change to how the data is stored.
+     *
+     * total counts every unit still on the register; lost_broken is how many of
+     * those a verification marked lost or broken; available is the rest, and
+     * the stock level is judged on what is actually available.
      */
     public function byModel()
     {
-        $rows = Asset::select('name', 'category_id', DB::raw('count(*) as total'))
-            ->where('status', '!=', 'disposed')
+        $unavailable = "'".implode("','", Asset::UNAVAILABLE_CONDITIONS)."'";
+
+        $rows = Asset::select('name', 'category_id', DB::raw('count(*) as total'), DB::raw("sum(case when `condition` in ($unavailable) then 1 else 0 end) as lost_broken"))
+            ->onRegister()
             ->groupBy('name', 'category_id')
             ->with('category:id,name,short_name')
             ->get()
             ->map(function ($row) {
-                $row->stock_level = Asset::stockLevelFor($row->total);
+                $row->total = (int) $row->total;
+                $row->lost_broken = (int) $row->lost_broken;
+                $row->available = $row->total - $row->lost_broken;
+                $row->stock_level = Asset::stockLevelFor($row->available);
 
                 return $row;
             })
-            ->sortByDesc('total')
+            ->sortByDesc('available')
             ->values();
 
         return response()->json($rows);
@@ -162,7 +171,7 @@ class ReportController extends Controller
     public function locations()
     {
         // Assets still on the register, as on the dashboard.
-        return response()->json(Location::withCount(['assets' => fn ($q) => $q->where('status', '!=', 'disposed')])->get());
+        return response()->json(Location::withCount(['assets' => fn ($q) => $q->where('status', '!=', 'disposed')])->latest()->latest('id')->get());
     }
 
     public function qrScans()

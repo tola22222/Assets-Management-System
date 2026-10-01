@@ -11,7 +11,7 @@ class NotificationController extends Controller
     public function index()
     {
         return response()->json(
-            Notification::where('user_id', Auth::id())->latest()->paginate(20)
+            Notification::where('user_id', Auth::id())->latest()->latest('id')->paginate(20)
         );
     }
 

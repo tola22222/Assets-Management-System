@@ -17,6 +17,7 @@ class AssetAssignment extends Model
         'assigned_to_id',
         'location_id',
         'quantity',
+        'condition',       // as verified by the receiving staff member
         'assigned_date',
         'due_date',        // ADD THIS
         'status',

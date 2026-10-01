@@ -9,14 +9,18 @@ use App\Models\Staff;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class ProgramController extends Controller
 {
-    public function index()
+    private const WITH = ['location', 'locations', 'responsibleStaff'];
+
+    public function index(Request $request)
     {
-        $programs = Program::with(['location', 'responsibleStaff'])->latest()->get();
+        // Staff see only the program they belong to.
+        $programs = Program::visibleTo($request->user())->with(self::WITH)->latest()->latest('id')->get();
 
         // A lead who has no login account cannot actually accept a transfer, so
         // the site is just as stuck as if it had no lead at all — but nothing
@@ -35,10 +39,15 @@ class ProgramController extends Controller
 
     public function store(Request $request)
     {
-        $validated = $this->validated($request);
-        $this->assertStaffBelongsToSchool($validated);
+        [$validated, $schools] = $this->validated($request);
+        $this->assertLeadCanJoin($validated['responsible_staff_id'], null);
 
-        $program = Program::create($validated);
+        $program = DB::transaction(function () use ($validated, $schools) {
+            $program = Program::create($validated + ['location_id' => $schools[0]]);
+            $this->link($program, $schools);
+
+            return $program;
+        });
 
         ActivityLog::createAndNotify([
             'user_id' => Auth::id(),
@@ -46,15 +55,18 @@ class ProgramController extends Controller
             'description' => 'Created program: '.$program->name,
         ]);
 
-        return response()->json($program->fresh(['location', 'responsibleStaff']), 201);
+        return response()->json($program->fresh(self::WITH), 201);
     }
 
     public function update(Request $request, Program $program)
     {
-        $validated = $this->validated($request, $program);
-        $this->assertStaffBelongsToSchool($validated);
+        [$validated, $schools] = $this->validated($request, $program);
+        $this->assertLeadCanJoin($validated['responsible_staff_id'], $program);
 
-        $program->update($validated);
+        DB::transaction(function () use ($program, $validated, $schools) {
+            $program->update($validated + ['location_id' => $schools[0]]);
+            $this->link($program, $schools);
+        });
 
         ActivityLog::createAndNotify([
             'user_id' => Auth::id(),
@@ -62,7 +74,7 @@ class ProgramController extends Controller
             'description' => 'Updated program: '.$program->name,
         ]);
 
-        return response()->json($program->fresh(['location', 'responsibleStaff']));
+        return response()->json($program->fresh(self::WITH));
     }
 
     public function destroy(Program $program)
@@ -83,19 +95,28 @@ class ProgramController extends Controller
     }
 
     /**
-     * School and responsible staff are required, not optional extras: a site's
-     * ability to accept an asset transfer is resolved through them, so a
-     * program saved without them would quietly leave its school unable to
-     * receive anything.
+     * Schools and responsible staff are required, not optional extras: who
+     * can see a school, and who may accept an asset transfer there, are both
+     * resolved through them.
+     *
+     * A program links to one or more schools (location_ids). A single
+     * location_id from an older caller is accepted as a one-school list.
+     *
+     * @return array{0: array, 1: int[]} validated fields, school ids (first = primary)
      */
     private function validated(Request $request, ?Program $program = null): array
     {
-        return $request->validate([
+        if (! $request->filled('location_ids') && $request->filled('location_id')) {
+            $request->merge(['location_ids' => [$request->input('location_id')]]);
+        }
+
+        $validated = $request->validate([
             'name' => 'required|string|max:255|unique:programs,name'.($program ? ','.$program->id : ''),
             'description' => 'nullable|string',
-            'location_id' => 'required|exists:locations,id',
+            'location_ids' => 'required|array|min:1',
+            'location_ids.*' => 'integer|distinct|exists:locations,id',
             // A staff member leads at most one program, so accountability for a
-            // site's assets always points at exactly one person. Backed by a
+            // program's assets always points at exactly one person. Backed by a
             // unique index on the column.
             'responsible_staff_id' => [
                 'required',
@@ -103,21 +124,35 @@ class ProgramController extends Controller
                 Rule::unique('programs', 'responsible_staff_id')->ignore($program?->id),
             ],
         ], [
+            'location_ids.required' => 'Link the program to at least one school.',
             'responsible_staff_id.unique' => 'This staff member is already responsible for another program.',
         ]);
+
+        $schools = array_values(array_map('intval', $validated['location_ids']));
+        unset($validated['location_ids'], $validated['location_id']);
+
+        return [$validated, $schools];
     }
 
-    /** The person accountable for a site's program has to work at that site. */
-    private function assertStaffBelongsToSchool(array $validated): void
+    /**
+     * A staff member belongs to ONE program. The lead must already be in this
+     * program, or in none yet (saving puts them in it) — never in another.
+     */
+    private function assertLeadCanJoin(int $staffId, ?Program $program): void
     {
-        $staff = Staff::find($validated['responsible_staff_id']);
+        $current = Staff::whereKey($staffId)->value('program_id');
 
-        if ($staff && $staff->location_id !== null && $staff->location_id === (int) $validated['location_id']) {
-            return;
+        if ($current !== null && (int) $current !== (int) $program?->id) {
+            throw ValidationException::withMessages([
+                'responsible_staff_id' => 'This staff member already belongs to another program. A staff member can only be in one program.',
+            ]);
         }
+    }
 
-        throw ValidationException::withMessages([
-            'responsible_staff_id' => 'The responsible staff member must be based at the selected school.',
-        ]);
+    /** Save the program's schools and put its lead in it. */
+    private function link(Program $program, array $schools): void
+    {
+        $program->locations()->sync($schools);
+        Staff::whereKey($program->responsible_staff_id)->update(['program_id' => $program->id]);
     }
 }

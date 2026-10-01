@@ -6,6 +6,7 @@ use App\Exceptions\AssetCodeException;
 use App\Models\Asset;
 use App\Models\AssetCategory;
 use App\Models\Location;
+use App\Models\Supplier;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -23,7 +24,8 @@ use PhpOffice\PhpSpreadsheet\IOFactory;
  *      Asset IDs (e.g. PEY-SR-FAF-0928) are PRESERVED because they are already
  *      printed on physical tags, and the category is derived from the ID.
  *   2. The simple template      — columns: name, category, description, model,
- *      brand, serial_number, purchase_date, purchase_price, condition, status.
+ *      brand, supplier, serial_number, purchase_date, purchase_price, condition,
+ *      status. (An optional "Supplier" column is read in either layout.)
  *      Here codes are auto-generated and the category is matched by name.
  *
  * Re-importing the PEPY layout is safe: rows are matched by asset code, and a
@@ -80,13 +82,16 @@ class AssetImportService
 
     /** Existing-asset fields a re-import may fill in when they are blank. */
     private const FILLABLE_ON_REIMPORT = [
-        'name', 'serial_number', 'model', 'brand', 'purchase_date', 'purchase_price', 'description',
+        'name', 'serial_number', 'model', 'brand', 'supplier_id', 'purchase_date', 'purchase_price', 'description',
     ];
 
     /** Category-code segment (upper-cased) → category, or null when it matches none. */
     private array $categoryCache = [];
 
     private array $locationCache = [];
+
+    /** Lower-cased supplier name → id, or null when no supplier has that name. */
+    private array $supplierCache = [];
 
     private ?Collection $allLocations = null;
 
@@ -107,6 +112,7 @@ class AssetImportService
 
         $this->categoryCache = [];
         $this->locationCache = [];
+        $this->supplierCache = [];
         $this->allLocations = null;
         $this->storedFiles = [];
 
@@ -318,6 +324,7 @@ class AssetImportService
                 'serial_number' => $get('serial') ?: null,
                 'model' => $get('model') ?: null,
                 'brand' => $get('brand') ?: null,
+                'supplier_id' => $this->supplierIdFor($get('supplier'), "Row {$lineNo}", $warnings),
                 'purchase_date' => $this->parseDate($get('date')),
                 'purchase_price' => $this->parsePrice($get('price')),
                 'condition' => $this->parseCondition($get('condition'), $get('remark')),
@@ -571,6 +578,8 @@ class AssetImportService
                     $map['model'] = $col;
                 } elseif ($h === 'brand') {
                     $map['brand'] = $col;
+                } elseif ($h === 'supplier' || $h === 'vendor') {
+                    $map['supplier'] = $col;
                 } elseif ($h === 'condition') {
                     $map['condition'] = $col;
                 } elseif ($h === 'status') {
@@ -728,6 +737,30 @@ class AssetImportService
     private function categoryByShortName(string $shortName): ?AssetCategory
     {
         return AssetCategory::whereRaw('UPPER(TRIM(short_name)) = ?', [strtoupper($shortName)])->orderBy('id')->first();
+    }
+
+    /**
+     * The optional supplier column, matched by name (case-insensitive) against
+     * the Suppliers screen. Unlike category and location it is not required,
+     * so an unknown name never skips the row: the asset is imported without a
+     * supplier and a warning says which name to add.
+     */
+    private function supplierIdFor(string $name, string $rowLabel, array &$warnings): ?int
+    {
+        if ($name === '') {
+            return null;
+        }
+
+        $key = strtolower($name);
+        if (! array_key_exists($key, $this->supplierCache)) {
+            $this->supplierCache[$key] = Supplier::whereRaw('LOWER(TRIM(name)) = ?', [$key])->orderBy('id')->value('id');
+        }
+
+        if ($this->supplierCache[$key] === null) {
+            $warnings[] = "{$rowLabel}: supplier \"{$name}\" not found, so it was imported without one. Add the supplier on the Suppliers screen, then import again to fill it in.";
+        }
+
+        return $this->supplierCache[$key];
     }
 
     private function categoryByName(string $name): AssetCategory

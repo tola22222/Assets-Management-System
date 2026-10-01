@@ -7,6 +7,7 @@ import AppLayout from '../../layouts/AppLayout.vue'
 import Modal from '../../components/ui/Modal.vue'
 import ConfirmDialog from '../../components/ui/ConfirmDialog.vue'
 import SearchInput from '../../components/ui/SearchInput.vue'
+import SearchSelect from '../../components/ui/SearchSelect.vue'
 import TableSortIcon from '../../components/ui/TableSortIcon.vue'
 import { useApiCrud } from '../../composables/useApiCrud'
 import { useTableSearch } from '../../composables/useTableSearch'
@@ -25,11 +26,13 @@ const router = useRouter()
 const { items: assetsList, loading, fetchAll, destroy, destroyMany } = useApiCrud('/assets', { entityName: t('assets.entity') })
 const toast = useToastStore()
 const auth = useAuthStore()
-const isOpm = computed(() => auth.user?.role === 'operations_hr_manager')
+// HR or the Accountant (same access; see User::isAdministrator on the server).
+const isOpm = computed(() => ['operations_hr_manager', 'finance_manager'].includes(auth.user?.role))
 const canEdit = computed(() => isOpm.value || auth.user?.role === 'finance_manager')
 
 const categories = ref([])
 const locations = ref([])
+const suppliers = ref([])
 const showModal = ref(false)
 const editingId = ref(null)
 const deletingId = ref(null)
@@ -45,7 +48,7 @@ const flagCondition = ref('')
 const flagSubmitting = ref(false)
 
 const emptyForm = () => ({
-  name: '', category_id: '', location_id: '', description: '', model: '', brand: '',
+  name: '', category_id: '', location_id: '', supplier_id: '', description: '', model: '', brand: '',
   serial_number: '', purchase_date: '', purchase_price: '', condition: 'good', status: 'active',
 })
 const form = reactive(emptyForm())
@@ -54,7 +57,7 @@ const { search, filtered: searched } = useTableSearch(assetsList, [
   'name', 'asset_code', 'brand', 'model', (a) => a.category?.name, 'purchase_price', 'serial_number',
 ])
 const { sortKey, sortDir, toggleSort, sorted: filtered } = useTableSort(searched, {
-  defaultKey: 'name',
+  defaultKey: 'created_at', defaultDir: 'desc',
   paths: { category: 'category.name', location: 'location.name', price: 'purchase_price', code: 'asset_code' },
 })
 // Category filter (the drop-down in the filter bar), layered on top of the
@@ -124,9 +127,12 @@ function exportCsv() {
 
 async function loadOptions() {
   try {
-    const [c, l] = await Promise.all([http.get('/categories'), http.get('/locations')])
+    // Suppliers are optional on the form, so a failed lookup just leaves that
+    // picker empty rather than blocking the form.
+    const [c, l, s] = await Promise.all([http.get('/categories'), http.get('/locations'), http.get('/suppliers').catch(() => ({ data: [] }))])
     categories.value = c.data
     locations.value = l.data
+    suppliers.value = s.data
   } catch (e) {
     // Both feed required dropdowns on the register form. Failing quietly left
     // them empty, so the form looked broken rather than un-loaded.
@@ -145,7 +151,7 @@ function openCreate() {
 function openEdit(asset) {
   editingId.value = asset.id
   Object.assign(form, {
-    name: asset.name, category_id: asset.category_id, location_id: asset.location_id || '', description: asset.description || '',
+    name: asset.name, category_id: asset.category_id, location_id: asset.location_id || '', supplier_id: asset.supplier_id || '', description: asset.description || '',
     model: asset.model || '', brand: asset.brand || '', serial_number: asset.serial_number || '',
     purchase_date: asset.purchase_date || '', purchase_price: asset.purchase_price || '',
     condition: asset.condition, status: asset.status,
@@ -341,10 +347,9 @@ const { page, rowsPerPage, total, paged } = usePagination(visible)
           </div>
           <!-- This page's filter drop-down is by category — the register's own
                grouping — where the other list pages filter by location. -->
-          <select v-model="catFilters.category" class="filter-select" :aria-label="t('assets.all_categories')">
-            <option value="">{{ t('assets.all_categories') }}</option>
-            <option v-for="c in categories" :key="c.id" :value="String(c.id)">{{ c.name }}</option>
-          </select>
+          <SearchSelect v-model="catFilters.category" class="min-w-[13rem]" input-class="filter-select"
+            :empty-label="t('assets.all_categories')" :aria-label="t('assets.all_categories')"
+            :options="categories.map((c) => ({ value: String(c.id), label: c.name }))" />
         </div>
 
         <div class="flex items-center justify-between gap-3 mb-2">
@@ -433,17 +438,13 @@ const { page, rowsPerPage, total, paged } = usePagination(visible)
             </div>
             <div>
               <label class="label">{{ t('assets.category_required') }} <span class="text-red-500">*</span></label>
-              <select v-model="form.category_id" required class="select">
-                <option value="">{{ t('assets.select_category') }}</option>
-                <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option>
-              </select>
+              <SearchSelect v-model="form.category_id" required :placeholder="t('assets.select_category')"
+                :options="categories.map((c) => ({ value: c.id, label: c.name }))" />
             </div>
             <div>
               <label class="label">{{ t('assets.location_required') }} <span class="text-red-500">*</span></label>
-              <select v-model="form.location_id" required class="select">
-                <option value="">{{ t('assets.select_location') }}</option>
-                <option v-for="l in locations" :key="l.id" :value="l.id">{{ l.name }}</option>
-              </select>
+              <SearchSelect v-model="form.location_id" required :placeholder="t('assets.select_location')"
+                :options="locations.map((l) => ({ value: l.id, label: l.name }))" />
             </div>
             <div>
               <label class="label">{{ t('assets.brand') }}</label>
@@ -464,6 +465,11 @@ const { page, rowsPerPage, total, paged } = usePagination(visible)
             <div>
               <label class="label">{{ t('assets.purchase_price') }}</label>
               <input v-model="form.purchase_price" type="number" step="0.01" class="input" />
+            </div>
+            <div>
+              <label class="label">{{ t('assets.supplier') }}</label>
+              <SearchSelect v-model="form.supplier_id" :empty-label="t('assets.select_supplier')"
+                :options="suppliers.map((s) => ({ value: s.id, label: s.name }))" />
             </div>
             <div>
               <label class="label">{{ t('assets.condition') }}</label>
@@ -532,6 +538,7 @@ const { page, rowsPerPage, total, paged } = usePagination(visible)
           <div><p class="text-xs font-semibold text-faint uppercase tracking-wide">{{ t('assets.serial_number') }}</p><p class="font-semibold text-fg mt-0.5">{{ viewing.serial_number || '—' }}</p></div>
           <div><p class="text-xs font-semibold text-faint uppercase tracking-wide">{{ t('assets.purchase_date') }}</p><p class="font-semibold text-fg mt-0.5">{{ viewing.purchase_date || '—' }}</p></div>
           <div><p class="text-xs font-semibold text-faint uppercase tracking-wide">{{ t('assets.purchase_price') }}</p><p class="font-semibold text-fg mt-0.5">{{ money(viewing.purchase_price) }}</p></div>
+          <div><p class="text-xs font-semibold text-faint uppercase tracking-wide">{{ t('assets.supplier') }}</p><p class="font-semibold text-fg mt-0.5">{{ viewing.supplier?.name || '—' }}</p></div>
         </div>
         <div v-if="viewing.description" class="pt-3 border-t border-line">
           <p class="text-xs font-semibold text-faint uppercase tracking-wide mb-1">{{ t('common.description') }}</p>

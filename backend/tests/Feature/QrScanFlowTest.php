@@ -84,7 +84,8 @@ class QrScanFlowTest extends TestCase
             ->assertOk()
             ->assertJsonPath('asset.asset_code', $asset->asset_code)
             ->assertJsonPath('scan.user_name', 'Sokha Staff')
-            ->assertJsonPath('can_change_location', true);
+            // Staff are always bound to their assigned site.
+            ->assertJsonPath('can_change_location', false);
 
         $this->assertDatabaseHas('asset_scans', [
             'asset_id' => $asset->id,
@@ -134,7 +135,7 @@ class QrScanFlowTest extends TestCase
     public function test_choosing_another_location_updates_the_asset_and_logs_both_ends(): void
     {
         $asset = $this->makeAsset();
-        $staff = User::factory()->create(['role' => 'staff']);
+        $staff = User::factory()->create(['role' => 'finance_manager']);
         $newSite = $this->otherSite();
 
         $this->actingAs($staff)->postJson("/api/qr-scan/{$asset->asset_code}/verify", [
@@ -207,18 +208,19 @@ class QrScanFlowTest extends TestCase
     public function test_the_qr_scans_report_names_the_user_and_what_they_did(): void
     {
         $asset = $this->makeAsset();
+        // A staff user at the office (the factory's default site for staff).
         $staff = User::factory()->create(['role' => 'staff', 'name' => 'Sokha Staff']);
         $opm = User::factory()->create(['role' => 'operations_hr_manager']);
 
         $this->actingAs($staff)->postJson('/api/qr-scan', ['asset_code' => $asset->asset_code])->assertOk();
         $this->actingAs($staff)->postJson("/api/qr-scan/{$asset->asset_code}/verify", [
-            'location_id' => $this->otherSite()->id,
+            'location_id' => $this->office()->id,
             'condition' => 'good',
         ])->assertOk();
 
         $rows = $this->actingAs($opm)->getJson('/api/reports/qr-scans')->assertOk()->assertJsonCount(2)->json();
 
-        $this->assertEqualsCanonicalizing(['scanned', 'location_updated'], array_column($rows, 'action'));
+        $this->assertEqualsCanonicalizing(['scanned', 'verified'], array_column($rows, 'action'));
         foreach ($rows as $row) {
             $this->assertSame('Sokha Staff', $row['user']['name']);
             $this->assertSame($asset->asset_code, $row['asset_code']);

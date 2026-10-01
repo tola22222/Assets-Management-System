@@ -8,6 +8,7 @@ import ConfirmDialog from '../../components/ui/ConfirmDialog.vue'
 import SearchInput from '../../components/ui/SearchInput.vue'
 import TableSortIcon from '../../components/ui/TableSortIcon.vue'
 import LocationFilter from '../../components/ui/LocationFilter.vue'
+import SearchSelect from '../../components/ui/SearchSelect.vue'
 import { useApiCrud } from '../../composables/useApiCrud'
 import { useTableSearch } from '../../composables/useTableSearch'
 import { useTableFilter } from '../../composables/useTableFilter'
@@ -20,16 +21,17 @@ import { usePagination } from '../../composables/usePagination'
 
 const { t } = useI18n()
 const auth = useAuthStore()
-const isOpm = computed(() => auth.user?.role === 'operations_hr_manager')
+// HR or the Accountant (same access; see User::isAdministrator on the server).
+const isOpm = computed(() => ['operations_hr_manager', 'finance_manager'].includes(auth.user?.role))
 const { items: programs, loading, fetchAll, create, update, destroy, destroyMany } = useApiCrud('/programs', { entityName: t('programs.entity') })
-const { search, filtered: searched } = useTableSearch(programs, ['name', 'description'])
-// Location filter (the drop-down beside search): the school a program runs at,
-// applied after search and before sort.
+const { search, filtered: searched } = useTableSearch(programs, ['name', 'description', (p) => schoolNames(p)])
+// Location filter (the drop-down beside search): any of the schools a program
+// runs at, applied after search and before sort.
 const { filters, filtered: filteredPrograms } = useTableFilter(searched, {
-  location: (p, v) => String(p.location_id) === v,
+  location: (p, v) => programSchoolIds(p).includes(String(v)),
 })
 const { sortKey, sortDir, toggleSort, sorted: filtered } = useTableSort(filteredPrograms, {
-  defaultKey: 'name',
+  defaultKey: 'created_at', defaultDir: 'desc',
   paths: { school: 'location.name', lead: 'responsible_staff.full_name' },
 })
 const { selectedIds, allSelected, toggleSelectAll, toggleSelect, clearSelection } = useBulkSelect(filtered)
@@ -39,13 +41,21 @@ const toast = useToastStore()
 const showModal = ref(false)
 const editingId = ref(null)
 const deletingId = ref(null)
-const form = reactive({ name: '', description: '', location_id: '', responsible_staff_id: '' })
+const form = reactive({ name: '', description: '', location_ids: [], responsible_staff_id: '' })
 
-// A program's school and lead are what AssetTransferController reads to decide
-// who may accept a delivery there, so both are required, and the lead has to be
-// based at the chosen school.
+// A program runs at one or more schools and has one Responsible Staff, who
+// accepts deliveries at every one of them. Both are required.
 const locations = ref([])
 const staff = ref([])
+
+// The schools a program is linked to (older rows: just its location_id).
+function programSchoolIds(p) {
+  const ids = p.locations?.length ? p.locations.map((l) => l.id) : [p.location_id].filter(Boolean)
+  return ids.map(String)
+}
+function schoolNames(p) {
+  return p.locations?.length ? p.locations.map((l) => l.name).join(', ') : (p.location?.name || '')
+}
 
 // A staff member leads at most one program, so anyone already claimed is left
 // out of the picker entirely — except the lead of the program being edited,
@@ -59,13 +69,11 @@ const takenStaffIds = computed(
     ),
 )
 
-const schoolHasStaff = computed(() =>
-  staff.value.some((s) => String(s.location_id) === String(form.location_id)),
-)
-
-const staffAtSchool = computed(() =>
+// A staff member belongs to ONE program, so the lead must be someone not in a
+// program yet (saving puts them in this one) or already in this program.
+const leadCandidates = computed(() =>
   staff.value.filter(
-    (s) => String(s.location_id) === String(form.location_id) && !takenStaffIds.value.has(String(s.id)),
+    (s) => (!s.program_id || s.program_id === editingId.value) && !takenStaffIds.value.has(String(s.id)),
   ),
 )
 
@@ -79,16 +87,9 @@ async function loadOptions() {
   }
 }
 
-// Changing school invalidates a lead from the previous one.
-function onSchoolChange() {
-  if (!staffAtSchool.value.some((s) => String(s.id) === String(form.responsible_staff_id))) {
-    form.responsible_staff_id = ''
-  }
-}
-
 function openCreate() {
   editingId.value = null
-  Object.assign(form, { name: '', description: '', location_id: '', responsible_staff_id: '' })
+  Object.assign(form, { name: '', description: '', location_ids: [], responsible_staff_id: '' })
   showModal.value = true
 }
 
@@ -97,7 +98,7 @@ function openEdit(program) {
   Object.assign(form, {
     name: program.name,
     description: program.description || '',
-    location_id: program.location_id || '',
+    location_ids: programSchoolIds(program).map(Number),
     responsible_staff_id: program.responsible_staff_id || '',
   })
   showModal.value = true
@@ -108,6 +109,8 @@ async function handleSubmit() {
     if (editingId.value) await update(editingId.value, form)
     else await create(form)
     showModal.value = false
+    // Saving can put the lead into this program — refresh the staff picker.
+    loadOptions()
   } catch {
     // useApiCrud already showed why; just clean up here.
   }
@@ -182,6 +185,7 @@ const { page, rowsPerPage, total, paged } = usePagination(filtered)
                 <th class="th-sort" @click="toggleSort('name')">{{ t('common.name') }}<TableSortIcon :active="sortKey === 'name'" :direction="sortDir" /></th>
                 <th class="th-sort" @click="toggleSort('school')">{{ t('programs.school') }}<TableSortIcon :active="sortKey === 'school'" :direction="sortDir" /></th>
                 <th class="th-sort" @click="toggleSort('lead')">{{ t('programs.responsible_staff') }}<TableSortIcon :active="sortKey === 'lead'" :direction="sortDir" /></th>
+                <th>{{ t('common.status') }}</th>
                 <th>{{ t('common.description') }}</th>
                 <th class="text-right">{{ t('common.actions') }}</th>
               </tr>
@@ -192,19 +196,17 @@ const { page, rowsPerPage, total, paged } = usePagination(filtered)
                   <input type="checkbox" :checked="selectedIds.includes(p.id)" @change="toggleSelect(p.id)" class="rounded border-line text-brand focus:ring-brand/30" />
                 </td>
                 <td class="font-medium text-fg">{{ p.name }}</td>
-                <td>{{ p.location?.name || '—' }}</td>
-                <!-- Both of these leave the school unable to accept a transfer,
-                     so neither is allowed to look like a filled-in field. A
-                     lead with no login account is the sneakier one: the name is
-                     there, but nobody can actually act on it. -->
+                <td>{{ schoolNames(p) || '—' }}</td>
+                <td>{{ p.responsible_staff?.full_name || '—' }}</td>
+                <!-- Status: whether this program's lead can actually accept a
+                     transfer for the school. No lead and a lead with no login
+                     account both leave the school unable to receive anything —
+                     the second is the sneakier one, since a name is filled in
+                     but nobody can act on it. -->
                 <td>
-                  <template v-if="p.responsible_staff">
-                    {{ p.responsible_staff.full_name }}
-                    <span v-if="!p.responsible_staff_has_login" class="badge-warning ml-1" :title="t('programs.no_login_hint')">
-                      {{ t('programs.no_login') }}
-                    </span>
-                  </template>
-                  <span v-else class="badge-warning">{{ t('programs.no_lead') }}</span>
+                  <span v-if="!p.responsible_staff" class="badge-warning">{{ t('programs.no_lead') }}</span>
+                  <span v-else-if="!p.responsible_staff_has_login" class="badge-warning" :title="t('programs.no_login_hint')">{{ t('programs.no_login') }}</span>
+                  <span v-else class="badge-success">{{ t('status.active') }}</span>
                 </td>
                 <td>{{ p.description || '—' }}</td>
                 <td class="text-right">
@@ -220,7 +222,7 @@ const { page, rowsPerPage, total, paged } = usePagination(filtered)
                 </td>
               </tr>
               <tr v-if="!loading && !filtered.length">
-                <td :colspan="isOpm ? 6 : 5" class="py-10 text-center text-faint">{{ search ? t('programs.empty_search') : t('programs.empty') }}</td>
+                <td :colspan="isOpm ? 7 : 6" class="py-10 text-center text-faint">{{ search ? t('programs.empty_search') : t('programs.empty') }}</td>
               </tr>
             </tbody>
           </table>
@@ -236,27 +238,22 @@ const { page, rowsPerPage, total, paged } = usePagination(filtered)
             <label class="label">{{ t('programs.name_required') }}</label>
             <input v-model="form.name" required class="input" />
           </div>
-          <div class="grid grid-cols-2 gap-4">
-            <div class="form-group">
-              <label class="label">{{ t('programs.school_required') }}</label>
-              <select v-model="form.location_id" required class="input" @change="onSchoolChange">
-                <option value="">{{ t('common.select_location') }}</option>
-                <option v-for="l in locations" :key="l.id" :value="l.id">{{ l.name }}</option>
-              </select>
+          <!-- Schools: a program can run at several. Its lead accepts deliveries
+               at every one, and its staff can see and manage all of them. -->
+          <div class="form-group">
+            <div class="flex items-center justify-between mb-1.5">
+              <label class="label !mb-0">{{ t('programs.schools_required') }}</label>
+              <span class="text-xs text-muted">{{ t('asset_transfers.ticked_count', { n: form.location_ids.length, total: locations.length }) }}</span>
             </div>
-            <div class="form-group">
-              <label class="label">{{ t('programs.responsible_staff_required') }}</label>
-              <select v-model="form.responsible_staff_id" required class="input" :disabled="!form.location_id">
-                <option value="">{{ t('programs.select_staff') }}</option>
-                <option v-for="s in staffAtSchool" :key="s.id" :value="s.id">{{ s.full_name }}</option>
-              </select>
-              <!-- An empty picker means one of two different problems, and the
-                   fix differs: hire/assign someone, or free up a lead. -->
-              <p v-if="form.location_id && !staffAtSchool.length" class="text-xs text-danger mt-1">
-                {{ schoolHasStaff ? t('programs.all_staff_taken') : t('programs.no_staff_at_school') }}
-              </p>
-              <p v-else class="text-xs text-muted mt-1">{{ t('programs.responsible_staff_hint') }}</p>
-            </div>
+            <SearchSelect v-model="form.location_ids" multiple required input-class="input" :placeholder="t('programs.select_schools')"
+              :options="locations.map((l) => ({ value: l.id, label: l.name }))" />
+          </div>
+          <div class="form-group">
+            <label class="label">{{ t('programs.responsible_staff_required') }}</label>
+            <SearchSelect v-model="form.responsible_staff_id" required input-class="input" :placeholder="t('programs.select_staff')"
+              :options="leadCandidates.map((s) => ({ value: s.id, label: s.full_name }))" />
+            <p v-if="!leadCandidates.length" class="text-xs text-danger mt-1">{{ t('programs.all_staff_taken') }}</p>
+            <p v-else class="text-xs text-muted mt-1">{{ t('programs.responsible_staff_hint') }}</p>
           </div>
           <div class="form-group">
             <label class="label">{{ t('common.description') }}</label>

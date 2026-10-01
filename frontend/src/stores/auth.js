@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import http from '../api/http'
 import { loadPermissions, clearPermissions } from '../composables/usePermissions'
+import { applyRoleWording } from '../i18n'
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
@@ -19,6 +20,7 @@ export const useAuthStore = defineStore('auth', {
       this.user = data.user
       localStorage.setItem('token', data.token)
       localStorage.setItem('user', JSON.stringify(data.user))
+      applyRoleWording(data.user?.role)
       // Permissions are per-account, so they must be refetched on sign-in
       // rather than carried over from whoever was signed in before.
       await loadPermissions(true)
@@ -33,12 +35,14 @@ export const useAuthStore = defineStore('auth', {
         localStorage.removeItem('token')
         localStorage.removeItem('user')
         clearPermissions()
+        applyRoleWording(null)
       }
     },
 
     setUser(user) {
       this.user = user
       localStorage.setItem('user', JSON.stringify(user))
+      applyRoleWording(user?.role)
     },
 
     // The cached copy in localStorage is whatever the account looked like at

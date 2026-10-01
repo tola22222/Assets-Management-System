@@ -2,6 +2,9 @@
 
 namespace Database\Factories;
 
+use App\Models\Location;
+use App\Models\Staff;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -30,6 +33,27 @@ class UserFactory extends Factory
             'password' => static::$password ??= Hash::make('password'),
             'remember_token' => Str::random(10),
         ];
+    }
+
+    /**
+     * A staff-role user needs a Staff record with a location: staff see only
+     * their assigned location, and nothing without one (fail closed). So a
+     * staff user made without a staff_id gets a Staff record at the PEPY
+     * Office (code SR), the way HR sets one up. Pass a staff_id to control it —
+     * e.g. a Staff record with no location, to test the fail-closed case.
+     */
+    public function configure(): static
+    {
+        return $this->afterMaking(function (User $user) {
+            if ($user->role !== 'staff' || $user->staff_id !== null) {
+                return;
+            }
+
+            $user->staff_id = Staff::create([
+                'full_name' => $user->name,
+                'location_id' => Location::where('code', 'SR')->value('id'),
+            ])->id;
+        });
     }
 
     /**

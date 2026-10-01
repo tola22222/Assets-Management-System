@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\Asset;
 use App\Models\AssetVerification;
-use App\Models\Notification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -16,12 +15,13 @@ class AssetVerificationController extends Controller
     {
         $user = $request->user();
 
-        // Staff see verifications for their own site once one is assigned —
-        // everyone else (OPM, Finance, ED) sees every site. A staff account
-        // with no site set yet fails OPEN, the same rule as the register.
+        // Staff see verifications recorded at their program's schools — none
+        // until HR assigns a program (fail closed, the same rule as the register).
+        // Everyone else (OPM, Finance, ED) sees every site.
         $verifications = AssetVerification::with(['asset', 'location', 'verifiedBy'])
-            ->when($user->isSiteScoped() && $user->siteLocationId() !== null, fn ($q) => $q->where('location_id', $user->siteLocationId()))
+            ->when($user->isSiteScoped(), fn ($q) => $q->whereIn('location_id', $user->siteLocationIds()))
             ->latest()
+            ->latest('id')
             ->get();
 
         return response()->json($verifications);
@@ -37,6 +37,17 @@ class AssetVerificationController extends Controller
             'remark' => 'nullable|string',
             'image' => 'nullable|image|mimes:jpeg,png,jpg|max:5120',
         ]);
+
+        // A verification confirms the asset where the register has it. Moving
+        // it between locations is a transfer, so the stock of both locations
+        // and the transfer history stay right.
+        $asset = Asset::with('location')->findOrFail($validated['asset_id']);
+        if ($asset->location_id !== null && (int) $asset->location_id !== (int) $validated['location_id']) {
+            return response()->json([
+                'message' => 'This asset is recorded at '.($asset->location->name ?? 'another location').'. Verify it there, or transfer it to the new location first.',
+                'errors' => ['location_id' => ['This asset is recorded at '.($asset->location->name ?? 'another location').'.']],
+            ], 422);
+        }
 
         $validated['verified_by'] = Auth::id();
         $validated['verified_at'] = now();

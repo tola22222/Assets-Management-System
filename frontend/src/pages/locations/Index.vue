@@ -26,14 +26,15 @@ const LOCATION_TYPES = ['office', 'lab', 'program']
 const { filters, filtered: filteredLocations } = useTableFilter(searched, {
   type: (l, v) => l.type === v,
 })
-const { sortKey, sortDir, toggleSort, sorted: filtered } = useTableSort(filteredLocations, { defaultKey: 'name', paths: { count: 'assets_count' } })
+const { sortKey, sortDir, toggleSort, sorted: filtered } = useTableSort(filteredLocations, { defaultKey: 'created_at', defaultDir: 'desc', paths: { count: 'assets_count' } })
 const { selectedIds, allSelected, toggleSelectAll, toggleSelect, clearSelection } = useBulkSelect(filtered)
 const confirmingBulkDelete = ref(false)
 const toast = useToastStore()
 const auth = useAuthStore()
-// Location writes are restricted to role:operations_hr_manager in api.php;
+// Location writes are restricted to role:operations_hr_manager,finance_manager in api.php;
 // without this gate every other role saw buttons that could only 403.
-const isOpm = computed(() => auth.user?.role === 'operations_hr_manager')
+// HR or the Accountant (same access; see User::isAdministrator on the server).
+const isOpm = computed(() => ['operations_hr_manager', 'finance_manager'].includes(auth.user?.role))
 
 const showModal = ref(false)
 const editingId = ref(null)

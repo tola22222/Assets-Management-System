@@ -14,7 +14,7 @@ class Asset extends Model
         'asset_code', 'name', 'category_id', 'location_id', 'description',
         'model', 'brand', 'serial_number', 'purchase_date',
         'purchase_price', 'condition', 'status', 'image_path',
-        'qr_code_path',
+        'qr_code_path', 'supplier_id',
     ];
 
     protected $appends = ['image_url', 'qr_code_url'];
@@ -25,9 +25,9 @@ class Asset extends Model
     public const CONDITIONS = ['good', 'fair', 'broken', 'lost'];
 
     /**
-     * Assets this user may see: every asset for OPM/Finance/ED, only their own
-     * site for staff (all sites while a staff account has no site set yet —
-     * see User::canAccessLocation()).
+     * Assets this user may see: every asset for OPM/Finance/ED; for staff,
+     * only the assets at their program's schools — and none at all while they
+     * have no program (fail closed, see User::siteLocationIds()).
      */
     public function scopeVisibleTo(Builder $query, User $user): Builder
     {
@@ -35,17 +35,31 @@ class Asset extends Model
             return $query;
         }
 
-        $site = $user->siteLocationId();
-
-        return $site === null
-            ? $query
-            : $query->where($query->qualifyColumn('location_id'), $site);
+        // Their program's schools. An empty list matches nothing (fail closed),
+        // never unplaced assets.
+        return $query->whereIn($query->qualifyColumn('location_id'), $user->siteLocationIds());
     }
 
     /** Still on the register — i.e. not written off. */
     public function scopeOnRegister(Builder $query): Builder
     {
         return $query->where($query->qualifyColumn('status'), '!=', 'disposed');
+    }
+
+    /**
+     * Conditions that take an asset out of the available stock count. Set by
+     * a verification (or QR-scan verification) — re-verifying it good or fair
+     * puts it straight back, because the counts are live, never stored.
+     */
+    public const UNAVAILABLE_CONDITIONS = ['broken', 'lost'];
+
+    /** On the register and usable: not disposed, not verified lost or broken. */
+    public function scopeAvailable(Builder $query): Builder
+    {
+        $condition = $query->qualifyColumn('condition');
+
+        // whereNotIn alone would also drop rows with no condition recorded.
+        return $query->onRegister()->where(fn ($q) => $q->whereNull($condition)->orWhereNotIn($condition, self::UNAVAILABLE_CONDITIONS));
     }
 
     /** Thresholds for the "Assets by Model" grouped report's stock-level badge. */
@@ -85,6 +99,12 @@ class Asset extends Model
     public function location()
     {
         return $this->belongsTo(Location::class);
+    }
+
+    /** Where it was bought from. Optional; cleared if the supplier is deleted. */
+    public function supplier()
+    {
+        return $this->belongsTo(Supplier::class);
     }
 
     public function stocks()

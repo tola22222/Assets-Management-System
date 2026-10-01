@@ -311,7 +311,7 @@
             if (res.status === 401) return signedOut();
             if (res.status === 404) {
                 formCard.hidden = true;
-                fail('This asset belongs to another site, so you cannot update it.');
+                fail('This asset is not at your assigned site, so you cannot update it.');
                 return;
             }
             if (res.status === 403) {

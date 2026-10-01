@@ -22,21 +22,22 @@ class AssetController extends Controller
 {
     public function index(Request $request)
     {
-        // Staff only ever see their own site's assets (none without a site);
-        // every other role sees all sites.
+        // Staff see only the assets at their assigned location (none until
+        // HR sets it); every other role sees all sites.
         $query = Asset::visibleTo($request->user())
-            ->with(['category', 'location', 'assignments' => fn ($q) => $q->whereIn('status', AssetAssignment::CURRENT_STATUSES)->latest('assigned_date')]);
+            ->with(['category', 'location', 'supplier', 'assignments' => fn ($q) => $q->whereIn('status', AssetAssignment::CURRENT_STATUSES)->latest('assigned_date')]);
 
-        return response()->json($query->latest()->get());
+        return response()->json($query->latest()->latest('id')->get());
     }
 
     public function show(Request $request, Asset $asset)
     {
-        abort_unless($request->user()->canAccessLocation($asset->location_id), 404);
+        abort_unless($request->user()->canAccessAsset($asset), 404);
 
         return response()->json($asset->load([
             'category',
             'location',
+            'supplier',
             'assignments' => fn ($q) => $q->latest(),
             'verifications' => fn ($q) => $q->latest(),
         ]));
@@ -77,7 +78,7 @@ class AssetController extends Controller
             'description' => 'Registered asset: '.$asset->name.' ('.$asset->asset_code.')',
         ]);
 
-        return response()->json($asset->fresh(['category', 'location']), 201);
+        return response()->json($asset->fresh(['category', 'location', 'supplier']), 201);
     }
 
     public function update(Request $request, Asset $asset)
@@ -95,7 +96,7 @@ class AssetController extends Controller
         // While a transfer is open the receiving site decides where the asset
         // ends up; editing the location here would race that decision.
         if ((int) $validated['location_id'] !== (int) $asset->location_id
-            && AssetTransfer::where('asset_id', $asset->id)->whereIn('status', AssetTransfer::OPEN_STATUSES)->exists()) {
+            && AssetTransfer::involvingAsset($asset->id)->whereIn('status', AssetTransfer::OPEN_STATUSES)->exists()) {
             throw ValidationException::withMessages([
                 'location_id' => 'This asset has an open transfer. Its location changes when the transfer is accepted.',
             ]);
@@ -120,7 +121,7 @@ class AssetController extends Controller
             'description' => 'Updated asset: '.$asset->name,
         ]);
 
-        return response()->json($asset->fresh(['category', 'location']));
+        return response()->json($asset->fresh(['category', 'location', 'supplier']));
     }
 
     public function destroy(Asset $asset)
@@ -129,7 +130,7 @@ class AssetController extends Controller
         // trail. An asset with any history leaves the register by disposal.
         $history = [
             'assignments' => $asset->assignments()->exists(),
-            'transfers' => $asset->transfers()->exists(),
+            'transfers' => AssetTransfer::involvingAsset($asset->id)->exists(),
             'disposal requests' => $asset->disposals()->exists(),
             'verifications' => $asset->verifications()->exists(),
         ];
@@ -160,7 +161,7 @@ class AssetController extends Controller
 
     public function flagIssue(Request $request, Asset $asset)
     {
-        abort_unless($request->user()->canAccessLocation($asset->location_id), 404);
+        abort_unless($request->user()->canAccessAsset($asset), 404);
 
         $validated = $request->validate([
             'note' => 'required|string|max:1000',
@@ -222,7 +223,7 @@ class AssetController extends Controller
      */
     public function downloadQr(Request $request, Asset $asset)
     {
-        abort_unless($request->user()->canAccessLocation($asset->location_id), 404);
+        abort_unless($request->user()->canAccessAsset($asset), 404);
 
         if (! $asset->qr_code_path || ! Storage::disk('public')->exists($asset->qr_code_path)) {
             AssetCodeService::generateQrCode($asset);
@@ -238,6 +239,7 @@ class AssetController extends Controller
             'name' => 'required|string|max:255',
             'category_id' => 'required|exists:asset_categories,id',
             'location_id' => 'required|exists:locations,id',
+            'supplier_id' => 'nullable|exists:suppliers,id',
             'purchase_date' => 'nullable|date',
             'purchase_price' => 'nullable|numeric',
             'status' => ['required', 'string', Rule::in(Asset::STATUSES)],

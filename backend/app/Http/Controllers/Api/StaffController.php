@@ -10,6 +10,7 @@ use App\Models\Staff;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 class StaffController extends Controller
@@ -18,11 +19,18 @@ class StaffController extends Controller
     {
         $user = $request->user();
 
-        // Staff see colleagues at their own site (everyone, while their own
-        // site is not set yet — the same fail-open rule as the register).
-        $query = Staff::latest();
-        if ($user->isSiteScoped() && $user->siteLocationId() !== null) {
-            $query->where('location_id', $user->siteLocationId());
+        // Staff see colleagues in their own program only (nobody, while they
+        // have no program — the same fail-closed rule as the register). A
+        // staff record not yet moved onto a program sees colleagues at its
+        // old site, like User::siteLocationIds().
+        // Each row carries its program and that program's school ids, so the
+        // SPA can tell which schools a person covers (e.g. as a transfer recipient).
+        $query = Staff::with(['program:id,name', 'program.locations:locations.id,locations.name'])->latest()->latest('id');
+        if ($user->isSiteScoped()) {
+            $programId = $user->staff?->program_id;
+            $programId !== null
+                ? $query->where('program_id', $programId)
+                : $query->whereIn('location_id', $user->siteLocationIds());
         }
 
         return response()->json($query->get());
@@ -30,7 +38,7 @@ class StaffController extends Controller
 
     public function store(Request $request)
     {
-        abort_unless(Auth::user()->isOperationsHrManager(), 403, 'Only administrators can create staff members.');
+        abort_unless(Auth::user()->isAdministrator() || Auth::user()->hasCustomPermission('staff', 'create'), 403, 'Only administrators can create staff members.');
 
         $data = $request->validate([
             'full_name' => 'required|string|max:255',
@@ -38,9 +46,16 @@ class StaffController extends Controller
             'phone' => 'nullable|string|max:20',
             'position' => 'nullable|string|max:100',
             'hire_date' => 'nullable|date',
+            // Required: their ONE program decides which schools they can see
+            // and manage (all of the program's schools). No school is picked
+            // for the staff member directly.
+            'program_id' => 'required|exists:programs,id',
             'location_id' => 'nullable|exists:locations,id',
             'photo' => 'nullable|image|mimes:jpeg,png,jpg|max:5120',
+        ], [
+            'program_id.required' => 'Assign this staff member a program — it decides which schools they can see.',
         ]);
+        $data['location_id'] = $this->homeSchool($data);
 
         if ($request->hasFile('photo')) {
             $data['photo_path'] = $request->file('photo')->store('staff_photos', 'public');
@@ -59,7 +74,7 @@ class StaffController extends Controller
 
     public function update(Request $request, Staff $staff)
     {
-        abort_unless(Auth::user()->isOperationsHrManager(), 403, 'Only administrators can update staff members.');
+        abort_unless(Auth::user()->isAdministrator() || Auth::user()->hasCustomPermission('staff', 'update'), 403, 'Only administrators can update staff members.');
 
         $data = $request->validate([
             'full_name' => 'required|string|max:255',
@@ -68,21 +83,24 @@ class StaffController extends Controller
             'position' => 'nullable|string|max:100',
             'hire_date' => 'nullable|date',
             'status' => 'required|in:active,inactive',
+            'program_id' => 'required|exists:programs,id',
             'location_id' => 'nullable|exists:locations,id',
             'photo' => 'nullable|image|mimes:jpeg,png,jpg|max:5120',
+        ], [
+            'program_id.required' => 'Assign this staff member a program — it decides which schools they can see.',
         ]);
 
-        // A program lead answers for their school's transfers; moving them to
-        // another site would leave that school with a lead who is not there.
-        if (array_key_exists('location_id', $data) && (int) $data['location_id'] !== (int) $staff->location_id) {
-            $led = Program::where('responsible_staff_id', $staff->id)->first();
-            if ($led && (int) $led->location_id !== (int) $data['location_id']) {
-                return response()->json([
-                    'message' => "{$staff->full_name} leads the program \"{$led->name}\" at another site. Choose a new lead for that program before moving them.",
-                    'errors' => ['location_id' => ['This staff member leads a program at their current site.']],
-                ], 422);
-            }
+        // A program's lead belongs to that program; moving them to another
+        // one would leave the first with a lead who is not in it. (A staff
+        // member is in exactly one program — the column holds one value.)
+        $led = Program::where('responsible_staff_id', $staff->id)->first();
+        if ($led && (int) $led->id !== (int) $data['program_id']) {
+            return response()->json([
+                'message' => "{$staff->full_name} leads the program \"{$led->name}\". Choose a new lead for that program before moving them to another one.",
+                'errors' => ['program_id' => ['This staff member leads another program.']],
+            ], 422);
         }
+        $data['location_id'] = $this->homeSchool($data);
 
         if ($request->hasFile('photo')) {
             if ($staff->photo_path) {
@@ -102,9 +120,25 @@ class StaffController extends Controller
         return response()->json($staff->fresh());
     }
 
+    /**
+     * The staff member's base school, kept only for display: one of their
+     * program's schools (the one sent, if it belongs to the program, otherwise
+     * the program's first school). Access always covers ALL the program's
+     * schools — see User::siteLocationIds().
+     */
+    private function homeSchool(array $data): ?int
+    {
+        $schools = DB::table('location_program')->where('program_id', $data['program_id'])
+            ->orderBy('id')->pluck('location_id')->map(fn ($id) => (int) $id)->all();
+
+        $sent = isset($data['location_id']) ? (int) $data['location_id'] : null;
+
+        return $sent !== null && in_array($sent, $schools, true) ? $sent : ($schools[0] ?? null);
+    }
+
     public function destroy(Staff $staff)
     {
-        abort_unless(Auth::user()->isOperationsHrManager(), 403, 'Only administrators can delete staff members.');
+        abort_unless(Auth::user()->isAdministrator() || Auth::user()->hasCustomPermission('staff', 'delete'), 403, 'Only administrators can delete staff members.');
 
         $name = $staff->full_name;
 

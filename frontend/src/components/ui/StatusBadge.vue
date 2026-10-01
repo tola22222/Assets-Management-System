@@ -9,6 +9,8 @@ const classes = {
   active: 'badge-success',
   completed: 'badge-success',
   received: 'badge-success',
+  // A transfer the destination accepted (stored as `received`).
+  accepted: 'badge-success',
   // Sitting with the destination site, waiting to be accepted or rejected —
   // the asset is still recorded at the sending site.
   pending: 'badge-warning',

@@ -91,23 +91,28 @@ class PermissionRegistry
             'settings' => ['view', 'read', 'update'],
             'activity-logs' => ['view', 'read', 'delete'],
         ],
+        // The Accountant has HR's access everywhere except Administration,
+        // where they get System Settings only — narrowed to its Appearance tab
+        // inside SettingController. No User Management, Roles & Permissions or
+        // Activity Log.
         'finance_manager' => [
             'dashboard' => self::VIEW_ONLY,
-            'assets' => ['view', 'read', 'update'],
+            'assets' => self::FULL,
             'stock-items' => ['view', 'read', 'update', 'delete'],
             'asset-assignments' => self::FULL,
-            'asset-transfers' => ['view', 'create', 'read', 'delete'],
-            'asset-verifications' => ['view', 'create', 'read'],
+            'asset-transfers' => self::FULL,
+            'asset-verifications' => self::FULL,
             'asset-disposals' => ['view', 'create', 'read', 'delete'],
-            'staff' => self::VIEW_ONLY,
-            'programs' => self::VIEW_ONLY,
-            'categories' => self::VIEW_ONLY,
-            'locations' => self::VIEW_ONLY,
+            'staff' => self::FULL,
+            'programs' => self::FULL,
+            'categories' => self::FULL,
+            'locations' => self::FULL,
             'suppliers' => self::FULL,
             'reports' => self::VIEW_ONLY,
             'qr-scan' => ['view', 'create', 'read'],
             'search' => self::VIEW_ONLY,
             'notifications' => ['view', 'read', 'update'],
+            'settings' => ['view', 'read', 'update'],
         ],
         'executive_director' => [
             'dashboard' => self::VIEW_ONLY,
@@ -133,24 +138,30 @@ class PermissionRegistry
             'assets' => self::VIEW_ONLY,
             'stock-items' => self::VIEW_ONLY,
             'asset-assignments' => self::VIEW_ONLY,
-            'asset-transfers' => ['view', 'create', 'read', 'delete'],
+            // Staff answer transfers (accept / reject); they never raise one —
+            // only a custom role that grants 'create' lets a staff login send.
+            'asset-transfers' => ['view', 'read', 'delete'],
             'asset-verifications' => self::VIEW_ONLY,
             'asset-disposals' => ['view', 'create', 'read', 'delete'],
             'staff' => self::VIEW_ONLY,
             'programs' => self::VIEW_ONLY,
             'categories' => self::VIEW_ONLY,
             'locations' => self::VIEW_ONLY,
-            'suppliers' => self::VIEW_ONLY,
+            // Suppliers are hidden from staff by default; a custom role can grant them.
             'qr-scan' => ['view', 'create', 'read'],
             'search' => self::VIEW_ONLY,
             'notifications' => ['view', 'read', 'update'],
+            // Administration > Appearance only: the page applies their theme
+            // colour and language to their own browser. The /settings API itself
+            // stays refused to staff (role: guard), so nothing org-wide changes.
+            'settings' => self::VIEW_ONLY,
         ],
     ];
 
     /** Built-in roles get a Role row too, so they show up in the roles list. */
     public const SYSTEM_ROLES = [
         'operations_hr_manager' => ['Operations & HR Manager', 'Primary administrator. Full access to the register, workflows, users and settings.'],
-        'finance_manager' => ['Finance Manager', 'Own-scope edit rights across assets, suppliers and assignments; verifies counts.'],
+        'finance_manager' => ['Finance Manager', 'The Accountant: same access as the Operations & HR Manager, except Administration — System Settings > Appearance only.'],
         'executive_director' => ['Executive Director', 'Reads the register and reports; sole approver of asset disposals.'],
         'staff' => ['Staff', 'Site-scoped. Looks up assets at their own site and flags damage or loss.'],
     ];
@@ -221,5 +232,45 @@ class PermissionRegistry
     public static function baselineFor(?string $role): array
     {
         return self::BASELINE[$role] ?? [];
+    }
+
+    /**
+     * The [module, ability] a request needs, read off the route — so a
+     * role:-guarded route can also let in a custom role that grants it.
+     *
+     *   module   the first path segment after api/ (it matches the MODULES
+     *            keys by design); null when it is not a permissionable module
+     *   ability  GET on a collection = view, GET on a record = read;
+     *            POST to the collection (or its import) = create, any other
+     *            POST (approve, lock, issue, …) = update; PUT/PATCH = update;
+     *            DELETE = delete. Reports are read-only, so always view.
+     *
+     * @return array{0: string, 1: string}|null
+     */
+    public static function abilityForRoute(string $method, string $uri, array $parameters = []): ?array
+    {
+        $segments = array_values(array_filter(explode('/', preg_replace('#^api/#', '', trim($uri, '/')))));
+        $module = $segments[0] ?? null;
+
+        if ($module === null || ! self::isModule($module)) {
+            return null;
+        }
+
+        if ($module === 'reports') {
+            return [$module, 'view'];
+        }
+
+        $method = strtoupper($method);
+        $onRecord = $parameters !== [];
+
+        $ability = match (true) {
+            in_array($method, ['GET', 'HEAD'], true) => $onRecord ? 'read' : 'view',
+            $method === 'POST' => (count($segments) === 1 || ($segments[1] ?? null) === 'import') ? 'create' : 'update',
+            in_array($method, ['PUT', 'PATCH'], true) => 'update',
+            $method === 'DELETE' => 'delete',
+            default => null,
+        };
+
+        return $ability ? [$module, $ability] : null;
     }
 }

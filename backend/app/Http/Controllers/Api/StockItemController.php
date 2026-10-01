@@ -15,9 +15,17 @@ use InvalidArgumentException;
 
 class StockItemController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        return response()->json(StockItem::with('location')->orderBy('name')->get());
+        // Staff see only their own site's consumables (none until HR sets it).
+        $user = $request->user();
+
+        return response()->json(
+            StockItem::with('location')
+                ->when($user->isSiteScoped(), fn ($q) => $q->whereIn('location_id', $user->siteLocationIds()))
+                ->orderBy('name')
+                ->get()
+        );
     }
 
     /**
@@ -26,21 +34,31 @@ class StockItemController extends Controller
      * registered/imported, always exactly matching the register (disposals,
      * deletes, and transfers all show up automatically).
      *
+     * It counts AVAILABLE stock: an asset verified lost or broken drops out
+     * (Asset::scopeAvailable), and comes back if it is later verified good.
+     *
      * Every location is returned, including ones holding nothing — a site
      * sitting at 0 is a meaningful reading on this panel ("nothing has been
      * tagged there yet"), not a row to hide. The null-location bucket is the
      * exception: it's a data-quality warning, so it's only appended when
      * there actually are unplaced assets.
      */
-    public function byLocation()
+    public function byLocation(Request $request)
     {
+        // Staff get just their own site's row — never another site's numbers
+        // (and no rows at all until HR sets their location).
+        $user = $request->user();
+        $scoped = $user->isSiteScoped();
+
         $counts = Asset::select('location_id', DB::raw('count(*) as total'))
-            ->where('status', '!=', 'disposed')
+            ->available()
+            ->visibleTo($user)
             ->whereNotNull('location_id')
             ->groupBy('location_id')
             ->pluck('total', 'location_id');
 
         $rows = Location::orderBy('name')
+            ->when($scoped, fn ($q) => $q->whereKey($user->siteLocationIds()))
             ->get(['id', 'name', 'code'])
             ->map(fn ($location) => [
                 'location_id' => $location->id,
@@ -53,7 +71,7 @@ class StockItemController extends Controller
             ->values()
             ->all();
 
-        $unplaced = Asset::where('status', '!=', 'disposed')->whereNull('location_id')->count();
+        $unplaced = $scoped ? 0 : Asset::available()->whereNull('location_id')->count();
 
         if ($unplaced > 0) {
             $rows[] = ['location_id' => null, 'name' => null, 'code' => null, 'total' => $unplaced, 'level' => self::levelFor($unplaced)];
@@ -74,8 +92,10 @@ class StockItemController extends Controller
         return $level === 'medium' ? 'normal' : $level;
     }
 
-    public function show(StockItem $stock_item)
+    public function show(Request $request, StockItem $stock_item)
     {
+        abort_unless($request->user()->canAccessLocation($stock_item->location_id), 404);
+
         return response()->json(
             $stock_item->load(['location', 'transactions' => fn ($q) => $q->with('recordedBy')->latest('transaction_date')->latest('id')])
         );
