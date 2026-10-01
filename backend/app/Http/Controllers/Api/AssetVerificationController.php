@@ -34,8 +34,11 @@ class AssetVerificationController extends Controller
             'location_id' => 'required|exists:locations,id',
             'quantity_verified' => 'required|integer|min:1',
             'condition' => 'required|in:good,fair,broken,lost',
-            'remark' => 'nullable|string',
+            // Broken or lost takes the unit out of use: say why, for the record.
+            'remark' => 'nullable|string|required_if:condition,broken,lost',
             'image' => 'nullable|image|mimes:jpeg,png,jpg|max:5120',
+        ], [
+            'remark.required_if' => 'Enter the reason the asset is broken or lost.',
         ]);
 
         // A verification confirms the asset where the register has it. Moving
@@ -50,6 +53,10 @@ class AssetVerificationController extends Controller
         }
 
         $validated['verified_by'] = Auth::id();
+        // Audit: what it was before, and whether this took it out of use. The
+        // asset row and its code stay — only the condition changes.
+        $validated['previous_condition'] = $asset->condition;
+        $validated['quantity_affected'] = in_array($validated['condition'], Asset::UNAVAILABLE_CONDITIONS, true) ? 1 : 0;
         $validated['verified_at'] = now();
 
         if ($request->hasFile('image')) {

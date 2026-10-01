@@ -18,7 +18,9 @@ use Illuminate\Validation\ValidationException;
  * simply the units there:
  *
  *   total       units of the model at the location (not disposed)
- *   lost_broken units there a verification marked lost or broken
+ *   lost_broken units there a verification marked lost or broken — still on
+ *               the register under their own codes, never deleted, but out of
+ *               use: they cannot be assigned or transferred
  *   transferred units there that are out: held by a current assignment (to a
  *               staff member or program, made by an accepted transfer or the
  *               Edit dialog) plus units on a transfer leaving the location
@@ -52,9 +54,12 @@ class AssetStockService
         $total = count($ids);
         $lostBroken = Asset::whereIn('id', $ids)->whereIn('condition', Asset::UNAVAILABLE_CONDITIONS)->count();
 
-        // Assignments on units at this location. A unit keeps its assignments
-        // when it moves, so they always count where the unit now is.
-        $assigned = (int) AssetAssignment::whereIn('asset_id', $ids)
+        // Assignments on usable units at this location. A unit keeps its
+        // assignments when it moves, so they count where the unit now is. A
+        // unit verified broken / lost is already counted in lost_broken, so its
+        // assignment is not subtracted a second time.
+        $usableIds = Asset::whereIn('id', $ids)->available()->pluck('id')->all();
+        $assigned = (int) AssetAssignment::whereIn('asset_id', $usableIds)
             ->whereIn('status', self::HOLDING_ASSIGNMENT_STATUSES)
             ->when($ignoreAssignmentId, fn ($q) => $q->where('id', '!=', $ignoreAssignmentId))
             ->sum('quantity');

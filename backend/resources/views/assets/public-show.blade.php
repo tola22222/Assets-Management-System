@@ -323,6 +323,18 @@
             if (res.ok) revealPrivate();
         }).catch(function () {});
 
+        // Broken or lost takes the unit out of use, so the server wants the
+        // reason on record: make the remark required for those two only.
+        function syncRemarkRequired() {
+            var outOfUse = ['broken', 'lost'].indexOf(form.elements.condition.value) !== -1;
+            form.elements.remark.required = outOfUse;
+            form.elements.remark.placeholder = outOfUse
+                ? 'Reason it is broken or lost (required)...'
+                : 'Add a remark (optional)...';
+        }
+        form.elements.condition.addEventListener('change', syncRemarkRequired);
+        syncRemarkRequired();
+
         form.addEventListener('submit', function (event) {
             event.preventDefault();
             var button = form.querySelector('button[type="submit"]');

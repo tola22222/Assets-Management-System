@@ -16,13 +16,22 @@ import { useTableSort } from '../../composables/useTableSort'
 import { useBulkSelect } from '../../composables/useBulkSelect'
 import { useToastStore } from '../../stores/toast'
 import { useAuthStore } from '../../stores/auth'
+import { usePermissions } from '../../composables/usePermissions'
 import TablePagination from '../../components/ui/TablePagination.vue'
 import { usePagination } from '../../composables/usePagination'
 
 const { t } = useI18n()
 const auth = useAuthStore()
 // HR or the Accountant (same access; see User::isAdministrator on the server).
-const isOpm = computed(() => ['operations_hr_manager', 'finance_manager'].includes(auth.user?.role))
+// HR or the Accountant — or a custom role granting the ability (the same
+// rule as the server's role: guard; see usePermissions().allows).
+const { allows } = usePermissions()
+const ADMIN_ROLES = ['operations_hr_manager', 'finance_manager']
+const canCreate = computed(() => allows(ADMIN_ROLES, 'programs', 'create'))
+const canUpdate = computed(() => allows(ADMIN_ROLES, 'programs', 'update'))
+const canDelete = computed(() => allows(ADMIN_ROLES, 'programs', 'delete'))
+// The selection and actions columns show when a row can be changed at all.
+const canManage = computed(() => canUpdate.value || canDelete.value)
 const { items: programs, loading, fetchAll, create, update, destroy, destroyMany } = useApiCrud('/programs', { entityName: t('programs.entity') })
 const { search, filtered: searched } = useTableSearch(programs, ['name', 'description', (p) => schoolNames(p)])
 // Location filter (the drop-down beside search): any of the schools a program
@@ -157,11 +166,11 @@ const { page, rowsPerPage, total, paged } = usePagination(filtered)
             <p class="text-muted text-sm mt-1">{{ t('programs.subtitle') }}</p>
           </div>
           <div class="flex items-center gap-2 flex-shrink-0">
-            <button v-if="isOpm && selectedIds.length" @click="confirmingBulkDelete = true" class="btn-danger btn-sm">
+            <button v-if="canDelete && selectedIds.length" @click="confirmingBulkDelete = true" class="btn-danger btn-sm">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /></svg>
               {{ t('common.delete_selected', { count: selectedIds.length }) }}
             </button>
-            <button v-if="isOpm" @click="openCreate" class="btn-primary btn-sm">
+            <button v-if="canCreate" @click="openCreate" class="btn-primary btn-sm">
               <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
               {{ t('programs.new') }}
             </button>
@@ -179,8 +188,8 @@ const { page, rowsPerPage, total, paged } = usePagination(filtered)
           <table class="data-table">
             <thead>
               <tr>
-                <th v-if="isOpm" class="w-10">
-                  <input type="checkbox" :checked="allSelected" @change="toggleSelectAll" class="rounded border-line text-brand focus:ring-brand/30" />
+                <th v-if="canManage" class="w-10">
+                  <input v-if="canDelete" type="checkbox" :checked="allSelected" @change="toggleSelectAll" class="rounded border-line text-brand focus:ring-brand/30" />
                 </th>
                 <th class="th-sort" @click="toggleSort('name')">{{ t('common.name') }}<TableSortIcon :active="sortKey === 'name'" :direction="sortDir" /></th>
                 <th class="th-sort" @click="toggleSort('school')">{{ t('programs.school') }}<TableSortIcon :active="sortKey === 'school'" :direction="sortDir" /></th>
@@ -192,8 +201,8 @@ const { page, rowsPerPage, total, paged } = usePagination(filtered)
             </thead>
             <tbody>
               <tr v-for="p in paged" :key="p.id">
-                <td v-if="isOpm">
-                  <input type="checkbox" :checked="selectedIds.includes(p.id)" @change="toggleSelect(p.id)" class="rounded border-line text-brand focus:ring-brand/30" />
+                <td v-if="canManage">
+                  <input v-if="canDelete" type="checkbox" :checked="selectedIds.includes(p.id)" @change="toggleSelect(p.id)" class="rounded border-line text-brand focus:ring-brand/30" />
                 </td>
                 <td class="font-medium text-fg">{{ p.name }}</td>
                 <td>{{ schoolNames(p) || '—' }}</td>
@@ -210,11 +219,11 @@ const { page, rowsPerPage, total, paged } = usePagination(filtered)
                 </td>
                 <td>{{ p.description || '—' }}</td>
                 <td class="text-right">
-                  <div v-if="isOpm" class="flex items-center justify-end gap-1.5">
-                    <button @click="openEdit(p)" :title="t('common.edit')" class="btn-icon-edit">
+                  <div v-if="canManage" class="flex items-center justify-end gap-1.5">
+                    <button v-if="canUpdate" @click="openEdit(p)" :title="t('common.edit')" class="btn-icon-edit">
                       <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
                     </button>
-                    <button @click="deletingId = p.id" :title="t('common.delete')" class="btn-icon-danger">
+                    <button v-if="canDelete" @click="deletingId = p.id" :title="t('common.delete')" class="btn-icon-danger">
                       <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /></svg>
                     </button>
                   </div>
@@ -222,7 +231,7 @@ const { page, rowsPerPage, total, paged } = usePagination(filtered)
                 </td>
               </tr>
               <tr v-if="!loading && !filtered.length">
-                <td :colspan="isOpm ? 7 : 6" class="py-10 text-center text-faint">{{ search ? t('programs.empty_search') : t('programs.empty') }}</td>
+                <td :colspan="canManage ? 7 : 6" class="py-10 text-center text-faint">{{ search ? t('programs.empty_search') : t('programs.empty') }}</td>
               </tr>
             </tbody>
           </table>

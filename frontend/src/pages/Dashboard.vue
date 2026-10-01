@@ -3,6 +3,7 @@ import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import http, { errorMessage } from '../api/http'
 import { useAuthStore } from '../stores/auth'
+import { usePermissions } from '../composables/usePermissions'
 import { useToastStore } from '../stores/toast'
 import AppLayout from '../layouts/AppLayout.vue'
 import StatCard from '../components/ui/StatCard.vue'
@@ -14,8 +15,10 @@ import LocationPillCards from '../components/ui/LocationPillCards.vue'
 const { t } = useI18n()
 const auth = useAuthStore()
 const toast = useToastStore()
-// HR or the Accountant (same access; see User::isAdministrator on the server).
-const isOpm = computed(() => ['operations_hr_manager', 'finance_manager'].includes(auth.user?.role))
+// HR or the Accountant — or a custom role granting Assets → Create
+// (usePermissions().allows, the server's role: guard mirrored).
+const { allows } = usePermissions()
+const isOpm = computed(() => allows(['operations_hr_manager', 'finance_manager'], 'assets', 'create'))
 const stats = ref(null)
 const loading = ref(true)
 const error = ref('')

@@ -207,7 +207,7 @@ class User extends Authenticatable
         // Once per request per user — list endpoints ask for every row. Keyed
         // by the request object, so a role change shows on the next request
         // even where the same User instance is reused (actingAs in tests).
-        self::$customPermissionsMemo ??= new WeakMap;
+        self::$customPermissionsMemo ??= new \WeakMap;
         $request = request();
         $memo = self::$customPermissionsMemo[$request] ?? [];
         if (isset($memo[$this->id])) {
@@ -228,8 +228,8 @@ class User extends Authenticatable
         return $memo[$this->id];
     }
 
-    /** @var WeakMap<IlluminateHttpRequest, array<int, array>>|null */
-    private static ?WeakMap $customPermissionsMemo = null;
+    /** @var \WeakMap<\Illuminate\Http\Request, array<int, array>>|null */
+    private static ?\WeakMap $customPermissionsMemo = null;
 
     public function hasCustomPermission(string $module, string $ability): bool
     {

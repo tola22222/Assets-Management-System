@@ -65,6 +65,12 @@ class AssetAssignmentController extends Controller
             return response()->json(['message' => 'This asset has been disposed and cannot be assigned.'], 422);
         }
 
+        // A unit verified broken or lost stays on the register under its code,
+        // but it is out of use: nobody can be given it.
+        if (in_array(Asset::whereKey($validated['asset_id'])->value('condition'), Asset::UNAVAILABLE_CONDITIONS, true)) {
+            return response()->json(['message' => 'This asset is recorded as broken or lost and cannot be assigned.'], 422);
+        }
+
         if (AssetAssignment::where('asset_id', $validated['asset_id'])->whereIn('status', AssetAssignment::CURRENT_STATUSES)->exists()) {
             return response()->json(['message' => 'This asset is already assigned. It must be returned or the assignment cancelled before it can be assigned again.'], 422);
         }
@@ -134,6 +140,12 @@ class AssetAssignmentController extends Controller
                 'message' => 'This asset is at '.($assetAssignment->asset->location->name ?? 'another location').'. Use a transfer to move it.',
                 'errors' => ['location_id' => ['Use a transfer to move this asset.']],
             ], 422);
+        }
+
+        // Re-opening hands the unit out again, which a broken or lost one can't be.
+        if ($assetAssignment->status === 'returned' && $validated['status'] !== 'returned'
+            && in_array($assetAssignment->asset?->condition, Asset::UNAVAILABLE_CONDITIONS, true)) {
+            return response()->json(['message' => 'This asset is recorded as broken or lost, so this assignment cannot be re-opened.'], 422);
         }
 
         // Re-opening a returned assignment must not give the asset two holders.

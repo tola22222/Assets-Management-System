@@ -16,6 +16,7 @@ import { useTableSort } from '../../composables/useTableSort'
 import { useBulkSelect } from '../../composables/useBulkSelect'
 import { useToastStore } from '../../stores/toast'
 import { useAuthStore } from '../../stores/auth'
+import { usePermissions } from '../../composables/usePermissions'
 import TablePagination from '../../components/ui/TablePagination.vue'
 import { usePagination } from '../../composables/usePagination'
 import ImageField from '../../components/ui/ImageField.vue'
@@ -26,7 +27,15 @@ const auth = useAuthStore()
 // abort_unless() inside Api\StaffController (not by role: middleware in
 // api.php), so it is easy to miss when reading the route file alone.
 // HR or the Accountant (same access; see User::isAdministrator on the server).
-const isOpm = computed(() => ['operations_hr_manager', 'finance_manager'].includes(auth.user?.role))
+// HR or the Accountant — or a custom role granting the ability (the same
+// rule as the server's role: guard; see usePermissions().allows).
+const { allows } = usePermissions()
+const ADMIN_ROLES = ['operations_hr_manager', 'finance_manager']
+const canCreate = computed(() => allows(ADMIN_ROLES, 'staff', 'create'))
+const canUpdate = computed(() => allows(ADMIN_ROLES, 'staff', 'update'))
+const canDelete = computed(() => allows(ADMIN_ROLES, 'staff', 'delete'))
+// The selection and actions columns show when a row can be changed at all.
+const canManage = computed(() => canUpdate.value || canDelete.value)
 const { items: staffList, loading, fetchAll, destroy, destroyMany } = useApiCrud('/staff', { entityName: t('staff.entity') })
 const { search, filtered: searched } = useTableSearch(staffList, ['full_name', 'position', 'phone', 'email'])
 // Location filter (the drop-down beside search): anyone whose program covers
@@ -142,11 +151,11 @@ const { page, rowsPerPage, total, paged } = usePagination(filtered)
             <p class="text-muted text-sm mt-1">{{ t('staff.subtitle') }}</p>
           </div>
           <div class="flex items-center gap-2 flex-shrink-0">
-            <button v-if="isOpm && selectedIds.length" @click="confirmingBulkDelete = true" class="btn-danger btn-sm">
+            <button v-if="canDelete && selectedIds.length" @click="confirmingBulkDelete = true" class="btn-danger btn-sm">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /></svg>
               {{ t('common.delete_selected', { count: selectedIds.length }) }}
             </button>
-            <button v-if="isOpm" @click="openCreate" class="btn-primary btn-sm">
+            <button v-if="canCreate" @click="openCreate" class="btn-primary btn-sm">
               <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
               {{ t('staff.new') }}
             </button>
@@ -164,20 +173,20 @@ const { page, rowsPerPage, total, paged } = usePagination(filtered)
           <table class="data-table">
             <thead>
               <tr>
-                <th v-if="isOpm" class="w-10">
-                  <input type="checkbox" :checked="allSelected" @change="toggleSelectAll" class="rounded border-line text-brand focus:ring-brand/30" />
+                <th v-if="canManage" class="w-10">
+                  <input v-if="canDelete" type="checkbox" :checked="allSelected" @change="toggleSelectAll" class="rounded border-line text-brand focus:ring-brand/30" />
                 </th>
                 <th class="th-sort" @click="toggleSort('full_name')">{{ t('common.name') }}<TableSortIcon :active="sortKey === 'full_name'" :direction="sortDir" /></th>
                 <th class="th-sort" @click="toggleSort('position')">{{ t('staff.position') }}<TableSortIcon :active="sortKey === 'position'" :direction="sortDir" /></th>
                 <th>{{ t('common.phone') }}</th>
                 <th class="th-sort" @click="toggleSort('status')">{{ t('common.status') }}<TableSortIcon :active="sortKey === 'status'" :direction="sortDir" /></th>
-                <th v-if="isOpm" class="text-right">{{ t('common.actions') }}</th>
+                <th v-if="canManage" class="text-right">{{ t('common.actions') }}</th>
               </tr>
             </thead>
             <tbody>
               <tr v-for="s in paged" :key="s.id">
-                <td v-if="isOpm">
-                  <input type="checkbox" :checked="selectedIds.includes(s.id)" @change="toggleSelect(s.id)" class="rounded border-line text-brand focus:ring-brand/30" />
+                <td v-if="canManage">
+                  <input v-if="canDelete" type="checkbox" :checked="selectedIds.includes(s.id)" @change="toggleSelect(s.id)" class="rounded border-line text-brand focus:ring-brand/30" />
                 </td>
                 <td>
                   <div class="flex items-center gap-3">
@@ -191,19 +200,19 @@ const { page, rowsPerPage, total, paged } = usePagination(filtered)
                 <td>
                   <span class="badge" :class="s.status === 'active' ? 'badge-success' : 'badge-neutral'">{{ t(`status.${s.status}`) }}</span>
                 </td>
-                <td v-if="isOpm" class="text-right">
+                <td v-if="canManage" class="text-right">
                   <div class="flex items-center justify-end gap-1.5">
-                    <button @click="openEdit(s)" :title="t('common.edit')" class="btn-icon-edit">
+                    <button v-if="canUpdate" @click="openEdit(s)" :title="t('common.edit')" class="btn-icon-edit">
                       <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
                     </button>
-                    <button @click="deletingId = s.id" :title="t('common.delete')" class="btn-icon-danger">
+                    <button v-if="canDelete" @click="deletingId = s.id" :title="t('common.delete')" class="btn-icon-danger">
                       <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /></svg>
                     </button>
                   </div>
                 </td>
               </tr>
               <tr v-if="!loading && !filtered.length">
-                <td :colspan="isOpm ? 6 : 4" class="py-10 text-center text-faint">{{ search ? t('staff.empty_search') : t('staff.empty') }}</td>
+                <td :colspan="canManage ? 6 : 4" class="py-10 text-center text-faint">{{ search ? t('staff.empty_search') : t('staff.empty') }}</td>
               </tr>
             </tbody>
           </table>

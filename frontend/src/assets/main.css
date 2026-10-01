@@ -586,6 +586,22 @@
     background: var(--color-scrim);
     backdrop-filter: blur(2px);
   }
+  /* ---- Drawer ----
+     The form modal's card as a full-height panel on the right edge (Drawer.vue),
+     sliding in. Same surface, border and shadow as .modal-panel; on a phone it
+     takes the whole width. */
+  .drawer-panel {
+    @apply bg-surface text-fg h-full w-full max-w-2xl border-l border-line shadow-[var(--shadow-modal)]
+           flex flex-col overflow-hidden;
+    animation: drawer-in 0.22s ease-out;
+  }
+  @keyframes drawer-in {
+    from { transform: translateX(100%); }
+    to { transform: translateX(0); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .drawer-panel { animation: none; }
+  }
   /* ---- Form modal ----
      The card, header and footer from the ui-example/dialog_form.html mockup:
      16px corners, a 28px gutter all round, and no rule between the header and

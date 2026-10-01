@@ -33,13 +33,14 @@ const isStaff = computed(() => auth.user?.role === 'staff')
 // answers transfers (the server refuses it too); a custom role granting
 // Transfers → Create brings the button back. Staff wait for their permissions
 // to load rather than seeing the button flash up first.
-const { can, loaded: permissionsLoaded } = usePermissions()
+const { can, allows, loaded: permissionsLoaded } = usePermissions()
 const canCreate = computed(() => can('asset-transfers', 'create') && (!isStaff.value || permissionsLoaded.value))
 // Mirrors the role: guard on /approve and /reject.
-const canApprove = computed(() => ['operations_hr_manager', 'finance_manager', 'executive_director'].includes(auth.user?.role))
+// A custom role granting Transfers → Update gets it too (usePermissions().allows).
+const canApprove = computed(() => allows(['operations_hr_manager', 'finance_manager', 'executive_director'], 'asset-transfers', 'update'))
 // Naming a staff member / program on a transfer is an assignment, so it takes
 // the Assignment form's roles — AssetTransferController enforces the same.
-const canAssign = computed(() => ['operations_hr_manager', 'finance_manager'].includes(auth.user?.role))
+const canAssign = computed(() => allows(['operations_hr_manager', 'finance_manager'], 'asset-assignments', 'create'))
 
 const { search, filtered: searched } = useTableSearch(transfers, [(r) => r.asset?.name, (r) => r.asset?.asset_code, (r) => r.requester?.name, 'recipient_name'])
 // Location filter (the drop-down beside search), applied after search and
@@ -450,8 +451,10 @@ const { page, rowsPerPage, total, paged } = usePagination(sortedTransfers)
                     <button v-if="!isStaff || !(t2.can_confirm || t2.can_decline)" @click="viewing = t2" :title="t('common.view')" :aria-label="t('common.view')" class="btn-icon-view">
                       <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
                     </button>
+                    <!-- Staff only see Delete where the server says they may
+                         (a custom role granting Transfers → Delete). -->
                     <button
-                      v-if="!isStaff"
+                      v-if="!isStaff || t2.can_delete"
                       @click="deletingId = t2.id"
                       :disabled="!canDelete(t2)"
                       :title="canDelete(t2) ? t('common.delete') : t('asset_transfers.delete_dispatched_blocked')"

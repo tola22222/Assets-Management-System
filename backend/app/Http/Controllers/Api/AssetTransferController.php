@@ -723,6 +723,10 @@ class AssetTransferController extends Controller
         // declined codes never arrived, so nobody holds them here.
         $perUnit = $transfer->units()->count() === (int) ($transfer->quantity ?? 1);
         $lines = $perUnit ? array_map(fn ($id) => [$id, 1], $transfer->unitIds()) : [[$transfer->asset_id, $transfer->quantity ?? 1]];
+        // A unit verified broken or lost is out of use: it keeps its code and
+        // its place at the site, but nobody is assigned it.
+        $outOfUse = Asset::whereIn('id', array_column($lines, 0))->whereIn('condition', Asset::UNAVAILABLE_CONDITIONS)->pluck('id')->all();
+        $lines = array_values(array_filter($lines, fn ($line) => ! in_array($line[0], $outOfUse)));
         if ($lines === []) {
             return;
         }

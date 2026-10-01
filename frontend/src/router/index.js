@@ -1,3 +1,4 @@
+import { hasCustomGrant } from '../composables/usePermissions'
 import { createRouter, createWebHistory } from 'vue-router'
 import Login from '../pages/Login.vue'
 import Dashboard from '../pages/Dashboard.vue'
@@ -25,7 +26,7 @@ const routes = [
   { path: '/login', name: 'login', component: Login, meta: { guest: true } },
   { path: '/', name: 'dashboard', component: Dashboard, meta: { requiresAuth: true } },
   { path: '/assets', name: 'assets', component: AssetsIndex, meta: { requiresAuth: true } },
-  { path: '/assets/import', name: 'assets-import', component: AssetsImport, meta: { requiresAuth: true, adminOnly: true } },
+  { path: '/assets/import', name: 'assets-import', component: AssetsImport, meta: { requiresAuth: true, adminOnly: true, module: 'assets', ability: 'create' } },
   { path: '/categories', name: 'categories', component: CategoriesIndex, meta: { requiresAuth: true } },
   { path: '/locations', name: 'locations', component: LocationsIndex, meta: { requiresAuth: true } },
   // There is no separate Assignment screen: assigning happens through a
@@ -39,12 +40,12 @@ const routes = [
   { path: '/programs', name: 'programs', component: ProgramsIndex, meta: { requiresAuth: true } },
   { path: '/staff', name: 'staff', component: StaffIndex, meta: { requiresAuth: true } },
   { path: '/suppliers', name: 'suppliers', component: SuppliersIndex, meta: { requiresAuth: true } },
-  { path: '/users', name: 'users', component: UsersIndex, meta: { requiresAuth: true, adminOnly: true, hrOnly: true } },
+  { path: '/users', name: 'users', component: UsersIndex, meta: { requiresAuth: true, adminOnly: true, hrOnly: true, module: 'users' } },
   // Staff reach it too — their Settings page is the Appearance tab, applied to
   // their own browser only.
-  { path: '/settings', name: 'settings', component: SettingsIndex, meta: { requiresAuth: true, adminOnly: true, staffToo: true } },
-  { path: '/activity-logs', name: 'activity-logs', component: ActivityLogsIndex, meta: { requiresAuth: true, adminOnly: true, hrOnly: true } },
-  { path: '/reports', name: 'reports', component: ReportsIndex, meta: { requiresAuth: true, notStaff: true } },
+  { path: '/settings', name: 'settings', component: SettingsIndex, meta: { requiresAuth: true, adminOnly: true, staffToo: true, module: 'settings' } },
+  { path: '/activity-logs', name: 'activity-logs', component: ActivityLogsIndex, meta: { requiresAuth: true, adminOnly: true, hrOnly: true, module: 'activity-logs' } },
+  { path: '/reports', name: 'reports', component: ReportsIndex, meta: { requiresAuth: true, notStaff: true, module: 'reports' } },
   // :code is what a printed QR tag's public page links to (/app/qr-scan/PEY-SR-FAF-0928).
   { path: '/qr-scan/:code?', name: 'qr-scan', component: QrScanIndex, meta: { requiresAuth: true } },
   { path: '/search', name: 'search', component: SearchIndex, meta: { requiresAuth: true } },
@@ -69,7 +70,7 @@ export function assetReturnUrl(query) {
   return match ? `/asset/${encodeURIComponent(match[1])}` : null
 }
 
-router.beforeEach((to) => {
+router.beforeEach(async (to) => {
   const isAuthenticated = !!localStorage.getItem('token')
 
   if (to.meta.requiresAuth && !isAuthenticated) {
@@ -90,24 +91,25 @@ router.beforeEach((to) => {
   }
 
   const signedIn = JSON.parse(localStorage.getItem('user') || 'null')
+  // A page the base role can't open still opens when a custom role (Roles &
+  // Permissions) grants its module — the same rule as the server's role:
+  // guard, so the page loads only when its data will.
+  const customGrant = () => hasCustomGrant(to.meta.module, to.meta.ability || 'view')
+
   if (to.meta.adminOnly && !(to.meta.staffToo && signedIn?.role === 'staff')) {
     const user = signedIn
     // HR or the Accountant (same access; the Accountant's Settings page shows
     // Appearance only).
-    if (!['operations_hr_manager', 'finance_manager'].includes(user?.role)) {
-      return { name: 'dashboard' }
-    }
-    // Administration pages the Accountant doesn't get (Users, Activity Logs).
-    if (to.meta.hrOnly && user?.role !== 'operations_hr_manager') {
+    const roleAllowed = ['operations_hr_manager', 'finance_manager'].includes(user?.role)
+      // Administration pages the Accountant doesn't get (Users, Activity Logs).
+      && !(to.meta.hrOnly && user?.role !== 'operations_hr_manager')
+    if (!roleAllowed && !(await customGrant())) {
       return { name: 'dashboard' }
     }
   }
 
-  if (to.meta.notStaff) {
-    const user = JSON.parse(localStorage.getItem('user') || 'null')
-    if (user?.role === 'staff') {
-      return { name: 'dashboard' }
-    }
+  if (to.meta.notStaff && signedIn?.role === 'staff' && !(await customGrant())) {
+    return { name: 'dashboard' }
   }
 })
 

@@ -16,6 +16,7 @@ import { useTableFilter } from '../../composables/useTableFilter'
 import { useTableSort } from '../../composables/useTableSort'
 import { useToastStore } from '../../stores/toast'
 import { useAuthStore } from '../../stores/auth'
+import { usePermissions } from '../../composables/usePermissions'
 import TablePagination from '../../components/ui/TablePagination.vue'
 import { usePagination } from '../../composables/usePagination'
 import ImageField from '../../components/ui/ImageField.vue'
@@ -27,7 +28,9 @@ const auth = useAuthStore()
 // Only OPM/Finance can submit a verification directly (role:operations_hr_manager,finance_manager
 // on the store route) — staff submit condition reports via the QR scan flow instead, and ED has no
 // direct-submit access either. Don't offer a button that would 403.
-const canCreate = computed(() => ['operations_hr_manager', 'finance_manager'].includes(auth.user?.role))
+// A custom role granting Verification → Create gets it too (usePermissions().allows).
+const { allows } = usePermissions()
+const canCreate = computed(() => allows(['operations_hr_manager', 'finance_manager'], 'asset-verifications', 'create'))
 
 const { search, filtered: searched } = useTableSearch(verifications, [(v) => v.asset?.name, (v) => v.asset?.asset_code, (v) => v.location?.name])
 // Location filter (the drop-down beside search), applied after search and before sort.
@@ -46,7 +49,7 @@ const deletingId = ref(null)
 
 // destroy sits behind role:operations_hr_manager,finance_manager, so only HR / the Accountant get the button
 // at all; there is no status guard on the server side for this one.
-const canDelete = computed(() => ['operations_hr_manager', 'finance_manager'].includes(auth.user?.role))
+const canDelete = computed(() => allows(['operations_hr_manager', 'finance_manager'], 'asset-verifications', 'delete'))
 
 const viewRows = computed(() => {
   const v = viewing.value
@@ -251,7 +254,10 @@ const { page, rowsPerPage, total, paged } = usePagination(sortedVerifications)
           </div>
           <div class="form-group">
             <label class="label">{{ t('asset_verifications.remark') }}</label>
-            <textarea v-model="form.remark" rows="2" class="textarea"></textarea>
+            <!-- Broken / lost takes the unit out of use: the reason is required. -->
+            <textarea v-model="form.remark" rows="2" class="textarea"
+              :required="['broken', 'lost'].includes(form.condition)"
+              :placeholder="['broken', 'lost'].includes(form.condition) ? t('asset_verifications.reason_required') : ''"></textarea>
           </div>
           <div class="form-group">
             <label class="label">{{ t('asset_verifications.photo_reference') }}</label>

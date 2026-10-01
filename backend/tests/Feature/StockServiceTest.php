@@ -324,6 +324,8 @@ class StockServiceTest extends TestCase
 
         $verify = fn (Asset $asset, string $condition) => $this->actingAs($opm)->postJson('/api/asset-verifications', [
             'asset_id' => $asset->id, 'location_id' => $office->id, 'quantity_verified' => 1, 'condition' => $condition,
+            // Broken / lost needs a reason on record.
+            'remark' => 'Found during the count',
         ])->assertCreated();
 
         $verify($laptops[0], 'lost');

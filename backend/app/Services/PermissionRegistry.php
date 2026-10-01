@@ -39,7 +39,7 @@ class PermissionRegistry
     public const MODULES = [
         'dashboard' => ['Dashboard', 'Overview'],
         'assets' => ['Asset Register', 'Asset Management'],
-        'stock-items' => ['Stock & Consumables', 'Asset Management'],
+        'stock-items' => ['Asset Split', 'Asset Management'],
         'asset-assignments' => ['Assignments', 'Asset Management'],
         'asset-transfers' => ['Transfers', 'Asset Management'],
         'asset-verifications' => ['Verification & Counts', 'Asset Management'],

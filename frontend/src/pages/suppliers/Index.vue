@@ -11,12 +11,21 @@ import { useTableSearch } from '../../composables/useTableSearch'
 import { useTableSort } from '../../composables/useTableSort'
 import { useBulkSelect } from '../../composables/useBulkSelect'
 import { useAuthStore } from '../../stores/auth'
+import { usePermissions } from '../../composables/usePermissions'
 import TablePagination from '../../components/ui/TablePagination.vue'
 import { usePagination } from '../../composables/usePagination'
 
 const { t } = useI18n()
 const auth = useAuthStore()
-const canManage = computed(() => ['operations_hr_manager', 'finance_manager'].includes(auth.user?.role))
+// HR or the Accountant — or a custom role granting the ability (the same
+// rule as the server's role: guard; see usePermissions().allows).
+const { allows } = usePermissions()
+const ADMIN_ROLES = ['operations_hr_manager', 'finance_manager']
+const canCreate = computed(() => allows(ADMIN_ROLES, 'suppliers', 'create'))
+const canUpdate = computed(() => allows(ADMIN_ROLES, 'suppliers', 'update'))
+const canDelete = computed(() => allows(ADMIN_ROLES, 'suppliers', 'delete'))
+// The selection and actions columns show when a row can be changed at all.
+const canManage = computed(() => canUpdate.value || canDelete.value)
 const { items: suppliers, loading, fetchAll, create, update, destroy, destroyMany } = useApiCrud('/suppliers', { entityName: t('suppliers.entity') })
 const { search, filtered: searched } = useTableSearch(suppliers, ['name', 'phone', 'address'])
 const { sortKey, sortDir, toggleSort, sorted: filtered } = useTableSort(searched, { defaultKey: 'created_at', defaultDir: 'desc' })
@@ -84,11 +93,11 @@ const { page, rowsPerPage, total, paged } = usePagination(filtered)
             <p class="text-muted text-sm mt-1">{{ t('suppliers.subtitle') }}</p>
           </div>
           <div class="flex items-center gap-2 flex-shrink-0">
-            <button v-if="canManage && selectedIds.length" @click="confirmingBulkDelete = true" class="btn-danger btn-sm">
+            <button v-if="canDelete && selectedIds.length" @click="confirmingBulkDelete = true" class="btn-danger btn-sm">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /></svg>
               {{ t('common.delete_selected', { count: selectedIds.length }) }}
             </button>
-            <button v-if="canManage" @click="openCreate" class="btn-primary btn-sm">
+            <button v-if="canCreate" @click="openCreate" class="btn-primary btn-sm">
               <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
               {{ t('suppliers.new') }}
             </button>
@@ -106,7 +115,7 @@ const { page, rowsPerPage, total, paged } = usePagination(filtered)
             <thead>
               <tr>
                 <th v-if="canManage" class="w-10">
-                  <input type="checkbox" :checked="allSelected" @change="toggleSelectAll" class="rounded border-line text-brand focus:ring-brand/30" />
+                  <input v-if="canDelete" type="checkbox" :checked="allSelected" @change="toggleSelectAll" class="rounded border-line text-brand focus:ring-brand/30" />
                 </th>
                 <th class="th-sort" @click="toggleSort('name')">{{ t('common.name') }}<TableSortIcon :active="sortKey === 'name'" :direction="sortDir" /></th>
                 <th>{{ t('common.phone') }}</th>
@@ -117,17 +126,17 @@ const { page, rowsPerPage, total, paged } = usePagination(filtered)
             <tbody>
               <tr v-for="s in paged" :key="s.id">
                 <td v-if="canManage">
-                  <input type="checkbox" :checked="selectedIds.includes(s.id)" @change="toggleSelect(s.id)" class="rounded border-line text-brand focus:ring-brand/30" />
+                  <input v-if="canDelete" type="checkbox" :checked="selectedIds.includes(s.id)" @change="toggleSelect(s.id)" class="rounded border-line text-brand focus:ring-brand/30" />
                 </td>
                 <td class="font-medium text-fg">{{ s.name }}</td>
                 <td>{{ s.phone || '—' }}</td>
                 <td>{{ s.address || '—' }}</td>
                 <td class="text-right">
                   <div v-if="canManage" class="flex items-center justify-end gap-1.5">
-                    <button @click="openEdit(s)" :title="t('common.edit')" class="btn-icon-edit">
+                    <button v-if="canUpdate" @click="openEdit(s)" :title="t('common.edit')" class="btn-icon-edit">
                       <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
                     </button>
-                    <button @click="deletingId = s.id" :title="t('common.delete')" class="btn-icon-danger">
+                    <button v-if="canDelete" @click="deletingId = s.id" :title="t('common.delete')" class="btn-icon-danger">
                       <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /></svg>
                     </button>
                   </div>

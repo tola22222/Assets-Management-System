@@ -130,7 +130,10 @@ function reset() {
             </div>
             <div class="form-group">
               <label class="label">{{ t('qr_scan.remark') }}</label>
-              <textarea v-model="verifyForm.remark" rows="2" class="textarea"></textarea>
+              <!-- Broken / lost takes the unit out of use: the reason is required. -->
+              <textarea v-model="verifyForm.remark" rows="2" class="textarea"
+                :required="['broken', 'lost'].includes(verifyForm.condition)"
+                :placeholder="['broken', 'lost'].includes(verifyForm.condition) ? t('asset_verifications.reason_required') : ''"></textarea>
             </div>
             <button type="submit" class="btn-primary w-full">{{ t('qr_scan.confirm_verification') }}</button>
           </form>

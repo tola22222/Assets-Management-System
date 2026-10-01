@@ -783,7 +783,8 @@
     "submit_button": "Save Verification",
     "entity": "Verification",
     "complete_failed": "Could not mark this verification complete.",
-    "options_failed": "Could not load assets and locations."
+    "options_failed": "Could not load assets and locations.",
+    "reason_required": "Reason it is broken or lost (required)"
   },
   "asset_disposals": {
     "title": "Asset Disposals",

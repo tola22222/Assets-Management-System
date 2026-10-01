@@ -89,7 +89,10 @@ class QrScanController extends Controller
         $validated = $request->validate([
             'location_id' => 'required|exists:locations,id',
             'condition' => 'required|in:good,fair,broken,lost',
-            'remark' => 'nullable|string',
+            // Broken or lost takes the unit out of use: say why, for the record.
+            'remark' => 'nullable|string|required_if:condition,broken,lost',
+        ], [
+            'remark.required_if' => 'Enter the reason the asset is broken or lost.',
         ]);
 
         $newLocationId = (int) $validated['location_id'];
@@ -120,13 +123,15 @@ class QrScanController extends Controller
             ], 422);
         }
 
-        [$verification, $scan] = DB::transaction(function () use ($asset, $user, $validated, $newLocationId, $previousLocationId, $locationChanged) {
+        [$verification, $scan] = DB::transaction(function () use ($asset, $user, $validated, $newLocationId, $previousLocationId, $locationChanged, $previousCondition) {
             $verification = AssetVerification::create([
                 'asset_id' => $asset->id,
                 'location_id' => $newLocationId,
                 'verified_by' => $user->id,
                 'quantity_verified' => 1,
                 'condition' => $validated['condition'],
+                'previous_condition' => $previousCondition,
+                'quantity_affected' => in_array($validated['condition'], Asset::UNAVAILABLE_CONDITIONS, true) ? 1 : 0,
                 'remark' => $validated['remark'] ?? null,
                 'verified_at' => now(),
             ]);

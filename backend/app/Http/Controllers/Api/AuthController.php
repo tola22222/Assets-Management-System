@@ -115,6 +115,10 @@ class AuthController extends Controller
         return response()->json([
             'role' => $user->role,
             'permissions' => $user->effectivePermissions(),
+            // Just the custom-role grants: the SPA shows a role-gated button
+            // when the base role is allowed OR one of these grants it — the
+            // same rule the role: route guard applies.
+            'custom_permissions' => $user->customPermissions(),
             'hidden_modules' => $user->hiddenModules(),
             'roles' => $user->roles()->get(['roles.id', 'name', 'slug', 'is_active'])->all(),
         ]);

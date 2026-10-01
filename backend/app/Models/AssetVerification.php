@@ -19,6 +19,10 @@ class AssetVerification extends Model
         'verified_by',
         'quantity_verified',
         'condition',
+        // Audit: the condition before this verification, and the units it
+        // took out of use (1 for a unit verified broken / lost, else 0).
+        'previous_condition',
+        'quantity_affected',
         'remark',
         'verified_at',
         'image_path',
@@ -28,7 +32,7 @@ class AssetVerification extends Model
 
     public function getImageUrlAttribute()
     {
-        return $this->image_path ? asset('storage/' . $this->image_path) : null;
+        return $this->image_path ? asset('storage/'.$this->image_path) : null;
     }
 
     /**
@@ -76,8 +80,10 @@ class AssetVerification extends Model
     {
         if ($this->verified_by) {
             $user = User::find($this->verified_by);
+
             return $user ? $user->name : 'Unknown User';
         }
+
         return '—';
     }
 }

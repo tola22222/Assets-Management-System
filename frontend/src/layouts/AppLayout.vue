@@ -274,8 +274,8 @@ function initials(name) {
             </div>
 
             <!-- Insight: reporting/analytics -->
-            <p v-if="!isStaff && canSee('reports')" class="nav-section-label pt-3">{{ t('nav.insight') }}</p>
-            <RouterLink v-if="!isStaff && canSee('reports')" to="/reports" class="nav-link" active-class="nav-link-active" @click="mobileOpen = false">
+            <p v-if="canSee('reports')" class="nav-section-label pt-3">{{ t('nav.insight') }}</p>
+            <RouterLink v-if="canSee('reports')" to="/reports" class="nav-link" active-class="nav-link-active" @click="mobileOpen = false">
               <svg class="w-[18px] h-[18px] flex-shrink-0" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :d="I.chart" /></svg>
               <span class="truncate">{{ t('nav.reports') }}</span>
             </RouterLink>
@@ -285,7 +285,7 @@ function initials(name) {
           <div class="px-3 py-3 border-t border-white/10 space-y-0.5">
             <!-- Administration: HR sees it all; the Accountant and Staff only
                  get Appearance (canSee() filters the rest out). -->
-            <div v-if="isAdmin || isStaff">
+            <div v-if="isAdmin || isStaff || visible(settingGroup).items.length">
               <button
                 class="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm text-white/70 border-l-[3px] border-solid border-transparent hover:bg-white/10 hover:text-white active:bg-white/20 active:scale-[0.98] transition-[background-color,color,transform,border-color] duration-150"
                 :class="openGroup === settingGroup.key ? 'bg-black/20 text-white' : ''"

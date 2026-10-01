@@ -16,6 +16,7 @@ import { useTableFilter } from '../../composables/useTableFilter'
 import { useBulkSelect } from '../../composables/useBulkSelect'
 import { useToastStore } from '../../stores/toast'
 import { useAuthStore } from '../../stores/auth'
+import { usePermissions } from '../../composables/usePermissions'
 import TablePagination from '../../components/ui/TablePagination.vue'
 import { usePagination } from '../../composables/usePagination'
 import ImageField from '../../components/ui/ImageField.vue'
@@ -27,8 +28,13 @@ const { items: assetsList, loading, fetchAll, destroy, destroyMany } = useApiCru
 const toast = useToastStore()
 const auth = useAuthStore()
 // HR or the Accountant (same access; see User::isAdministrator on the server).
-const isOpm = computed(() => ['operations_hr_manager', 'finance_manager'].includes(auth.user?.role))
-const canEdit = computed(() => isOpm.value || auth.user?.role === 'finance_manager')
+// HR or the Accountant — or a custom role granting the ability (the same
+// rule as the server's role: guard; see usePermissions().allows).
+const { allows } = usePermissions()
+const ADMIN_ROLES = ['operations_hr_manager', 'finance_manager']
+const canCreate = computed(() => allows(ADMIN_ROLES, 'assets', 'create'))
+const canEdit = computed(() => allows(ADMIN_ROLES, 'assets', 'update'))
+const canDelete = computed(() => allows(ADMIN_ROLES, 'assets', 'delete'))
 
 const categories = ref([])
 const locations = ref([])
@@ -299,7 +305,7 @@ onMounted(() => {
   fetchAll().catch(() => {})
   loadOptions()
   // The dashboard's "Add asset" button lands here with ?create=1.
-  if (route.query.create && isOpm.value) {
+  if (route.query.create && canCreate.value) {
     openCreate()
     router.replace({ query: { ...route.query, create: undefined } })
   }
@@ -321,7 +327,7 @@ const { page, rowsPerPage, total, paged } = usePagination(visible)
             <p class="text-muted text-sm mt-1">{{ t('assets.subtitle') }}</p>
           </div>
           <div class="flex items-center gap-2 flex-shrink-0">
-            <button v-if="isOpm && selectedIds.length" @click="confirmingBulkDelete = true" class="btn-danger btn-sm">
+            <button v-if="canDelete && selectedIds.length" @click="confirmingBulkDelete = true" class="btn-danger btn-sm">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /></svg>
               {{ t('assets.delete_selected') }} ({{ selectedIds.length }})
             </button>
@@ -329,11 +335,11 @@ const { page, rowsPerPage, total, paged } = usePagination(visible)
               <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M7.5 12L12 16.5m0 0l4.5-4.5M12 16.5V3" /></svg>
               {{ t('assets.export_csv') }}
             </button>
-            <RouterLink v-if="isOpm" to="/assets/import" class="btn-ghost btn-sm">
+            <RouterLink v-if="canCreate" to="/assets/import" class="btn-ghost btn-sm">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
               {{ t('assets.import') }}
             </RouterLink>
-            <button v-if="isOpm" @click="openCreate" class="btn-primary btn-sm">
+            <button v-if="canCreate" @click="openCreate" class="btn-primary btn-sm">
               <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
               {{ t('assets.register') }}
             </button>
@@ -360,7 +366,7 @@ const { page, rowsPerPage, total, paged } = usePagination(visible)
           <table class="data-table">
             <thead>
               <tr>
-                <th v-if="isOpm" class="w-10">
+                <th v-if="canDelete" class="w-10">
                   <input type="checkbox" :checked="allSelected" @change="toggleSelectAll" class="rounded border-line text-brand focus:ring-brand/30" />
                 </th>
                 <th class="w-14">{{ t('assets.photo') }}</th>
@@ -376,7 +382,7 @@ const { page, rowsPerPage, total, paged } = usePagination(visible)
             </thead>
             <tbody>
               <tr v-for="asset in paged" :key="asset.id">
-                <td v-if="isOpm">
+                <td v-if="canDelete">
                   <input type="checkbox" :checked="selectedIds.includes(asset.id)" @change="toggleSelect(asset.id)" class="rounded border-line text-brand focus:ring-brand/30" />
                 </td>
                 <td>
@@ -405,14 +411,14 @@ const { page, rowsPerPage, total, paged } = usePagination(visible)
                     <button v-if="canEdit" @click="openEdit(asset)" :title="t('common.edit')" class="btn-icon-edit">
                       <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
                     </button>
-                    <button v-if="isOpm" @click="deletingId = asset.id" :title="t('common.delete')" class="btn-icon-danger">
+                    <button v-if="canDelete" @click="deletingId = asset.id" :title="t('common.delete')" class="btn-icon-danger">
                       <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /></svg>
                     </button>
                   </div>
                 </td>
               </tr>
               <tr v-if="!loading && !visible.length">
-                <td :colspan="isOpm ? 10 : 9" class="py-12 text-center">
+                <td :colspan="canDelete ? 10 : 9" class="py-12 text-center">
                   <div class="flex flex-col items-center gap-2">
                     <svg class="w-10 h-10 text-line-strong" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
                     <p class="text-muted text-sm font-medium">{{ (search || catFilters.category) ? t('assets.empty_search') : t('assets.empty') }}</p>
@@ -549,7 +555,7 @@ const { page, rowsPerPage, total, paged } = usePagination(visible)
             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" /><line x1="4" y1="22" x2="4" y2="15" /></svg>
             {{ t('assets.flag_issue') }}
           </button>
-          <button v-if="isOpm" @click="regenerateQr(viewing)" class="btn-ghost">
+          <button v-if="canEdit" @click="regenerateQr(viewing)" class="btn-ghost">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10" /><polyline points="1 20 1 14 7 14" /><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" /></svg>
             {{ t('assets.regenerate_qr') }}
           </button>
