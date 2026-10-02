@@ -27,9 +27,19 @@ class Staff extends Model
         return $this->photo_path ? asset('storage/'.$this->photo_path) : null;
     }
 
+    /** Their first location (kept for anything that reads a single one). */
     public function location()
     {
         return $this->belongsTo(Location::class);
+    }
+
+    /**
+     * Every location/school this person works at — all in one program, which
+     * is where their program comes from (Program → Location → Staff).
+     */
+    public function locations()
+    {
+        return $this->belongsToMany(Location::class, 'location_staff')->withTimestamps();
     }
 
     /** The login account for this person, if they have one. */

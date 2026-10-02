@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\AssetAssignment;
+use App\Models\Location;
 use App\Models\Program;
 use App\Models\Staff;
 use App\Models\User;
@@ -12,6 +13,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 
 class StaffController extends Controller
 {
@@ -25,7 +27,11 @@ class StaffController extends Controller
         // old site, like User::siteLocationIds().
         // Each row carries its program and that program's school ids, so the
         // SPA can tell which schools a person covers (e.g. as a transfer recipient).
-        $query = Staff::with(['program:id,name', 'program.locations:locations.id,locations.name'])->latest()->latest('id');
+        // has_login: whether a user account is linked — without one the person
+        // can't sign in, so can't accept a transfer (shown as "No login").
+        $query = Staff::with(['program:id,name', 'program.locations:locations.id,locations.name', 'locations:locations.id,locations.name'])
+            ->withExists('user as has_login')
+            ->latest()->latest('id');
         if ($user->isSiteScoped()) {
             $programId = $user->staff?->program_id;
             $programId !== null
@@ -40,28 +46,39 @@ class StaffController extends Controller
     {
         abort_unless(Auth::user()->isAdministrator() || Auth::user()->hasCustomPermission('staff', 'create'), 403, 'Only administrators can create staff members.');
 
+        // A single location_id from an older caller counts as a one-item list.
+        if (! $request->has('location_ids') && $request->filled('location_id')) {
+            $request->merge(['location_ids' => [$request->input('location_id')]]);
+        }
+
         $data = $request->validate([
             'full_name' => 'required|string|max:255',
             'email' => 'nullable|email|unique:staff,email',
             'phone' => 'nullable|string|max:20',
             'position' => 'nullable|string|max:100',
             'hire_date' => 'nullable|date',
-            // Required: their ONE program decides which schools they can see
-            // and manage (all of the program's schools). No school is picked
-            // for the staff member directly.
-            'program_id' => 'required|exists:programs,id',
-            'location_id' => 'nullable|exists:locations,id',
+            // Program → Location → Staff: the staff member works at one or
+            // more locations, all in one program — their program comes from
+            // them (programOfLocations()); it is never picked by hand.
+            'location_ids' => 'required|array|min:1',
+            'location_ids.*' => 'integer|distinct|exists:locations,id',
             'photo' => 'nullable|image|mimes:jpeg,png,jpg|max:5120',
         ], [
-            'program_id.required' => 'Assign this staff member a program — it decides which schools they can see.',
+            'location_ids.required' => 'Select the location(s)/school(s) this staff member works at.',
         ]);
-        $data['location_id'] = $this->homeSchool($data);
+        [$data, $locationIds] = $this->withLocations($data);
 
         if ($request->hasFile('photo')) {
             $data['photo_path'] = $request->file('photo')->store('staff_photos', 'public');
         }
 
-        $staff = Staff::create($data);
+        $staff = DB::transaction(function () use ($data, $locationIds) {
+            $staff = Staff::create($data);
+            $staff->locations()->sync($locationIds);
+
+            return $staff;
+        });
+        $this->leadIfLeaderless($staff->fresh());
 
         ActivityLog::createAndNotify([
             'user_id' => Auth::id(),
@@ -76,6 +93,11 @@ class StaffController extends Controller
     {
         abort_unless(Auth::user()->isAdministrator() || Auth::user()->hasCustomPermission('staff', 'update'), 403, 'Only administrators can update staff members.');
 
+        // A single location_id from an older caller counts as a one-item list.
+        if (! $request->has('location_ids') && $request->filled('location_id')) {
+            $request->merge(['location_ids' => [$request->input('location_id')]]);
+        }
+
         $data = $request->validate([
             'full_name' => 'required|string|max:255',
             'email' => 'nullable|email|unique:staff,email,'.$staff->id,
@@ -83,12 +105,13 @@ class StaffController extends Controller
             'position' => 'nullable|string|max:100',
             'hire_date' => 'nullable|date',
             'status' => 'required|in:active,inactive',
-            'program_id' => 'required|exists:programs,id',
-            'location_id' => 'nullable|exists:locations,id',
+            'location_ids' => 'required|array|min:1',
+            'location_ids.*' => 'integer|distinct|exists:locations,id',
             'photo' => 'nullable|image|mimes:jpeg,png,jpg|max:5120',
         ], [
-            'program_id.required' => 'Assign this staff member a program — it decides which schools they can see.',
+            'location_ids.required' => 'Select the location(s)/school(s) this staff member works at.',
         ]);
+        [$data, $locationIds] = $this->withLocations($data, $staff);
 
         // A program's lead belongs to that program; moving them to another
         // one would leave the first with a lead who is not in it. (A staff
@@ -100,7 +123,6 @@ class StaffController extends Controller
                 'errors' => ['program_id' => ['This staff member leads another program.']],
             ], 422);
         }
-        $data['location_id'] = $this->homeSchool($data);
 
         if ($request->hasFile('photo')) {
             if ($staff->photo_path) {
@@ -109,7 +131,11 @@ class StaffController extends Controller
             $data['photo_path'] = $request->file('photo')->store('staff_photos', 'public');
         }
 
-        $staff->update($data);
+        DB::transaction(function () use ($staff, $data, $locationIds) {
+            $staff->update($data);
+            $staff->locations()->sync($locationIds);
+        });
+        $this->leadIfLeaderless($staff->fresh());
 
         ActivityLog::createAndNotify([
             'user_id' => Auth::id(),
@@ -121,19 +147,80 @@ class StaffController extends Controller
     }
 
     /**
-     * The staff member's base school, kept only for display: one of their
-     * program's schools (the one sent, if it belongs to the program, otherwise
-     * the program's first school). Access always covers ALL the program's
-     * schools — see User::siteLocationIds().
+     * A program is created without a Responsible Staff (Program → Location →
+     * Staff), so the first active staff member to join a program that has
+     * none becomes it — someone at its schools can then accept transfers.
+     * Never replaces a lead, never makes anyone lead two programs; HR can
+     * change it on the program's Edit form.
      */
-    private function homeSchool(array $data): ?int
+    private function leadIfLeaderless(Staff $staff): void
     {
-        $schools = DB::table('location_program')->where('program_id', $data['program_id'])
-            ->orderBy('id')->pluck('location_id')->map(fn ($id) => (int) $id)->all();
+        if ($staff->program_id === null || $staff->status !== 'active') {
+            return;
+        }
 
-        $sent = isset($data['location_id']) ? (int) $data['location_id'] : null;
+        if (Program::where('responsible_staff_id', $staff->id)->exists()) {
+            return;
+        }
 
-        return $sent !== null && in_array($sent, $schools, true) ? $sent : ($schools[0] ?? null);
+        $taken = Program::whereKey($staff->program_id)->whereNull('responsible_staff_id')
+            ->update(['responsible_staff_id' => $staff->id]);
+
+        if ($taken) {
+            ActivityLog::create([
+                'user_id' => Auth::id(),
+                'action' => 'Update',
+                'description' => "{$staff->full_name} became Responsible Staff of program #{$staff->program_id} (first staff member to join it)",
+            ]);
+        }
+    }
+
+    /**
+     * The staff member's locations and the program they come from (Program →
+     * Location → Staff): every location must belong to a program, and all of
+     * them to the SAME one — that program is the staff member's.
+     *
+     * A location saved before the one-program rule may still list several
+     * programs; then the program they all share is used, keeping the staff
+     * member's current one when it is among them.
+     *
+     * @return array{0: array, 1: int[]} data with program_id / location_id set, location ids
+     */
+    private function withLocations(array $data, ?Staff $staff = null): array
+    {
+        $locationIds = array_values(array_map('intval', $data['location_ids']));
+        unset($data['location_ids']);
+
+        $programsByLocation = DB::table('location_program')->whereIn('location_id', $locationIds)
+            ->get(['location_id', 'program_id'])
+            ->groupBy('location_id')
+            ->map(fn ($rows) => $rows->pluck('program_id')->map(fn ($id) => (int) $id)->all());
+
+        $missing = array_diff($locationIds, $programsByLocation->keys()->map(fn ($id) => (int) $id)->all());
+        if ($missing) {
+            throw ValidationException::withMessages([
+                'location_ids' => Location::whereKey($missing)->pluck('name')->implode(', ').' has no program yet. Set its program on the Locations page first.',
+            ]);
+        }
+
+        $shared = array_values(array_intersect(...array_values($programsByLocation->all())));
+        if ($shared === []) {
+            throw ValidationException::withMessages([
+                'location_ids' => 'These locations belong to different programs. A staff member works in one program only — choose locations of the same program.',
+            ]);
+        }
+
+        $current = $staff?->program_id !== null ? (int) $staff->program_id : null;
+        if (count($shared) > 1 && ! in_array($current, $shared, true)) {
+            throw ValidationException::withMessages([
+                'location_ids' => Location::whereKey($locationIds[0])->value('name').' still belongs to several programs. Edit it on the Locations page to keep one program first.',
+            ]);
+        }
+
+        $data['program_id'] = count($shared) === 1 ? $shared[0] : $current;
+        $data['location_id'] = $locationIds[0];
+
+        return [$data, $locationIds];
     }
 
     public function destroy(Staff $staff)

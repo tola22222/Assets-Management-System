@@ -97,7 +97,7 @@
     "logout": "Log out",
     "show_sidebar": "Show sidebar",
     "hide_sidebar": "Hide sidebar",
-    "stock": "Asset Split",
+    "stock": "Asset Allocation",
     "my_profile": "My Profile",
     "notifications": "Notifications"
   },
@@ -200,7 +200,7 @@
     "state_needs_repair": "Needs repair",
     "state_lost": "Lost",
     "state_retiring": "Retiring",
-    "export_csv": "Export CSV",
+    "export_csv": "Export Excel",
     "condition": "Condition",
     "no_image": "No",
     "empty_search": "No assets match your search",
@@ -252,7 +252,11 @@
     "delete_failed": "Could not delete asset.",
     "qr_failed": "Could not regenerate the QR code.",
     "qr_download_failed": "Could not download the QR code.",
-    "options_failed": "Could not load categories and locations."
+    "options_failed": "Could not load categories and locations.",
+    "quantity": "Quantity",
+    "quantity_hint": "{n} assets will be added, each with its own asset code and QR code.",
+    "serial_one_unit": "One unit only — add it on each asset after saving",
+    "created_n": "{n} assets added successfully."
   },
   "import": {
     "title": "Import Asset Register",
@@ -348,11 +352,13 @@
     "entity": "Location",
     "delete_failed": "Could not delete location.",
     "bulk_delete_title": "Delete {count} location? | Delete {count} locations?",
-    "save_failed": "Could not save location."
+    "save_failed": "Could not save location.",
+    "program_label": "Program",
+    "select_program": "Select program",
+    "program_hint": "A location belongs to one program. Staff working here join it.",
+    "multi_program_note": "This location is currently in several programs ({programs}). A location belongs to one program — saving keeps only the one selected."
   },
   "programs": {
-    "schools_required": "Schools *",
-    "select_schools": "Select schools",
     "title": "Programs",
     "subtitle": "Programs assets can be assigned to",
     "new": "New Program",
@@ -371,20 +377,18 @@
     "school": "School",
     "school_required": "School *",
     "responsible_staff": "Responsible Staff",
-    "responsible_staff_required": "Responsible Staff *",
     "select_staff": "Select responsible staff",
     "no_lead": "No lead",
     "no_staff_at_school": "No staff are based at this school yet. Add one in the Staff directory first.",
     "options_failed": "Could not load schools and staff.",
-    "all_staff_taken": "Everyone is already in another program or leads one. Add a new staff member first.",
     "responsible_staff_hint": "A staff member can be responsible for only one program.",
     "no_login": "No login",
-    "no_login_hint": "This person has no user account, so they cannot accept a transfer for this school. Create an account for them, or pick a lead who has one."
+    "no_login_hint": "This person has no user account, so they cannot accept a transfer for this school. Create an account for them, or pick a lead who has one.",
+    "no_members": "No staff in this program yet. Add staff at one of its locations first."
   },
   "staff": {
     "program": "Program",
     "select_program": "Select Program",
-    "program_schools": "Can see and manage: {schools}",
     "title": "Staff Directory",
     "subtitle": "Personnel who can be assigned assets",
     "new": "New Staff",
@@ -408,7 +412,14 @@
     "created": "Staff member created.",
     "save_failed": "Could not save staff member.",
     "bulk_delete_title": "Delete {count} staff member? | Delete {count} staff members?",
-    "delete_failed": "Could not delete staff member."
+    "delete_failed": "Could not delete staff member.",
+    "choose_location_first": "Select a location first",
+    "program_auto_hint": "Comes from the selected locations.",
+    "no_login_hint": "No user account is linked to this person, so they cannot sign in or accept a transfer. Create one in User Management and link it to this staff member.",
+    "locations": "Locations",
+    "select_locations": "Select locations",
+    "locations_hint": "One or more locations — all from the same program.",
+    "location_multi_program": "These locations do not share one program. Choose locations of the same program, or fix the location's program on the Locations page."
   },
   "users": {
     "title": "User Management",
@@ -463,7 +474,8 @@
     "from_base_role": "base role",
     "no_permissions": "This account has no permissions.",
     "hidden_modules": "Hidden from this account: {list}",
-    "permissions_note": "This is what the server will allow. Menus and buttons follow it, but every request is checked again server side."
+    "permissions_note": "This is what the server will allow. Menus and buttons follow it, but every request is checked again server side.",
+    "cannot_delete_self": "You cannot delete your own account."
   },
   "suppliers": {
     "title": "Suppliers",
@@ -493,7 +505,7 @@
     "language": "Language",
     "qr_size": "QR Code Size",
     "theme_color": "Theme Color",
-    "report_interval": "Report interval (months)",
+    "report_interval": "Report interval",
     "report_recipient_email": "Send report to",
     "report_recipient_email_hint": "Optional extra recipient.",
     "save": "Save Settings",
@@ -584,14 +596,17 @@
     "language_desc": "Default interface language.",
     "theme_light_desc": "Bright background, dark text.",
     "theme_dark_desc": "Dark background, light text.",
-    "report_interval_desc": "Months between scheduled reports.",
     "mail_mailer_desc": "Log writes to file instead of sending.",
     "mail_server": "SMTP server",
     "mail_credentials": "Credentials",
     "mail_credentials_desc": "Leave the password blank to keep the current one.",
     "mail_from": "Sender",
     "backup_format": "Backup format",
-    "saved_backups": "Saved backups"
+    "saved_backups": "Saved backups",
+    "report_interval_unit": "Interval unit",
+    "unit_day": "Day(s)",
+    "unit_month": "Month(s)",
+    "unit_year": "Year(s)"
   },
   "asset_movements": {
     "title": "Stock Movements",
@@ -716,9 +731,7 @@
     "stock_total": "Total Stock",
     "stock_transferred": "Transferred",
     "stock_available": "Using",
-    "low_stock": "Low Stock",
     "stock_lost_broken": "{n} lost / broken not counted as using",
-    "quantity_exceeds": "Only {n} using here — lower the quantity.",
     "condition_label": "Asset Condition",
     "condition_placeholder": "Select condition",
     "condition_hint": "Check the assets and select the condition they arrived in.",
@@ -729,7 +742,11 @@
     "verified_by": "Verified By",
     "verified_at": "Verified At",
     "received_condition": "Condition on Arrival",
-    "reject_reason_required": "Reason for Rejection *"
+    "reject_reason_required": "Reason for Rejection *",
+    "stock_at": "In {location}",
+    "return_condition_label": "Condition on return",
+    "return_condition_hint": "Check each asset as it comes back. Broken or lost assets keep their code but can no longer be used, assigned or transferred.",
+    "return_condition_reason": "Reason broken / lost"
   },
   "asset_returns": {
     "title": "Asset Returns",
@@ -784,7 +801,9 @@
     "entity": "Verification",
     "complete_failed": "Could not mark this verification complete.",
     "options_failed": "Could not load assets and locations.",
-    "reason_required": "Reason it is broken or lost (required)"
+    "reason_required": "Reason it is broken or lost (required)",
+    "previous_condition": "Previous Condition",
+    "out_of_use": "Out of Use"
   },
   "asset_disposals": {
     "title": "Asset Disposals",
@@ -816,21 +835,9 @@
     "delete_pending_only": "Only a request still awaiting review can be deleted."
   },
   "stock": {
-    "transfer_history": "Transfer History",
-    "transfer_history_hint": "Assets leaving stock on transfers and coming back on returns, newest first.",
-    "movement": "Movement",
-    "movement_out": "Out",
-    "movement_in": "Returned",
-    "history_qty": "Qty",
-    "history_route": "From → To",
-    "accepted_of": "{n} of {total}",
-    "no_transfer_history": "No transfers yet.",
-    "title": "Asset Split",
+    "title": "Asset Allocation",
     "delete_selected": "Delete Selected ({count})",
-    "export_csv": "Export CSV",
-    "low": "Low",
-    "normal": "Normal",
-    "high": "High",
+    "export_csv": "Export Excel",
     "search_placeholder": "Search by item name or Stock ID…",
     "stock_id": "Stock ID",
     "item_name": "Item Name",
@@ -864,21 +871,24 @@
     "delete_failed": "Could not delete this stock item.",
     "bulk_delete_partial_failed": "{count} item(s) couldn't be deleted (already have transaction history).",
     "bulk_deleted": "{count} stock item(s) deleted.",
-    "assets_by_location": "Total Assets by Location",
     "total_assets": "Total assets",
     "no_location": "No location assigned",
     "no_locations": "No locations set up yet.",
     "no_sites_match": "No sites match these filters.",
     "search_sites_placeholder": "Search by site name or code…",
-    "level_hint": "Low: under 5 assets · Normal: 5–19 · High: 20 or more",
     "load_failed": "Could not load stock items.",
-    "detail_failed": "Could not load the transaction history."
+    "detail_failed": "Could not load the transaction history.",
+    "by_category": "Assets by Category",
+    "by_category_hint": "Every asset model at each location, with its category and quantity.",
+    "no_category_holdings": "No assets to show.",
+    "all_asset_names": "All assets",
+    "subtitle": "How many assets each location holds."
   },
   "reports": {
     "title": "Reports",
     "subtitle": "Live roll-ups across the asset register",
     "email_report": "Email Report",
-    "export_csv": "Export CSV",
+    "export_csv": "Export Excel",
     "total_assets": "Total assets",
     "categories": "Categories",
     "sites": "Sites",
@@ -901,8 +911,6 @@
     "view_stock": "View Stock →",
     "stock_subtitle": "Bulk consumables — toner, paper, cables, and other items with no individual tag",
     "low_stock": "Low Stock",
-    "normal": "Normal",
-    "high": "High",
     "nothing_running_low": "Nothing running low.",
     "overstock": "Overstock",
     "nothing_over_max": "Nothing over its max.",
@@ -938,7 +946,6 @@
     "col_total_units": "Total Units",
     "col_lost_broken": "Lost / Broken",
     "col_available": "Available",
-    "col_stock_level": "Stock Level",
     "col_location": "Location",
     "col_registered": "Registered Date",
     "col_purchase_date": "Purchase Date",
@@ -1168,5 +1175,18 @@
     "invalid_type": "That file is not a JPG or PNG image.",
     "too_large": "That image is larger than {size}MB.",
     "field_hint": "Drag and drop a photo here, or browse to upload it"
+  },
+  "export": {
+    "generated": "Generated",
+    "total": "Total",
+    "inventory_title": "Inventory List",
+    "inventory_scope": "PEPY Office / Learning Center / Target High Schools",
+    "all_locations": "All locations",
+    "col_description": "Description",
+    "col_price": "Price",
+    "col_remark": "Remark",
+    "filter_search": "Search: {q}",
+    "filter_category": "Category: {c}",
+    "period": "Period: {p}"
   }
 }

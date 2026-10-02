@@ -153,7 +153,7 @@
         <div id="verify-signin" class="bg-white rounded-2xl card-shadow overflow-hidden mb-4 no-print">
             <div class="px-5 py-4">
                 <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-3">Report Condition</p>
-                <a href="/app/login?return={{ urlencode('/asset/'.$asset->asset_code) }}"
+                <a href="/app/login?redirect={{ urlencode('/qr-scan/'.$asset->asset_code) }}"
                     class="block w-full py-3 bg-[#128a43] text-white text-sm font-bold rounded-xl hover:brightness-110 active:brightness-90 transition shadow-sm text-center">
                     Sign in to update
                 </a>
@@ -303,6 +303,12 @@
         } catch (e) {}
 
         if (!token) return;
+
+        // Signed in on this device: a scanned tag opens the app's QR Scan
+        // page for this asset (lookup, history, verify). Anyone not signed in
+        // stays on this read-only page; its Sign in button leads there too.
+        window.location.replace('/app/qr-scan/' + encodeURIComponent(code));
+        return;
         showForm(true);
 
         // Records who scanned this tag. The server folds a reload within two

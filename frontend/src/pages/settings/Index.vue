@@ -78,7 +78,7 @@ const toast = useToastStore()
 const loading = ref(true)
 const form = reactive({
   organization_name: '', system_name: '', theme_color: '#128a43', email: '', phone: '',
-  address: '', qr_size: 300, locale: 'en', report_interval_months: 6, report_recipient_email: '',
+  address: '', qr_size: 300, locale: 'en', report_interval: 6, report_interval_unit: 'month', report_recipient_email: '',
   include_staff_in_reports: false,
   mail_mailer: 'smtp', mail_host: '', mail_port: 587, mail_encryption: 'tls',
   mail_username: '', mail_password: '', mail_from_address: '', mail_from_name: '',
@@ -620,9 +620,16 @@ onMounted(() => {
                   <div class="grid grid-cols-1 md:grid-cols-[200px_minmax(0,1fr)] gap-x-8 gap-y-3 px-5 sm:px-6 py-5">
                     <div class="md:pr-4">
                       <label class="block text-sm font-semibold text-fg">{{ t('settings.report_interval') }}</label>
-                      <p class="text-[13px] text-muted mt-1">{{ t('settings.report_interval_desc') }}</p>
                     </div>
-                    <div><input v-model.number="form.report_interval_months" type="number" min="1" max="24" class="input w-32" /></div>
+                    <!-- Every N days, months or years. -->
+                    <div class="flex items-center gap-2">
+                      <input v-model.number="form.report_interval" type="number" min="1" max="365" class="input w-28" :aria-label="t('settings.report_interval')" />
+                      <select v-model="form.report_interval_unit" class="select w-36" :aria-label="t('settings.report_interval_unit')">
+                        <option value="day">{{ t('settings.unit_day') }}</option>
+                        <option value="month">{{ t('settings.unit_month') }}</option>
+                        <option value="year">{{ t('settings.unit_year') }}</option>
+                      </select>
+                    </div>
                   </div>
 
                   <div class="grid grid-cols-1 md:grid-cols-[200px_minmax(0,1fr)] gap-x-8 gap-y-3 px-5 sm:px-6 py-5">

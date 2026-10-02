@@ -7,6 +7,7 @@ use App\Models\ActivityLog;
 use App\Models\Setting;
 use App\Services\MailConfigService;
 use App\Services\MysqlBinaryLocator;
+use App\Services\ReportSchedule;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
@@ -55,10 +56,11 @@ class SettingController extends Controller
         // own Carbon math so the screen and the command can't disagree. Null
         // means nothing has been sent yet, i.e. it goes on the next check.
         $lastSentAt = $settings['last_scheduled_report_at'] ?? null;
+        [$intervalCount, $intervalUnit] = ReportSchedule::interval();
+        $settings['report_interval'] = $intervalCount;
+        $settings['report_interval_unit'] = $intervalUnit;
         $settings['next_report_due'] = filled($lastSentAt)
-            ? Carbon::parse($lastSentAt)
-                ->addMonths((int) ($settings['report_interval_months'] ?? 6))
-                ->toDateString()
+            ? ReportSchedule::after(Carbon::parse($lastSentAt), [$intervalCount, $intervalUnit])->toDateString()
             : null;
 
         // Which engine is live decides what a backup file even looks like, and
@@ -119,6 +121,9 @@ class SettingController extends Controller
             'qr_size' => 'nullable|integer|min:100|max:1000',
             'locale' => 'nullable|in:en,km',
             'report_interval_months' => 'nullable|integer|min:1|max:24',
+            // Every N days / months / years.
+            'report_interval' => 'nullable|integer|min:1|max:365',
+            'report_interval_unit' => 'nullable|in:'.implode(',', ReportSchedule::UNITS),
             'report_recipient_email' => 'nullable|email',
             'include_staff_in_reports' => 'nullable|boolean',
             'logo' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
@@ -131,6 +136,16 @@ class SettingController extends Controller
             'mail_from_address' => 'nullable|email',
             'mail_from_name' => 'nullable|string|max:255',
         ]);
+
+        // An older caller sending only report_interval_months means N months.
+        if (isset($validated['report_interval_months']) && ! isset($validated['report_interval'])) {
+            $validated['report_interval'] = $validated['report_interval_months'];
+            $validated['report_interval_unit'] = 'month';
+        }
+        // Keep the legacy months key in step when the unit is months.
+        if (isset($validated['report_interval']) && ($validated['report_interval_unit'] ?? ReportSchedule::interval()[1]) === 'month') {
+            $validated['report_interval_months'] = min(24, (int) $validated['report_interval']);
+        }
 
         if ($request->has('include_staff_in_reports')) {
             $validated['include_staff_in_reports'] = $request->boolean('include_staff_in_reports') ? '1' : '0';

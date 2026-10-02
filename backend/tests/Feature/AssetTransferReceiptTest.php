@@ -493,8 +493,8 @@ class AssetTransferReceiptTest extends TestCase
 
         $stock = $this->stockOf($opm, $dells[1]);
         $this->assertSame(
-            ['name' => 'Dell', 'total' => 30, 'lost_broken' => 0, 'transferred' => 20, 'available' => 10, 'low_stock' => true],
-            array_intersect_key($stock, array_flip(['name', 'total', 'lost_broken', 'transferred', 'available', 'low_stock']))
+            ['name' => 'Dell', 'total' => 30, 'lost_broken' => 0, 'transferred' => 20, 'available' => 10],
+            array_intersect_key($stock, array_flip(['name', 'total', 'lost_broken', 'transferred', 'available']))
         );
 
         $payload = fn (int $qty) => [
@@ -541,7 +541,6 @@ class AssetTransferReceiptTest extends TestCase
         $stock = $this->stockOf($opm, $dells[2]);
         $this->assertSame(2, $stock['lost_broken']);
         $this->assertSame(10, $stock['available']);
-        $this->assertTrue($stock['low_stock']);
     }
 
     public function test_returning_a_transfer_gives_its_units_back(): void

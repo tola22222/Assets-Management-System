@@ -167,6 +167,7 @@ class RolePermissionMatrixTest extends TestCase
             'name' => 'New Site',
             'code' => 'NS',
             'type' => 'office',
+            'program_ids' => [\App\Models\Program::firstOrCreate(['name' => 'Dream Program'])->id],
         ]);
 
         $response->assertStatus(201);

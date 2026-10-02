@@ -50,7 +50,7 @@ class PermissionRegistry
         'suppliers' => ['Suppliers', 'People & Programs'],
         'categories' => ['Categories', 'Asset Management'],
         'assets' => ['Add Asset', 'Asset Management'],
-        'stock-items' => ['Asset Split', 'Asset Management'],
+        'stock-items' => ['Asset Allocation', 'Asset Management'],
         'asset-transfers' => ['Transfers', 'Asset Management'],
         'asset-verifications' => ['Verification', 'Asset Management'],
         'asset-disposals' => ['Disposals', 'Asset Management'],

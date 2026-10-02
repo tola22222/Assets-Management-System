@@ -280,6 +280,41 @@ class LocationStockTest extends TestCase
         ]);
     }
 
+    public function test_hr_returns_with_a_condition_check_and_broken_units_stay_out_of_use(): void
+    {
+        $phones = $this->iphonesAtOffice(10);
+        $transfer = $this->send([$phones[0], $phones[1]], $this->office, $this->kralanh);
+        $this->accept($transfer);
+
+        // Broken without a reason: refused, nothing moves.
+        $this->actingAs($this->hr)->postJson("/api/asset-transfers/{$transfer->id}/return", [
+            'conditions' => [$phones[0]->id => 'good', $phones[1]->id => 'broken'],
+        ])->assertStatus(422)->assertJsonValidationErrors('condition_remark');
+        $this->assertSame($this->kralanh->id, $phones[1]->fresh()->location_id);
+
+        // A code that is not on this transfer: refused.
+        $this->actingAs($this->hr)->postJson("/api/asset-transfers/{$transfer->id}/return", [
+            'conditions' => [$phones[5]->id => 'good'],
+        ])->assertStatus(422)->assertJsonValidationErrors('conditions');
+
+        $this->actingAs($this->hr)->postJson("/api/asset-transfers/{$transfer->id}/return", [
+            'conditions' => [$phones[0]->id => 'good', $phones[1]->id => 'broken'],
+            'condition_remark' => 'Screen cracked',
+        ])->assertCreated();
+
+        // Both back at the Office; the broken one keeps its code but is out of use.
+        $this->assertSame($this->office->id, $phones[1]->fresh()->location_id);
+        $this->assertDatabaseHas('assets', ['id' => $phones[1]->id, 'asset_code' => 'PEY-SR-COM-0002', 'condition' => 'broken']);
+        $stock = $this->stockAt($phones[2], $this->office);
+        $this->assertSame([10, 1, 9], [$stock['total'], $stock['lost_broken'], $stock['available']]);
+
+        $this->assertDatabaseHas('asset_verifications', [
+            'asset_id' => $phones[1]->id, 'location_id' => $this->office->id, 'verified_by' => $this->hr->id,
+            'condition' => 'broken', 'previous_condition' => 'good', 'quantity_affected' => 1, 'remark' => 'Screen cracked',
+        ]);
+        $this->assertDatabaseHas('asset_verifications', ['asset_id' => $phones[0]->id, 'condition' => 'good', 'quantity_affected' => 0]);
+    }
+
     /** @return int[] [total, transferred (assigned + on the way out), available] */
     private function counts(array $stock): array
     {

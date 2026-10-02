@@ -7,6 +7,8 @@ import ConfirmDialog from '../../components/ui/ConfirmDialog.vue'
 import SearchInput from '../../components/ui/SearchInput.vue'
 import TableSortIcon from '../../components/ui/TableSortIcon.vue'
 import { useApiCrud } from '../../composables/useApiCrud'
+import http from '../../api/http'
+import SearchSelect from '../../components/ui/SearchSelect.vue'
 import { useTableSearch } from '../../composables/useTableSearch'
 import { useTableFilter } from '../../composables/useTableFilter'
 import { useTableSort } from '../../composables/useTableSort'
@@ -48,17 +50,33 @@ const canManage = computed(() => canUpdate.value || canDelete.value)
 const showModal = ref(false)
 const editingId = ref(null)
 const deletingId = ref(null)
-const form = reactive({ name: '', code: '', type: 'office', description: '' })
+// program_id: the ONE program this location belongs to (required). Staff
+// assigned here take their program from it — Program → Location → Staff.
+const form = reactive({ name: '', code: '', type: 'office', description: '', program_id: '' })
+// A location saved before the one-program rule may still list several;
+// saving keeps only the one chosen here.
+const editingPrograms = ref([])
+const programs = ref([])
+async function loadPrograms() {
+  try {
+    const { data } = await http.get('/programs')
+    programs.value = data
+  } catch {
+    programs.value = []
+  }
+}
 
 function openCreate() {
   editingId.value = null
-  Object.assign(form, { name: '', code: '', type: 'office', description: '' })
+  Object.assign(form, { name: '', code: '', type: 'office', description: '', program_id: '' })
+  editingPrograms.value = []
   showModal.value = true
 }
 
 function openEdit(location) {
   editingId.value = location.id
-  Object.assign(form, { name: location.name, code: location.code || '', type: location.type, description: location.description || '' })
+  editingPrograms.value = location.programs || []
+  Object.assign(form, { name: location.name, code: location.code || '', type: location.type, description: location.description || '', program_id: editingPrograms.value.length === 1 ? editingPrograms.value[0].id : '' })
   showModal.value = true
 }
 
@@ -96,7 +114,10 @@ async function confirmBulkDelete() {
   }
 }
 
-onMounted(fetchAll)
+onMounted(() => {
+  fetchAll()
+  loadPrograms()
+})
 
 // Pagination is the last step, applied to the finished list, so search
 // and sort still consider every row rather than just the page on screen.
@@ -200,6 +221,15 @@ const { page, rowsPerPage, total, paged } = usePagination(filtered)
               @input="form.code = form.code.toUpperCase()"
             />
             <p class="text-xs text-faint">{{ t('locations.code_help') }}</p>
+          </div>
+          <div class="form-group">
+            <label class="label">{{ t('locations.program_label') }} <span class="text-red-500">*</span></label>
+            <SearchSelect v-model="form.program_id" required input-class="input" :placeholder="t('locations.select_program')"
+              :options="programs.map((p) => ({ value: p.id, label: p.name }))" />
+            <p v-if="editingPrograms.length > 1" class="text-xs text-danger mt-1">
+              {{ t('locations.multi_program_note', { programs: editingPrograms.map((p) => p.name).join(', ') }) }}
+            </p>
+            <p v-else class="text-xs text-muted mt-1">{{ t('locations.program_hint') }}</p>
           </div>
           <div class="form-group">
             <label class="label">{{ t('locations.type_required') }}</label>

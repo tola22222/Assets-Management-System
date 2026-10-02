@@ -37,9 +37,6 @@ use Illuminate\Validation\ValidationException;
  */
 class AssetStockService
 {
-    /** Available at or below this shows as Low Stock. */
-    public const LOW_STOCK_AT = 10;
-
     /** Assignment statuses that still hold units ("returned" gives them back). */
     private const HOLDING_ASSIGNMENT_STATUSES = ['assigned', 'active', 'overdue'];
 
@@ -79,13 +76,17 @@ class AssetStockService
 
         return [
             'name' => $asset->name,
+            // Where these units are, when one location is counted (the transfer's
+            // From site) — the stock box names it instead of "Total Stock".
+            'location_name' => $locationIds !== null && count($locationIds) === 1
+                ? DB::table('locations')->where('id', $locationIds[0])->value('name')
+                : null,
             'total' => $total,
             'lost_broken' => $lostBroken,
             'assigned' => $assigned,
             'pending' => $pending,
             'transferred' => $out,
             'available' => $available,
-            'low_stock' => $available <= self::LOW_STOCK_AT,
             // The exact units free to tick on a transfer from this location:
             // usable, not held by anyone, not already travelling.
             'available_ids' => $this->freeUnitIds($ids, $ignoreAssignmentId),

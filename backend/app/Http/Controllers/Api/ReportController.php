@@ -33,7 +33,7 @@ class ReportController extends Controller
         $periodLabel = now()->format('F Y');
 
         try {
-            Mail::to($request->email)->send(new ScheduledAssetReportMail($summary, $periodLabel));
+            Mail::to($request->email)->send(new ScheduledAssetReportMail($summary, $periodLabel, \App\Services\InventoryListXlsx::build(), \App\Services\InventoryListXlsx::fileName()));
         } catch (\Throwable $e) {
             Log::error('Manual report email failed for '.$request->email.': '.$e->getMessage());
 
@@ -52,12 +52,11 @@ class ReportController extends Controller
     /**
      * Grouped "count by model" view: each Asset row stays an individually
      * tracked unit with its own tag, but this rolls same-name units up into
-     * one line per model/category with a Low/Medium/High stock-level badge —
-     * a read-only summary, not a change to how the data is stored.
+     * one line per model/category — a read-only summary, not a change to how
+     * the data is stored.
      *
      * total counts every unit still on the register; lost_broken is how many of
-     * those a verification marked lost or broken; available is the rest, and
-     * the stock level is judged on what is actually available.
+     * those a verification marked lost or broken; available is the rest.
      */
     public function byModel()
     {
@@ -72,7 +71,6 @@ class ReportController extends Controller
                 $row->total = (int) $row->total;
                 $row->lost_broken = (int) $row->lost_broken;
                 $row->available = $row->total - $row->lost_broken;
-                $row->stock_level = Asset::stockLevelFor($row->available);
 
                 return $row;
             })

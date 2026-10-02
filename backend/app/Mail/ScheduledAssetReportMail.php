@@ -8,6 +8,7 @@ use App\Models\AssetReturn;
 use App\Models\AssetTransfer;
 use App\Models\AssetVerification;
 use Illuminate\Bus\Queueable;
+use Illuminate\Mail\Attachment;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
@@ -18,7 +19,11 @@ class ScheduledAssetReportMail extends Mailable
 {
     use Queueable, SerializesModels;
 
-    public function __construct(public array $summary, public string $periodLabel) {}
+    /**
+     * @param  string|null  $file  the asset register in the Inventory List
+     *                             template (InventoryListXlsx), attached when given
+     */
+    public function __construct(public array $summary, public string $periodLabel, public ?string $file = null, public ?string $fileName = null) {}
 
     /**
      * Shared by the scheduled `app:send-scheduled-asset-report` command and
@@ -53,7 +58,20 @@ class ScheduledAssetReportMail extends Mailable
     {
         return new Content(
             view: 'emails.scheduled-report',
-            with: ['summary' => $this->summary, 'periodLabel' => $this->periodLabel],
+            with: ['summary' => $this->summary, 'periodLabel' => $this->periodLabel, 'hasAttachment' => $this->file !== null],
         );
+    }
+
+    /** The full asset register, as a formatted Excel file. */
+    public function attachments(): array
+    {
+        if ($this->file === null) {
+            return [];
+        }
+
+        return [
+            Attachment::fromData(fn () => $this->file, $this->fileName ?? 'inventory-list.xlsx')
+                ->withMime('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'),
+        ];
     }
 }

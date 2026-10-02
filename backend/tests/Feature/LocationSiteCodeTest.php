@@ -30,10 +30,25 @@ class LocationSiteCodeTest extends TestCase
         $response = $this->actingAs($this->opm())->postJson('/api/locations', [
             'name' => 'New Learning Center',
             'type' => 'program',
+            'program_ids' => [\App\Models\Program::firstOrCreate(['name' => 'Dream Program'])->id],
         ]);
 
         $response->assertStatus(422)->assertJsonValidationErrors('code');
         $this->assertDatabaseMissing('locations', ['name' => 'New Learning Center']);
+    }
+
+    public function test_a_location_must_belong_to_a_program(): void
+    {
+        $this->actingAs($this->opm())->postJson('/api/locations', [
+            'name' => 'School A', 'code' => 'SA', 'type' => 'program',
+        ])->assertStatus(422)->assertJsonValidationErrors('program_id');
+
+        $dream = \App\Models\Program::create(['name' => 'Dream Program']);
+        $id = $this->actingAs($this->opm())->postJson('/api/locations', [
+            'name' => 'School A', 'code' => 'SA', 'type' => 'program', 'program_ids' => [$dream->id],
+        ])->assertStatus(201)->assertJsonPath('programs.0.name', 'Dream Program')->json('id');
+
+        $this->assertDatabaseHas('location_program', ['location_id' => $id, 'program_id' => $dream->id]);
     }
 
     public function test_a_site_code_is_stored_upper_cased(): void
@@ -42,6 +57,7 @@ class LocationSiteCodeTest extends TestCase
             'name' => 'New Learning Center',
             'code' => 'nl',
             'type' => 'program',
+            'program_ids' => [\App\Models\Program::firstOrCreate(['name' => 'Dream Program'])->id],
         ]);
 
         $response->assertStatus(201);
@@ -54,6 +70,7 @@ class LocationSiteCodeTest extends TestCase
             'name' => 'Another Office',
             'code' => 'sr', // PEPY Office already holds SR.
             'type' => 'office',
+            'program_ids' => [\App\Models\Program::firstOrCreate(['name' => 'Dream Program'])->id],
         ]);
 
         $response->assertStatus(422)->assertJsonValidationErrors('code');
@@ -65,6 +82,7 @@ class LocationSiteCodeTest extends TestCase
             'name' => 'Bad Code Site',
             'code' => 'X-1',
             'type' => 'office',
+            'program_ids' => [\App\Models\Program::firstOrCreate(['name' => 'Dream Program'])->id],
         ]);
 
         $response->assertStatus(422)->assertJsonValidationErrors('code');
@@ -78,6 +96,7 @@ class LocationSiteCodeTest extends TestCase
             'name' => 'PEPY Head Office',
             'code' => 'SR',
             'type' => 'office',
+            'program_ids' => [\App\Models\Program::firstOrCreate(['name' => 'Dream Program'])->id],
         ]);
 
         $response->assertOk();

@@ -19,6 +19,7 @@ import { useAuthStore } from '../../stores/auth'
 import { usePermissions } from '../../composables/usePermissions'
 import TablePagination from '../../components/ui/TablePagination.vue'
 import { usePagination } from '../../composables/usePagination'
+import { downloadExcel, exportNote } from '../../utils/excelExport'
 import ImageField from '../../components/ui/ImageField.vue'
 
 const { t } = useI18n()
@@ -41,6 +42,61 @@ const { sortKey, sortDir, toggleSort, sorted: sortedVerifications } = useTableSo
   defaultKey: 'created_at', defaultDir: 'desc',
   paths: { asset: 'asset.name', location: 'location.name', verified_by: 'verified_by.name' },
 })
+
+// ---- CSV export -----------------------------------------------------------
+// Exactly the rows on screen — after search, the location filter and sort —
+// with the audit fields a verification keeps (before / after condition, how
+// many units it took out of use, who and when, and the reason).
+// ---- Excel export -----------------------------------------------------------
+// Exactly the rows on screen — after search, the location filter and sort —
+// grouped by location, with the audit fields a verification keeps (before /
+// after condition, how many units it took out of use, who and when, why).
+async function exportCsv() {
+  const condition = (c) => (c ? t(`asset_verifications.condition_${c}`) : '')
+  const location = filters.location
+    ? sortedVerifications.value.find((v) => String(v.location_id) === String(filters.location))?.location?.name
+    : null
+  await downloadExcel({
+    fileName: 'asset-verifications',
+    title: t('asset_verifications.title'),
+    subtitle: location || t('export.all_locations'),
+    note: exportNote(t('export.generated'), [search.value && t('export.filter_search', { q: search.value })]),
+    sheets: [{
+      name: t('asset_verifications.title'),
+      columns: [
+        { key: 'date', header: t('common.date'), type: 'code', width: 17 },
+        { key: 'asset', header: t('common.asset'), type: 'text' },
+        { key: 'asset_code', header: t('assets.code'), type: 'code' },
+        { key: 'quantity', header: t('common.quantity'), type: 'qty', width: 9 },
+        { key: 'previous_condition', header: t('asset_verifications.previous_condition'), type: 'code' },
+        { key: 'condition', header: t('asset_returns.condition'), type: 'code' },
+        { key: 'out_of_use', header: t('asset_verifications.out_of_use'), type: 'qty', width: 10 },
+        { key: 'verified_by', header: t('asset_verifications.verified_by'), type: 'text' },
+        { key: 'remark', header: t('asset_verifications.remark'), type: 'text' },
+      ],
+      rows: sortedVerifications.value.map((v) => ({
+        date: (v.verified_at || v.created_at || '').replace('T', ' ').slice(0, 16),
+        asset: v.asset?.name || '',
+        asset_code: v.asset?.asset_code || '',
+        quantity: v.quantity_verified ?? 1,
+        previous_condition: condition(v.previous_condition),
+        condition: condition(v.condition),
+        out_of_use: v.quantity_affected ?? 0,
+        verified_by: v.verified_by?.name || '',
+        remark: v.remark || '',
+        _location: v.location?.name || t('stock.no_location'),
+        _code: v.location?.code || '',
+      })),
+      group: {
+        by: (r) => r._location,
+        label: (key, rows) => (rows[0]._code ? `${key} ( ${rows[0]._code} )` : key),
+        code: (key, rows) => rows[0]._code || key,
+        codeColumn: 'asset_code',
+      },
+      totalLabel: t('export.total'),
+    }],
+  })
+}
 
 // View renders the row the table already holds — /asset-verifications has no
 // show endpoint, and its index returns the asset, location and verifier.
@@ -152,6 +208,10 @@ const { page, rowsPerPage, total, paged } = usePagination(sortedVerifications)
             <p class="text-muted text-sm mt-1">{{ t('asset_verifications.subtitle') }}</p>
           </div>
           <div class="flex items-center gap-2 flex-shrink-0">
+            <button @click="exportCsv" class="btn-ghost btn-sm">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M7.5 12L12 16.5m0 0l4.5-4.5M12 16.5V3" /></svg>
+              {{ t('assets.export_csv') }}
+            </button>
             <button v-if="canCreate" @click="openCreate" class="btn-primary btn-sm">
               <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
               {{ t('asset_verifications.new') }}

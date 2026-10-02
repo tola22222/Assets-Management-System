@@ -22,6 +22,53 @@ class SettingsReportScheduleTest extends TestCase
         return User::factory()->create(['role' => 'operations_hr_manager']);
     }
 
+    public function test_the_interval_can_be_days_months_or_years(): void
+    {
+        Setting::create(['key' => 'last_scheduled_report_at', 'value' => '2026-08-15 07:46:04']);
+        $opm = $this->opm();
+
+        $this->actingAs($opm)->postJson('/api/settings', ['report_interval' => 10, 'report_interval_unit' => 'day'])
+            ->assertOk()
+            ->assertJsonPath('report_interval', 10)
+            ->assertJsonPath('report_interval_unit', 'day')
+            ->assertJsonPath('next_report_due', '2026-08-25');
+
+        $this->actingAs($opm)->postJson('/api/settings', ['report_interval' => 1, 'report_interval_unit' => 'year'])
+            ->assertOk()->assertJsonPath('next_report_due', '2027-08-15');
+
+        $this->actingAs($opm)->postJson('/api/settings', ['report_interval' => 2, 'report_interval_unit' => 'month'])
+            ->assertOk()->assertJsonPath('next_report_due', '2026-10-15');
+
+        $this->actingAs($opm)->postJson('/api/settings', ['report_interval_unit' => 'week'])
+            ->assertStatus(422)->assertJsonValidationErrors('report_interval_unit');
+    }
+
+    public function test_the_scheduled_report_attaches_the_inventory_list_and_respects_a_days_interval(): void
+    {
+        \Illuminate\Support\Facades\Mail::fake();
+        $opm = $this->opm();
+        Setting::create(['key' => 'report_interval', 'value' => '7']);
+        Setting::create(['key' => 'report_interval_unit', 'value' => 'day']);
+
+        // 3 days after the last send: not due on a 7-day interval.
+        Setting::create(['key' => 'last_scheduled_report_at', 'value' => now()->subDays(3)->toDateTimeString()]);
+        $this->artisan('app:send-scheduled-asset-report')->assertSuccessful();
+        \Illuminate\Support\Facades\Mail::assertNothingSent();
+
+        // 8 days after: due, and the register goes along in the Inventory List template.
+        Setting::where('key', 'last_scheduled_report_at')->update(['value' => now()->subDays(8)->toDateTimeString()]);
+        $this->artisan('app:send-scheduled-asset-report')->assertSuccessful();
+
+        \Illuminate\Support\Facades\Mail::assertSent(\App\Mail\ScheduledAssetReportMail::class, function ($mail) use ($opm) {
+            $attachments = $mail->attachments();
+
+            return $mail->hasTo($opm->email)
+                && count($attachments) === 1
+                && str_ends_with($attachments[0]->as, '.xlsx')
+                && str_starts_with($mail->file, 'PK');
+        });
+    }
+
     public function test_next_report_due_is_the_last_send_plus_the_configured_interval(): void
     {
         Setting::create(['key' => 'last_scheduled_report_at', 'value' => '2026-08-15 07:46:04']);

@@ -50,11 +50,12 @@ const toast = useToastStore()
 const showModal = ref(false)
 const editingId = ref(null)
 const deletingId = ref(null)
-const form = reactive({ name: '', description: '', location_ids: [], responsible_staff_id: '' })
+const form = reactive({ name: '', description: '', responsible_staff_id: '' })
 
-// A program runs at one or more schools and has one Responsible Staff, who
-// accepts deliveries at every one of them. Both are required.
-const locations = ref([])
+// Program → Location → Staff: a program is created on its own; its schools
+// are chosen on each Location, and its staff on the Staff form. The
+// Responsible Staff (who accepts deliveries at its schools) is set on Edit,
+// once the program has staff.
 const staff = ref([])
 
 // The schools a program is linked to (older rows: just its location_id).
@@ -78,19 +79,18 @@ const takenStaffIds = computed(
     ),
 )
 
-// A staff member belongs to ONE program, so the lead must be someone not in a
-// program yet (saving puts them in this one) or already in this program.
+// The lead is one of this program's own staff (they joined it through their
+// location), and not already leading another program.
 const leadCandidates = computed(() =>
   staff.value.filter(
-    (s) => (!s.program_id || s.program_id === editingId.value) && !takenStaffIds.value.has(String(s.id)),
+    (s) => s.program_id === editingId.value && !takenStaffIds.value.has(String(s.id)),
   ),
 )
 
 async function loadOptions() {
   try {
-    const [l, s] = await Promise.all([http.get('/locations'), http.get('/staff')])
-    locations.value = l.data
-    staff.value = s.data
+    const { data } = await http.get('/staff')
+    staff.value = data
   } catch (e) {
     toast.error(errorMessage(e, t('programs.options_failed')))
   }
@@ -98,7 +98,7 @@ async function loadOptions() {
 
 function openCreate() {
   editingId.value = null
-  Object.assign(form, { name: '', description: '', location_ids: [], responsible_staff_id: '' })
+  Object.assign(form, { name: '', description: '', responsible_staff_id: '' })
   showModal.value = true
 }
 
@@ -107,7 +107,6 @@ function openEdit(program) {
   Object.assign(form, {
     name: program.name,
     description: program.description || '',
-    location_ids: programSchoolIds(program).map(Number),
     responsible_staff_id: program.responsible_staff_id || '',
   })
   showModal.value = true
@@ -115,8 +114,10 @@ function openEdit(program) {
 
 async function handleSubmit() {
   try {
-    if (editingId.value) await update(editingId.value, form)
-    else await create(form)
+    // Create: name and description only. Edit also sends the lead (or null).
+    const { responsible_staff_id: lead, ...plain } = form
+    if (editingId.value) await update(editingId.value, { ...plain, responsible_staff_id: lead || null })
+    else await create(plain)
     showModal.value = false
     // Saving can put the lead into this program — refresh the staff picker.
     loadOptions()
@@ -247,21 +248,13 @@ const { page, rowsPerPage, total, paged } = usePagination(filtered)
             <label class="label">{{ t('programs.name_required') }}</label>
             <input v-model="form.name" required class="input" />
           </div>
-          <!-- Schools: a program can run at several. Its lead accepts deliveries
-               at every one, and its staff can see and manage all of them. -->
-          <div class="form-group">
-            <div class="flex items-center justify-between mb-1.5">
-              <label class="label !mb-0">{{ t('programs.schools_required') }}</label>
-              <span class="text-xs text-muted">{{ t('asset_transfers.ticked_count', { n: form.location_ids.length, total: locations.length }) }}</span>
-            </div>
-            <SearchSelect v-model="form.location_ids" multiple required input-class="input" :placeholder="t('programs.select_schools')"
-              :options="locations.map((l) => ({ value: l.id, label: l.name }))" />
-          </div>
-          <div class="form-group">
-            <label class="label">{{ t('programs.responsible_staff_required') }}</label>
-            <SearchSelect v-model="form.responsible_staff_id" required input-class="input" :placeholder="t('programs.select_staff')"
+          <!-- Edit only: the lead is one of this program's staff, so there is
+               nobody to pick until staff have joined it through a location. -->
+          <div v-if="editingId" class="form-group">
+            <label class="label">{{ t('programs.responsible_staff') }}</label>
+            <SearchSelect v-model="form.responsible_staff_id" input-class="input" :empty-label="t('users.none')"
               :options="leadCandidates.map((s) => ({ value: s.id, label: s.full_name }))" />
-            <p v-if="!leadCandidates.length" class="text-xs text-danger mt-1">{{ t('programs.all_staff_taken') }}</p>
+            <p v-if="!leadCandidates.length" class="text-xs text-muted mt-1">{{ t('programs.no_members') }}</p>
             <p v-else class="text-xs text-muted mt-1">{{ t('programs.responsible_staff_hint') }}</p>
           </div>
           <div class="form-group">

@@ -23,10 +23,13 @@ use PhpOffice\PhpSpreadsheet\IOFactory;
  *      Location, Price, Serial No., Currently Using, Used By, Remark. Existing
  *      Asset IDs (e.g. PEY-SR-FAF-0928) are PRESERVED because they are already
  *      printed on physical tags, and the category is derived from the ID.
- *   2. The simple template      — columns: name, category, description, model,
- *      brand, supplier, serial_number, purchase_date, purchase_price, condition,
- *      status. (An optional "Supplier" column is read in either layout.)
- *      Here codes are auto-generated and the category is matched by name.
+ *   2. The simple template      — columns: name, category, location, quantity,
+ *      description, model, brand, supplier, serial_number, purchase_date,
+ *      purchase_price, condition, status. (An optional "Supplier" column is
+ *      read in either layout.) Here codes are auto-generated and the category
+ *      is matched by name. "quantity" (blank = 1) registers that many units
+ *      from one row, each its own asset with its own code — the same as
+ *      Quantity on the Add Asset form.
  *
  * Re-importing the PEPY layout is safe: rows are matched by asset code, and a
  * row that matches an asset already on the register only FILLS fields that
@@ -426,22 +429,43 @@ class AssetImportService
                 // than allowed to escape, because an uncaught throw here would
                 // abort (and roll back) the whole upload over one site that is
                 // simply missing its code.
-                try {
-                    $assetCode = AssetCodeService::nextCode($location->id, $category->id);
-                } catch (AssetCodeException $e) {
-                    $errors[] = "Row {$lineNo}: ".$e->getMessage();
+                // Quantity: that many units from this one row, each its own
+                // asset with its own code, like Add Asset's Quantity.
+                $rawQuantity = $get('quantity');
+                if ($rawQuantity !== '' && (! ctype_digit($rawQuantity) || (int) $rawQuantity < 1 || (int) $rawQuantity > Asset::MAX_BATCH_QUANTITY)) {
+                    $errors[] = "Row {$lineNo}: quantity \"{$rawQuantity}\" must be a whole number from 1 to ".Asset::MAX_BATCH_QUANTITY.'.';
+
+                    continue;
+                }
+                $quantity = $rawQuantity === '' ? 1 : (int) $rawQuantity;
+                if ($quantity > 1 && $payload['serial_number']) {
+                    $errors[] = "Row {$lineNo}: a serial number belongs to one unit — leave it empty when quantity is more than 1.";
 
                     continue;
                 }
 
-                if ($imageFile && ($stored = $this->storeImage($imageFile)) !== null) {
-                    $payload['image_path'] = $stored;
-                    if ($imageKey !== null) {
-                        $usedImageKeys[$imageKey] = true;
+                for ($unit = 0; $unit < $quantity; $unit++) {
+                    try {
+                        $assetCode = AssetCodeService::nextCode($location->id, $category->id);
+                    } catch (AssetCodeException $e) {
+                        $errors[] = "Row {$lineNo}: ".$e->getMessage();
+
+                        continue 2;
                     }
-                    $imagesAttached++;
+
+                    $unitPayload = $payload;
+                    if ($imageFile && ($stored = $this->storeImage($imageFile)) !== null) {
+                        $unitPayload['image_path'] = $stored;
+                        if ($imageKey !== null) {
+                            $usedImageKeys[$imageKey] = true;
+                        }
+                        $imagesAttached++;
+                    }
+                    $createdAssets[] = Asset::create($unitPayload + ['location_id' => $location->id, 'asset_code' => $assetCode]);
+                    $created++;
                 }
-                $asset = Asset::create($payload + ['location_id' => $location->id, 'asset_code' => $assetCode]);
+
+                continue;
             }
 
             $createdAssets[] = $asset;
@@ -574,6 +598,8 @@ class AssetImportService
                     $map['price'] = $col;
                 } elseif (str_contains($h, 'serial')) {
                     $map['serial'] = $col;
+                } elseif ($h === 'quantity' || $h === 'qty') {
+                    $map['quantity'] = $col;
                 } elseif ($h === 'model') {
                     $map['model'] = $col;
                 } elseif ($h === 'brand') {

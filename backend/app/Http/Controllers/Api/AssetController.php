@@ -14,7 +14,9 @@ use App\Services\AssetCodeService;
 use App\Services\AssetNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
@@ -47,6 +49,20 @@ class AssetController extends Controller
     {
         $validated = $this->validateAsset($request, null);
 
+        // How many identical units to register. Each becomes its own asset
+        // with its own code (the next in the sequence), QR code and history —
+        // the same as one import row per unit.
+        $quantity = (int) ($request->validate([
+            'quantity' => 'nullable|integer|min:1|max:'.Asset::MAX_BATCH_QUANTITY,
+        ])['quantity'] ?? 1);
+
+        // A serial number identifies one physical unit.
+        if ($quantity > 1 && ! empty($validated['serial_number'])) {
+            throw ValidationException::withMessages([
+                'serial_number' => 'A serial number belongs to one unit. Leave it empty when adding more than one, then add each serial on its asset.',
+            ]);
+        }
+
         // A new asset is always on the register; it can only leave it through
         // a disposal request the Executive Director approves.
         if ($validated['status'] !== 'active') {
@@ -69,16 +85,44 @@ class AssetController extends Controller
             $validated['image_path'] = $request->file('image')->store('assets', 'public');
         }
 
-        $asset = Asset::create($validated);
-        AssetCodeService::generateQrCode($asset);
+        $assets = DB::transaction(function () use ($validated, $quantity) {
+            $assets = [];
+            for ($i = 0; $i < $quantity; $i++) {
+                $row = $validated;
+                if ($i > 0) {
+                    $row['asset_code'] = AssetCodeService::nextCode($validated['location_id'], $validated['category_id']);
+                    // Each unit gets its own copy of the photo, so editing or
+                    // replacing one unit's photo never removes another's.
+                    if (! empty($validated['image_path'])) {
+                        $copy = 'assets/'.Str::random(40).'.'.pathinfo($validated['image_path'], PATHINFO_EXTENSION);
+                        Storage::disk('public')->copy($validated['image_path'], $copy);
+                        $row['image_path'] = $copy;
+                    }
+                }
+                $assets[] = Asset::create($row);
+            }
 
+            return $assets;
+        });
+
+        foreach ($assets as $asset) {
+            AssetCodeService::generateQrCode($asset);
+        }
+
+        $first = $assets[0];
         ActivityLog::createAndNotify([
             'user_id' => Auth::id(),
             'action' => 'Create',
-            'description' => 'Registered asset: '.$asset->name.' ('.$asset->asset_code.')',
+            'description' => $quantity > 1
+                ? "Registered {$quantity} × {$first->name} ({$first->asset_code} – ".end($assets)->asset_code.')'
+                : 'Registered asset: '.$first->name.' ('.$first->asset_code.')',
         ]);
 
-        return response()->json($asset->fresh(['category', 'location', 'supplier']), 201);
+        $response = $first->fresh(['category', 'location', 'supplier']);
+        $response->setAttribute('created_count', $quantity);
+        $response->setAttribute('created_codes', array_map(fn (Asset $a) => $a->asset_code, $assets));
+
+        return response()->json($response, 201);
     }
 
     public function update(Request $request, Asset $asset)

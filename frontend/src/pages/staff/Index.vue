@@ -57,25 +57,55 @@ const photoFile = ref(null)
 // The staff photo already on the record; shown while editing so it is clear a
 // person already has one.
 const existingPhoto = ref(null)
-// A staff member belongs to ONE program, picked first; the schools they can
-// see and manage come from it — no school is picked for them directly.
-const programs = ref([])
-const emptyForm = () => ({ program_id: '', full_name: '', email: '', phone: '', position: '', hire_date: '', status: 'active' })
+// Program → Location → Staff: the staff member works at one or more
+// locations, all in ONE program, and their program comes from them —
+// read-only, never picked. The server applies the same rule.
+const locationOptions = ref([])
+const emptyForm = () => ({ location_ids: [], full_name: '', email: '', phone: '', position: '', hire_date: '', status: 'active' })
 const form = reactive(emptyForm())
-const chosenProgram = computed(() => programs.value.find((p) => String(p.id) === String(form.program_id)))
-const chosenSchools = computed(() => (chosenProgram.value?.locations || []).map((l) => l.name).join(', '))
+// The program of the staff member being edited: a location saved before the
+// one-program rule may still list several, and then their own one is kept.
+const editingProgramId = ref(null)
 
-async function loadPrograms() {
+const programIdsOf = (l) => (l?.programs || []).map((p) => p.id)
+const chosenLocations = computed(() => locationOptions.value.filter((l) => form.location_ids.some((id) => String(id) === String(l.id))))
+// The programs every chosen location shares.
+const sharedProgramIds = computed(() => {
+  if (!chosenLocations.value.length) return []
+  return chosenLocations.value.map(programIdsOf).reduce((acc, ids) => acc.filter((id) => ids.includes(id)))
+})
+const derivedProgram = computed(() => {
+  const shared = sharedProgramIds.value
+  const id = shared.length === 1 ? shared[0] : (shared.includes(editingProgramId.value) ? editingProgramId.value : null)
+  if (id === null) return null
+  for (const l of chosenLocations.value) {
+    const p = (l.programs || []).find((x) => x.id === id)
+    if (p) return p
+  }
+  return null
+})
+// Only locations of that same program can be added (and only ones that have
+// a program at all); the ones already chosen always stay listed.
+const staffLocationOptions = computed(() => {
+  const shared = sharedProgramIds.value
+  return locationOptions.value
+    .filter((l) => form.location_ids.some((id) => String(id) === String(l.id))
+      || (programIdsOf(l).length && (!chosenLocations.value.length || programIdsOf(l).some((id) => shared.includes(id)))))
+    .map((l) => ({ value: l.id, label: l.name, sub: l.code || undefined }))
+})
+
+async function loadLocationOptions() {
   try {
-    const { data } = await http.get('/programs')
-    programs.value = data
+    const { data } = await http.get('/locations')
+    locationOptions.value = data
   } catch {
-    programs.value = []
+    locationOptions.value = []
   }
 }
 
 function openCreate() {
   editingId.value = null
+  editingProgramId.value = null
   Object.assign(form, emptyForm())
   photoFile.value = null
   existingPhoto.value = null
@@ -84,8 +114,9 @@ function openCreate() {
 
 function openEdit(staff) {
   editingId.value = staff.id
+  editingProgramId.value = staff.program_id ?? null
   Object.assign(form, {
-    program_id: staff.program_id || '',
+    location_ids: staff.locations?.length ? staff.locations.map((l) => l.id) : [staff.location_id].filter(Boolean),
     full_name: staff.full_name, email: staff.email || '', phone: staff.phone || '',
     position: staff.position || '', hire_date: staff.hire_date || '', status: staff.status || 'active',
   })
@@ -96,7 +127,10 @@ function openEdit(staff) {
 
 async function handleSubmit() {
   const fd = new FormData()
-  Object.entries(form).forEach(([k, v]) => { if (v !== '') fd.append(k, v) })
+  Object.entries(form).forEach(([k, v]) => {
+    if (Array.isArray(v)) v.forEach((item) => fd.append(`${k}[]`, item))
+    else if (v !== '') fd.append(k, v)
+  })
   if (photoFile.value) fd.append('photo', photoFile.value)
 
   try {
@@ -133,7 +167,7 @@ async function confirmBulkDelete() {
 
 onMounted(() => {
   fetchAll()
-  loadPrograms()
+  loadLocationOptions()
 })
 
 // Pagination is the last step, applied to the finished list, so search
@@ -197,8 +231,13 @@ const { page, rowsPerPage, total, paged } = usePagination(filtered)
                 </td>
                 <td>{{ s.position || '—' }}</td>
                 <td>{{ s.phone || '—' }}</td>
+                <!-- Status, plus "No login" when no user account is linked: the
+                     person can't sign in, so they can't accept a transfer. -->
                 <td>
-                  <span class="badge" :class="s.status === 'active' ? 'badge-success' : 'badge-neutral'">{{ t(`status.${s.status}`) }}</span>
+                  <div class="flex flex-nowrap items-center gap-1.5 whitespace-nowrap">
+                    <span class="badge" :class="s.status === 'active' ? 'badge-success' : 'badge-neutral'">{{ t(`status.${s.status}`) }}</span>
+                    <span v-if="s.has_login === false" class="badge-warning" :title="t('staff.no_login_hint')">{{ t('programs.no_login') }}</span>
+                  </div>
                 </td>
                 <td v-if="canManage" class="text-right">
                   <div class="flex items-center justify-end gap-1.5">
@@ -224,13 +263,20 @@ const { page, rowsPerPage, total, paged } = usePagination(filtered)
     <Modal v-if="showModal" :title="editingId ? t('staff.edit_title') : t('staff.create_title')" @close="showModal = false">
       <form class="modal-form" @submit.prevent="handleSubmit">
         <div class="modal-body space-y-4">
-          <!-- Program first: a staff member belongs to ONE program and can see
-               and manage every school linked to it. -->
+          <!-- Locations first: one or more, all in the same program. -->
           <div class="form-group">
-            <label class="label">{{ t('staff.program') }} <span class="text-red-500">*</span></label>
-            <SearchSelect v-model="form.program_id" required input-class="input" :placeholder="t('staff.select_program')"
-              :options="programs.map((p) => ({ value: p.id, label: p.name }))" />
-            <p v-if="chosenSchools" class="text-xs text-muted mt-1">{{ t('staff.program_schools', { schools: chosenSchools }) }}</p>
+            <label class="label">{{ t('staff.locations') }} <span class="text-red-500">*</span></label>
+            <SearchSelect v-model="form.location_ids" multiple required input-class="input" :placeholder="t('staff.select_locations')"
+              :options="staffLocationOptions" />
+            <p class="text-xs text-muted mt-1">{{ t('staff.locations_hint') }}</p>
+          </div>
+          <!-- Loaded from the locations, never picked. -->
+          <div class="form-group">
+            <label class="label">{{ t('staff.program') }}</label>
+            <input :value="derivedProgram?.name || ''" readonly class="input bg-surface-2"
+              :placeholder="form.location_ids.length ? '' : t('staff.choose_location_first')" />
+            <p v-if="form.location_ids.length && !derivedProgram" class="text-xs text-danger mt-1">{{ t('staff.location_multi_program') }}</p>
+            <p v-else class="text-xs text-muted mt-1">{{ t('staff.program_auto_hint') }}</p>
           </div>
           <div class="form-group">
             <label class="label">{{ t('staff.full_name') }}</label>

@@ -19,6 +19,7 @@ import { useAuthStore } from '../../stores/auth'
 import { usePermissions } from '../../composables/usePermissions'
 import TablePagination from '../../components/ui/TablePagination.vue'
 import { usePagination } from '../../composables/usePagination'
+import { downloadExcel, exportNote } from '../../utils/excelExport'
 import ImageField from '../../components/ui/ImageField.vue'
 
 const { t } = useI18n()
@@ -56,6 +57,8 @@ const flagSubmitting = ref(false)
 const emptyForm = () => ({
   name: '', category_id: '', location_id: '', supplier_id: '', description: '', model: '', brand: '',
   serial_number: '', purchase_date: '', purchase_price: '', condition: 'good', status: 'active',
+  // Add only: how many identical units to register, each with its own code.
+  quantity: 1,
 })
 const form = reactive(emptyForm())
 
@@ -96,39 +99,56 @@ function assignedTo(asset) {
   return asset.assignments?.[0]?.recipient_name || t('assets.unassigned')
 }
 
-function exportCsv() {
-  const cols = [
-    ['asset_code', t('assets.id_col')],
-    ['name', t('common.name')],
-    ['description', t('common.description')],
-    ['category', t('assets.category')],
-    ['location', t('assets.location_col')],
-    ['assigned_to', t('assets.assigned_to')],
-    ['status', t('common.status')],
-    ['value', t('assets.value_col')],
-  ]
-  const row = (a) => ({
-    asset_code: a.asset_code,
-    name: a.name,
-    description: a.description || '',
-    category: a.category?.name || '',
-    location: a.location?.name || '',
-    assigned_to: assignedTo(a),
-    status: assetState(a).label,
-    value: a.purchase_price ?? '',
+// ---- Excel export -----------------------------------------------------------
+// The "Inventory List" template: exactly the rows on screen (search and the
+// category filter applied), grouped by category with a total per category.
+async function exportCsv() {
+  const category = categories.value.find((c) => String(c.id) === String(catFilters.category))
+  await downloadExcel({
+    fileName: 'inventory-list',
+    title: t('export.inventory_title'),
+    subtitle: t('export.inventory_scope'),
+    note: exportNote(t('export.generated'), [
+      search.value && t('export.filter_search', { q: search.value }),
+      category && t('export.filter_category', { c: category.name }),
+    ]),
+    sheets: [{
+      name: t('export.inventory_title'),
+      columns: [
+        { key: 'name', header: t('export.col_description'), type: 'text' },
+        { key: 'qty', header: t('common.quantity'), type: 'qty', width: 7 },
+        { key: 'asset_code', header: t('assets.id_col'), type: 'code' },
+        { key: 'purchase_date', header: t('assets.purchase_date'), type: 'date', width: 14 },
+        { key: 'location', header: t('common.location'), type: 'text' },
+        { key: 'price', header: t('export.col_price'), type: 'money', width: 13 },
+        { key: 'serial', header: t('assets.serial_number'), type: 'text' },
+        { key: 'using', header: t('assets.assigned_to'), type: 'text' },
+        { key: 'status', header: t('common.status'), type: 'text' },
+        { key: 'remark', header: t('export.col_remark'), type: 'text' },
+      ],
+      rows: visible.value.map((a) => ({
+        name: a.name,
+        qty: 1,
+        asset_code: a.asset_code,
+        purchase_date: a.purchase_date,
+        location: a.location?.name || '',
+        price: a.purchase_price,
+        serial: a.serial_number || '',
+        using: assignedTo(a),
+        status: assetState(a).label,
+        remark: assetNote(a) || '',
+        _category: a.category?.name || t('common.n_a'),
+        _code: a.category?.short_name || '',
+      })),
+      group: {
+        by: (r) => r._category,
+        label: (key, rows) => (rows[0]._code ? `${key} ( ${rows[0]._code} )` : key),
+        code: (key, rows) => rows[0]._code || key,
+        codeColumn: 'asset_code',
+      },
+      totalLabel: t('export.total'),
+    }],
   })
-  const lines = [cols.map(([, label]) => label).join(',')]
-  visible.value.forEach((a) => {
-    const r = row(a)
-    lines.push(cols.map(([key]) => `"${String(r[key] ?? '').replace(/"/g, '""')}"`).join(','))
-  })
-  const blob = new Blob([lines.join('\n')], { type: 'text/csv' })
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = `asset-register-${new Date().toISOString().slice(0, 10)}.csv`
-  link.click()
-  URL.revokeObjectURL(url)
 }
 
 async function loadOptions() {
@@ -171,6 +191,10 @@ function buildFormData() {
   const fd = new FormData()
   Object.entries(form).forEach(([key, value]) => {
     if (value === null || value === undefined) return
+    // Quantity only applies when adding; an edit changes one asset.
+    if (key === 'quantity' && editingId.value) return
+    // A serial number belongs to one unit, so it is not sent for several.
+    if (key === 'serial_number' && !editingId.value && Number(form.quantity) > 1) return
     // On edit an emptied field is sent empty (the server stores it as null),
     // so clearing a serial number or price actually clears it.
     if (value === '' && !editingId.value) return
@@ -190,8 +214,8 @@ async function handleSubmit() {
       await http.post(`/assets/${editingId.value}`, fd, config)
       toast.success(t('assets.updated'))
     } else {
-      await http.post('/assets', fd, config)
-      toast.success(t('assets.created'))
+      const { data } = await http.post('/assets', fd, config)
+      toast.success(data?.created_count > 1 ? t('assets.created_n', { n: data.created_count }) : t('assets.created'))
     }
     showModal.value = false
     await fetchAll()
@@ -452,6 +476,12 @@ const { page, rowsPerPage, total, paged } = usePagination(visible)
               <SearchSelect v-model="form.location_id" required :placeholder="t('assets.select_location')"
                 :options="locations.map((l) => ({ value: l.id, label: l.name }))" />
             </div>
+            <!-- Add only: N identical units, each its own asset with its own code. -->
+            <div v-if="!editingId">
+              <label class="label">{{ t('assets.quantity') }} <span class="text-red-500">*</span></label>
+              <input v-model.number="form.quantity" type="number" min="1" max="500" step="1" required class="input" />
+              <p v-if="form.quantity > 1" class="text-xs text-faint mt-1">{{ t('assets.quantity_hint', { n: form.quantity }) }}</p>
+            </div>
             <div>
               <label class="label">{{ t('assets.brand') }}</label>
               <input v-model="form.brand" class="input" />
@@ -462,7 +492,8 @@ const { page, rowsPerPage, total, paged } = usePagination(visible)
             </div>
             <div>
               <label class="label">{{ t('assets.serial_number') }}</label>
-              <input v-model="form.serial_number" class="input" />
+              <input v-model="form.serial_number" class="input" :disabled="!editingId && form.quantity > 1"
+                :placeholder="!editingId && form.quantity > 1 ? t('assets.serial_one_unit') : ''" />
             </div>
             <div>
               <label class="label">{{ t('assets.purchase_date') }}</label>

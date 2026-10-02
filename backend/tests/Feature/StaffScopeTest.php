@@ -195,21 +195,22 @@ class StaffScopeTest extends TestCase
         }
     }
 
-    public function test_hr_must_give_a_new_staff_member_a_program(): void
+    public function test_hr_must_give_a_new_staff_member_a_location(): void
     {
         $opm = User::factory()->create(['role' => 'operations_hr_manager']);
         [, $lead] = $this->staffAt($this->school, 'Lead');
         $program = Program::create(['name' => 'Dream', 'location_id' => $this->school->id, 'responsible_staff_id' => $lead->id]);
 
-        $this->actingAs($opm)->postJson('/api/staff', ['full_name' => 'No Program'])
-            ->assertStatus(422)->assertJsonValidationErrors('program_id');
-        $this->actingAs($opm)->postJson('/api/staff', ['full_name' => 'Has Program', 'program_id' => $program->id])
-            ->assertCreated();
+        $this->actingAs($opm)->postJson('/api/staff', ['full_name' => 'No Location'])
+            ->assertStatus(422)->assertJsonValidationErrors('location_ids');
+        // The program comes from the location.
+        $this->actingAs($opm)->postJson('/api/staff', ['full_name' => 'Has Location', 'location_id' => $this->school->id])
+            ->assertCreated()->assertJsonPath('program_id', $program->id);
 
         // Nor can an edit take it away again.
-        $staff = Staff::where('full_name', 'Has Program')->firstOrFail();
-        $this->actingAs($opm)->putJson("/api/staff/{$staff->id}", ['full_name' => 'Has Program', 'status' => 'active', 'program_id' => null])
-            ->assertStatus(422)->assertJsonValidationErrors('program_id');
+        $staff = Staff::where('full_name', 'Has Location')->firstOrFail();
+        $this->actingAs($opm)->putJson("/api/staff/{$staff->id}", ['full_name' => 'Has Location', 'status' => 'active', 'location_ids' => []])
+            ->assertStatus(422)->assertJsonValidationErrors('location_ids');
     }
 
     public function test_other_roles_are_not_restricted(): void

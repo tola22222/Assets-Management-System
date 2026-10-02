@@ -85,8 +85,8 @@ const topLinks = computed(() => [
 const organizationGroup = computed(() => ({
   key: 'organization', title: t('nav.people_programs'), icon: I.users,
   items: [
-    { to: '/locations', label: t('nav.locations') },
     { to: '/programs', label: t('nav.programs') },
+    { to: '/locations', label: t('nav.locations') },
     { to: '/staff', label: t('nav.staff_directory') },
     { to: '/suppliers', label: t('nav.suppliers') },
   ],
@@ -140,7 +140,7 @@ function moduleFor(path) {
 }
 
 const mainGroups = computed(() =>
-  [organizationGroup.value, assetsGroup.value].map(visible).filter((g) => g.items.length)
+  [assetsGroup.value, organizationGroup.value].map(visible).filter((g) => g.items.length)
 )
 
 function isActive(to) {

@@ -84,7 +84,7 @@ const canDelete = (r) => r.can_delete ?? (r.status === 'pending_approval' || r.s
 // site runs through School → Program → Responsible Staff, which the SPA can't
 // work out on its own; the server re-checks every one of these on the action.
 const returning = ref(null)
-const returnForm = reactive({ reason: '', transfer_date: '', do_return: false, assigned_to_type: '', assigned_to_id: '' })
+const returnForm = reactive({ reason: '', transfer_date: '', do_return: false, assigned_to_type: '', assigned_to_id: '', conditions: {}, condition_remark: '' })
 const rejecting = ref(null)
 const rejectForm = reactive({ rejection_reason: '' })
 
@@ -313,19 +313,28 @@ function openReturn(row) {
     // A return already on its way can only be finished, so start on Return.
     reason: '', transfer_date: new Date().toISOString().slice(0, 10), do_return: !!row.can_complete_return,
     assigned_to_type: row.assigned_to_type || '', assigned_to_id: row.assigned_to_id || '',
+    condition_remark: '',
   })
   returning.value = row
+  // Each code starts on the condition it has now.
+  returnForm.conditions = Object.fromEntries(returnUnits.value.map((u) => [u.id, RETURN_CONDITIONS.includes(u.condition) ? u.condition : 'good']))
 }
 
 
 // The codes a return sends back to stock: the ones that were accepted
 // (never the ones the receiver declined).
-const returnCodes = computed(() => {
+const returnUnits = computed(() => {
   const r = returning.value
   if (!r) return []
-  const units = r.units?.length ? r.units.filter((u) => u.pivot?.status !== 'declined') : [r.asset].filter(Boolean)
-  return units.map((u) => u.asset_code)
+  return r.units?.length ? r.units.filter((u) => u.pivot?.status !== 'declined') : [r.asset].filter(Boolean)
 })
+const returnCodes = computed(() => returnUnits.value.map((u) => u.asset_code))
+
+// The condition each code comes back in, checked by HR / the Accountant like
+// a verification. Broken / lost keeps the code on record but takes it out of
+// use, and needs a reason (the server refuses it without one).
+const RETURN_CONDITIONS = ['good', 'fair', 'broken', 'lost']
+const returnHasOutOfUse = computed(() => Object.values(returnForm.conditions || {}).some((c) => c === 'broken' || c === 'lost'))
 
 // Recipients must be at the transfer's destination (or have no site yet).
 const editRecipients = computed(() => {
@@ -342,7 +351,12 @@ async function submitReturn() {
   const row = returning.value
   try {
     if (returnForm.do_return) {
-      await http.post(`/asset-transfers/${row.id}/return`, { reason: returnForm.reason, transfer_date: returnForm.transfer_date })
+      await http.post(`/asset-transfers/${row.id}/return`, {
+        reason: returnForm.reason,
+        transfer_date: returnForm.transfer_date,
+        conditions: returnForm.conditions,
+        condition_remark: returnHasOutOfUse.value ? returnForm.condition_remark : null,
+      })
       toast.success(t('asset_transfers.return_submitted'))
     } else {
       await http.put(`/asset-transfers/${row.id}/assignment`, returnForm.assigned_to_type
@@ -612,9 +626,24 @@ const { page, rowsPerPage, total, paged } = usePagination(sortedTransfers)
           <div v-else class="space-y-3">
             <div class="form-group">
               <label class="label">{{ t('asset_transfers.return_codes', { n: returnCodes.length }) }}</label>
-              <div class="max-h-44 overflow-y-auto rounded-xl border border-line bg-surface-2 p-2 grid grid-cols-2 gap-1">
-                <span v-for="code in returnCodes" :key="code" class="px-2 py-1 font-mono text-[13px] text-fg">{{ code }}</span>
+              <p class="text-xs text-faint mb-2">{{ t('asset_transfers.return_condition_hint') }}</p>
+              <!-- One row per code with the condition it came back in. -->
+              <div class="max-h-56 overflow-y-auto grid grid-cols-1 gap-2">
+                <div
+                  v-for="u in returnUnits" :key="u.id"
+                  class="flex items-center justify-between gap-3 h-[42px] pl-3 pr-1.5 rounded-lg border transition-colors duration-150"
+                  :class="['broken', 'lost'].includes(returnForm.conditions[u.id]) ? 'border-red-300 bg-red-50 dark:border-red-500/30 dark:bg-red-500/10' : 'border-line bg-surface'"
+                >
+                  <span class="font-mono text-[13px] text-fg truncate">{{ u.asset_code }}</span>
+                  <select v-model="returnForm.conditions[u.id]" class="select !h-8 !w-32 text-xs" :aria-label="t('asset_transfers.return_condition_label')">
+                    <option v-for="c in RETURN_CONDITIONS" :key="c" :value="c">{{ t(`assets.condition_${c}`) }}</option>
+                  </select>
+                </div>
               </div>
+            </div>
+            <div v-if="returnHasOutOfUse" class="form-group">
+              <label class="label">{{ t('asset_transfers.return_condition_reason') }} <span class="text-red-500">*</span></label>
+              <textarea v-model="returnForm.condition_remark" rows="2" class="textarea" required :placeholder="t('asset_verifications.reason_required')"></textarea>
             </div>
             <div class="form-group">
               <label class="label">{{ t('asset_transfers.transfer_date_required') }}</label>
@@ -641,7 +670,7 @@ const { page, rowsPerPage, total, paged } = usePagination(sortedTransfers)
             <SearchSelect v-model="form.asset_id" required input-class="input" :placeholder="t('common.select_asset')"
               :options="assets.map((a) => ({ value: a.id, label: a.name, sub: a.asset_code }))" />
           </div>
-          <StockAvailability :asset-id="form.asset_id" :location-id="stockLocationId" :quantity="form.quantity" @loaded="stock = $event" />
+          <StockAvailability :asset-id="form.asset_id" :location-id="stockLocationId" @loaded="stock = $event" />
           <div class="grid grid-cols-2 gap-4">
             <div class="form-group">
               <label class="label">{{ t('asset_transfers.from_location_required') }}</label>
@@ -652,6 +681,24 @@ const { page, rowsPerPage, total, paged } = usePagination(sortedTransfers)
               <label class="label">{{ t('asset_transfers.to_location_required') }}</label>
               <SearchSelect v-model="form.to_location_id" required input-class="input" :placeholder="t('common.select_location')"
                 :options="locationOptions" />
+            </div>
+          </div>
+          <!-- Optional, same picker as the Assignment form: who at the
+               destination it is for. Assigned when the site accepts it. -->
+          <div v-if="canAssign" class="grid grid-cols-2 gap-4">
+            <div class="form-group">
+              <label class="label">{{ t('asset_transfers.assign_to') }}</label>
+              <select v-model="form.assigned_to_type" @change="form.assigned_to_id = ''" class="input">
+                <option value="">{{ t('asset_transfers.assign_none') }}</option>
+                <option value="staff">{{ t('asset_assignments.staff') }}</option>
+                <option value="program">{{ t('asset_assignments.program') }}</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="label">{{ t('asset_assignments.recipient') }}</label>
+              <SearchSelect v-model="form.assigned_to_id" input-class="input" :placeholder="t('asset_assignments.select_recipient')"
+                :required="!!form.assigned_to_type" :disabled="!form.assigned_to_type" @change="pickRecipient"
+                :options="(form.assigned_to_type === 'staff' ? staffList : programs).map((r) => ({ value: r.id, label: r.full_name || r.name }))" />
             </div>
           </div>
           <!-- The exact tags that go: every usable unit of this model at the
@@ -679,24 +726,6 @@ const { page, rowsPerPage, total, paged } = usePagination(sortedTransfers)
               </label>
             </div>
             <p v-else class="text-xs text-danger">{{ t('asset_transfers.no_units_here') }}</p>
-          </div>
-          <!-- Optional, same picker as the Assignment form: who at the
-               destination it is for. Assigned when the site accepts it. -->
-          <div v-if="canAssign" class="grid grid-cols-2 gap-4">
-            <div class="form-group">
-              <label class="label">{{ t('asset_transfers.assign_to') }}</label>
-              <select v-model="form.assigned_to_type" @change="form.assigned_to_id = ''" class="input">
-                <option value="">{{ t('asset_transfers.assign_none') }}</option>
-                <option value="staff">{{ t('asset_assignments.staff') }}</option>
-                <option value="program">{{ t('asset_assignments.program') }}</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label class="label">{{ t('asset_assignments.recipient') }}</label>
-              <SearchSelect v-model="form.assigned_to_id" input-class="input" :placeholder="t('asset_assignments.select_recipient')"
-                :required="!!form.assigned_to_type" :disabled="!form.assigned_to_type" @change="pickRecipient"
-                :options="(form.assigned_to_type === 'staff' ? staffList : programs).map((r) => ({ value: r.id, label: r.full_name || r.name }))" />
-            </div>
           </div>
           <div class="grid grid-cols-2 gap-4">
             <div class="form-group">

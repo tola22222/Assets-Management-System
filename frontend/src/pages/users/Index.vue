@@ -24,7 +24,11 @@ const auth = useAuthStore()
 const { items: users, loading, fetchAll, create, update, destroy, destroyMany } = useApiCrud('/users', { entityName: t('users.entity') })
 const { search, filtered: searched } = useTableSearch(users, ['name', 'email', 'role'])
 const { sortKey, sortDir, toggleSort, sorted: filtered } = useTableSort(searched, { defaultKey: 'created_at', defaultDir: 'desc' })
-const { selectedIds, allSelected, toggleSelectAll, toggleSelect, clearSelection } = useBulkSelect(filtered)
+// Your own account can't be deleted (the server refuses it too), so it is
+// never part of a bulk selection.
+const isSelf = (u) => u.id === auth.user?.id
+const selectable = computed(() => filtered.value.filter((u) => !isSelf(u)))
+const { selectedIds, allSelected, toggleSelectAll, toggleSelect, clearSelection } = useBulkSelect(selectable)
 const confirmingBulkDelete = ref(false)
 const toast = useToastStore()
 
@@ -311,7 +315,8 @@ const { page, rowsPerPage, total, paged } = usePagination(filtered)
                 </tr>
                 <tr v-for="u in paged" :key="u.id">
                   <td>
-                    <input type="checkbox" :checked="selectedIds.includes(u.id)" @change="toggleSelect(u.id)" class="rounded border-line text-brand focus:ring-brand/30" />
+                    <input type="checkbox" :checked="selectedIds.includes(u.id)" @change="toggleSelect(u.id)" :disabled="isSelf(u)"
+                      :title="isSelf(u) ? t('users.cannot_delete_self') : ''" class="rounded border-line text-brand focus:ring-brand/30 disabled:opacity-40" />
                   </td>
                   <!-- Avatar beside the name, the same treatment the header
                        gives the signed-in account, so a person is recognisable
@@ -358,7 +363,7 @@ const { page, rowsPerPage, total, paged } = usePagination(filtered)
                       <button @click="resettingId = u.id; newPassword = ''; newPasswordConfirm = ''" :title="t('common.reset_password')" :aria-label="t('common.reset_password')" class="btn-icon-admin">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z" /></svg>
                       </button>
-                      <button @click="deletingId = u.id" :title="t('common.delete')" :aria-label="t('common.delete')" class="btn-icon-danger">
+                      <button @click="deletingId = u.id" :disabled="isSelf(u)" :title="isSelf(u) ? t('users.cannot_delete_self') : t('common.delete')" :aria-label="t('common.delete')" class="btn-icon-danger">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /></svg>
                       </button>
                     </div>

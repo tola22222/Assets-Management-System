@@ -61,12 +61,14 @@ class ProgramResponsibleStaffTest extends TestCase
         ]);
     }
 
-    public function test_a_program_cannot_be_created_without_schools_and_responsible_staff(): void
+    public function test_a_program_is_created_on_its_own(): void
     {
+        // Program → Location → Staff: no schools or lead are picked here.
         $this->actingAs($this->opm)
             ->postJson('/api/programs', ['name' => 'Dream Management'])
-            ->assertStatus(422)
-            ->assertJsonValidationErrors(['location_ids', 'responsible_staff_id']);
+            ->assertStatus(201)
+            ->assertJsonPath('responsible_staff_id', null)
+            ->assertJsonCount(0, 'locations');
     }
 
     public function test_a_program_links_to_several_schools_and_its_lead_joins_it(): void
@@ -114,28 +116,114 @@ class ProgramResponsibleStaffTest extends TestCase
             ->assertJsonCount(2, 'locations');
     }
 
-    public function test_editing_a_program_cannot_drop_its_schools_or_lead(): void
+    public function test_editing_a_program_keeps_its_schools_and_lead(): void
     {
-        $id = $this->createProgram('Dream Management', [$this->school], $this->staff())->json('id');
+        $lead = $this->staff();
+        $id = $this->createProgram('Dream Management', [$this->school], $lead)->json('id');
 
+        // Schools are set from the Location form, so an edit that does not
+        // send them leaves them alone — and the lead with them.
         $this->actingAs($this->opm)
-            ->putJson("/api/programs/{$id}", ['name' => 'Dream Management'])
-            ->assertStatus(422)
-            ->assertJsonValidationErrors(['location_ids', 'responsible_staff_id']);
+            ->putJson("/api/programs/{$id}", ['name' => 'Dream Management', 'description' => 'Edited'])
+            ->assertStatus(200)
+            ->assertJsonPath('responsible_staff_id', $lead->id)
+            ->assertJsonCount(1, 'locations');
     }
 
-    public function test_hr_assigns_a_staff_member_to_a_program_not_a_school(): void
+    public function test_staff_take_their_program_from_their_locations(): void
     {
         $id = $this->createProgram('Dream Management', [$this->school, $this->otherSchool], $this->staff())->json('id');
 
-        $this->actingAs($this->opm)->postJson('/api/staff', ['full_name' => 'No Program'])
+        // At least one location is required…
+        $this->actingAs($this->opm)->postJson('/api/staff', ['full_name' => 'No Location'])
+            ->assertStatus(422)->assertJsonValidationErrors('location_ids');
+
+        // …several of the same program are fine, and the program comes from
+        // them, whatever program was sent.
+        $other = $this->createProgram('Scholarship', [], $this->staff('Other Lead'))->json('id');
+        $teacher = $this->actingAs($this->opm)->postJson('/api/staff', [
+            'full_name' => 'Teacher', 'location_ids' => [$this->school->id, $this->otherSchool->id], 'program_id' => $other,
+        ])->assertCreated()
+            ->assertJsonPath('program_id', $id)
+            ->assertJsonPath('location_id', $this->school->id)
+            ->json('id');
+        $this->assertEqualsCanonicalizing([$this->school->id, $this->otherSchool->id], Staff::find($teacher)->locations()->pluck('locations.id')->all());
+
+        // A location in no program can't take staff yet.
+        $office = Location::where('code', 'SR')->firstOrFail();
+        $this->actingAs($this->opm)->postJson('/api/staff', ['full_name' => 'Office Staff', 'location_ids' => [$office->id]])
+            ->assertStatus(422)->assertJsonValidationErrors('location_ids');
+    }
+
+    public function test_the_first_staff_member_to_join_a_leaderless_program_becomes_its_lead(): void
+    {
+        // Master Scholarship → Anjila House → Sophit: the program is created
+        // with no lead, and the first staff member to join it fills that in.
+        $program = $this->actingAs($this->opm)->postJson('/api/programs', ['name' => 'Master Scholarship'])->assertCreated()->json('id');
+        $this->actingAs($this->opm)->putJson("/api/locations/{$this->school->id}", [
+            'name' => $this->school->name, 'code' => $this->school->code, 'type' => $this->school->type, 'program_ids' => [$program],
+        ])->assertOk();
+
+        $sophit = $this->actingAs($this->opm)->postJson('/api/staff', ['full_name' => 'Sophit', 'location_id' => $this->school->id])
+            ->assertCreated()->json('id');
+
+        $this->assertSame($sophit, \App\Models\Program::find($program)->responsible_staff_id);
+
+        // The next one does not replace them.
+        $this->actingAs($this->opm)->postJson('/api/staff', ['full_name' => 'Second', 'location_id' => $this->school->id])->assertCreated();
+        $this->assertSame($sophit, \App\Models\Program::find($program)->responsible_staff_id);
+    }
+
+    public function test_a_location_belongs_to_one_program_and_cannot_switch_under_its_staff(): void
+    {
+        $dream = $this->createProgram('Dream Management', [$this->school], $this->staff())->json('id');
+        $scholarship = $this->createProgram('Scholarship', [], $this->staff('Other Lead'))->json('id');
+        $this->actingAs($this->opm)->postJson('/api/staff', ['full_name' => 'Teacher', 'location_ids' => [$this->school->id]])->assertCreated();
+
+        $payload = ['name' => $this->school->name, 'code' => $this->school->code, 'type' => $this->school->type];
+
+        // One program only.
+        $this->actingAs($this->opm)->putJson("/api/locations/{$this->school->id}", $payload + ['program_ids' => [$dream, $scholarship]])
             ->assertStatus(422)->assertJsonValidationErrors('program_id');
 
-        // No school picked: their base school defaults to the program's first.
-        $this->actingAs($this->opm)->postJson('/api/staff', ['full_name' => 'Teacher', 'program_id' => $id])
-            ->assertCreated()
-            ->assertJsonPath('program_id', $id)
-            ->assertJsonPath('location_id', $this->school->id);
+        // Not while a Dream Management teacher is assigned here.
+        $this->actingAs($this->opm)->putJson("/api/locations/{$this->school->id}", $payload + ['program_id' => $scholarship])
+            ->assertStatus(422)->assertJsonValidationErrors('program_id');
+
+        // And a program can't take a location another program already has.
+        $this->actingAs($this->opm)->putJson("/api/programs/{$scholarship}", ['name' => 'Scholarship', 'location_ids' => [$this->school->id]])
+            ->assertStatus(422)->assertJsonValidationErrors('location_ids');
+    }
+
+    public function test_a_location_still_in_several_programs_keeps_its_staff_editable(): void
+    {
+        // Saved before the one-program rule (like PEPY Office): two programs.
+        $ict = \App\Models\Program::create(['name' => 'LC_ICT']);
+        $yes = \App\Models\Program::create(['name' => 'LC_YE']);
+        $ict->locations()->attach($this->school->id);
+        $yes->locations()->attach($this->school->id);
+        $member = Staff::create(['full_name' => 'ICT Lead', 'phone' => '012', 'location_id' => $this->school->id, 'program_id' => $ict->id]);
+
+        // An existing member keeps their program when edited…
+        $this->actingAs($this->opm)->putJson("/api/staff/{$member->id}", [
+            'full_name' => 'ICT Lead', 'status' => 'active', 'location_ids' => [$this->school->id],
+        ])->assertOk()->assertJsonPath('program_id', $ict->id);
+
+        // …but a new one can't be placed until the location keeps one program.
+        $this->actingAs($this->opm)->postJson('/api/staff', ['full_name' => 'New', 'location_ids' => [$this->school->id]])
+            ->assertStatus(422)->assertJsonValidationErrors('location_ids');
+    }
+
+    public function test_a_staff_member_cannot_hold_locations_of_two_programs(): void
+    {
+        $this->createProgram('Dream Management', [$this->school], $this->staff());
+        $this->createProgram('Scholarship', [$this->otherSchool], $this->staff('Other Lead'));
+
+        $this->actingAs($this->opm)->postJson('/api/staff', [
+            'full_name' => 'Teacher', 'location_ids' => [$this->school->id, $this->otherSchool->id],
+        ])->assertStatus(422)->assertJsonValidationErrors('location_ids');
+
+        $this->assertDatabaseMissing('staff', ['full_name' => 'Teacher']);
     }
 
     public function test_a_programs_lead_cannot_be_moved_to_another_program(): void
@@ -144,9 +232,12 @@ class ProgramResponsibleStaffTest extends TestCase
         $dream = $this->createProgram('Dream Management', [$this->school], $lead)->json('id');
         $other = $this->createProgram('Scholarship', [$this->otherSchool], $this->staff('Other Lead'))->json('id');
 
+        // Moving the lead to a school of another program would move them out
+        // of the program they lead.
         $this->actingAs($this->opm)->putJson("/api/staff/{$lead->id}", [
-            'full_name' => $lead->full_name, 'status' => 'active', 'program_id' => $other,
+            'full_name' => $lead->full_name, 'status' => 'active', 'location_id' => $this->otherSchool->id,
         ])->assertStatus(422)->assertJsonValidationErrors('program_id');
+        $this->assertNotNull($other);
 
         $this->assertSame($dream, $lead->fresh()->program_id);
     }

@@ -15,6 +15,7 @@ import { useToastStore } from '../../stores/toast'
 import { useAuthStore } from '../../stores/auth'
 import TablePagination from '../../components/ui/TablePagination.vue'
 import { usePagination } from '../../composables/usePagination'
+import { downloadExcel, exportNote } from '../../utils/excelExport'
 
 const { t } = useI18n()
 const toast = useToastStore()
@@ -24,8 +25,12 @@ const showEmailModal = ref(false)
 const emailAddress = ref('')
 const emailSending = ref(false)
 
+// Where the Email Report goes by default (it can still be changed in the
+// dialog before sending).
+const DEFAULT_REPORT_EMAIL = 'tola.ssp2022@gmail.com'
+
 function openEmailModal() {
-  emailAddress.value = auth.user?.email || ''
+  emailAddress.value = DEFAULT_REPORT_EMAIL
   showEmailModal.value = true
 }
 
@@ -74,7 +79,7 @@ const columns = computed(() => ({
   locations: [['name', t('reports.col_name')], ['type', t('reports.col_type')], ['assets_count', t('reports.col_assets')]],
   'qr-scans': [['message', t('reports.col_scan')], ['created_at', t('common.date')]],
   'data-completeness': [['asset_code', t('reports.col_code')], ['name', t('reports.col_name')], ['category', t('reports.col_category'), (r) => r.category?.name], ['missing_fields', t('reports.col_missing_fields')]],
-  'by-model': [['name', t('reports.col_model')], ['category', t('reports.col_category'), (r) => r.category?.name], ['total', t('reports.col_total_units')], ['lost_broken', t('reports.col_lost_broken')], ['available', t('reports.col_available')], ['stock_level', t('reports.col_stock_level')]],
+  'by-model': [['name', t('reports.col_model')], ['category', t('reports.col_category'), (r) => r.category?.name], ['total', t('reports.col_total_units')], ['lost_broken', t('reports.col_lost_broken')], ['available', t('reports.col_available')]],
 }))
 
 // The CSV/Excel file carries more detail than fits in the on-screen table.
@@ -106,12 +111,6 @@ const dateFields = {
   disposed: 'updated_at',
   lost: 'updated_at',
   'qr-scans': 'created_at',
-}
-
-const STOCK_LEVEL_STYLES = {
-  high: 'bg-emerald-50 text-emerald-700',
-  medium: 'bg-amber-50 text-amber-700',
-  low: 'bg-red-50 text-red-700',
 }
 
 const hasDateField = computed(() => !!dateFields[selected.value])
@@ -378,30 +377,33 @@ const { page, rowsPerPage, total, paged } = usePagination(sortedRows)
 // meaningless in the new one — go back to the first page on every switch.
 watch(selected, () => { page.value = 0 })
 
-function exportCsv() {
+// ---- Excel export -----------------------------------------------------------
+// Every row of the report as filtered (all pages, not just the one on screen),
+// in the shared PEPY template. Column types are read off the column key.
+function excelType(key) {
+  if (key === 'purchase_price' || key === 'price' || key === 'value') return 'money'
+  if (/(_date|_at)$/.test(key) || key === 'date') return 'date'
+  if (['quantity', 'qty', 'total', 'available', 'lost_broken', 'assets_count', 'count', 'quantity_verified'].includes(key)) return 'qty'
+  if (key === 'asset_code' || key === 'code') return 'code'
+  return 'text'
+}
+
+async function exportCsv() {
   const cols = exportColumns.value[selected.value] ?? columns.value[selected.value]
-  const csvCell = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`
-  const lines = [cols.map((c) => csvCell(c[1])).join(',')]
-  sortedRows.value.forEach((row) => {
-    lines.push(cols.map((c) => csvCell(cell(row, c))).join(','))
-  })
-  // Total row: record count up front, plus the summed purchase price when the
-  // report has that column.
-  const priceTotal = sortedRows.value.reduce((sum, r) => sum + (Number(r.purchase_price) || 0), 0)
-  lines.push(cols.map((c, i) => {
-    if (i === 0) return csvCell(`${t('reports.total_row')}: ${sortedRows.value.length}`)
-    if (c[0] === 'purchase_price') return csvCell(priceTotal.toFixed(2))
-    return '""'
-  }).join(','))
-  // The BOM makes Excel read the file as UTF-8 — without it Khmer names are garbled.
-  const blob = new Blob([String.fromCharCode(0xfeff) + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
+  const report = reportTypes.value.find((r) => r.key === selected.value)
   const suffix = granularity.value !== 'all' && activePeriod.value ? `-${activePeriod.value}` : ''
-  a.download = `${selected.value}-report${suffix}-${new Date().toISOString().slice(0, 10)}.csv`
-  a.click()
-  URL.revokeObjectURL(url)
+  await downloadExcel({
+    fileName: `${selected.value}-report${suffix}`,
+    title: report?.label || t('reports.title'),
+    subtitle: granularity.value !== 'all' && activePeriod.value ? t('export.period', { p: activePeriod.value }) : t('export.inventory_scope'),
+    note: exportNote(t('export.generated')),
+    sheets: [{
+      name: report?.label || t('reports.title'),
+      columns: cols.map((c) => ({ key: c[0], header: c[1], type: excelType(c[0]) })),
+      rows: sortedRows.value.map((row) => Object.fromEntries(cols.map((c) => [c[0], cell(row, c)]))),
+      totalLabel: t('export.total'),
+    }],
+  })
 }
 
 onMounted(() => {
@@ -587,10 +589,7 @@ onMounted(() => {
               <tbody>
                 <tr v-for="(row, i) in paged" :key="i">
                   <td v-for="col in columns[selected]" :key="col[0]">
-                    <span v-if="col[0] === 'stock_level'" class="px-2.5 py-1 rounded-full text-xs font-bold capitalize" :class="STOCK_LEVEL_STYLES[cell(row, col)] ?? ''">
-                      {{ cell(row, col) }}
-                    </span>
-                    <span v-else-if="col[0] === 'asset_code'" class="id-chip">{{ cell(row, col) }}</span>
+                    <span v-if="col[0] === 'asset_code'" class="id-chip">{{ cell(row, col) }}</span>
                     <template v-else>{{ cell(row, col) }}</template>
                   </td>
                 </tr>
@@ -616,7 +615,7 @@ onMounted(() => {
           </p>
           <div class="form-group">
             <label class="label">{{ t('reports.recipient_email') }}</label>
-            <input v-model="emailAddress" type="email" required placeholder="name@example.com" class="input" />
+            <input v-model="emailAddress" type="email" required placeholder="tola.ssp2022@gmail.com" class="input" />
           </div>
         </div>
         <div class="modal-footer">

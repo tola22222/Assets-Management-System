@@ -25,6 +25,12 @@ class Asset extends Model
     public const CONDITIONS = ['good', 'fair', 'broken', 'lost'];
 
     /**
+     * Most units one Add Asset (or one import row) may register at once. Each
+     * unit is its own asset with its own code, QR code and history.
+     */
+    public const MAX_BATCH_QUANTITY = 500;
+
+    /**
      * Assets this user may see: every asset for OPM/Finance/ED; for staff,
      * only the assets at their program's schools — and none at all while they
      * have no program (fail closed, see User::siteLocationIds()).
@@ -60,20 +66,6 @@ class Asset extends Model
 
         // whereNotIn alone would also drop rows with no condition recorded.
         return $query->onRegister()->where(fn ($q) => $q->whereNull($condition)->orWhereNotIn($condition, self::UNAVAILABLE_CONDITIONS));
-    }
-
-    /** Thresholds for the "Assets by Model" grouped report's stock-level badge. */
-    public const STOCK_LEVEL_MEDIUM_MIN = 5;
-
-    public const STOCK_LEVEL_HIGH_MIN = 20;
-
-    public static function stockLevelFor(int $total): string
-    {
-        return match (true) {
-            $total >= self::STOCK_LEVEL_HIGH_MIN => 'high',
-            $total >= self::STOCK_LEVEL_MEDIUM_MIN => 'medium',
-            default => 'low',
-        };
     }
 
     public function getImageUrlAttribute()

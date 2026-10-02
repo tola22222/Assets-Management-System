@@ -68,11 +68,14 @@ class AssetImportController extends Controller
     public function template()
     {
         // supplier is optional and matched by name against the Suppliers screen.
-        $columns = ['name', 'category', 'location', 'description', 'model', 'brand', 'supplier', 'serial_number', 'purchase_date', 'purchase_price', 'condition', 'status'];
+        // quantity (blank = 1) registers that many units from the row, each
+        // with its own code; leave serial_number empty when it is above 1.
+        $columns = ['name', 'category', 'location', 'quantity', 'description', 'model', 'brand', 'supplier', 'serial_number', 'purchase_date', 'purchase_price', 'condition', 'status'];
 
         $handle = fopen('php://temp', 'w+');
         fputcsv($handle, $columns);
-        fputcsv($handle, ['Dell Laptop', 'Computer Equipment', 'PEPY Office', 'Core i5, 8GB RAM', 'Latitude 5420', 'Dell', 'ABC Computer Shop', 'SN123456', '2026-01-15', '650.00', 'good', 'active']);
+        fputcsv($handle, ['Dell Laptop', 'Computer Equipment', 'PEPY Office', '1', 'Core i5, 8GB RAM', 'Latitude 5420', 'Dell', 'ABC Computer Shop', 'SN123456', '2026-01-15', '650.00', 'good', 'active']);
+        fputcsv($handle, ['Smart Phone', 'Computer Equipment', 'PEPY Office', '20', 'Staff phones', 'Galaxy A55', 'Samsung', 'ABC Computer Shop', '', '2026-01-15', '320.00', 'good', 'active']);
         rewind($handle);
         $csv = stream_get_contents($handle);
         fclose($handle);

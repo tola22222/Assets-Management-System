@@ -7,6 +7,7 @@ use App\Models\ActivityLog;
 use App\Models\Asset;
 use App\Models\AssetAssignment;
 use App\Models\AssetTransfer;
+use App\Models\AssetVerification;
 use App\Models\Location;
 use App\Models\Notification;
 use App\Models\Program;
@@ -409,17 +410,28 @@ class AssetTransferController extends Controller
         $validated = $request->validate([
             'reason' => 'nullable|string',
             'transfer_date' => 'nullable|date',
+            // The condition HR / the Accountant find each code in as it comes
+            // back: { asset id: good | fair | broken | lost }. Omitted codes
+            // keep the condition they have.
+            'conditions' => 'nullable|array',
+            'conditions.*' => 'in:'.implode(',', Asset::CONDITIONS),
+            'condition_remark' => 'nullable|string|max:1000',
         ]);
 
         // Sending an asset back is HR's or the Accountant's call, not the
         // holding site's (also guarded by the role: middleware on the route).
         abort_unless($this->canReturn($request->user()), 403, 'Only the Operations & HR Manager or the Finance Manager can return an asset.');
 
+        $conditions = $this->returnConditions($validated, $asset_transfer->unitIds());
+
         // A return raised before returns completed on the spot is still
         // waiting: "Return" in the Edit dialog finishes it — every code back
         // at the origin, assignments ended, in stock.
         if ($asset_transfer->parent_transfer_id !== null && $asset_transfer->status === 'pending') {
-            $this->receive($asset_transfer, $request->user(), $asset_transfer->unitIds(), [], null);
+            DB::transaction(function () use ($asset_transfer, $request, $conditions, $validated) {
+                $this->receive($asset_transfer, $request->user(), $asset_transfer->unitIds(), [], null);
+                $this->verifyReturned($conditions, (int) $asset_transfer->to_location_id, $request->user(), $validated['condition_remark'] ?? null);
+            });
 
             ActivityLog::create([
                 'user_id' => $request->user()->id,
@@ -451,7 +463,7 @@ class AssetTransferController extends Controller
             'This asset already has an open transfer.'
         );
 
-        $return = DB::transaction(function () use ($request, $asset_transfer, $validated, $unitIds) {
+        $return = DB::transaction(function () use ($request, $asset_transfer, $validated, $unitIds, $conditions) {
             $return = AssetTransfer::create([
                 // The units that actually arrived go back — not any declined ones.
                 'asset_id' => $unitIds[0] ?? $asset_transfer->asset_id,
@@ -470,6 +482,10 @@ class AssetTransferController extends Controller
             // Takes effect now: back at the origin, assignments ended, in stock.
             $this->receive($return, $request->user(), $unitIds, [], null);
 
+            // …in the condition they came back in. Broken / lost ones keep
+            // their record and code but are out of use from here on.
+            $this->verifyReturned($conditions, (int) $asset_transfer->from_location_id, $request->user(), $validated['condition_remark'] ?? null);
+
             return $return;
         });
 
@@ -480,6 +496,73 @@ class AssetTransferController extends Controller
         ]);
 
         return response()->json($return->fresh(self::WITH), 201);
+    }
+
+    /**
+     * The per-code conditions sent with a return, checked: only codes on this
+     * transfer, and a reason whenever one comes back broken or lost — the same
+     * rule as a verification.
+     *
+     * @param  int[]  $unitIds
+     * @return array<int, string> asset id => condition
+     */
+    private function returnConditions(array $validated, array $unitIds): array
+    {
+        $conditions = [];
+        foreach ($validated['conditions'] ?? [] as $assetId => $condition) {
+            $conditions[(int) $assetId] = $condition;
+        }
+
+        if (array_diff(array_keys($conditions), $unitIds)) {
+            throw ValidationException::withMessages(['conditions' => 'You can only set the condition of asset codes on this transfer.']);
+        }
+
+        if (array_intersect($conditions, Asset::UNAVAILABLE_CONDITIONS) && blank($validated['condition_remark'] ?? null)) {
+            throw ValidationException::withMessages(['condition_remark' => 'Enter the reason the asset is broken or lost.']);
+        }
+
+        return $conditions;
+    }
+
+    /**
+     * Record the condition each returned code came back in, exactly as a
+     * verification would: the asset's condition is updated (broken / lost
+     * takes it out of available stock; its row and code are never deleted),
+     * and an audited AssetVerification row keeps who, when, before / after,
+     * how many units it took out of use, and why.
+     *
+     * @param  array<int, string>  $conditions  asset id => condition
+     */
+    private function verifyReturned(array $conditions, int $locationId, User $by, ?string $remark): void
+    {
+        foreach (Asset::whereIn('id', array_keys($conditions))->get() as $asset) {
+            $condition = $conditions[$asset->id];
+
+            AssetVerification::create([
+                'asset_id' => $asset->id,
+                'location_id' => $locationId,
+                'verified_by' => $by->id,
+                'quantity_verified' => 1,
+                'condition' => $condition,
+                'previous_condition' => $asset->condition,
+                'quantity_affected' => in_array($condition, Asset::UNAVAILABLE_CONDITIONS, true) ? 1 : 0,
+                'remark' => $remark,
+                'verified_at' => now(),
+            ]);
+
+            if ($asset->condition !== $condition) {
+                $asset->update(['condition' => $condition]);
+            }
+        }
+
+        $outOfUse = count(array_intersect($conditions, Asset::UNAVAILABLE_CONDITIONS));
+        if ($conditions) {
+            ActivityLog::create([
+                'user_id' => $by->id,
+                'action' => 'Verification',
+                'description' => 'Verified '.count($conditions).' returned asset(s)'.($outOfUse ? ", {$outOfUse} broken / lost" : ''),
+            ]);
+        }
     }
 
     /**

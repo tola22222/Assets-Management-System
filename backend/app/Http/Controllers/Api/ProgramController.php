@@ -37,13 +37,20 @@ class ProgramController extends Controller
         return response()->json($programs);
     }
 
+    /**
+     * A program is created on its own — just a name and description. Its
+     * schools are chosen on each Location (Program → Location → Staff), and
+     * its Responsible Staff is set later through Edit, once staff exist.
+     */
     public function store(Request $request)
     {
         [$validated, $schools] = $this->validated($request);
-        $this->assertLeadCanJoin($validated['responsible_staff_id'], null);
+        if ($validated['responsible_staff_id'] ?? null) {
+            $this->assertLeadCanJoin($validated['responsible_staff_id'], null);
+        }
 
         $program = DB::transaction(function () use ($validated, $schools) {
-            $program = Program::create($validated + ['location_id' => $schools[0]]);
+            $program = Program::create($validated + ($schools ? ['location_id' => $schools[0]] : []));
             $this->link($program, $schools);
 
             return $program;
@@ -61,10 +68,12 @@ class ProgramController extends Controller
     public function update(Request $request, Program $program)
     {
         [$validated, $schools] = $this->validated($request, $program);
-        $this->assertLeadCanJoin($validated['responsible_staff_id'], $program);
+        if ($validated['responsible_staff_id'] ?? null) {
+            $this->assertLeadCanJoin($validated['responsible_staff_id'], $program);
+        }
 
         DB::transaction(function () use ($program, $validated, $schools) {
-            $program->update($validated + ['location_id' => $schools[0]]);
+            $program->update($validated + ($schools ? ['location_id' => $schools[0]] : []));
             $this->link($program, $schools);
         });
 
@@ -95,14 +104,12 @@ class ProgramController extends Controller
     }
 
     /**
-     * Schools and responsible staff are required, not optional extras: who
-     * can see a school, and who may accept an asset transfer there, are both
-     * resolved through them.
+     * Name and description. Schools are set from the Location form now, so
+     * location_ids is optional (still honoured for older API callers), and the
+     * Responsible Staff — who accepts transfers at the program's schools — is
+     * optional, set through Edit.
      *
-     * A program links to one or more schools (location_ids). A single
-     * location_id from an older caller is accepted as a one-school list.
-     *
-     * @return array{0: array, 1: int[]} validated fields, school ids (first = primary)
+     * @return array{0: array, 1: int[]} validated fields, school ids (may be empty)
      */
     private function validated(Request $request, ?Program $program = null): array
     {
@@ -113,22 +120,33 @@ class ProgramController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255|unique:programs,name'.($program ? ','.$program->id : ''),
             'description' => 'nullable|string',
-            'location_ids' => 'required|array|min:1',
+            'location_ids' => 'nullable|array',
             'location_ids.*' => 'integer|distinct|exists:locations,id',
             // A staff member leads at most one program, so accountability for a
             // program's assets always points at exactly one person. Backed by a
             // unique index on the column.
             'responsible_staff_id' => [
-                'required',
+                'nullable',
                 'exists:staff,id',
                 Rule::unique('programs', 'responsible_staff_id')->ignore($program?->id),
             ],
         ], [
-            'location_ids.required' => 'Link the program to at least one school.',
             'responsible_staff_id.unique' => 'This staff member is already responsible for another program.',
         ]);
 
-        $schools = array_values(array_map('intval', $validated['location_ids']));
+        $schools = array_values(array_map('intval', $validated['location_ids'] ?? []));
+
+        // A location belongs to one program only.
+        $elsewhere = DB::table('location_program')
+            ->join('locations', 'locations.id', '=', 'location_program.location_id')
+            ->whereIn('location_program.location_id', $schools)
+            ->when($program, fn ($q) => $q->where('location_program.program_id', '!=', $program->id))
+            ->pluck('locations.name')->unique();
+        if ($elsewhere->isNotEmpty()) {
+            throw ValidationException::withMessages([
+                'location_ids' => $elsewhere->implode(', ').' already belongs to another program. A location belongs to one program only.',
+            ]);
+        }
         unset($validated['location_ids'], $validated['location_id']);
 
         return [$validated, $schools];
@@ -149,10 +167,14 @@ class ProgramController extends Controller
         }
     }
 
-    /** Save the program's schools and put its lead in it. */
+    /** Save the program's schools (when sent) and put its lead in it. */
     private function link(Program $program, array $schools): void
     {
-        $program->locations()->sync($schools);
-        Staff::whereKey($program->responsible_staff_id)->update(['program_id' => $program->id]);
+        if ($schools) {
+            $program->locations()->sync($schools);
+        }
+        if ($program->responsible_staff_id) {
+            Staff::whereKey($program->responsible_staff_id)->update(['program_id' => $program->id]);
+        }
     }
 }
