@@ -34,29 +34,73 @@ class PermissionRegistry
 
     /**
      * module key => [label, group]. The key matches the API path segment so a
-     * route guard reads permission:assets,delete against /api/assets.
+     * route guard reads permission:assets,delete against /api/assets. Labels
+     * and groups follow the sidebar.
+     *
+     * Only modules whose permissions actually control something are listed.
+     * Dropped as obsolete: Assignments (merged into Transfers — naming a
+     * recipient is part of creating a transfer), and Dashboard, QR Scan,
+     * Global Search and Notifications (open to every signed-in user; no guard
+     * or screen ever read their permissions).
      */
     public const MODULES = [
-        'dashboard' => ['Dashboard', 'Overview'],
-        'assets' => ['Asset Register', 'Asset Management'],
-        'stock-items' => ['Asset Split', 'Asset Management'],
-        'asset-assignments' => ['Assignments', 'Asset Management'],
-        'asset-transfers' => ['Transfers', 'Asset Management'],
-        'asset-verifications' => ['Verification & Counts', 'Asset Management'],
-        'asset-disposals' => ['Disposals', 'Asset Management'],
-        'staff' => ['Staff Directory', 'People & Programs'],
+        'locations' => ['Locations', 'People & Programs'],
         'programs' => ['Programs', 'People & Programs'],
-        'categories' => ['Categories', 'System Setup'],
-        'locations' => ['Locations', 'System Setup'],
-        'suppliers' => ['Suppliers', 'System Setup'],
+        'staff' => ['Staff Directory', 'People & Programs'],
+        'suppliers' => ['Suppliers', 'People & Programs'],
+        'categories' => ['Categories', 'Asset Management'],
+        'assets' => ['Add Asset', 'Asset Management'],
+        'stock-items' => ['Asset Split', 'Asset Management'],
+        'asset-transfers' => ['Transfers', 'Asset Management'],
+        'asset-verifications' => ['Verification', 'Asset Management'],
+        'asset-disposals' => ['Disposals', 'Asset Management'],
         'reports' => ['Reports', 'Insight'],
-        'qr-scan' => ['QR Scan', 'Insight'],
-        'search' => ['Global Search', 'Insight'],
-        'notifications' => ['Notifications', 'Insight'],
-        'users' => ['User Management', 'Administration'],
-        'roles' => ['Roles & Permissions', 'Administration'],
-        'settings' => ['System Settings', 'Administration'],
-        'activity-logs' => ['Activity Log', 'Administration'],
+        'users' => ['User Management', 'Setting'],
+        'roles' => ['Roles & Permissions', 'Setting'],
+        'settings' => ['System Settings', 'Setting'],
+        'activity-logs' => ['Activity Logs', 'Setting'],
+    ];
+
+    /**
+     * The abilities each module really has — every one maps to a live route
+     * guard, an in-controller check, or (view / hide) the sidebar and search.
+     * The permission page shows only these; anything else is dropped.
+     *
+     *   view    the module's sidebar link and list
+     *   create / update / delete   its New / Edit (and workflow) / Delete actions
+     *   read    a single-record endpoint that is guarded (an account's
+     *           permissions, a role's detail, a settings backup download)
+     *   hide    the sidebar / search declutter flag (modules with a link only)
+     */
+    public const MODULE_ABILITIES = [
+        'locations' => ['view', 'create', 'update', 'delete', 'hide'],
+        'programs' => ['view', 'create', 'update', 'delete', 'hide'],
+        'staff' => ['view', 'create', 'update', 'delete', 'hide'],
+        'suppliers' => ['view', 'create', 'update', 'delete', 'hide'],
+        'categories' => ['view', 'create', 'update', 'delete', 'hide'],
+        // create: add, bulk import. update: edit, regenerate QR.
+        'assets' => ['view', 'create', 'update', 'delete', 'hide'],
+        // Read-only page: no issue / receive / delete actions any more.
+        'stock-items' => ['view', 'hide'],
+        // create: New Transfer (incl. naming a recipient); update: approve,
+        // reject, return, Edit > Assignment; delete: delete a request.
+        'asset-transfers' => ['view', 'create', 'update', 'delete', 'hide'],
+        // update: mark complete.
+        'asset-verifications' => ['view', 'create', 'update', 'delete', 'hide'],
+        // Approving stays with the Executive Director alone
+        // (canApproveDisposal), and anyone may raise a request, so Delete is
+        // the one grantable action.
+        'asset-disposals' => ['view', 'delete'],
+        'reports' => ['view', 'hide'],
+        // read: an account's effective permissions; update: edit, lock,
+        // reset password, assign roles.
+        'users' => ['view', 'read', 'create', 'update', 'delete', 'hide'],
+        // A tab of User Management, not a sidebar link — no hide.
+        'roles' => ['view', 'read', 'create', 'update', 'delete'],
+        // read: download a backup; update: save, back up, restore, test mail;
+        // delete: delete a backup.
+        'settings' => ['view', 'read', 'update', 'delete', 'hide'],
+        'activity-logs' => ['view', 'delete', 'hide'],
     ];
 
     /** Shorthand used to keep the baseline table below readable. */
@@ -67,94 +111,77 @@ class PermissionRegistry
     /**
      * What each built-in `users.role` already grants, transcribed from the
      * route guards in routes/api.php and the in-controller abort_unless checks.
+     * normalise() trims each list to MODULE_ABILITIES.
      */
     public const BASELINE = [
         'operations_hr_manager' => [
-            'dashboard' => self::VIEW_ONLY,
             'assets' => self::FULL,
-            'stock-items' => ['view', 'read', 'update', 'delete'],
-            'asset-assignments' => self::FULL,
+            'stock-items' => ['view'],
             'asset-transfers' => self::FULL,
             'asset-verifications' => self::FULL,
-            'asset-disposals' => ['view', 'create', 'read', 'delete'],
+            'asset-disposals' => ['view', 'delete'],
             'staff' => self::FULL,
             'programs' => self::FULL,
             'categories' => self::FULL,
             'locations' => self::FULL,
             'suppliers' => self::FULL,
-            'reports' => self::VIEW_ONLY,
-            'qr-scan' => ['view', 'create', 'read'],
-            'search' => self::VIEW_ONLY,
-            'notifications' => ['view', 'read', 'update'],
+            'reports' => ['view'],
             'users' => self::FULL,
             'roles' => self::FULL,
-            'settings' => ['view', 'read', 'update'],
-            'activity-logs' => ['view', 'read', 'delete'],
+            'settings' => ['view', 'read', 'update', 'delete'],
+            'activity-logs' => ['view', 'delete'],
         ],
         // The Accountant has HR's access everywhere except Administration,
         // where they get System Settings only — narrowed to its Appearance tab
         // inside SettingController. No User Management, Roles & Permissions or
         // Activity Log.
         'finance_manager' => [
-            'dashboard' => self::VIEW_ONLY,
             'assets' => self::FULL,
-            'stock-items' => ['view', 'read', 'update', 'delete'],
-            'asset-assignments' => self::FULL,
+            'stock-items' => ['view'],
             'asset-transfers' => self::FULL,
             'asset-verifications' => self::FULL,
-            'asset-disposals' => ['view', 'create', 'read', 'delete'],
+            'asset-disposals' => ['view', 'delete'],
             'staff' => self::FULL,
             'programs' => self::FULL,
             'categories' => self::FULL,
             'locations' => self::FULL,
             'suppliers' => self::FULL,
-            'reports' => self::VIEW_ONLY,
-            'qr-scan' => ['view', 'create', 'read'],
-            'search' => self::VIEW_ONLY,
-            'notifications' => ['view', 'read', 'update'],
+            'reports' => ['view'],
             'settings' => ['view', 'read', 'update'],
         ],
         'executive_director' => [
-            'dashboard' => self::VIEW_ONLY,
             'assets' => self::VIEW_ONLY,
-            'stock-items' => self::VIEW_ONLY,
-            'asset-assignments' => self::VIEW_ONLY,
-            'asset-transfers' => ['view', 'create', 'read', 'delete'],
+            'stock-items' => ['view'],
+            // Raises transfer requests, and approves / rejects them.
+            'asset-transfers' => ['view', 'create', 'update', 'delete'],
             'asset-verifications' => self::VIEW_ONLY,
-            // The manual makes the ED the sole approver of write-offs.
-            'asset-disposals' => ['view', 'create', 'read', 'update', 'delete'],
+            // The manual makes the ED the sole approver of write-offs (a rule,
+            // not a grantable ability — see MODULE_ABILITIES).
+            'asset-disposals' => ['view', 'delete'],
             'staff' => self::VIEW_ONLY,
             'programs' => self::VIEW_ONLY,
             'categories' => self::VIEW_ONLY,
             'locations' => self::VIEW_ONLY,
             'suppliers' => self::VIEW_ONLY,
-            'reports' => self::VIEW_ONLY,
-            'qr-scan' => ['view', 'create', 'read'],
-            'search' => self::VIEW_ONLY,
-            'notifications' => ['view', 'read', 'update'],
+            'reports' => ['view'],
         ],
         'staff' => [
-            'dashboard' => self::VIEW_ONLY,
             'assets' => self::VIEW_ONLY,
-            'stock-items' => self::VIEW_ONLY,
-            'asset-assignments' => self::VIEW_ONLY,
+            'stock-items' => ['view'],
             // Staff answer transfers (accept / reject); they never raise one —
             // only a custom role that grants 'create' lets a staff login send.
             'asset-transfers' => ['view', 'read', 'delete'],
             'asset-verifications' => self::VIEW_ONLY,
-            'asset-disposals' => ['view', 'create', 'read', 'delete'],
+            'asset-disposals' => ['view', 'delete'],
             'staff' => self::VIEW_ONLY,
             'programs' => self::VIEW_ONLY,
             'categories' => self::VIEW_ONLY,
             'locations' => self::VIEW_ONLY,
             // Suppliers are hidden from staff by default; a custom role can grant them.
-            'qr-scan' => ['view', 'create', 'read'],
-            'search' => self::VIEW_ONLY,
-            'notifications' => ['view', 'read', 'update'],
             // Administration > Appearance only: the page applies their theme
             // colour and language to their own browser. The /settings API itself
             // stays refused to staff (role: guard), so nothing org-wide changes.
-            'settings' => self::VIEW_ONLY,
+            'settings' => ['view'],
         ],
     ];
 
@@ -181,13 +208,19 @@ class PermissionRegistry
         return in_array($ability, self::ABILITIES, true);
     }
 
+    /** The abilities a module actually has (MODULE_ABILITIES), in ABILITIES order. */
+    public static function abilitiesFor(string $module): array
+    {
+        return array_values(array_intersect(self::ABILITIES, self::MODULE_ABILITIES[$module] ?? []));
+    }
+
     /** The module catalogue in the shape the permission matrix renders. */
     public static function catalogue(): array
     {
         $out = [];
 
         foreach (self::MODULES as $key => [$label, $group]) {
-            $out[] = ['key' => $key, 'label' => $label, 'group' => $group];
+            $out[] = ['key' => $key, 'label' => $label, 'group' => $group, 'abilities' => self::abilitiesFor($key)];
         }
 
         return $out;
@@ -209,7 +242,7 @@ class PermissionRegistry
 
             $abilities = array_values(array_unique(array_filter(
                 $abilities,
-                fn ($a) => is_string($a) && self::isAbility($a)
+                fn ($a) => is_string($a) && in_array($a, self::abilitiesFor($module), true)
             )));
 
             if ($abilities === []) {
@@ -222,7 +255,7 @@ class PermissionRegistry
                 $abilities[] = 'view';
             }
 
-            $clean[$module] = array_values(array_intersect(self::ABILITIES, $abilities));
+            $clean[$module] = array_values(array_intersect(self::abilitiesFor($module), $abilities));
         }
 
         return $clean;
@@ -265,7 +298,10 @@ class PermissionRegistry
 
         $ability = match (true) {
             in_array($method, ['GET', 'HEAD'], true) => $onRecord ? 'read' : 'view',
-            $method === 'POST' => (count($segments) === 1 || ($segments[1] ?? null) === 'import') ? 'create' : 'update',
+            // Saving Settings posts to the collection, but it is an edit.
+            $method === 'POST' && $module === 'settings' => 'update',
+            $method === 'POST' && in_array(end($segments), ['import', 'duplicate'], true) => 'create',
+            $method === 'POST' => count($segments) === 1 ? 'create' : 'update',
             in_array($method, ['PUT', 'PATCH'], true) => 'update',
             $method === 'DELETE' => 'delete',
             default => null,

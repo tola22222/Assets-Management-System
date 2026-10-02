@@ -579,7 +579,7 @@ class AssetTransferController extends Controller
      */
     private function assertRecipientAtDestination(User $user, array $validated): void
     {
-        abort_unless($user->isOperationsHrManager() || $user->isFinanceManager() || $user->hasCustomPermission('asset-assignments', 'create'), 403, 'Only the Operations & HR Manager or the Finance Manager can transfer an asset to a staff member or program.');
+        abort_unless($user->isOperationsHrManager() || $user->isFinanceManager() || $user->hasCustomPermission('asset-transfers', 'create'), 403, 'Only the Operations & HR Manager or the Finance Manager can transfer an asset to a staff member or program.');
 
         $recipient = $validated['assigned_to_type'] === 'staff'
             ? Staff::find($validated['assigned_to_id'])

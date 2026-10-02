@@ -40,7 +40,7 @@ const canCreate = computed(() => can('asset-transfers', 'create') && (!isStaff.v
 const canApprove = computed(() => allows(['operations_hr_manager', 'finance_manager', 'executive_director'], 'asset-transfers', 'update'))
 // Naming a staff member / program on a transfer is an assignment, so it takes
 // the Assignment form's roles — AssetTransferController enforces the same.
-const canAssign = computed(() => allows(['operations_hr_manager', 'finance_manager'], 'asset-assignments', 'create'))
+const canAssign = computed(() => allows(['operations_hr_manager', 'finance_manager'], 'asset-transfers', 'create'))
 
 const { search, filtered: searched } = useTableSearch(transfers, [(r) => r.asset?.name, (r) => r.asset?.asset_code, (r) => r.requester?.name, 'recipient_name'])
 // Location filter (the drop-down beside search), applied after search and

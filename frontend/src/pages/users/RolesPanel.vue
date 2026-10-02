@@ -288,9 +288,11 @@ defineExpose({ reload: load, openCreate })
                 :style="{ gridTemplateColumns: `220px repeat(${abilities.length}, minmax(0,1fr))` }"
               >
                 <span class="text-[13px] font-medium text-fg truncate" :title="m.label">{{ m.label }}</span>
+                <template v-for="a in abilities" :key="a">
+                <!-- Not an action this module has: nothing to show. -->
+                <span v-if="!(m.abilities || abilities).includes(a)" class="text-xs text-faint" :title="t('roles.not_applicable')">—</span>
                 <span
-                  v-for="a in abilities"
-                  :key="a"
+                  v-else
                   class="flex items-center gap-1.5 text-xs"
                   :class="granted(selected, m.key, a) ? 'text-fg font-medium' : 'text-faint'"
                 >
@@ -302,6 +304,7 @@ defineExpose({ reload: load, openCreate })
                   </span>
                   {{ granted(selected, m.key, a) ? t('roles.yes') : t('roles.no') }}
                 </span>
+                </template>
               </div>
             </div>
           </div>

@@ -5,7 +5,7 @@ import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
 
 const props = defineProps({
-  modules: { type: Array, required: true },   // [{ key, label, group }]
+  modules: { type: Array, required: true },   // [{ key, label, group, abilities }]
   abilities: { type: Array, required: true }, // ['view','create',...]
   modelValue: { type: Object, required: true }, // { moduleKey: ['view', ...] }
   disabled: { type: Boolean, default: false },
@@ -28,7 +28,13 @@ const grouped = computed(() => {
   return out
 })
 
-const totalPossible = computed(() => props.modules.length * props.abilities.length)
+// The abilities a module really has (from the catalogue). A cell for any
+// other ability shows a dash — there is nothing there to grant.
+const abilitiesByModule = computed(() => Object.fromEntries(props.modules.map((m) => [m.key, m.abilities || props.abilities])))
+const moduleAbilities = (moduleKey) => abilitiesByModule.value[moduleKey] || []
+const applies = (moduleKey, ability) => moduleAbilities(moduleKey).includes(ability)
+
+const totalPossible = computed(() => props.modules.reduce((n, m) => n + moduleAbilities(m.key).length, 0))
 const totalGranted = computed(() =>
   Object.values(props.modelValue).reduce((n, list) => n + (list?.length || 0), 0)
 )
@@ -47,7 +53,7 @@ function lockedOn(moduleKey, ability) {
 }
 
 function toggle(moduleKey, ability) {
-  if (props.disabled || lockedOn(moduleKey, ability)) return
+  if (props.disabled || !applies(moduleKey, ability) || lockedOn(moduleKey, ability)) return
   const next = { ...props.modelValue }
   const current = new Set(next[moduleKey] || [])
 
@@ -60,23 +66,23 @@ function toggle(moduleKey, ability) {
     if (REQUIRES_VIEW.includes(ability)) current.add('view')
   }
 
-  const list = props.abilities.filter((a) => current.has(a))
+  const list = moduleAbilities(moduleKey).filter((a) => current.has(a))
   if (list.length) next[moduleKey] = list
   else delete next[moduleKey]
   commit(next)
 }
 
 function moduleState(moduleKey) {
-  const n = (props.modelValue[moduleKey] || []).length
+  const n = (props.modelValue[moduleKey] || []).filter((a) => applies(moduleKey, a)).length
   if (n === 0) return 'none'
-  return n === props.abilities.length ? 'all' : 'some'
+  return n === moduleAbilities(moduleKey).length ? 'all' : 'some'
 }
 
 function toggleModule(moduleKey) {
   if (props.disabled) return
   const next = { ...props.modelValue }
   if (moduleState(moduleKey) === 'all') delete next[moduleKey]
-  else next[moduleKey] = [...props.abilities]
+  else next[moduleKey] = [...moduleAbilities(moduleKey)]
   commit(next)
 }
 
@@ -86,7 +92,7 @@ function toggleGroup(group) {
   const allOn = group.modules.every((m) => moduleState(m.key) === 'all')
   group.modules.forEach((m) => {
     if (allOn) delete next[m.key]
-    else next[m.key] = [...props.abilities]
+    else next[m.key] = [...moduleAbilities(m.key)]
   })
   commit(next)
 }
@@ -94,8 +100,10 @@ function toggleGroup(group) {
 function toggleColumn(ability) {
   if (props.disabled) return
   const next = { ...props.modelValue }
-  const allOn = props.modules.every((m) => (next[m.key] || []).includes(ability))
-  props.modules.forEach((m) => {
+  // Only the modules that have this ability.
+  const withIt = props.modules.filter((m) => applies(m.key, ability))
+  const allOn = withIt.every((m) => (next[m.key] || []).includes(ability))
+  withIt.forEach((m) => {
     const current = new Set(next[m.key] || [])
     if (allOn) {
       current.delete(ability)
@@ -104,7 +112,7 @@ function toggleColumn(ability) {
       current.add(ability)
       if (REQUIRES_VIEW.includes(ability)) current.add('view')
     }
-    const list = props.abilities.filter((a) => current.has(a))
+    const list = moduleAbilities(m.key).filter((a) => current.has(a))
     if (list.length) next[m.key] = list
     else delete next[m.key]
   })
@@ -114,7 +122,7 @@ function toggleColumn(ability) {
 function selectAll() {
   if (props.disabled) return
   const next = {}
-  props.modules.forEach((m) => { next[m.key] = [...props.abilities] })
+  props.modules.forEach((m) => { next[m.key] = [...moduleAbilities(m.key)] })
   commit(next)
 }
 
@@ -173,7 +181,9 @@ function clearAll() {
                 </button>
               </td>
               <td v-for="a in abilities" :key="a" class="text-center">
+                <span v-if="!applies(m.key, a)" class="text-faint" :title="t('roles.not_applicable')">—</span>
                 <input
+                  v-else
                   type="checkbox"
                   :checked="has(m.key, a)"
                   :disabled="disabled || lockedOn(m.key, a)"

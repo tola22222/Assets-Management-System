@@ -83,13 +83,13 @@ class RolePermissionTest extends TestCase
         $staff = $this->user('staff', 'staff@example.test');
 
         $a = Role::create(['name' => 'A', 'slug' => 'a', 'is_active' => true]);
-        $a->syncGrants(['reports' => ['view', 'read']]);
+        $a->syncGrants(['users' => ['view', 'read']]);
         $b = Role::create(['name' => 'B', 'slug' => 'b', 'is_active' => true]);
         $b->syncGrants(['assets' => ['view', 'update']]);
 
         $staff->roles()->attach([$a->id, $b->id]);
 
-        $this->assertTrue($staff->hasPermission('reports', 'read'));
+        $this->assertTrue($staff->hasPermission('users', 'read'));
         $this->assertTrue($staff->hasPermission('assets', 'update'));
     }
 
@@ -107,8 +107,8 @@ class RolePermissionTest extends TestCase
     public function test_create_read_update_and_delete_each_imply_view(): void
     {
         foreach (PermissionRegistry::REQUIRES_VIEW as $ability) {
-            $normalised = PermissionRegistry::normalise(['assets' => [$ability]]);
-            $this->assertContains('view', $normalised['assets'], "{$ability} should imply view");
+            $normalised = PermissionRegistry::normalise(['users' => [$ability]]);
+            $this->assertContains('view', $normalised['users'], "{$ability} should imply view");
         }
     }
 
@@ -172,7 +172,7 @@ class RolePermissionTest extends TestCase
     public function test_duplicating_a_role_copies_its_permissions_but_leaves_it_inactive(): void
     {
         $admin = $this->admin();
-        $role = $this->role(['reports' => ['view', 'read']]);
+        $role = $this->role(['users' => ['view', 'read']]);
 
         $response = $this->actingAs($admin)
             ->postJson("/api/roles/{$role->id}/duplicate")
@@ -180,7 +180,7 @@ class RolePermissionTest extends TestCase
 
         $copy = Role::find($response->json('id'));
         $this->assertFalse($copy->is_active, 'a copy must not grant anything until reviewed');
-        $this->assertSame(['reports' => ['view', 'read']], $copy->grants());
+        $this->assertSame(['users' => ['view', 'read']], $copy->grants());
     }
 
     // ---- last administrator --------------------------------------------

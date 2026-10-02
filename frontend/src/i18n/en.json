@@ -1135,7 +1135,8 @@
     "confirm_delete_assigned": "{count} account(s) hold this role and will lose its permissions. This cannot be undone.",
     "yes": "Yes",
     "no": "No",
-    "select_role": "Select a role to see its permissions."
+    "select_role": "Select a role to see its permissions.",
+    "not_applicable": "Not an action this module has"
   },
   "pagination": {
     "rows_per_page": "Rows per page",
