@@ -595,6 +595,31 @@
            flex flex-col overflow-hidden;
     animation: drawer-in 0.22s ease-out;
   }
+  /* Action loading (utils/actionLoading.js): while a button's save request
+     is in flight it is disabled and a spinner takes the place of its icon —
+     same size, same spacing, nothing else about the button changes. */
+  button.is-loading {
+    cursor: progress;
+  }
+  button.is-loading > svg {
+    display: none;
+  }
+  /* The spinner: a ring with a gap, turning, in the button's text colour. */
+  button.is-loading::before {
+    content: '';
+    display: inline-block;
+    flex-shrink: 0;
+    width: 1rem;
+    height: 1rem;
+    vertical-align: -0.15em;
+    border: 2px solid currentColor;
+    border-right-color: transparent;
+    border-radius: 9999px;
+    animation: action-spin 0.7s linear infinite;
+  }
+  @keyframes action-spin {
+    to { transform: rotate(360deg); }
+  }
   @keyframes drawer-in {
     from { transform: translateX(100%); }
     to { transform: translateX(0); }
@@ -714,4 +739,19 @@
   .nav-section-label {
     @apply px-2 text-[11px] font-semibold text-white/40 uppercase tracking-wider mb-1.5;
   }
+}
+
+/* Action loading label (utils/actionLoading.js): while a button with words
+   is working, its words are replaced by what is happening — "Saving…",
+   "Deleting…" — next to the turning ⟳. Kept outside the layers so the
+   button's own text-size and gap utilities don't override it. */
+button.is-loading.has-loading-label {
+  font-size: 0 !important;
+  column-gap: 0.35rem !important;
+}
+button.is-loading.has-loading-label::after {
+  content: attr(data-loading-label);
+  font-size: var(--loading-font-size, 13px);
+  line-height: 1.25;
+  white-space: nowrap;
 }

@@ -1188,5 +1188,17 @@
     "filter_search": "Search: {q}",
     "filter_category": "Category: {c}",
     "period": "Period: {p}"
+  },
+  "loading": {
+    "saving": "Saving…",
+    "deleting": "Deleting…",
+    "approving": "Approving…",
+    "rejecting": "Rejecting…",
+    "confirming": "Confirming…",
+    "returning": "Returning…",
+    "restoring": "Restoring…",
+    "sending": "Sending…",
+    "importing": "Importing…",
+    "signing_in": "Signing in…"
   }
 }

@@ -1188,5 +1188,17 @@
     "filter_search": "ស្វែងរក៖ {q}",
     "filter_category": "ប្រភេទ៖ {c}",
     "period": "រយៈពេល៖ {p}"
+  },
+  "loading": {
+    "saving": "កំពុងរក្សាទុក…",
+    "deleting": "កំពុងលុប…",
+    "approving": "កំពុងអនុម័ត…",
+    "rejecting": "កំពុងបដិសេធ…",
+    "confirming": "កំពុងបញ្ជាក់…",
+    "returning": "កំពុងប្រគល់ត្រឡប់…",
+    "restoring": "កំពុងស្ដារ…",
+    "sending": "កំពុងផ្ញើ…",
+    "importing": "កំពុងនាំចូល…",
+    "signing_in": "កំពុងចូល…"
   }
 }

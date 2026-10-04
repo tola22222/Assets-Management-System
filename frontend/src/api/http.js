@@ -1,10 +1,15 @@
 import axios from 'axios'
 import router from '../router'
 import i18n from '../i18n'
+import { installActionLoading } from '../utils/actionLoading'
 
 const http = axios.create({
   baseURL: '/api',
 })
+
+// Every action button that sends a save request shows a spinner and is
+// disabled until it finishes (utils/actionLoading.js).
+installActionLoading(http)
 
 http.interceptors.request.use((config) => {
   const token = localStorage.getItem('token')
@@ -12,7 +17,7 @@ http.interceptors.request.use((config) => {
     config.headers.Authorization = `Bearer ${token}`
   }
   return config
-})
+}, null, { synchronous: true }) // lets the action-loading hook run on the same click
 
 http.interceptors.response.use(
   (response) => {
