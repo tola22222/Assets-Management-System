@@ -259,13 +259,6 @@
     "created_n": "{n} assets added successfully."
   },
   "import": {
-    "title": "Import Asset Register",
-    "how_it_works": "How it works",
-    "step1": "Upload .xlsx, .xls or .csv — the first sheet is read.",
-    "step2": "Existing Asset IDs are kept; the category comes from the code.",
-    "step_location": "New assets need a Location matching a site name exactly.",
-    "step3": "Headings and subtotal rows are skipped.",
-    "step4": "Rows carrying an Asset ID are updated; template rows without one are added again.",
     "download_template": "Download CSV template",
     "drop_hint": "Drag a file here, or choose one below",
     "choose_file": "Choose file",
@@ -282,6 +275,7 @@
     "updated": "Updated",
     "skipped": "Skipped",
     "errors": "Errors",
+    "imported_assets": "Imported assets ({count})",
     "failed_rows": "Rows that couldn't be imported",
     "view_register": "View Asset Register",
     "import_another": "Import another file",
@@ -301,8 +295,14 @@
     "step_file": "File",
     "step_photos": "Photos",
     "step_complete": "Complete",
+    "ready_hint": "Check the details below, then press Import assets.",
+    "no_photos": "No photos",
+    "qr_codes": "QR codes",
+    "qr_yes": "Generated during import",
+    "qr_no": "Not generated",
     "next": "Next",
-    "selected_file": "Selected file"
+    "selected_file": "Selected file",
+    "dialog_title": "Import Assets"
   },
   "categories": {
     "title": "Asset Categories",
@@ -513,7 +513,6 @@
     "update_failed": "Could not save settings.",
     "logo": "Organization Logo",
     "logo_hint": "PNG or JPG, max 2MB.",
-    "logo_default": "Default",
     "staff_role": "Staff Role",
     "include_staff_in_reports": "Include Staff in reports",
     "include_staff_in_reports_hint": "Adds every Staff email to scheduled reports.",
@@ -981,7 +980,6 @@
     "title": "My Profile",
     "subtitle": "Update your personal information and password.",
     "profile_information": "Profile Information",
-    "change_photo": "Change photo",
     "role": "Role",
     "saving": "Saving…",
     "save_changes": "Save Changes",

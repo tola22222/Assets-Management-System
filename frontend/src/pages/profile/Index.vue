@@ -1,9 +1,10 @@
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import http, { errorMessage } from '../../api/http'
 import { useAuthStore } from '../../stores/auth'
 import AppLayout from '../../layouts/AppLayout.vue'
+import ImageField from '../../components/ui/ImageField.vue'
 import { useToastStore } from '../../stores/toast'
 
 const { t } = useI18n()
@@ -14,16 +15,16 @@ const form = reactive({
   name: auth.user?.name || '',
   phone: auth.user?.phone || '',
 })
+// The same photo box as the other forms: drag & drop or browse, then crop
+// (square, for the round avatar).
 const photoFile = ref(null)
-const photoPreview = ref(auth.user?.photo_url || null)
 const savingProfile = ref(false)
-
-function pickPhoto(e) {
-  const file = e.target.files[0]
-  if (!file) return
-  photoFile.value = file
-  photoPreview.value = URL.createObjectURL(file)
-}
+// No photo uploaded yet: the account shows a generated letter avatar, which is
+// not a "current photo" — leave the empty drop box instead.
+const uploadedPhoto = computed(() => {
+  const url = auth.user?.photo_url
+  return url && !url.includes('ui-avatars.com') ? url : null
+})
 
 async function saveProfile() {
   savingProfile.value = true
@@ -74,15 +75,9 @@ async function changePassword() {
       <form @submit.prevent="saveProfile" class="card p-6 space-y-5">
         <h2 class="font-bold text-fg">{{ t('profile.profile_information') }}</h2>
 
-        <div class="flex items-center gap-4">
-          <div class="w-16 h-16 rounded-full overflow-hidden bg-brand text-white flex items-center justify-center text-lg font-bold flex-shrink-0">
-            <img v-if="photoPreview" :src="photoPreview" class="w-full h-full object-cover" alt="" />
-            <span v-else>{{ auth.user?.name?.[0]?.toUpperCase() }}</span>
-          </div>
-          <label class="btn-ghost btn-sm cursor-pointer">
-            {{ t('profile.change_photo') }}
-            <input type="file" accept="image/*" class="hidden" @change="pickPhoto" />
-          </label>
+        <div class="form-group">
+          <label class="label">{{ t('staff.photo') }}</label>
+          <ImageField v-model="photoFile" :existing="uploadedPhoto" :aspect="1" :hint="t('image.field_hint')" />
         </div>
 
         <div class="form-group">

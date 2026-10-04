@@ -176,7 +176,6 @@ const breadcrumbMap = computed(() => {
   add('/qr-scan', t('nav.qr_scanner'))
   add('/profile', t('nav.my_profile'))
   add('/notifications', t('nav.notifications'))
-  add('/assets/import', t('import.title'), t('nav.asset_management'))
   // No sidebar entry any more, but the page is still reachable — keep its name.
   add('/asset-disposals', t('nav.disposals'), t('nav.asset_management'))
   allGroups.value.forEach((group) => {

@@ -10,6 +10,7 @@ import { useLocale } from '../../composables/useLocale'
 import { useTheme } from '../../composables/useTheme'
 import { useThemeColor } from '../../composables/useThemeColor'
 import { useBranding } from '../../composables/useBranding'
+import ImageField from '../../components/ui/ImageField.vue'
 
 const { t } = useI18n()
 const { locale: currentLocale, setLocale } = useLocale()
@@ -59,20 +60,12 @@ const currentTab = computed(() => visibleTabs.value.find((tab) => tab.id === act
 
 // Logo upload. The backend has always accepted this (SettingController::update
 // validates and stores a `logo`), but no control existed to send one.
+// The same photo box as the other forms (drag & drop or browse, then a
+// square crop; a PNG stays a PNG). Saved with the rest of the form.
 const logoFile = ref(null)
-const logoPreview = ref('')
-
-function onLogoChange(event) {
-  const file = event.target.files?.[0]
-  if (!file) return
-  logoFile.value = file
-  logoPreview.value = URL.createObjectURL(file)
-}
 
 function clearLogoSelection() {
   logoFile.value = null
-  if (logoPreview.value) URL.revokeObjectURL(logoPreview.value)
-  logoPreview.value = ''
 }
 const toast = useToastStore()
 const loading = ref(true)
@@ -464,21 +457,8 @@ onMounted(() => {
                       <label class="block text-sm font-semibold text-fg">{{ t('settings.logo') }}</label>
                       <p class="text-[13px] text-muted mt-1">{{ t('settings.logo_hint') }}</p>
                     </div>
-                    <!-- flex-wrap with a min-width on the picker: at 375px the
-                         preview, the file input and the Cancel button together
-                         leave the input about 170px, which clips the chosen
-                         filename. It now drops onto its own line instead. -->
-                    <div class="flex flex-wrap items-center gap-4">
-                      <div class="w-16 h-16 rounded-2xl border border-line bg-surface-2 flex items-center justify-center overflow-hidden flex-shrink-0 p-1.5">
-                        <img v-if="logoPreview || logoUrl" :src="logoPreview || logoUrl" alt="" class="w-full h-full object-contain" />
-                        <span v-else class="text-[10px] text-faint text-center leading-tight">{{ t('settings.logo_default') }}</span>
-                      </div>
-                      <div class="flex-1 min-w-[200px]">
-                        <input type="file" accept="image/png,image/jpeg" @change="onLogoChange" class="block w-full text-sm text-muted file:mr-3 file:py-2 file:px-3.5 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-brand file:text-white hover:file:bg-brand-dark file:cursor-pointer file:transition-colors" />
-                      </div>
-                      <button v-if="logoFile" type="button" @click="clearLogoSelection" class="btn-ghost btn-sm flex-shrink-0">
-                        {{ t('common.cancel') }}
-                      </button>
+                    <div class="max-w-md">
+                      <ImageField v-model="logoFile" :existing="logoUrl || null" :aspect="1" :max-mb="2" accept="image/png,image/jpeg" />
                     </div>
                   </div>
 

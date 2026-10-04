@@ -241,7 +241,59 @@ class AssetImportService
             // and photos refused before matching, with the reason (their names
             // are also still listed in images_unmatched).
             'images_rejected' => $rejectedImages,
+            // Which assets were saved — code, name, description, category,
+            // location, added/updated — so the dialog can list what landed
+            // in the register rather than only how many.
+            'assets' => $this->savedAssets($run['created_assets'], $run['updated_assets']),
         ];
+    }
+
+    /**
+     * Added assets first, then updated ones, each in sheet order.
+     *
+     * @param  Asset[]  $created
+     * @param  Asset[]  $updated
+     */
+    private function savedAssets(array $created, array $updated): array
+    {
+        $kinds = [];
+        foreach ($created as $asset) {
+            $kinds[$asset->id] = 'added';
+        }
+        foreach ($updated as $asset) {
+            $kinds[$asset->id] ??= 'updated';
+        }
+
+        // Re-read with names in one query per chunk, rather than lazy-loading
+        // a category and a location for every row of a large register.
+        $loaded = [];
+        foreach (array_chunk(array_keys($kinds), 500) as $ids) {
+            $assets = Asset::with(['category:id,name', 'location:id,name'])
+                ->whereIn('id', $ids)
+                ->get(['id', 'asset_code', 'name', 'description', 'category_id', 'location_id']);
+            foreach ($assets as $asset) {
+                $loaded[$asset->id] = $asset;
+            }
+        }
+
+        $out = [];
+        foreach ($kinds as $id => $kind) {
+            $asset = $loaded[$id] ?? null;
+            if (! $asset) {
+                continue;
+            }
+            $out[] = [
+                'id' => $asset->id,
+                'asset_code' => $asset->asset_code,
+                'name' => $asset->name,
+                'description' => $asset->description,
+                'category' => $asset->category?->name,
+                'location' => $asset->location?->name,
+                'result' => $kind,
+            ];
+        }
+
+        return $out;
     }
 
     /**
@@ -259,6 +311,7 @@ class AssetImportService
         $errors = [];
         $warnings = [];
         $createdAssets = [];
+        $updatedAssets = [];
         $supersededFiles = [];
         $usedImageKeys = [];
         $imagesAttached = 0;
@@ -389,6 +442,7 @@ class AssetImportService
                     if ($fill) {
                         $existing->update($fill);
                         $updated++;
+                        $updatedAssets[] = $existing;
                     } else {
                         $unchanged++;
                     }
@@ -480,6 +534,7 @@ class AssetImportService
             'errors' => $errors,
             'warnings' => $warnings,
             'created_assets' => $createdAssets,
+            'updated_assets' => $updatedAssets,
             'superseded_files' => $supersededFiles,
             'used_image_keys' => $usedImageKeys,
             'images_attached' => $imagesAttached,

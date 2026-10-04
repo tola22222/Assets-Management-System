@@ -3,7 +3,6 @@ import { createRouter, createWebHistory } from 'vue-router'
 import Login from '../pages/Login.vue'
 import Dashboard from '../pages/Dashboard.vue'
 import AssetsIndex from '../pages/assets/Index.vue'
-import AssetsImport from '../pages/assets/Import.vue'
 import CategoriesIndex from '../pages/categories/Index.vue'
 import LocationsIndex from '../pages/locations/Index.vue'
 import AssetTransfersIndex from '../pages/asset-transfers/Index.vue'
@@ -26,7 +25,8 @@ const routes = [
   { path: '/login', name: 'login', component: Login, meta: { guest: true } },
   { path: '/', name: 'dashboard', component: Dashboard, meta: { requiresAuth: true } },
   { path: '/assets', name: 'assets', component: AssetsIndex, meta: { requiresAuth: true } },
-  { path: '/assets/import', name: 'assets-import', component: AssetsImport, meta: { requiresAuth: true, adminOnly: true, module: 'assets', ability: 'create' } },
+  // Import is a dialog on Add Asset now; the old address opens it there.
+  { path: '/assets/import', redirect: { path: '/assets', query: { import: 1 } } },
   { path: '/categories', name: 'categories', component: CategoriesIndex, meta: { requiresAuth: true } },
   { path: '/locations', name: 'locations', component: LocationsIndex, meta: { requiresAuth: true } },
   // There is no separate Assignment screen: assigning happens through a

@@ -8,6 +8,7 @@ import Modal from '../../components/ui/Modal.vue'
 import ConfirmDialog from '../../components/ui/ConfirmDialog.vue'
 import SearchInput from '../../components/ui/SearchInput.vue'
 import SearchSelect from '../../components/ui/SearchSelect.vue'
+import ImportAssetsDialog from '../../components/assets/ImportAssetsDialog.vue'
 import TableSortIcon from '../../components/ui/TableSortIcon.vue'
 import { useApiCrud } from '../../composables/useApiCrud'
 import { useTableSearch } from '../../composables/useTableSearch'
@@ -333,11 +334,19 @@ onMounted(() => {
     openCreate()
     router.replace({ query: { ...route.query, create: undefined } })
   }
+  // The old /assets/import address lands here with ?import=1.
+  if (route.query.import && canCreate.value) {
+    showImport.value = true
+    router.replace({ query: { ...route.query, import: undefined } })
+  }
 })
 
 // Pagination is the last step, applied to the finished list, so search
 // and sort still consider every row rather than just the page on screen.
 const { page, rowsPerPage, total, paged } = usePagination(visible)
+
+// Import (Add Asset → Import) opens as a form dialog; a finished import reloads the list.
+const showImport = ref(false)
 </script>
 
 <template>
@@ -359,10 +368,10 @@ const { page, rowsPerPage, total, paged } = usePagination(visible)
               <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M7.5 12L12 16.5m0 0l4.5-4.5M12 16.5V3" /></svg>
               {{ t('assets.export_csv') }}
             </button>
-            <RouterLink v-if="canCreate" to="/assets/import" class="btn-ghost btn-sm">
+            <button v-if="canCreate" @click="showImport = true" class="btn-ghost btn-sm">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
               {{ t('assets.import') }}
-            </RouterLink>
+            </button>
             <button v-if="canCreate" @click="openCreate" class="btn-primary btn-sm">
               <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
               {{ t('assets.register') }}
@@ -625,6 +634,7 @@ const { page, rowsPerPage, total, paged } = usePagination(visible)
       </form>
     </Modal>
 
+    <ImportAssetsDialog v-if="showImport" @close="showImport = false" @imported="fetchAll()" />
     <ConfirmDialog v-if="deletingId" @confirm="confirmDelete" @cancel="deletingId = null" />
     <ConfirmDialog
       v-if="confirmingBulkDelete"

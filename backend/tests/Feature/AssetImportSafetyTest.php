@@ -93,6 +93,54 @@ class AssetImportSafetyTest extends TestCase
         $this->assertSame('SN-777', $asset->fresh()->serial_number);
     }
 
+    public function test_the_result_lists_each_added_and_updated_asset(): void
+    {
+        $kralanh = Location::where('code', 'KL')->firstOrFail();
+        $office = Location::where('code', 'SR')->firstOrFail();
+        Asset::create([
+            'asset_code' => 'PEY-SR-COM-0005',
+            'name' => 'Dell Laptop',
+            'category_id' => $this->computers->id,
+            'location_id' => $kralanh->id,
+            'purchase_price' => null,
+        ]);
+        // Already complete, so the sheet has nothing to fill: not listed.
+        Asset::create([
+            'asset_code' => 'PEY-SR-COM-0007',
+            'name' => 'HP Printer',
+            'category_id' => $this->computers->id,
+            'location_id' => $office->id,
+            'purchase_date' => '2020-01-01',
+            'purchase_price' => 100,
+            'serial_number' => 'SN-HP',
+            'description' => 'Office printer',
+        ]);
+
+        $file = $this->pepyCsv([
+            ['Dell Laptop', 'PEY-SR-COM-0005', '', 'PEPY Office', '650', '', '', '', ''],
+            ['Lenovo Desktop', 'PEY-SR-COM-0006', '', 'PEPY Office', '400', '', '', '', ''],
+            ['HP Printer', 'PEY-SR-COM-0007', '2020-01-01', 'PEPY Office', '100', 'SN-HP', '', '', ''],
+        ]);
+
+        $response = $this->actingAs($this->opm)->postJson('/api/assets/import', ['file' => $file, 'generate_qr' => '0']);
+
+        $response->assertOk()->assertJson(['created' => 1, 'updated' => 1, 'unchanged' => 1]);
+        // Added first, then updated; the unchanged one is not in the list.
+        $response->assertJsonCount(2, 'assets');
+        $response->assertJsonPath('assets.0', [
+            'id' => Asset::where('asset_code', 'PEY-SR-COM-0006')->value('id'),
+            'asset_code' => 'PEY-SR-COM-0006',
+            'name' => 'Lenovo Desktop',
+            'description' => Asset::where('asset_code', 'PEY-SR-COM-0006')->value('description'),
+            'category' => 'Computer Equipment',
+            'location' => $office->name,
+            'result' => 'added',
+        ]);
+        $response->assertJsonPath('assets.1.asset_code', 'PEY-SR-COM-0005');
+        $response->assertJsonPath('assets.1.location', $kralanh->name);
+        $response->assertJsonPath('assets.1.result', 'updated');
+    }
+
     public function test_a_single_placeholder_photo_does_not_replace_an_existing_assets_photo(): void
     {
         Storage::disk('public')->put('assets/original.jpg', 'original');
