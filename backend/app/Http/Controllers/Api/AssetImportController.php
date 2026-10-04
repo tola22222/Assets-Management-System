@@ -12,6 +12,31 @@ use Illuminate\Validation\ValidationException;
 
 class AssetImportController extends Controller
 {
+    /**
+     * How many assets a file holds, for the import dialog's last step — read
+     * the same way store() reads it, and nothing is saved.
+     */
+    public function preview(Request $request, AssetImportService $service)
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:xlsx,xls,csv,txt|max:10240',
+        ]);
+
+        try {
+            return response()->json($service->preview($request->file('file')));
+        } catch (ValidationException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            Log::error('Asset register import preview failed', [
+                'user_id' => $request->user()?->id,
+                'file' => $request->file('file')?->getClientOriginalName(),
+                'exception' => $e,
+            ]);
+
+            return response()->json(['message' => 'This file could not be read. Check the file and try again.'], 422);
+        }
+    }
+
     public function store(Request $request, AssetImportService $service)
     {
         // Photos are intentionally NOT validated here — not even for size: a

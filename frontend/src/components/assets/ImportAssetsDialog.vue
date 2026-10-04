@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onBeforeUnmount } from 'vue'
+import { ref, computed, onBeforeUnmount, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import http, { errorMessage } from '../../api/http'
 import Modal from '../ui/Modal.vue'
@@ -45,6 +45,39 @@ const maxStep = computed(() => (result.value || file.value ? 2 : 1))
 function goTo(i) {
   if (i <= maxStep.value) current.value = i
 }
+
+// Total assets on step 3: the server counts the chosen file the same way the
+// import reads it (a quantity column counts that many units), and nothing is
+// saved. Counted once per file.
+const preview = ref(null) // { rows, assets }
+const previewing = ref(false)
+const previewError = ref('')
+let previewFor = null
+
+async function loadPreview() {
+  const f = file.value
+  if (!f || previewFor === f) return
+  previewFor = f
+  preview.value = null
+  previewError.value = ''
+  previewing.value = true
+  try {
+    const fd = new FormData()
+    fd.append('file', f)
+    const { data } = await http.post('/assets/import/preview', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+    if (file.value === f) preview.value = data
+  } catch (e) {
+    if (file.value === f) {
+      previewError.value = errorMessage(e, t('import.failed'))
+      previewFor = null
+    }
+  } finally {
+    if (file.value === f) previewing.value = false
+  }
+}
+watch(current, (step) => {
+  if (step === 2 && !result.value) loadPreview()
+})
 
 function pick(e) {
   file.value = e.target.files[0] || null
@@ -167,6 +200,9 @@ function reset() {
   file.value = null
   clearImages()
   cropQueue.value = []
+  preview.value = null
+  previewError.value = ''
+  previewFor = null
   result.value = null
   current.value = 0
 }
@@ -300,6 +336,17 @@ function reset() {
               </span>
             </div>
             <div class="flex items-center justify-between gap-4 px-4 py-3">
+              <span class="text-[13px] text-muted flex-shrink-0">{{ t('import.total_assets') }}</span>
+              <span class="text-[13px] font-semibold text-fg">
+                <template v-if="previewing">{{ t('import.counting') }}</template>
+                <template v-else-if="preview">
+                  {{ preview.assets }}
+                  <span v-if="preview.assets !== preview.rows" class="font-normal text-faint">· {{ t('import.from_rows', { count: preview.rows }) }}</span>
+                </template>
+                <template v-else>—</template>
+              </span>
+            </div>
+            <div class="flex items-center justify-between gap-4 px-4 py-3">
               <span class="text-[13px] text-muted flex-shrink-0">{{ t('import.step_photos') }}</span>
               <span class="text-[13px] font-semibold text-fg">
                 {{ images.length ? t('import.images_selected', { count: images.length }) : t('import.no_photos') }}
@@ -311,6 +358,7 @@ function reset() {
             </div>
           </div>
 
+          <p v-if="previewError" class="text-xs text-red-600 dark:text-red-400">{{ previewError }}</p>
           <p v-if="importing && generateQr" class="text-xs text-faint">{{ t('import.qr_wait_hint') }}</p>
         </template>
 

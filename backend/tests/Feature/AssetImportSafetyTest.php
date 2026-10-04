@@ -141,6 +141,35 @@ class AssetImportSafetyTest extends TestCase
         $response->assertJsonPath('assets.1.result', 'updated');
     }
 
+    public function test_the_preview_counts_only_real_asset_rows_and_saves_nothing(): void
+    {
+        $file = $this->pepyCsv([
+            // Section header and subtotal rows are not assets.
+            ['Computer Equipment ( COM )', 'PEY-SR-COM', '', '', '', '', '', '', ''],
+            ['Dell Laptop', 'PEY-SR-COM-0005', '2021-01-15', 'PEPY Office', '650', '', '', '', ''],
+            ['Lenovo Desktop', 'PEY-SR-COM-0006', '', 'PEPY Office', '400', '', '', '', ''],
+            ['Total COM', 'Till 0006', '', '', '1050', '', '', '', ''],
+        ]);
+
+        $this->actingAs($this->opm)->postJson('/api/assets/import/preview', ['file' => $file])
+            ->assertOk()
+            ->assertExactJson(['rows' => 2, 'assets' => 2]);
+
+        $this->assertSame(0, Asset::count());
+        $this->assertDatabaseMissing('activity_logs', ['action' => 'Import']);
+    }
+
+    public function test_the_preview_is_refused_to_staff_and_reports_an_unreadable_file(): void
+    {
+        $staff = User::factory()->create(['role' => 'staff']);
+        $this->actingAs($staff)->postJson('/api/assets/import/preview', ['file' => $this->pepyCsv([])])
+            ->assertForbidden();
+
+        $this->actingAs($this->opm)->postJson('/api/assets/import/preview', [
+            'file' => UploadedFile::fake()->createWithContent('register.csv', "Foo,Bar\n1,2\n"),
+        ])->assertStatus(422)->assertJsonValidationErrors('file');
+    }
+
     public function test_a_single_placeholder_photo_does_not_replace_an_existing_assets_photo(): void
     {
         Storage::disk('public')->put('assets/original.jpg', 'original');

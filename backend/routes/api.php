@@ -56,6 +56,7 @@ Route::name('api.')->group(function () {
             // Bulk import — defined before the resource so "import" is not treated as an {asset}.
             Route::get('/assets/import/template', [AssetImportController::class, 'template']);
             Route::post('/assets/import', [AssetImportController::class, 'store']);
+            Route::post('/assets/import/preview', [AssetImportController::class, 'preview']);
             Route::apiResource('assets', AssetController::class)->only(['store', 'destroy']);
             Route::apiResource('locations', LocationController::class)->only(['store', 'update', 'destroy']);
         });

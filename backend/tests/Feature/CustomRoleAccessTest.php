@@ -37,6 +37,7 @@ class CustomRoleAccessTest extends TestCase
         $this->assertSame(['assets', 'read'], PermissionRegistry::abilityForRoute('GET', 'api/assets/{asset}', ['asset' => 1]));
         $this->assertSame(['assets', 'create'], PermissionRegistry::abilityForRoute('POST', 'api/assets'));
         $this->assertSame(['assets', 'create'], PermissionRegistry::abilityForRoute('POST', 'api/assets/import'));
+        $this->assertSame(['assets', 'create'], PermissionRegistry::abilityForRoute('POST', 'api/assets/import/preview'));
         $this->assertSame(['assets', 'update'], PermissionRegistry::abilityForRoute('PUT', 'api/assets/{asset}', ['asset' => 1]));
         $this->assertSame(['assets', 'delete'], PermissionRegistry::abilityForRoute('DELETE', 'api/assets/{asset}', ['asset' => 1]));
         $this->assertSame(['asset-transfers', 'update'], PermissionRegistry::abilityForRoute('POST', 'api/asset-transfers/{t}/approve', ['t' => 1]));

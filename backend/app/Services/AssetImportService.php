@@ -161,26 +161,7 @@ class AssetImportService
             }
         }
 
-        try {
-            $rows = $this->readRows($file);
-        } catch (\Throwable $e) {
-            // PhpSpreadsheet's own exceptions are low-level (zip/XML parser
-            // errors) and leak the server's temp file path — never show them
-            // to the user directly. This is what a renamed/corrupted file, or
-            // a non-Excel file given an .xlsx/.xls extension, looks like.
-            throw $this->fileError(
-                'Could not read this file as a spreadsheet. Make sure it\'s a valid, unmodified .xlsx, .xls, or .csv export — not a renamed or corrupted file — then try again.'
-            );
-        }
-
-        if (empty($rows)) {
-            throw $this->fileError('The file appears to be empty.');
-        }
-
-        [$map, $headerIndex] = $this->detectHeader($rows);
-        if ($map === null) {
-            throw $this->fileError('Could not find a header row. Expected a "Description"/"Asset ID" or "name"/"category" column.');
-        }
+        [$rows, $map, $headerIndex] = $this->readSheet($file);
 
         try {
             $run = DB::transaction(fn () => $this->importRows($rows, $map, $headerIndex, $sharedImage, $imagesByKey));
@@ -246,6 +227,116 @@ class AssetImportService
             // in the register rather than only how many.
             'assets' => $this->savedAssets($run['created_assets'], $run['updated_assets']),
         ];
+    }
+
+    /**
+     * How many assets the file holds, read exactly as import() reads it, for
+     * the dialog's last step before anything is saved. Writes nothing.
+     *
+     * rows   = asset rows (the PEPY layout's section headers and subtotals,
+     *          and rows with no name, are not assets — same rule as import())
+     * assets = the units those rows register: a template row's quantity
+     *          counts that many; a quantity the import would refuse counts 0.
+     *
+     * @return array{rows: int, assets: int}
+     *
+     * @throws ValidationException for the same file problems import() reports.
+     */
+    public function preview(UploadedFile $file): array
+    {
+        [$rows, $map, $headerIndex] = $this->readSheet($file);
+        $preserveCodes = isset($map['code']);
+
+        $assetRows = 0;
+        $assets = 0;
+        foreach ($rows as $i => $row) {
+            if ($i <= $headerIndex) {
+                continue;
+            }
+            $get = fn (string $key) => isset($map[$key]) ? trim((string) ($row[$map[$key]] ?? '')) : '';
+
+            if ($get('name') === '') {
+                continue;
+            }
+            if ($preserveCodes) {
+                if ($this->looksLikeAssetCode($this->normalizeCode($get('code')))) {
+                    $assetRows++;
+                    $assets++;
+                }
+
+                continue;
+            }
+
+            $assetRows++;
+            $quantity = $get('quantity');
+            if ($quantity === '') {
+                $assets++;
+            } elseif (ctype_digit($quantity) && (int) $quantity >= 1 && (int) $quantity <= Asset::MAX_BATCH_QUANTITY) {
+                $assets += (int) $quantity;
+            }
+        }
+
+        return ['rows' => $assetRows, 'assets' => $assets];
+    }
+
+    /**
+     * The import's "is this row an asset" test for the PEPY layout, without
+     * its side effect: categoryFromCode() creates a missing standard category,
+     * and a preview must write nothing. A tag-shaped code is an asset; any
+     * other numbered code only when one of its segments is a category
+     * (so a "Till 0086" subtotal is not).
+     */
+    private function looksLikeAssetCode(string $code): bool
+    {
+        if ($this->parseCode($code) !== null) {
+            return true;
+        }
+        if (! $this->hasSequence($code)) {
+            return false;
+        }
+        foreach (explode('-', $code) as $segment) {
+            if ($segment === 'PEY' || preg_match('/^\d+$/', $segment)) {
+                continue;
+            }
+            $segment = strtoupper($segment);
+            if (isset(self::CATEGORY_NAMES[$segment]) || $this->categoryByShortName($segment)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * The sheet's rows plus its column map and header row, or a clean
+     * user-facing error for a file that cannot be used.
+     *
+     * @return array{0: array, 1: array, 2: int}
+     */
+    private function readSheet(UploadedFile $file): array
+    {
+        try {
+            $rows = $this->readRows($file);
+        } catch (\Throwable $e) {
+            // PhpSpreadsheet's own exceptions are low-level (zip/XML parser
+            // errors) and leak the server's temp file path — never show them
+            // to the user directly. This is what a renamed/corrupted file, or
+            // a non-Excel file given an .xlsx/.xls extension, looks like.
+            throw $this->fileError(
+                'Could not read this file as a spreadsheet. Make sure it\'s a valid, unmodified .xlsx, .xls, or .csv export — not a renamed or corrupted file — then try again.'
+            );
+        }
+
+        if (empty($rows)) {
+            throw $this->fileError('The file appears to be empty.');
+        }
+
+        [$map, $headerIndex] = $this->detectHeader($rows);
+        if ($map === null) {
+            throw $this->fileError('Could not find a header row. Expected a "Description"/"Asset ID" or "name"/"category" column.');
+        }
+
+        return [$rows, $map, $headerIndex];
     }
 
     /**

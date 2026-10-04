@@ -69,6 +69,22 @@ class AssetQuantityTest extends TestCase
         $this->assertSame(0, Asset::count());
     }
 
+    public function test_the_import_preview_counts_each_unit_of_a_quantity(): void
+    {
+        $opm = User::factory()->create(['role' => 'operations_hr_manager']);
+        $csv = "name,category,location,quantity\n"
+            ."Dell Laptop,Computer Equipment,PEPY Office,\n"
+            ."Smart Phone,Computer Equipment,PEPY Office,20\n"
+            ."Bad Row,Computer Equipment,PEPY Office,abc\n"
+            .",,,\n";
+
+        $this->actingAs($opm)->postJson('/api/assets/import/preview', [
+            'file' => UploadedFile::fake()->createWithContent('register.csv', $csv),
+        ])->assertOk()->assertExactJson(['rows' => 3, 'assets' => 21]);
+
+        $this->assertSame(0, Asset::count());
+    }
+
     public function test_the_import_template_quantity_column_does_the_same(): void
     {
         $csv = "name,category,location,quantity,serial_number\n"

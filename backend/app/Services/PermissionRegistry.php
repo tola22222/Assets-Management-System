@@ -301,6 +301,8 @@ class PermissionRegistry
             // Saving Settings posts to the collection, but it is an edit.
             $method === 'POST' && $module === 'settings' => 'update',
             $method === 'POST' && in_array(end($segments), ['import', 'duplicate'], true) => 'create',
+            // Counting a file before importing it is part of importing it.
+            $method === 'POST' && ($segments[1] ?? null) === 'import' => 'create',
             $method === 'POST' => count($segments) === 1 ? 'create' : 'update',
             in_array($method, ['PUT', 'PATCH'], true) => 'update',
             $method === 'DELETE' => 'delete',
