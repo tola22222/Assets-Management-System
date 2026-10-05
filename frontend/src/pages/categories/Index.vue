@@ -18,6 +18,7 @@ import { usePermissions } from '../../composables/usePermissions'
 import { useToastStore } from '../../stores/toast'
 import TablePagination from '../../components/ui/TablePagination.vue'
 import { usePagination } from '../../composables/usePagination'
+import { CATEGORY_ICONS, categoryIconPath, assignCategoryIcons } from '../../utils/categoryIcons'
 
 const { t } = useI18n()
 const auth = useAuthStore()
@@ -76,18 +77,29 @@ function uppercaseShortName(e) {
 const showModal = ref(false)
 const editingId = ref(null)
 const deletingId = ref(null)
-const form = reactive({ name: '', short_name: '', description: '' })
+// icon: one of the app's own icons (utils/categoryIcons); with none picked a
+// category is shown with one that fits its name, different per category.
+const form = reactive({ name: '', short_name: '', description: '', icon: null })
+const iconKeys = Object.keys(CATEGORY_ICONS)
+const shownIcons = computed(() => assignCategoryIcons(categories.value))
 
 function openCreate() {
   editingId.value = null
-  Object.assign(form, { name: '', short_name: '', description: '' })
+  Object.assign(form, { name: '', short_name: '', description: '', icon: null })
   showModal.value = true
 }
 
 function openEdit(category) {
   editingId.value = category.id
-  Object.assign(form, { name: category.name, short_name: category.short_name || '', description: category.description || '' })
+  // The picker starts on the icon the row shows, so what is highlighted is
+  // what the list already displays for it.
+  Object.assign(form, { name: category.name, short_name: category.short_name || '', description: category.description || '', icon: category.icon || shownIcons.value[category.id] || null })
   showModal.value = true
+}
+
+// Clicking the chosen icon again clears it (back to the default box).
+function pickIcon(key) {
+  form.icon = form.icon === key ? null : key
 }
 
 async function handleSubmit() {
@@ -174,7 +186,14 @@ const { page, rowsPerPage, total, paged } = usePagination(filtered)
                 <td v-if="canManage">
                   <input v-if="canDelete" type="checkbox" :checked="selectedIds.includes(cat.id)" @change="toggleSelect(cat.id)" class="rounded border-line text-brand focus:ring-brand/30" />
                 </td>
-                <td class="font-medium text-fg">{{ cat.name }}</td>
+                <td class="font-medium text-fg">
+                  <span class="flex items-center gap-3 min-w-0">
+                    <span class="w-10 h-10 rounded-lg bg-brand-50 text-brand-700 dark:bg-brand-300/10 dark:text-brand-200 flex items-center justify-center flex-shrink-0" aria-hidden="true">
+                      <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :d="categoryIconPath(shownIcons[cat.id])" /></svg>
+                    </span>
+                    <span>{{ cat.name }}</span>
+                  </span>
+                </td>
                 <td>{{ cat.short_name || '—' }}</td>
                 <td>{{ cat.shown_count }}</td>
                 <td class="text-right">
@@ -218,6 +237,28 @@ const { page, rowsPerPage, total, paged } = usePagination(filtered)
           <div class="form-group">
             <label class="label">{{ t('common.description') }}</label>
             <textarea v-model="form.description" rows="2" class="textarea"></textarea>
+          </div>
+          <div class="form-group">
+            <label class="label">{{ t('categories.icon') }}</label>
+            <div class="flex flex-wrap gap-2" role="radiogroup" :aria-label="t('categories.icon')">
+              <button
+                v-for="key in iconKeys"
+                :key="key"
+                type="button"
+                data-no-loading
+                role="radio"
+                :aria-checked="form.icon === key"
+                :title="t('categories.icon_names.' + key)"
+                :aria-label="t('categories.icon_names.' + key)"
+                @click="pickIcon(key)"
+                class="w-10 h-10 rounded-lg border flex items-center justify-center transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/30"
+                :class="form.icon === key
+                  ? 'bg-brand text-white border-brand'
+                  : 'bg-surface-2 text-muted border-line hover:border-brand/50 hover:text-fg'"
+              >
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :d="CATEGORY_ICONS[key]" /></svg>
+              </button>
+            </div>
           </div>
         </div>
         <div class="modal-footer">

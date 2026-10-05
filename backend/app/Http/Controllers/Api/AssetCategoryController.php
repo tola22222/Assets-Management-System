@@ -37,6 +37,7 @@ class AssetCategoryController extends Controller
             'name' => 'required|string|max:255|unique:asset_categories,name',
             'short_name' => ['nullable', 'regex:'.AssetCodeService::CODE_FORMAT, Rule::unique('asset_categories', 'short_name')],
             'description' => 'nullable|string',
+            'icon' => ['nullable', Rule::in(AssetCategory::ICONS)],
         ], [
             'short_name.regex' => 'Short code must be 2-6 letters or numbers (e.g. MOV, ELEC).',
         ]);
@@ -60,6 +61,7 @@ class AssetCategoryController extends Controller
             'name' => 'required|string|max:255|unique:asset_categories,name,'.$category->id,
             'short_name' => ['nullable', 'regex:'.AssetCodeService::CODE_FORMAT, Rule::unique('asset_categories', 'short_name')->ignore($category->id)],
             'description' => 'nullable|string',
+            'icon' => ['nullable', Rule::in(AssetCategory::ICONS)],
         ], [
             'short_name.regex' => 'Short code must be 2-6 letters or numbers (e.g. MOV, ELEC).',
         ]);
