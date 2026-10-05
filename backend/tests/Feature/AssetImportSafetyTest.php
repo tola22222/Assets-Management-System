@@ -153,7 +153,10 @@ class AssetImportSafetyTest extends TestCase
 
         $this->actingAs($this->opm)->postJson('/api/assets/import/preview', ['file' => $file])
             ->assertOk()
-            ->assertExactJson(['rows' => 2, 'assets' => 2]);
+            ->assertExactJson(['rows' => 2, 'assets' => 2, 'groups' => [
+                ['key' => 'COM|DELL LAPTOP', 'category' => 'COM', 'name' => 'Dell Laptop', 'count' => 1],
+                ['key' => 'COM|LENOVO DESKTOP', 'category' => 'COM', 'name' => 'Lenovo Desktop', 'count' => 1],
+            ]]);
 
         $this->assertSame(0, Asset::count());
         $this->assertDatabaseMissing('activity_logs', ['action' => 'Import']);

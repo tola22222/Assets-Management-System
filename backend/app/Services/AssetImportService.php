@@ -103,13 +103,16 @@ class AssetImportService
 
     /**
      * @param  UploadedFile[]  $images  Optional photo files, matched to rows by filename.
+     * @param  array<string, UploadedFile>  $groupImages  Photo per group key from preview()
+     *                                                    (category + asset name), for every
+     *                                                    row in that group.
      *
      * @throws ValidationException for problems with the file itself (unreadable,
      *                             empty, no header row, no locations to assign
      *                             to). Anything else thrown is unexpected and
      *                             has already been rolled back.
      */
-    public function import(UploadedFile $file, bool $generateQr = true, array $images = []): array
+    public function import(UploadedFile $file, bool $generateQr = true, array $images = [], array $groupImages = []): array
     {
         @set_time_limit(0);
 
@@ -161,10 +164,26 @@ class AssetImportService
             }
         }
 
+        // Group photos get the same per-file checks; they never count towards
+        // the one-photo-for-everything rule above.
+        $validGroupImages = [];
+        foreach ($groupImages as $key => $imageFile) {
+            if (! $imageFile instanceof UploadedFile || ! is_string($key) || $key === '') {
+                continue;
+            }
+            $reason = $this->imageRejectionReason($imageFile);
+            if ($reason !== null) {
+                $rejectedImages[] = ['name' => $imageFile->getClientOriginalName(), 'reason' => $reason];
+
+                continue;
+            }
+            $validGroupImages[$key] = $imageFile;
+        }
+
         [$rows, $map, $headerIndex] = $this->readSheet($file);
 
         try {
-            $run = DB::transaction(fn () => $this->importRows($rows, $map, $headerIndex, $sharedImage, $imagesByKey));
+            $run = DB::transaction(fn () => $this->importRows($rows, $map, $headerIndex, $sharedImage, $imagesByKey, $validGroupImages));
         } catch (\Throwable $e) {
             // The rows are gone with the rollback; the photos stored for them
             // are not, so remove them too.
@@ -249,34 +268,103 @@ class AssetImportService
 
         $assetRows = 0;
         $assets = 0;
+        $groups = [];
+        $categoryLabels = [];
         foreach ($rows as $i => $row) {
             if ($i <= $headerIndex) {
                 continue;
             }
             $get = fn (string $key) => isset($map[$key]) ? trim((string) ($row[$map[$key]] ?? '')) : '';
 
-            if ($get('name') === '') {
+            $name = $get('name');
+            if ($name === '') {
                 continue;
             }
+            $code = $this->normalizeCode($get('code'));
+
             if ($preserveCodes) {
-                if ($this->looksLikeAssetCode($this->normalizeCode($get('code')))) {
-                    $assetRows++;
-                    $assets++;
+                if (! $this->looksLikeAssetCode($code)) {
+                    continue;
                 }
-
+                $units = 1;
+            } else {
+                $quantity = $get('quantity');
+                $units = $quantity === '' ? 1
+                    : (ctype_digit($quantity) && (int) $quantity >= 1 && (int) $quantity <= Asset::MAX_BATCH_QUANTITY ? (int) $quantity : 0);
+            }
+            $assetRows++;
+            $assets += $units;
+            if ($units === 0) {
                 continue;
             }
 
-            $assetRows++;
-            $quantity = $get('quantity');
-            if ($quantity === '') {
-                $assets++;
-            } elseif (ctype_digit($quantity) && (int) $quantity >= 1 && (int) $quantity <= Asset::MAX_BATCH_QUANTITY) {
-                $assets += (int) $quantity;
+            // One photo group per category + name, the same rows import()
+            // will put a group's photo on.
+            $key = $this->photoGroupKey($preserveCodes, $code, $get('category'), $name);
+            if (! isset($groups[$key])) {
+                $categoryText = $preserveCodes ? $this->codeCategorySegment($code) : $get('category');
+                $categoryLabels[$categoryText] ??= $this->categoryLabel($preserveCodes, (string) $categoryText);
+                $groups[$key] = ['key' => $key, 'category' => $categoryLabels[$categoryText], 'name' => $name, 'count' => 0];
+            }
+            $groups[$key]['count'] += $units;
+        }
+
+        return ['rows' => $assetRows, 'assets' => $assets, 'groups' => array_values($groups)];
+    }
+
+    /**
+     * The photo group a row belongs to: its category plus its asset name, so
+     * "COM · Dell" and "COM · Asus" each get their own photo while every Dell
+     * row shares one. Built from the file's own text — the code's category
+     * segment in the PEPY layout, the category column in the template — and
+     * the same way in preview() and the import, so the key the dialog sends
+     * back with a photo finds exactly the rows it showed. Case and spacing
+     * are ignored, so "Dell" and " DELL " are one group.
+     */
+    private function photoGroupKey(bool $preserveCodes, string $code, string $categoryCell, string $name): string
+    {
+        $category = $preserveCodes ? (string) $this->codeCategorySegment($code) : $categoryCell;
+        $squash = fn (string $s) => strtoupper(preg_replace('/\s+/', ' ', trim($s)));
+
+        return $squash($category).'|'.$squash($name);
+    }
+
+    /** How a group's category is shown: its short code (COM) where one is known. */
+    private function categoryLabel(bool $preserveCodes, string $categoryText): string
+    {
+        if ($preserveCodes) {
+            return $categoryText;
+        }
+        try {
+            $category = $this->categoryByName($categoryText);
+
+            return $category->short_name ?: $category->name;
+        } catch (\UnexpectedValueException) {
+            return $categoryText;
+        }
+    }
+
+    /**
+     * The category code a PEPY-layout asset code carries (FVF read as FAF),
+     * or null. Read-only: a tag-shaped code gives its segment directly; any
+     * other code only a segment that is a known category.
+     */
+    private function codeCategorySegment(string $code): ?string
+    {
+        if ($parsed = $this->parseCode($code)) {
+            return self::CATEGORY_ALIASES[$parsed['category']] ?? $parsed['category'];
+        }
+        foreach (explode('-', $code) as $segment) {
+            if ($segment === 'PEY' || preg_match('/^\d+$/', $segment)) {
+                continue;
+            }
+            $segment = strtoupper($segment);
+            if (isset(self::CATEGORY_NAMES[$segment]) || $this->categoryByShortName($segment)) {
+                return self::CATEGORY_ALIASES[$segment] ?? $segment;
             }
         }
 
-        return ['rows' => $assetRows, 'assets' => $assets];
+        return null;
     }
 
     /**
@@ -288,23 +376,8 @@ class AssetImportService
      */
     private function looksLikeAssetCode(string $code): bool
     {
-        if ($this->parseCode($code) !== null) {
-            return true;
-        }
-        if (! $this->hasSequence($code)) {
-            return false;
-        }
-        foreach (explode('-', $code) as $segment) {
-            if ($segment === 'PEY' || preg_match('/^\d+$/', $segment)) {
-                continue;
-            }
-            $segment = strtoupper($segment);
-            if (isset(self::CATEGORY_NAMES[$segment]) || $this->categoryByShortName($segment)) {
-                return true;
-            }
-        }
-
-        return false;
+        return $this->parseCode($code) !== null
+            || ($this->hasSequence($code) && $this->codeCategorySegment($code) !== null);
     }
 
     /**
@@ -391,7 +464,7 @@ class AssetImportService
      * The row loop. Runs inside the import's transaction, so anything it
      * throws undoes every row written before it.
      */
-    private function importRows(array $rows, array $map, int $headerIndex, ?UploadedFile $sharedImage, array $imagesByKey): array
+    private function importRows(array $rows, array $map, int $headerIndex, ?UploadedFile $sharedImage, array $imagesByKey, array $groupImages = []): array
     {
         $preserveCodes = isset($map['code']); // PEPY layout preserves IDs; template does not
 
@@ -481,20 +554,25 @@ class AssetImportService
                     : ($get('description') ?: null),
             ];
 
-            // A single uploaded photo applies to every row. Otherwise match a
-            // bulk-uploaded photo to this row: asset code first (only
-            // meaningful for the PEPY layout, where it's known before the row
-            // is even created), then serial number (available in both layouts).
+            // The photo for this row, most specific first: one named after this
+            // asset's code (only meaningful for the PEPY layout, where it's
+            // known before the row is even created) or serial number; then the
+            // photo chosen for its group (category + asset name); then the
+            // single photo uploaded for every row. ($imagesByKey is empty
+            // whenever that single shared photo is in play.)
             $imageFile = null;
             $imageKey = null;
-            if ($sharedImage !== null) {
-                $imageFile = $sharedImage;
-            } elseif ($code !== '' && isset($imagesByKey[$this->normalizeKey($code)])) {
+            $groupKey = $groupImages ? $this->photoGroupKey($preserveCodes, $code, $get('category'), $name) : null;
+            if ($code !== '' && isset($imagesByKey[$this->normalizeKey($code)])) {
                 $imageKey = $this->normalizeKey($code);
                 $imageFile = $imagesByKey[$imageKey];
             } elseif ($payload['serial_number'] && isset($imagesByKey[$this->normalizeKey($payload['serial_number'])])) {
                 $imageKey = $this->normalizeKey($payload['serial_number']);
                 $imageFile = $imagesByKey[$imageKey];
+            } elseif ($groupKey !== null && isset($groupImages[$groupKey])) {
+                $imageFile = $groupImages[$groupKey];
+            } elseif ($sharedImage !== null) {
+                $imageFile = $sharedImage;
             }
 
             if ($preserveCodes) {
@@ -514,8 +592,9 @@ class AssetImportService
                     }
 
                     // A photo named after this asset is an explicit request to
-                    // (re)place its photo; the one-photo-for-everything
-                    // placeholder only fills an asset that has none.
+                    // (re)place its photo; a group photo or the
+                    // one-photo-for-everything placeholder only fills an asset
+                    // that has none, so a re-import never replaces a photo.
                     if ($imageFile && ($imageKey !== null || $this->isBlank($existing->image_path))) {
                         $stored = $this->storeImage($imageFile);
                         if ($stored !== null) {

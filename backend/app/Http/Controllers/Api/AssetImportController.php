@@ -13,8 +13,9 @@ use Illuminate\Validation\ValidationException;
 class AssetImportController extends Controller
 {
     /**
-     * How many assets a file holds, for the import dialog's last step — read
-     * the same way store() reads it, and nothing is saved.
+     * How many assets a file holds, and its photo groups (category + asset
+     * name, with how many assets each), for the import dialog — read the same
+     * way store() reads it, and nothing is saved.
      */
     public function preview(Request $request, AssetImportService $service)
     {
@@ -48,7 +49,20 @@ class AssetImportController extends Controller
         $request->validate([
             'file' => 'required|file|mimes:xlsx,xls,csv,txt|max:10240',
             'images' => 'nullable|array',
+            // A photo per asset group (category + name) from the preview:
+            // group_images[i] belongs to the group whose key is group_keys[i].
+            'group_keys' => 'nullable|array',
+            'group_keys.*' => 'nullable|string|max:1000',
+            'group_images' => 'nullable|array',
         ]);
+
+        $groupKeys = $request->input('group_keys', []);
+        $groupImages = [];
+        foreach (Arr::wrap($request->file('group_images')) as $i => $photo) {
+            if (isset($groupKeys[$i]) && is_string($groupKeys[$i])) {
+                $groupImages[$groupKeys[$i]] = $photo;
+            }
+        }
 
         try {
             // The service runs the whole import in one transaction: if it
@@ -56,7 +70,8 @@ class AssetImportController extends Controller
             $result = $service->import(
                 $request->file('file'),
                 $request->boolean('generate_qr', true),
-                Arr::wrap($request->file('images'))
+                Arr::wrap($request->file('images')),
+                $groupImages
             );
         } catch (ValidationException $e) {
             // Problems with the file itself (unreadable, empty, no header

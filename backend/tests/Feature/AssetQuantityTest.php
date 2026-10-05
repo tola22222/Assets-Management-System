@@ -80,7 +80,11 @@ class AssetQuantityTest extends TestCase
 
         $this->actingAs($opm)->postJson('/api/assets/import/preview', [
             'file' => UploadedFile::fake()->createWithContent('register.csv', $csv),
-        ])->assertOk()->assertExactJson(['rows' => 3, 'assets' => 21]);
+        ])->assertOk()->assertExactJson(['rows' => 3, 'assets' => 21, 'groups' => [
+            ['key' => 'COMPUTER EQUIPMENT|DELL LAPTOP', 'category' => 'COM', 'name' => 'Dell Laptop', 'count' => 1],
+            // The refused quantity registers nothing, so it has no photo group.
+            ['key' => 'COMPUTER EQUIPMENT|SMART PHONE', 'category' => 'COM', 'name' => 'Smart Phone', 'count' => 20],
+        ]]);
 
         $this->assertSame(0, Asset::count());
     }

@@ -46,10 +46,10 @@ function goTo(i) {
   if (i <= maxStep.value) current.value = i
 }
 
-// Total assets on step 3: the server counts the chosen file the same way the
-// import reads it (a quantity column counts that many units), and nothing is
-// saved. Counted once per file.
-const preview = ref(null) // { rows, assets }
+// The server reads the chosen file the same way the import does, and nothing
+// is saved: Total assets on step 3 (a quantity column counts that many units)
+// and the photo groups on step 2. Read once per file.
+const preview = ref(null) // { rows, assets, groups: [{ key, category, name, count }] }
 const previewing = ref(false)
 const previewError = ref('')
 let previewFor = null
@@ -65,7 +65,12 @@ async function loadPreview() {
     const fd = new FormData()
     fd.append('file', f)
     const { data } = await http.post('/assets/import/preview', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
-    if (file.value === f) preview.value = data
+    if (file.value === f) {
+      preview.value = data
+      // A different file: keep only the photos whose group it still has.
+      const keys = new Set((data.groups || []).map((g) => g.key))
+      Object.keys(groupPhotos.value).filter((k) => !keys.has(k)).forEach(removeGroupPhoto)
+    }
   } catch (e) {
     if (file.value === f) {
       previewError.value = errorMessage(e, t('import.failed'))
@@ -76,8 +81,47 @@ async function loadPreview() {
   }
 }
 watch(current, (step) => {
-  if (step === 2 && !result.value) loadPreview()
+  if (step >= 1 && !result.value) loadPreview()
 })
+
+// One photo per asset group — category + asset name, e.g. COM · Dell (25) and
+// COM · Asus (20) — put on every asset of that group. A photo named after one
+// asset code (the list below) still wins for that asset. Keyed by group key:
+// { file, original, url }, like the photo list.
+const groups = computed(() => preview.value?.groups || [])
+const groupPhotos = ref({})
+const groupInput = ref(null)
+let groupTarget = null
+
+function chooseGroupImage(key) {
+  groupTarget = key
+  groupInput.value?.click()
+}
+function onGroupPicked(e) {
+  const picked = e.target.files[0]
+  e.target.value = ''
+  if (picked && groupTarget) queueForCrop([picked], null, groupTarget)
+  groupTarget = null
+}
+function recropGroup(key) {
+  const photo = groupPhotos.value[key]
+  if (photo) queueForCrop([photo.original], null, key)
+}
+function removeGroupPhoto(key) {
+  const photo = groupPhotos.value[key]
+  if (!photo) return
+  URL.revokeObjectURL(photo.url)
+  const next = { ...groupPhotos.value }
+  delete next[key]
+  groupPhotos.value = next
+}
+function clearGroupPhotos() {
+  Object.keys(groupPhotos.value).forEach(removeGroupPhoto)
+}
+onBeforeUnmount(clearGroupPhotos)
+
+// Photos going up with the import, for the step 3 summary.
+const photoCount = computed(() => images.value.length + Object.keys(groupPhotos.value).length)
 
 function pick(e) {
   file.value = e.target.files[0] || null
@@ -94,19 +138,26 @@ function onDrop(e) {
 // The cropper keeps the file's name, so the asset-code matching above still
 // works. Cancel skips that photo, as cancelling a crop does everywhere else.
 // A job with replaceId is Crop again / Change on a listed photo: it replaces
-// that photo in place, and cancelling it leaves the photo as it was.
+// that photo in place, and cancelling it leaves the photo as it was. A job
+// with groupKey is the photo for that asset group, likewise.
 const cropQueue = ref([])
 let seq = 0
 const cropping = computed(() => cropQueue.value[0] || null)
 
-function queueForCrop(files, replaceId = null) {
-  cropQueue.value = [...cropQueue.value, ...files.map((f) => ({ id: ++seq, file: f, replaceId }))]
+function queueForCrop(files, replaceId = null, groupKey = null) {
+  cropQueue.value = [...cropQueue.value, ...files.map((f) => ({ id: ++seq, file: f, replaceId, groupKey }))]
   if (files.length) result.value = null
 }
 function onPhotoCropped(cropped) {
   const job = cropQueue.value[0]
   cropQueue.value = cropQueue.value.slice(1)
   const url = URL.createObjectURL(cropped)
+  if (job.groupKey) {
+    const old = groupPhotos.value[job.groupKey]
+    if (old) URL.revokeObjectURL(old.url)
+    groupPhotos.value = { ...groupPhotos.value, [job.groupKey]: { file: cropped, original: job.file, url } }
+    return
+  }
   if (job.replaceId) {
     images.value = images.value.map((img) => {
       if (img.id !== job.replaceId) return img
@@ -170,6 +221,13 @@ async function submit() {
     fd.append('file', file.value)
     fd.append('generate_qr', generateQr.value ? '1' : '0')
     images.value.forEach((img) => fd.append('images[]', img.file))
+    // group_images[i] is the photo for the group whose key is group_keys[i].
+    groups.value.forEach((g) => {
+      const photo = groupPhotos.value[g.key]
+      if (!photo) return
+      fd.append('group_keys[]', g.key)
+      fd.append('group_images[]', photo.file)
+    })
     const { data } = await http.post('/assets/import', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
     result.value = data
     current.value = 2
@@ -199,6 +257,7 @@ async function downloadTemplate() {
 function reset() {
   file.value = null
   clearImages()
+  clearGroupPhotos()
   cropQueue.value = []
   preview.value = null
   previewError.value = ''
@@ -281,6 +340,37 @@ function reset() {
 
         <!-- ── Step 2 · Photos ───────────────────────────────────────── -->
         <template v-if="current === 1">
+          <!-- One photo per asset group from the chosen file (category + asset
+               name), laid out like the photo list below. -->
+          <div v-if="previewing || groups.length" class="form-group">
+            <label class="label">{{ t('import.groups_title') }}</label>
+            <span class="label-sub">{{ t('import.groups_hint') }}</span>
+            <p v-if="previewing" class="text-xs text-faint">{{ t('import.counting') }}</p>
+            <div v-else class="space-y-2">
+              <div v-for="g in groups" :key="g.key" class="image-preview items-center">
+                <div class="image-preview-thumb" style="aspect-ratio: 4 / 3">
+                  <img v-if="groupPhotos[g.key]" :src="groupPhotos[g.key].url" alt="" />
+                  <div v-else class="w-full h-full flex items-center justify-center text-faint">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg>
+                  </div>
+                </div>
+                <div class="min-w-0 flex-1">
+                  <p class="text-[13px] font-semibold text-fg truncate">{{ g.category }} — {{ g.name }}</p>
+                  <p class="text-xs text-muted mt-0.5">{{ t('import.group_count', { count: g.count }) }}</p>
+                  <div class="flex flex-wrap gap-2 mt-2.5">
+                    <template v-if="groupPhotos[g.key]">
+                      <button type="button" class="btn-ghost btn-sm" @click="recropGroup(g.key)">{{ t('image.recrop') }}</button>
+                      <button type="button" class="btn-ghost btn-sm" @click="chooseGroupImage(g.key)">{{ t('image.change') }}</button>
+                      <button type="button" class="btn-ghost btn-sm" @click="removeGroupPhoto(g.key)">{{ t('image.remove') }}</button>
+                    </template>
+                    <button v-else type="button" class="btn-ghost btn-sm" @click="chooseGroupImage(g.key)">{{ t('import.choose_image') }}</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <input ref="groupInput" type="file" accept="image/jpeg,image/png" class="hidden" @change="onGroupPicked" />
+          </div>
+
           <p class="text-sm text-muted">{{ t('import.images_hint') }}</p>
 
           <div
@@ -349,7 +439,7 @@ function reset() {
             <div class="flex items-center justify-between gap-4 px-4 py-3">
               <span class="text-[13px] text-muted flex-shrink-0">{{ t('import.step_photos') }}</span>
               <span class="text-[13px] font-semibold text-fg">
-                {{ images.length ? t('import.images_selected', { count: images.length }) : t('import.no_photos') }}
+                {{ photoCount ? t('import.images_selected', { count: photoCount }) : t('import.no_photos') }}
               </span>
             </div>
             <div class="flex items-center justify-between gap-4 px-4 py-3">
