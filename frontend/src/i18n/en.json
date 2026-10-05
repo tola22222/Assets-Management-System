@@ -324,7 +324,9 @@
     "create_title": "New Category",
     "name_required": "Name *",
     "icon": "Icon",
+    "icon_auto": "Automatic (by name)",
     "icon_names": {
+      "computer": "Computer",
       "assets": "Box",
       "activity": "Screen",
       "truck": "Vehicle",
@@ -334,6 +336,7 @@
       "home": "Building",
       "cap": "Education",
       "shield": "Shield",
+      "wrench": "Wrench",
       "chart": "Chart",
       "users": "People"
     },

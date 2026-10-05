@@ -17,6 +17,7 @@ import { useAuthStore } from '../../stores/auth'
 import { usePermissions } from '../../composables/usePermissions'
 import { useToastStore } from '../../stores/toast'
 import TablePagination from '../../components/ui/TablePagination.vue'
+import SearchSelect from '../../components/ui/SearchSelect.vue'
 import { usePagination } from '../../composables/usePagination'
 import { CATEGORY_ICONS, categoryIconPath, assignCategoryIcons } from '../../utils/categoryIcons'
 
@@ -80,7 +81,11 @@ const deletingId = ref(null)
 // icon: one of the app's own icons (utils/categoryIcons); with none picked a
 // category is shown with one that fits its name, different per category.
 const form = reactive({ name: '', short_name: '', description: '', icon: null })
-const iconKeys = Object.keys(CATEGORY_ICONS)
+// The icon dropdown: each of the app's icons with its name; the empty option
+// ("Automatic") leaves it to the name-based choice.
+const iconOptions = computed(() => Object.keys(CATEGORY_ICONS).map((key) => ({
+  value: key, label: t('categories.icon_names.' + key), icon: CATEGORY_ICONS[key],
+})))
 const shownIcons = computed(() => assignCategoryIcons(categories.value))
 
 function openCreate() {
@@ -91,15 +96,10 @@ function openCreate() {
 
 function openEdit(category) {
   editingId.value = category.id
-  // The picker starts on the icon the row shows, so what is highlighted is
-  // what the list already displays for it.
+  // The dropdown starts on the icon the row shows, so what is chosen is what
+  // the list already displays for it.
   Object.assign(form, { name: category.name, short_name: category.short_name || '', description: category.description || '', icon: category.icon || shownIcons.value[category.id] || null })
   showModal.value = true
-}
-
-// Clicking the chosen icon again clears it (back to the default box).
-function pickIcon(key) {
-  form.icon = form.icon === key ? null : key
 }
 
 async function handleSubmit() {
@@ -240,25 +240,12 @@ const { page, rowsPerPage, total, paged } = usePagination(filtered)
           </div>
           <div class="form-group">
             <label class="label">{{ t('categories.icon') }}</label>
-            <div class="flex flex-wrap gap-2" role="radiogroup" :aria-label="t('categories.icon')">
-              <button
-                v-for="key in iconKeys"
-                :key="key"
-                type="button"
-                data-no-loading
-                role="radio"
-                :aria-checked="form.icon === key"
-                :title="t('categories.icon_names.' + key)"
-                :aria-label="t('categories.icon_names.' + key)"
-                @click="pickIcon(key)"
-                class="w-10 h-10 rounded-lg border flex items-center justify-center transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/30"
-                :class="form.icon === key
-                  ? 'bg-brand text-white border-brand'
-                  : 'bg-surface-2 text-muted border-line hover:border-brand/50 hover:text-fg'"
-              >
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :d="CATEGORY_ICONS[key]" /></svg>
-              </button>
-            </div>
+            <SearchSelect
+              v-model="form.icon"
+              :options="iconOptions"
+              :empty-label="t('categories.icon_auto')"
+              :aria-label="t('categories.icon')"
+            />
           </div>
         </div>
         <div class="modal-footer">

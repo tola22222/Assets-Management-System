@@ -19,12 +19,15 @@ class CategoryIconTest extends TestCase
         $id = $this->actingAs($opm)->postJson('/api/categories', ['name' => 'Motor & Vehicle', 'short_name' => 'MOV', 'icon' => 'truck'])
             ->assertCreated()->assertJsonPath('icon', 'truck')->json('id');
 
-        $this->actingAs($opm)->getJson('/api/categories')->assertOk()->assertJsonPath('0.icon', 'truck');
+        $this->actingAs($opm)->postJson('/api/categories', ['name' => 'Repair Tools', 'icon' => 'wrench'])
+            ->assertCreated()->assertJsonPath('icon', 'wrench');
 
-        $this->actingAs($opm)->putJson("/api/categories/{$id}", ['name' => 'Motor & Vehicle', 'short_name' => 'MOV', 'icon' => 'cog'])
-            ->assertOk()->assertJsonPath('icon', 'cog');
+        $this->actingAs($opm)->getJson('/api/categories')->assertOk()->assertJsonPath('1.icon', 'truck');
 
-        // No icon: back to the default box.
+        $this->actingAs($opm)->putJson("/api/categories/{$id}", ['name' => 'Motor & Vehicle', 'short_name' => 'MOV', 'icon' => 'computer'])
+            ->assertOk()->assertJsonPath('icon', 'computer');
+
+        // No icon ("Automatic"): the list picks one from the name again.
         $this->actingAs($opm)->putJson("/api/categories/{$id}", ['name' => 'Motor & Vehicle', 'short_name' => 'MOV', 'icon' => null])
             ->assertOk();
         $this->assertNull(AssetCategory::find($id)->icon);
