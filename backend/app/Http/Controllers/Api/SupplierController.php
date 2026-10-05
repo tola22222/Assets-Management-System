@@ -7,6 +7,7 @@ use App\Models\ActivityLog;
 use App\Models\Supplier;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 
 class SupplierController extends Controller
 {
@@ -25,7 +26,13 @@ class SupplierController extends Controller
             'name' => 'required|string|max:255',
             'phone' => 'nullable|string|max:20',
             'address' => 'nullable|string',
+            'image' => 'nullable|image|mimes:jpeg,png,jpg|max:5120',
         ]);
+        unset($data['image']);
+
+        if ($request->hasFile('image')) {
+            $data['image_path'] = $request->file('image')->store('suppliers', 'public');
+        }
 
         $supplier = Supplier::create($data);
 
@@ -44,7 +51,17 @@ class SupplierController extends Controller
             'name' => 'required|string|max:255',
             'phone' => 'nullable|string|max:20',
             'address' => 'nullable|string',
+            'image' => 'nullable|image|mimes:jpeg,png,jpg|max:5120',
         ]);
+        unset($data['image']);
+
+        // A new photo replaces the old one; without one the photo is kept.
+        if ($request->hasFile('image')) {
+            if ($supplier->image_path) {
+                Storage::disk('public')->delete($supplier->image_path);
+            }
+            $data['image_path'] = $request->file('image')->store('suppliers', 'public');
+        }
 
         $supplier->update($data);
 
@@ -60,7 +77,11 @@ class SupplierController extends Controller
     public function destroy(Supplier $supplier)
     {
         $name = $supplier->name;
+        $image = $supplier->image_path;
         $supplier->delete();
+        if ($image) {
+            Storage::disk('public')->delete($image);
+        }
 
         ActivityLog::createAndNotify([
             'user_id' => Auth::id(),

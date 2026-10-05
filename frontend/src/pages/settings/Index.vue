@@ -71,7 +71,7 @@ const toast = useToastStore()
 const loading = ref(true)
 const form = reactive({
   organization_name: '', system_name: '', theme_color: '#128a43', email: '', phone: '',
-  address: '', qr_size: 300, locale: 'en', report_interval: 6, report_interval_unit: 'month', report_recipient_email: '',
+  address: '', qr_size: 300, locale: 'en', report_interval: 6, report_interval_unit: 'month', report_start_date: '', report_recipient_email: '',
   include_staff_in_reports: false,
   mail_mailer: 'smtp', mail_host: '', mail_port: 587, mail_encryption: 'tls',
   mail_username: '', mail_password: '', mail_from_address: '', mail_from_name: '',
@@ -597,18 +597,21 @@ onMounted(() => {
 
                 <!-- ── Reports ─────────────────────────────────────────── -->
                 <template v-if="activeTab === 'reports'">
+                  <!-- One row: the day the first automatic report goes out, and
+                       the interval it repeats at after that. An empty date counts
+                       from the last report instead. The interval is N of the saved
+                       unit (months unless changed before); the unit is no longer
+                       picked here but still saved as is. -->
                   <div class="grid grid-cols-1 md:grid-cols-[200px_minmax(0,1fr)] gap-x-8 gap-y-3 px-5 sm:px-6 py-5">
                     <div class="md:pr-4">
-                      <label class="block text-sm font-semibold text-fg">{{ t('settings.report_interval') }}</label>
+                      <label for="report-start-date" class="block text-sm font-semibold text-fg">{{ t('settings.report_start_date') }}</label>
                     </div>
-                    <!-- Every N days, months or years. -->
-                    <div class="flex items-center gap-2">
-                      <input v-model.number="form.report_interval" type="number" min="1" max="365" class="input w-28" :aria-label="t('settings.report_interval')" />
-                      <select v-model="form.report_interval_unit" class="select w-36" :aria-label="t('settings.report_interval_unit')">
-                        <option value="day">{{ t('settings.unit_day') }}</option>
-                        <option value="month">{{ t('settings.unit_month') }}</option>
-                        <option value="year">{{ t('settings.unit_year') }}</option>
-                      </select>
+                    <div class="flex flex-wrap items-center gap-x-6 gap-y-3">
+                      <input id="report-start-date" v-model="form.report_start_date" type="date" class="input w-48" />
+                      <div class="flex items-center gap-3">
+                        <label for="report-interval" class="text-sm font-semibold text-fg whitespace-nowrap">{{ t('settings.report_interval') }}</label>
+                        <input id="report-interval" v-model.number="form.report_interval" type="number" min="1" max="365" class="input w-28" />
+                      </div>
                     </div>
                   </div>
 

@@ -49,6 +49,14 @@ const { search, filtered: searched } = useTableSearch(transfers, [(r) => r.asset
 const { filters, filtered: filteredTransfers } = useTableFilter(searched, {
   location: (r, v) => String(r.from_location_id) === v || String(r.to_location_id) === v,
 })
+// Asset photos in the table; one whose file is gone from storage shows the
+// placeholder instead of a broken image.
+const brokenImages = ref(new Set())
+const assetImage = (r) => (r.asset?.image_url && !brokenImages.value.has(r.asset.image_url) ? r.asset.image_url : null)
+function imageFailed(url) {
+  brokenImages.value = new Set(brokenImages.value).add(url)
+}
+
 const { sortKey, sortDir, toggleSort, sorted: sortedTransfers } = useTableSort(filteredTransfers, {
   defaultKey: 'created_at', defaultDir: 'desc',
   paths: { asset: 'asset.name', from: 'from_location.name', to: 'to_location.name', requester: 'requester.name' },
@@ -420,7 +428,13 @@ const { page, rowsPerPage, total, paged } = usePagination(sortedTransfers)
             <tbody>
               <tr v-for="t2 in paged" :key="t2.id">
                 <td class="font-medium text-fg">
-                  {{ t2.asset?.name || t('common.n_a') }}<span v-if="t2.quantity > 1" class="text-muted font-normal"> × {{ t2.quantity }}</span>
+                  <span class="flex items-center gap-3 min-w-0">
+                    <img v-if="assetImage(t2)" :src="assetImage(t2)" :alt="t2.asset?.name" loading="lazy" @error="imageFailed(t2.asset.image_url)" class="w-10 h-10 rounded-lg object-cover border border-line flex-shrink-0" />
+                    <span v-else class="w-10 h-10 rounded-lg bg-surface-2 border border-line flex items-center justify-center text-faint flex-shrink-0">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg>
+                    </span>
+                    <span>{{ t2.asset?.name || t('common.n_a') }}<span v-if="t2.quantity > 1" class="text-muted font-normal"> × {{ t2.quantity }}</span></span>
+                  </span>
                 </td>
                 <td>{{ t2.from_location?.name || t('common.n_a') }}</td>
                 <td>

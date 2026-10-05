@@ -26,16 +26,18 @@ class SendScheduledAssetReport extends Command
         $lastSentAt = Setting::where('key', 'last_scheduled_report_at')->value('value');
         $force = (bool) $this->option('force');
 
-        if (! $lastSentAt && ! $force) {
-            Setting::updateOrCreate(['key' => 'last_scheduled_report_at'], ['value' => now()->toDateTimeString()]);
-            $this->info('No prior report on record — baseline set to now. First report will send in '.ReportSchedule::describe($interval).'. Use --force to send immediately instead.');
+        if (! $force) {
+            if (! $lastSentAt && ReportSchedule::startDate() === null) {
+                Setting::updateOrCreate(['key' => 'last_scheduled_report_at'], ['value' => now()->toDateTimeString()]);
+                $this->info('No prior report on record — baseline set to now. First report will send in '.ReportSchedule::describe($interval).'. Use --force to send immediately instead.');
 
-            return self::SUCCESS;
-        }
+                return self::SUCCESS;
+            }
 
-        if ($lastSentAt && ! $force) {
-            $lastSentAt = Carbon::parse($lastSentAt);
-            $due = ReportSchedule::after($lastSentAt, $interval);
+            // One interval after the last report — or, with a chosen first
+            // send date (Settings → First send on), that day and then every
+            // interval after it. Same calculation as Settings' "Next report due".
+            $due = ReportSchedule::nextDue($lastSentAt ? Carbon::parse($lastSentAt) : null, $interval);
             if (now()->lessThan($due)) {
                 $this->info('Not due yet. Next due: '.$due->toDateString().'. Use --force to send immediately instead.');
 

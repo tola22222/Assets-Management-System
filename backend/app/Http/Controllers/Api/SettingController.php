@@ -22,7 +22,7 @@ class SettingController extends Controller
     /** Free-text settings an admin may blank out by saving the field empty. */
     private const CLEARABLE = [
         'organization_name', 'system_name', 'email', 'phone', 'address',
-        'report_recipient_email', 'mail_host', 'mail_username',
+        'report_recipient_email', 'report_start_date', 'mail_host', 'mail_username',
         'mail_from_address', 'mail_from_name',
     ];
 
@@ -52,16 +52,19 @@ class SettingController extends Controller
         // "Next report due" — the old Blade settings screen showed this and it
         // was lost when that UI was removed. Derived rather than stored: the
         // scheduler only records last_scheduled_report_at, and the due date is
-        // that plus the configured interval. Mirrors SendScheduledAssetReport's
-        // own Carbon math so the screen and the command can't disagree. Null
-        // means nothing has been sent yet, i.e. it goes on the next check.
+        // that plus the configured interval — or, with a "First send on" date,
+        // that date and then every interval after it. ReportSchedule::nextDue()
+        // is what SendScheduledAssetReport uses too, so the screen and the
+        // command can't disagree. Null means no first send date and nothing
+        // sent yet, i.e. it goes on the next check.
         $lastSentAt = $settings['last_scheduled_report_at'] ?? null;
         [$intervalCount, $intervalUnit] = ReportSchedule::interval();
         $settings['report_interval'] = $intervalCount;
         $settings['report_interval_unit'] = $intervalUnit;
-        $settings['next_report_due'] = filled($lastSentAt)
-            ? ReportSchedule::after(Carbon::parse($lastSentAt), [$intervalCount, $intervalUnit])->toDateString()
-            : null;
+        $settings['next_report_due'] = ReportSchedule::nextDue(
+            filled($lastSentAt) ? Carbon::parse($lastSentAt) : null,
+            [$intervalCount, $intervalUnit]
+        )?->toDateString();
 
         // Which engine is live decides what a backup file even looks like, and
         // the restore mismatch errors ("MySQL-format backup, but connected to
@@ -124,6 +127,8 @@ class SettingController extends Controller
             // Every N days / months / years.
             'report_interval' => 'nullable|integer|min:1|max:365',
             'report_interval_unit' => 'nullable|in:'.implode(',', ReportSchedule::UNITS),
+            // First automatic report on this day, then every interval after.
+            'report_start_date' => 'nullable|date_format:Y-m-d',
             'report_recipient_email' => 'nullable|email',
             'include_staff_in_reports' => 'nullable|boolean',
             'logo' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',

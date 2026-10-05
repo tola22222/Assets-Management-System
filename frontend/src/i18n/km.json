@@ -494,6 +494,7 @@
     "edit_title": "កែសម្រួលអ្នកផ្គត់ផ្គង់",
     "create_title": "អ្នកផ្គត់ផ្គង់ថ្មី",
     "name_required": "ឈ្មោះ *",
+    "photo": "រូបថត ឬឡូហ្គោ",
     "save_changes": "រក្សាទុកការផ្លាស់ប្តូរ",
     "create_button": "បង្កើតអ្នកផ្គត់ផ្គង់",
     "entity": "អ្នកផ្គត់ផ្គង់",
@@ -609,10 +610,7 @@
     "mail_from": "អ្នកផ្ញើ",
     "backup_format": "ទម្រង់បម្រុងទុក",
     "saved_backups": "ការបម្រុងទុកដែលបានរក្សាទុក",
-    "report_interval_unit": "ឯកតាចន្លោះពេល",
-    "unit_day": "ថ្ងៃ",
-    "unit_month": "ខែ",
-    "unit_year": "ឆ្នាំ"
+    "report_start_date": "ផ្ញើលើកដំបូងនៅថ្ងៃ"
   },
   "asset_movements": {
     "title": "ចលនាស្តុក",

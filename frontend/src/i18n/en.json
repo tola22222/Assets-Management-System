@@ -494,6 +494,7 @@
     "edit_title": "Edit Supplier",
     "create_title": "New Supplier",
     "name_required": "Name *",
+    "photo": "Photo or logo",
     "save_changes": "Save Changes",
     "create_button": "Create Supplier",
     "entity": "Supplier",
@@ -609,10 +610,7 @@
     "mail_from": "Sender",
     "backup_format": "Backup format",
     "saved_backups": "Saved backups",
-    "report_interval_unit": "Interval unit",
-    "unit_day": "Day(s)",
-    "unit_month": "Month(s)",
-    "unit_year": "Year(s)"
+    "report_start_date": "First send on"
   },
   "asset_movements": {
     "title": "Stock Movements",

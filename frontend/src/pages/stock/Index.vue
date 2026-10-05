@@ -56,13 +56,26 @@ const categoryRows = computed(() => {
         category: a.category?.name || '',
         category_code: a.category?.short_name || '',
         model: a.name,
+        // The model's photo, from its units: every distinct one, so a unit
+        // whose file is gone from storage falls back to the next (see rowImage).
+        images: [],
         qty: 0,
       })
     }
-    rows.get(key).qty++
+    const row = rows.get(key)
+    row.qty++
+    if (a.image_url && !row.images.includes(a.image_url)) row.images.push(a.image_url)
   }
   return [...rows.values()]
 })
+
+// Photos that failed to load; a row shows its first one that hasn't, or the
+// placeholder once none is left.
+const brokenImages = ref(new Set())
+const rowImage = (r) => r.images.find((url) => !brokenImages.value.has(url)) || null
+function imageFailed(url) {
+  brokenImages.value = new Set(brokenImages.value).add(url)
+}
 
 // Filters: its own location drop-down, category, asset name, and search.
 const catLocation = ref('')
@@ -275,7 +288,15 @@ onMounted(() => {
                     <span class="truncate">{{ r.category || t('common.n_a') }}</span>
                   </span>
                 </td>
-                <td class="font-medium text-fg">{{ r.model }}</td>
+                <td>
+                  <span class="flex items-center gap-3 min-w-0">
+                    <img v-if="rowImage(r)" :key="rowImage(r)" :src="rowImage(r)" :alt="r.model" loading="lazy" @error="imageFailed(rowImage(r))" class="w-10 h-10 rounded-lg object-cover border border-line flex-shrink-0" />
+                    <span v-else class="w-10 h-10 rounded-lg bg-surface-2 border border-line flex items-center justify-center text-faint flex-shrink-0">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg>
+                    </span>
+                    <span class="font-medium text-fg">{{ r.model }}</span>
+                  </span>
+                </td>
                 <td class="text-right font-bold text-fg">{{ r.qty }}</td>
               </tr>
               <tr v-if="!categoryLoading && !categorySorted.length">

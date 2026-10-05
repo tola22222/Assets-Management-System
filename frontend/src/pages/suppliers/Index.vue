@@ -13,6 +13,7 @@ import { useBulkSelect } from '../../composables/useBulkSelect'
 import { useAuthStore } from '../../stores/auth'
 import { usePermissions } from '../../composables/usePermissions'
 import TablePagination from '../../components/ui/TablePagination.vue'
+import ImageField from '../../components/ui/ImageField.vue'
 import { usePagination } from '../../composables/usePagination'
 
 const { t } = useI18n()
@@ -36,23 +37,36 @@ const showModal = ref(false)
 const editingId = ref(null)
 const deletingId = ref(null)
 const form = reactive({ name: '', phone: '', address: '' })
+// Photo or logo: the same photo box as the other forms (square, like the
+// staff photo and the organisation logo). Kept unless a new one is chosen.
+const imageFile = ref(null)
+const existingImage = ref(null)
 
 function openCreate() {
   editingId.value = null
   Object.assign(form, { name: '', phone: '', address: '' })
+  imageFile.value = null
+  existingImage.value = null
   showModal.value = true
 }
 
 function openEdit(supplier) {
   editingId.value = supplier.id
   Object.assign(form, { name: supplier.name, phone: supplier.phone || '', address: supplier.address || '' })
+  imageFile.value = null
+  existingImage.value = supplier.image_url || null
   showModal.value = true
 }
 
 async function handleSubmit() {
+  const fd = new FormData()
+  fd.append('name', form.name)
+  fd.append('phone', form.phone)
+  fd.append('address', form.address)
+  if (imageFile.value) fd.append('image', imageFile.value)
   try {
-    if (editingId.value) await update(editingId.value, form)
-    else await create(form)
+    if (editingId.value) await update(editingId.value, fd)
+    else await create(fd)
     // Only close on success, so a rejected save keeps the entered values.
     showModal.value = false
   } catch {
@@ -77,6 +91,14 @@ async function confirmBulkDelete() {
 }
 
 onMounted(fetchAll)
+
+// A photo whose file is gone from storage shows the placeholder instead of a
+// broken image.
+const brokenImages = ref(new Set())
+const supplierImage = (s) => (s.image_url && !brokenImages.value.has(s.image_url) ? s.image_url : null)
+function imageFailed(url) {
+  brokenImages.value = new Set(brokenImages.value).add(url)
+}
 
 // Pagination is the last step, applied to the finished list, so search
 // and sort still consider every row rather than just the page on screen.
@@ -128,7 +150,15 @@ const { page, rowsPerPage, total, paged } = usePagination(filtered)
                 <td v-if="canManage">
                   <input v-if="canDelete" type="checkbox" :checked="selectedIds.includes(s.id)" @change="toggleSelect(s.id)" class="rounded border-line text-brand focus:ring-brand/30" />
                 </td>
-                <td class="font-medium text-fg">{{ s.name }}</td>
+                <td class="font-medium text-fg">
+                  <span class="flex items-center gap-3 min-w-0">
+                    <img v-if="supplierImage(s)" :src="supplierImage(s)" :alt="s.name" loading="lazy" @error="imageFailed(s.image_url)" class="w-10 h-10 rounded-lg object-cover border border-line flex-shrink-0" />
+                    <span v-else class="w-10 h-10 rounded-lg bg-surface-2 border border-line flex items-center justify-center text-faint flex-shrink-0">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg>
+                    </span>
+                    <span>{{ s.name }}</span>
+                  </span>
+                </td>
                 <td>{{ s.phone || '—' }}</td>
                 <td>{{ s.address || '—' }}</td>
                 <td class="text-right">
@@ -167,6 +197,10 @@ const { page, rowsPerPage, total, paged } = usePagination(filtered)
           <div class="form-group">
             <label class="label">{{ t('common.address') }}</label>
             <textarea v-model="form.address" rows="2" class="textarea"></textarea>
+          </div>
+          <div class="form-group">
+            <label class="label">{{ t('suppliers.photo') }}</label>
+            <ImageField v-model="imageFile" :existing="existingImage" :aspect="1" :hint="t('image.field_hint')" />
           </div>
         </div>
         <div class="modal-footer">
