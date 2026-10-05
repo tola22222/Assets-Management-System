@@ -40,6 +40,10 @@ const listStyle = ref({})
 // only gets one on a real <select>, so draw the same chevron for those.
 const needsChevron = computed(() => !props.inputClass.split(/\s+/).includes('select'))
 
+// An option may carry `icon` (an SVG path, 24×24 outline like the sidebar's
+// icons): drawn before its label in the list, and in the box for the chosen one.
+const hasIcons = computed(() => props.options.some((o) => o.icon))
+
 const norm = (s) => String(s ?? '').toLowerCase().replace(/\s+/g, ' ').trim()
 
 const allOptions = computed(() => [
@@ -165,7 +169,7 @@ onBeforeUnmount(() => {
     <input
       ref="inputEl"
       type="text"
-      :class="[inputClass, needsChevron ? 'pr-9' : '', disabled ? '' : 'cursor-pointer']"
+      :class="[inputClass, needsChevron ? 'pr-9' : '', hasIcons ? 'pl-10' : '', disabled ? '' : 'cursor-pointer']"
       class="w-full"
       :value="open ? query : selectedText"
       :placeholder="open ? (selectedText || placeholder || t('common.search')) : (placeholder || emptyLabel)"
@@ -181,6 +185,7 @@ onBeforeUnmount(() => {
       @keydown="onKey"
       @blur="close"
     />
+    <svg v-if="hasIcons && selected?.icon" class="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-brand-700 dark:text-brand-200" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" :d="selected.icon" /></svg>
     <svg v-if="needsChevron" class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-faint" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6" /></svg>
     <!-- Carries `required` for the browser's own form validation. -->
     <input
@@ -218,6 +223,8 @@ onBeforeUnmount(() => {
         >
           <span class="flex items-center gap-2 min-w-0">
             <input v-if="multiple" type="checkbox" :checked="isSelected(o)" tabindex="-1" class="rounded border-line text-brand focus:ring-brand/30 pointer-events-none" />
+            <svg v-if="o.icon" class="w-[18px] h-[18px] flex-shrink-0 text-muted" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" :d="o.icon" /></svg>
+            <span v-else-if="hasIcons" class="w-[18px] flex-shrink-0" aria-hidden="true"></span>
             <span class="truncate">{{ o.label }}</span>
           </span>
           <span v-if="o.sub" class="font-mono text-[12px] text-muted flex-shrink-0">{{ o.sub }}</span>
