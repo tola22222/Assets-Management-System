@@ -356,7 +356,11 @@ function reset() {
                 </div>
                 <div class="min-w-0 flex-1">
                   <p class="text-[13px] font-semibold text-fg truncate">{{ g.category }} — {{ g.name }}</p>
-                  <p class="text-xs text-muted mt-0.5">{{ t('import.group_count', { count: g.count }) }}</p>
+                  <p class="text-xs text-muted mt-0.5">
+                    {{ t('import.group_count', { count: g.count }) }}
+                    <!-- Once a photo is chosen: its name and size, as in the photo list below. -->
+                    <span v-if="groupPhotos[g.key]" class="text-faint">· {{ groupPhotos[g.key].file.name }} · {{ sizeLabel(groupPhotos[g.key].file) }}</span>
+                  </p>
                   <div class="flex flex-wrap gap-2 mt-2.5">
                     <template v-if="groupPhotos[g.key]">
                       <button type="button" class="btn-ghost btn-sm" @click="recropGroup(g.key)">{{ t('image.recrop') }}</button>
