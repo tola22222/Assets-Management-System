@@ -231,8 +231,8 @@ class QrScanFlowTest extends TestCase
             $this->assertStringContainsString($asset->asset_code, $row['message']);
         }
 
-        // Staff still cannot pull reports, this one included.
-        $this->actingAs($staff)->getJson('/api/reports/qr-scans')->assertStatus(403);
+        // Staff read reports too, for their own site.
+        $this->actingAs($staff)->getJson('/api/reports/qr-scans')->assertOk();
     }
 
     public function test_scan_history_survives_the_asset_being_deleted(): void

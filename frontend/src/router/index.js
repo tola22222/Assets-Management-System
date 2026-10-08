@@ -45,7 +45,7 @@ const routes = [
   // their own browser only.
   { path: '/settings', name: 'settings', component: SettingsIndex, meta: { requiresAuth: true, adminOnly: true, staffToo: true, module: 'settings' } },
   { path: '/activity-logs', name: 'activity-logs', component: ActivityLogsIndex, meta: { requiresAuth: true, adminOnly: true, hrOnly: true, module: 'activity-logs' } },
-  { path: '/reports', name: 'reports', component: ReportsIndex, meta: { requiresAuth: true, notStaff: true, module: 'reports' } },
+  { path: '/reports', name: 'reports', component: ReportsIndex, meta: { requiresAuth: true, module: 'reports' } },
   // :code is what a printed QR tag's public page links to (/app/qr-scan/PEY-SR-FAF-0928).
   { path: '/qr-scan/:code?', name: 'qr-scan', component: QrScanIndex, meta: { requiresAuth: true } },
   { path: '/search', name: 'search', component: SearchIndex, meta: { requiresAuth: true } },

@@ -58,12 +58,25 @@ class ReportController extends Controller
      * total counts every unit still on the register; lost_broken is how many of
      * those a verification marked lost or broken; available is the rest.
      */
-    public function byModel()
+    /**
+     * Staff read reports for their own sites only (their program's schools —
+     * User::siteLocationIds(); none set means nothing, fail closed). Everyone
+     * else sees every site. Each report below goes through one of these.
+     */
+    private function onSites($query, Request $request, string $relation = 'asset')
+    {
+        $user = $request->user();
+
+        return $user->isSiteScoped() ? $query->whereHas($relation, fn ($a) => $a->visibleTo($user)) : $query;
+    }
+
+    public function byModel(Request $request)
     {
         $unavailable = "'".implode("','", Asset::UNAVAILABLE_CONDITIONS)."'";
 
         $rows = Asset::select('name', 'category_id', DB::raw('count(*) as total'), DB::raw("sum(case when `condition` in ($unavailable) then 1 else 0 end) as lost_broken"))
             ->onRegister()
+            ->visibleTo($request->user())
             ->groupBy('name', 'category_id')
             ->with('category:id,name,short_name')
             ->get()
@@ -82,7 +95,7 @@ class ReportController extends Controller
 
     public function inventory(Request $request)
     {
-        $query = Asset::with([
+        $query = Asset::visibleTo($request->user())->with([
             'category',
             'stocks.location',
             'location:id,name,code',
@@ -111,7 +124,7 @@ class ReportController extends Controller
 
     public function assignments(Request $request)
     {
-        $query = AssetAssignment::with(['asset', 'location']);
+        $query = $this->onSites(AssetAssignment::with(['asset', 'location']), $request);
 
         if ($request->filled('status')) {
             $query->where('status', $request->status);
@@ -127,6 +140,13 @@ class ReportController extends Controller
     {
         $query = AssetTransfer::with(['asset', 'fromLocation', 'toLocation', 'requester']);
 
+        // A transfer touches two sites: staff see the ones leaving or reaching theirs.
+        $user = $request->user();
+        if ($user->isSiteScoped()) {
+            $sites = $user->siteLocationIds();
+            $query->where(fn ($q) => $q->whereIn('from_location_id', $sites)->orWhereIn('to_location_id', $sites));
+        }
+
         if ($request->filled('status')) {
             $query->where('status', $request->status);
         }
@@ -136,7 +156,7 @@ class ReportController extends Controller
 
     public function verifications(Request $request)
     {
-        $query = AssetVerification::with(['asset', 'location', 'verifiedBy']);
+        $query = $this->onSites(AssetVerification::with(['asset', 'location', 'verifiedBy']), $request);
 
         if ($request->filled('condition')) {
             $query->where('condition', $request->condition);
@@ -147,7 +167,7 @@ class ReportController extends Controller
 
     public function returns(Request $request)
     {
-        $query = AssetReturn::with(['asset', 'assignment', 'returnedBy']);
+        $query = $this->onSites(AssetReturn::with(['asset', 'assignment', 'returnedBy']), $request);
 
         if ($request->filled('status')) {
             $query->where('status', $request->status);
@@ -156,26 +176,32 @@ class ReportController extends Controller
         return response()->json($query->latest()->get());
     }
 
-    public function disposed()
+    public function disposed(Request $request)
     {
-        return response()->json(Asset::where('status', 'disposed')->with('category')->latest()->get());
+        return response()->json(Asset::visibleTo($request->user())->where('status', 'disposed')->with('category')->latest()->get());
     }
 
-    public function lost()
+    public function lost(Request $request)
     {
-        return response()->json(Asset::where('condition', 'lost')->with('category')->latest()->get());
+        return response()->json(Asset::visibleTo($request->user())->where('condition', 'lost')->with('category')->latest()->get());
     }
 
-    public function locations()
+    public function locations(Request $request)
     {
+        $user = $request->user();
+
         // Assets still on the register, as on the dashboard.
-        return response()->json(Location::withCount(['assets' => fn ($q) => $q->where('status', '!=', 'disposed')])->latest()->latest('id')->get());
+        return response()->json(
+            Location::withCount(['assets' => fn ($q) => $q->where('status', '!=', 'disposed')])
+                ->when($user->isSiteScoped(), fn ($q) => $q->whereIn('id', $user->siteLocationIds()))
+                ->latest()->latest('id')->get()
+        );
     }
 
-    public function qrScans()
+    public function qrScans(Request $request)
     {
         return response()->json(
-            AssetScan::with(['user:id,name,role', 'asset:id,asset_code,name', 'location:id,name', 'previousLocation:id,name'])
+            $this->onSites(AssetScan::with(['user:id,name,role', 'asset:id,asset_code,name', 'location:id,name', 'previousLocation:id,name']), $request)
                 ->latest()
                 ->get()
                 // The Reports page renders this report as two columns, `message`
@@ -186,9 +212,9 @@ class ReportController extends Controller
         );
     }
 
-    public function dataCompleteness()
+    public function dataCompleteness(Request $request)
     {
-        $assets = Asset::with('category')
+        $assets = Asset::visibleTo($request->user())->with('category')
             ->where('status', '!=', 'disposed')
             ->where(function ($q) {
                 $q->whereNull('purchase_price')

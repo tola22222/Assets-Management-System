@@ -423,7 +423,9 @@ onMounted(() => {
           <p class="text-muted text-sm mt-1">{{ t('reports.subtitle') }}</p>
         </div>
         <div class="flex items-center gap-2 flex-shrink-0 mt-1 sm:mt-0">
-          <button @click="openEmailModal" class="btn-ghost">
+          <!-- Emailing sends the whole register (every site): not for staff,
+               whose reports cover their own sites only. The API refuses it too. -->
+          <button v-if="auth.user?.role !== 'staff'" @click="openEmailModal" class="btn-ghost">
             <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" /></svg>
             {{ t('reports.email_report') }}
           </button>

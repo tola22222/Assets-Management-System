@@ -40,9 +40,8 @@ async function handleLogout() {
 // HR or the Accountant — same asset/people sidebar. (Administration differs:
 // the Accountant sees Appearance only — see settingGroup.)
 const isAdmin = computed(() => ['operations_hr_manager', 'finance_manager'].includes(auth.user?.role))
-// Staff are the one role the API refuses every /reports endpoint to
-// (backend/routes/api.php: "Staff cannot pull reports"), so the link is hidden
-// rather than leading them to a page that can only 403.
+// Staff see Reports too (their own sites only — the API limits each report);
+// whether the link shows is canSee('reports'), like every other link.
 const isStaff = computed(() => auth.user?.role === 'staff')
 
 const I = {

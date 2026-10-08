@@ -145,9 +145,9 @@ Route::name('api.')->group(function () {
             Route::delete('/stock-items/{stock_item}', [StockItemController::class, 'destroy']);
         });
 
-        // Staff cannot pull reports — matches the manual's counting process, which is
-        // led by OPM and verified by Finance, with the ED reading summaries only.
-        Route::middleware('role:operations_hr_manager,finance_manager,executive_director')->group(function () {
+        // Every role reads reports. Staff get them for their own sites only —
+        // ReportController limits each one (User::siteLocationIds()).
+        Route::middleware('role:operations_hr_manager,finance_manager,executive_director,staff')->group(function () {
             Route::get('/reports/inventory', [ReportController::class, 'inventory']);
             Route::get('/reports/by-model', [ReportController::class, 'byModel']);
             Route::get('/reports/assignments', [ReportController::class, 'assignments']);
@@ -159,8 +159,11 @@ Route::name('api.')->group(function () {
             Route::get('/reports/locations', [ReportController::class, 'locations']);
             Route::get('/reports/qr-scans', [ReportController::class, 'qrScans']);
             Route::get('/reports/data-completeness', [ReportController::class, 'dataCompleteness']);
-            Route::post('/reports/email', [ReportController::class, 'email']);
         });
+        // Emailing sends the whole register (every site), so it stays with the
+        // managers: OPM, Finance and the ED.
+        Route::post('/reports/email', [ReportController::class, 'email'])
+            ->middleware('role:operations_hr_manager,finance_manager,executive_director');
 
         // What the signed-in account may do. Every authenticated role can read
         // its own permission set — the SPA needs it to decide what to render,

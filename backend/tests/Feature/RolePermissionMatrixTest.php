@@ -464,14 +464,38 @@ class RolePermissionMatrixTest extends TestCase
         $this->actingAs($opm)->postJson("/api/asset-verifications/{$verification->id}/complete")->assertStatus(200);
     }
 
-    public function test_staff_cannot_pull_reports(): void
+    public function test_staff_read_reports_for_their_own_site_only(): void
     {
-        $staff = User::factory()->create(['role' => 'staff']);
+        $ownSite = $this->location();
+        $otherSite = Location::where('code', '!=', 'SR')->firstOrFail();
+        $staffMember = \App\Models\Staff::create(['full_name' => 'Site Staff', 'location_id' => $ownSite->id]);
+        $staff = User::factory()->create(['role' => 'staff', 'staff_id' => $staffMember->id]);
 
-        $this->actingAs($staff)->getJson('/api/reports/inventory')->assertStatus(403);
+        $own = $this->makeAsset('PEY-SR-FAF-0020');
+        $other = Asset::create([
+            'asset_code' => 'PEY-OT-FAF-0021', 'name' => 'Other Site Chair', 'category_id' => $this->category()->id,
+            'location_id' => $otherSite->id, 'status' => 'active', 'condition' => 'lost',
+        ]);
 
+        // Their own site's assets, and nothing from anywhere else.
+        $this->actingAs($staff)->getJson('/api/reports/inventory')
+            ->assertOk()->assertJsonCount(1)->assertJsonPath('0.asset_code', $own->asset_code);
+        $this->actingAs($staff)->getJson('/api/reports/lost')->assertOk()->assertJsonCount(0);
+        $this->actingAs($staff)->getJson('/api/reports/by-model')->assertOk()->assertJsonCount(1);
+        $this->actingAs($staff)->getJson('/api/reports/locations')
+            ->assertOk()->assertJsonCount(1)->assertJsonPath('0.id', $ownSite->id);
+        foreach (['assignments', 'transfers', 'verifications', 'returns', 'disposed', 'qr-scans', 'data-completeness'] as $report) {
+            $this->actingAs($staff)->getJson("/api/reports/{$report}")->assertOk();
+        }
+        $this->actingAs($staff)->getJson('/api/reports/data-completeness')->assertJsonCount(1);
+
+        // Emailing the whole register stays with the managers.
+        $this->actingAs($staff)->postJson('/api/reports/email', ['email' => 'someone@example.com'])->assertStatus(403);
+
+        // Managers still see every site.
         $opm = User::factory()->create(['role' => 'operations_hr_manager']);
-        $this->actingAs($opm)->getJson('/api/reports/inventory')->assertStatus(200);
+        $this->actingAs($opm)->getJson('/api/reports/inventory')->assertOk()->assertJsonCount(2);
+        $this->assertSame('lost', $other->condition);
     }
 
     public function test_staff_can_only_scan_and_verify_assets_at_their_own_site(): void
@@ -492,13 +516,14 @@ class RolePermissionMatrixTest extends TestCase
             'condition' => 'good',
         ]);
 
-        $this->actingAs($staffUser)->getJson('/api/qr-scan/'.$otherAsset->asset_code)->assertStatus(404);
+        $this->actingAs($staffUser)->getJson('/api/qr-scan/'.$otherAsset->asset_code)
+            ->assertStatus(403)->assertJsonPath('message', 'Asset not in your site');
         $this->actingAs($staffUser)->getJson('/api/qr-scan/'.$ownAsset->asset_code)->assertStatus(200);
 
         $this->actingAs($staffUser)->postJson("/api/qr-scan/{$otherAsset->asset_code}/verify", [
             'location_id' => $otherSite->id,
             'condition' => 'good',
-        ])->assertStatus(404);
+        ])->assertStatus(403)->assertJsonPath('message', 'Asset not in your site');
         $this->assertDatabaseMissing('asset_verifications', ['asset_id' => $otherAsset->id]);
     }
 
@@ -510,15 +535,18 @@ class RolePermissionMatrixTest extends TestCase
         $staffUser = User::factory()->create(['role' => 'staff', 'staff_id' => $staffMember->id]);
         $asset = $this->makeAsset('PEY-SR-FAF-0012');
 
-        $this->actingAs($staffUser)->getJson('/api/qr-scan/'.$asset->asset_code)->assertStatus(404);
+        $this->actingAs($staffUser)->getJson('/api/qr-scan/'.$asset->asset_code)->assertStatus(403);
         $this->actingAs($staffUser)->postJson("/api/qr-scan/{$asset->asset_code}/verify", [
             'location_id' => $asset->location_id,
             'condition' => 'good',
-        ])->assertStatus(404);
+        ])->assertStatus(403);
 
         $this->actingAs($staffUser)->getJson('/api/assets')->assertOk()->assertJsonCount(0);
         $this->actingAs($staffUser)->getJson('/api/asset-verifications')->assertOk()->assertJsonCount(0);
         $this->actingAs($staffUser)->getJson('/api/locations')->assertOk()->assertJsonCount(0);
+        // Reports too: open to staff, but empty until a site is assigned.
+        $this->actingAs($staffUser)->getJson('/api/reports/inventory')->assertOk()->assertJsonCount(0);
+        $this->actingAs($staffUser)->getJson('/api/reports/locations')->assertOk()->assertJsonCount(0);
     }
 
     public function test_staff_only_sees_assets_at_their_own_site_in_the_register(): void

@@ -73,9 +73,10 @@ class RolePermissionTest extends TestCase
     public function test_an_inactive_role_grants_nothing(): void
     {
         $staff = $this->user('staff', 'staff@example.test');
-        $staff->roles()->attach($this->role(['reports' => ['view', 'read']], active: false));
+        // Suppliers: a module staff do not hold by default (reports they now do).
+        $staff->roles()->attach($this->role(['suppliers' => ['view', 'read']], active: false));
 
-        $this->assertFalse($staff->hasPermission('reports', 'view'));
+        $this->assertFalse($staff->hasPermission('suppliers', 'view'));
     }
 
     public function test_permissions_from_several_roles_combine(): void

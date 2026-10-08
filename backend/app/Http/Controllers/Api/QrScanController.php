@@ -27,6 +27,9 @@ class QrScanController extends Controller
     /** A reload of the scan page within this window is the same scan, not a new one. */
     private const RESCAN_WINDOW_MINUTES = 2;
 
+    /** What a staff member is told when the scanned asset is at a site that is not theirs. */
+    private const NOT_YOUR_SITE = 'Asset not in your site';
+
     public function scan(Request $request)
     {
         $request->validate(['asset_code' => 'required|string']);
@@ -35,9 +38,10 @@ class QrScanController extends Controller
             ->where('asset_code', $request->asset_code)
             ->first();
 
-        if (! $asset || $this->outsideStaffSite($request->user(), $asset)) {
+        if (! $asset) {
             return response()->json(['message' => 'Asset not found.'], 404);
         }
+        abort_if($this->outsideStaffSite($request->user(), $asset), 403, self::NOT_YOUR_SITE);
 
         $user = $request->user();
 
@@ -74,7 +78,7 @@ class QrScanController extends Controller
             'scans' => fn ($q) => $q->with(['user:id,name', 'location:id,name', 'previousLocation:id,name'])->latest()->take(10),
         ])->where('asset_code', $assetCode)->firstOrFail();
 
-        abort_if($this->outsideStaffSite($request->user(), $asset), 404);
+        abort_if($this->outsideStaffSite($request->user(), $asset), 403, self::NOT_YOUR_SITE);
 
         return response()->json($asset);
     }
@@ -84,7 +88,7 @@ class QrScanController extends Controller
         $asset = Asset::where('asset_code', $assetCode)->firstOrFail();
         $user = $request->user();
 
-        abort_if($this->outsideStaffSite($user, $asset), 404);
+        abort_if($this->outsideStaffSite($user, $asset), 403, self::NOT_YOUR_SITE);
 
         $validated = $request->validate([
             'location_id' => 'required|exists:locations,id',

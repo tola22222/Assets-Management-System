@@ -177,6 +177,8 @@ class PermissionRegistry
             'programs' => self::VIEW_ONLY,
             'categories' => self::VIEW_ONLY,
             'locations' => self::VIEW_ONLY,
+            // Reports for their own sites only (ReportController limits each one).
+            'reports' => ['view'],
             // Suppliers are hidden from staff by default; a custom role can grant them.
             // Administration > Appearance only: the page applies their theme
             // colour and language to their own browser. The /settings API itself
