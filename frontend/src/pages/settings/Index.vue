@@ -29,7 +29,8 @@ const { systemName, organizationName, logoUrl, refreshBranding } = useBranding()
 // sidebar uses (AppLayout's `I`) so the two navigations read as one system.
 const I = {
   cog: 'M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28ZM15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z',
-  paintBrush: 'M9.53 16.122a3 3 0 0 0-5.78 1.128 2.25 2.25 0 0 1-2.4 2.245 4.5 4.5 0 0 0 8.4-2.245c0-.399-.078-.78-.22-1.128Zm0 0a15.998 15.998 0 0 0 3.388-1.62m-5.043-.025a15.994 15.994 0 0 1 1.622-3.395m3.42 3.42a15.995 15.995 0 0 0 4.764-4.648l3.876-5.814a1.151 1.151 0 0 0-1.597-1.597L14.146 6.32a15.996 15.996 0 0 0-4.649 4.763m3.42 3.42a6.776 6.776 0 0 0-3.42-3.42',
+  // The theme toggle's own moon (components/ui/ThemeToggle.vue) — the Appearance tab.
+  theme: 'M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z',
   chartBar: 'M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z',
   paperAirplane: 'M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5',
   cloudUp: 'M12 16.5V9.75m0 0 3 3m-3-3-3 3M6.75 19.5a4.5 4.5 0 0 1-1.41-8.775 5.25 5.25 0 0 1 10.233-2.33 3 3 0 0 1 3.758 3.848A3.752 3.752 0 0 1 18 19.5H6.75Z',
@@ -45,7 +46,7 @@ const I = {
 // inside a form defaults to type=submit and would save the settings instead).
 const tabs = [
   { id: 'general', label: 'settings.tab_general', icon: I.cog },
-  { id: 'appearance', label: 'settings.tab_appearance', icon: I.paintBrush },
+  { id: 'appearance', label: 'settings.tab_appearance', icon: I.theme },
   { id: 'reports', label: 'settings.tab_reports', icon: I.chartBar },
   { id: 'mail', label: 'settings.tab_mail', icon: I.paperAirplane },
   { id: 'backup', label: 'settings.tab_backup', icon: I.cloudUp },
@@ -379,11 +380,11 @@ onMounted(() => {
             :class="activeTab === tab.id ? 'bg-brand/10' : 'hover:bg-surface-2'"
             :aria-current="activeTab === tab.id ? 'page' : undefined"
           >
-            <!-- The Roles list puts initials in this disc; a settings section
-                 has an icon instead, and it carries the selected state. -->
+            <!-- A plain icon, no disc behind it: its colour carries the
+                 selected state (brand when active, muted otherwise). -->
             <span
-              class="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 transition-colors"
-              :class="activeTab === tab.id ? 'bg-brand text-white' : 'bg-surface-2 text-muted'"
+              class="w-7 h-7 flex items-center justify-center flex-shrink-0 transition-colors"
+              :class="activeTab === tab.id ? 'text-brand dark:text-brand-200' : 'text-muted'"
             >
               <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :d="tab.icon" /></svg>
             </span>
@@ -429,7 +430,7 @@ onMounted(() => {
                    still name the same thing. -->
               <header class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-5 sm:px-6 py-5 border-b border-line">
                 <div class="flex items-center gap-3.5 min-w-0">
-                  <span class="w-[52px] h-[52px] rounded-full bg-brand text-white flex items-center justify-center flex-shrink-0">
+                  <span class="text-brand dark:text-brand-200 flex items-center justify-center flex-shrink-0">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :d="currentTab.icon" /></svg>
                   </span>
                   <div class="min-w-0">
@@ -784,7 +785,7 @@ onMounted(() => {
                  surface rather than in a tinted band. -->
             <header class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-5 sm:px-6 py-5 border-b border-line">
               <div class="flex items-center gap-3.5 min-w-0">
-                <span class="w-[52px] h-[52px] rounded-full bg-brand text-white flex items-center justify-center flex-shrink-0">
+                <span class="text-brand dark:text-brand-200 flex items-center justify-center flex-shrink-0">
                   <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :d="I.cloudUp" /></svg>
                 </span>
                 <div class="min-w-0">
