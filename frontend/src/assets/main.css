@@ -620,6 +620,44 @@
   @keyframes action-spin {
     to { transform: rotate(360deg); }
   }
+  /* Table loading (utils/tableLoading.js): while the page is fetching its
+     data, the same ring spinner sits over each data table and the rows are
+     dimmed; the table's own layout — header, columns, pagination — does not
+     move. The wrapper keeps a little height so the spinner has room when the
+     table has no rows yet. */
+  html[data-fetching] :has(> table.data-table) {
+    position: relative;
+    min-height: 9rem;
+  }
+  html[data-fetching] :has(> table.data-table)::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 1.75rem;
+    height: 1.75rem;
+    margin: -0.875rem 0 0 -0.875rem;
+    /* A plain ring: dark (brand) on the light theme, white on the dark one. */
+    border: 3px solid var(--color-brand);
+    border-right-color: transparent;
+    border-radius: 9999px;
+    animation: action-spin 0.7s linear infinite;
+    pointer-events: none;
+  }
+  html.dark[data-fetching] :has(> table.data-table)::after {
+    border-color: #fff;
+    border-right-color: transparent;
+  }
+  /* The cover under the spinner: the card's own surface colour — white on the
+     light theme, dark on the dark one — nearly opaque, so old rows are hidden
+     while new data loads. */
+  html[data-fetching] :has(> table.data-table)::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: color-mix(in srgb, var(--color-surface) 88%, transparent);
+    pointer-events: none;
+  }
   @keyframes drawer-in {
     from { transform: translateX(100%); }
     to { transform: translateX(0); }

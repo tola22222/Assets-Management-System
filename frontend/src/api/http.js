@@ -2,6 +2,7 @@ import axios from 'axios'
 import router from '../router'
 import i18n from '../i18n'
 import { installActionLoading } from '../utils/actionLoading'
+import { installTableLoading } from '../utils/tableLoading'
 
 const http = axios.create({
   baseURL: '/api',
@@ -10,6 +11,9 @@ const http = axios.create({
 // Every action button that sends a save request shows a spinner and is
 // disabled until it finishes (utils/actionLoading.js).
 installActionLoading(http)
+// Every data table shows a spinner while its page is fetching
+// (utils/tableLoading.js).
+installTableLoading(http)
 
 http.interceptors.request.use((config) => {
   const token = localStorage.getItem('token')
