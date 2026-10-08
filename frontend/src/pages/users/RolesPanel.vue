@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, onMounted, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useCreateDraft } from '../../composables/useCreateDraft'
 import http, { errorMessage } from '../../api/http'
 import Modal from '../../components/ui/Modal.vue'
 import ConfirmDialog from '../../components/ui/ConfirmDialog.vue'
@@ -35,6 +36,9 @@ const selectedId = ref(null)
 const selected = computed(() => roles.value.find((r) => r.id === selectedId.value) || null)
 
 const form = reactive({ name: '', description: '', is_active: true, permissions: {} })
+// A Create form closed by accident keeps what was typed (this browser tab
+// only, never sent anywhere); cleared once the record is really created.
+const draft = useCreateDraft('roles', form, () => showModal.value && !editing.value)
 
 async function load() {
   loading.value = true
@@ -85,6 +89,7 @@ function initials(name) {
 function openCreate() {
   editing.value = null
   Object.assign(form, { name: '', description: '', is_active: true, permissions: {} })
+  draft.restore()
   showModal.value = true
 }
 
@@ -131,6 +136,7 @@ async function save() {
       toast.success(t('roles.updated'))
     } else {
       await http.post('/roles', payload)
+      draft.clear()
       toast.success(t('roles.created'))
     }
     showModal.value = false

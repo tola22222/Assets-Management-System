@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, onMounted, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useCreateDraft } from '../../composables/useCreateDraft'
 import http, { errorMessage } from '../../api/http'
 import AppLayout from '../../layouts/AppLayout.vue'
 import DetailModal from '../../components/ui/DetailModal.vue'
@@ -53,6 +54,9 @@ const showModal = ref(false)
 const editingId = ref(null)
 const deletingId = ref(null)
 const form = reactive({ name: '', description: '', responsible_staff_id: '' })
+// A Create form closed by accident keeps what was typed (this browser tab
+// only, never sent anywhere); cleared once the record is really created.
+const draft = useCreateDraft('programs', form, () => showModal.value && !editingId.value)
 
 // Program → Location → Staff: a program is created on its own; its schools
 // are chosen on each Location, and its staff on the Staff form. The
@@ -101,6 +105,7 @@ async function loadOptions() {
 function openCreate() {
   editingId.value = null
   Object.assign(form, { name: '', description: '', responsible_staff_id: '' })
+  draft.restore()
   showModal.value = true
 }
 
@@ -119,7 +124,10 @@ async function handleSubmit() {
     // Create: name and description only. Edit also sends the lead (or null).
     const { responsible_staff_id: lead, ...plain } = form
     if (editingId.value) await update(editingId.value, { ...plain, responsible_staff_id: lead || null })
-    else await create(plain)
+    else {
+      await create(plain)
+      draft.clear()
+    }
     showModal.value = false
     // Saving can put the lead into this program — refresh the staff picker.
     loadOptions()

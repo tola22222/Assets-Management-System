@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, onMounted, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useCreateDraft } from '../../composables/useCreateDraft'
 import AppLayout from '../../layouts/AppLayout.vue'
 import DetailModal from '../../components/ui/DetailModal.vue'
 import { onRowClick } from '../../utils/rowClick'
@@ -55,6 +56,9 @@ const deletingId = ref(null)
 // program_id: the ONE program this location belongs to (required). Staff
 // assigned here take their program from it — Program → Location → Staff.
 const form = reactive({ name: '', code: '', type: 'office', description: '', program_id: '' })
+// A Create form closed by accident keeps what was typed (this browser tab
+// only, never sent anywhere); cleared once the record is really created.
+const draft = useCreateDraft('locations', form, () => showModal.value && !editingId.value)
 // A location saved before the one-program rule may still list several;
 // saving keeps only the one chosen here.
 const editingPrograms = ref([])
@@ -72,6 +76,7 @@ function openCreate() {
   editingId.value = null
   Object.assign(form, { name: '', code: '', type: 'office', description: '', program_id: '' })
   editingPrograms.value = []
+  draft.restore()
   showModal.value = true
 }
 
@@ -88,6 +93,7 @@ async function handleSubmit() {
       await update(editingId.value, form)
     } else {
       await create(form)
+      draft.clear()
     }
     showModal.value = false
   } catch {

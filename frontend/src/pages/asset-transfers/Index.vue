@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, onMounted, reactive, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useCreateDraft } from '../../composables/useCreateDraft'
 import http, { errorMessage } from '../../api/http'
 import AppLayout from '../../layouts/AppLayout.vue'
 import { onRowClick } from '../../utils/rowClick'
@@ -144,6 +145,9 @@ const showModal = ref(false)
 // assigned_to_type '' = a plain site-to-site transfer, for nobody in particular.
 const emptyForm = () => ({ asset_id: '', from_location_id: '', to_location_id: '', reason: '', transfer_date: new Date().toISOString().slice(0, 10), assigned_to_type: '', assigned_to_id: '', quantity: 1, asset_ids: [] })
 const form = reactive(emptyForm())
+// A Create form closed by accident keeps what was typed (this browser tab
+// only, never sent anywhere); cleared once the record is really created.
+const draft = useCreateDraft('asset-transfers', form, () => showModal.value)
 
 // ---- Which exact units go -------------------------------------------------
 // HR ticks the asset codes of the chosen model at the From site; the
@@ -227,6 +231,7 @@ async function loadOptions() {
 
 function openCreate() {
   Object.assign(form, emptyForm())
+  draft.restore()
   showModal.value = true
 }
 
@@ -235,6 +240,7 @@ async function handleSubmit() {
   const { assigned_to_type, assigned_to_id, ...plain } = form
   try {
     await http.post('/asset-transfers', assigned_to_type ? { ...plain, assigned_to_type, assigned_to_id } : plain)
+    draft.clear()
     toast.success(t('asset_transfers.submitted'))
     showModal.value = false
     await fetchAll()

@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, reactive } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import { useCreateDraft } from '../../composables/useCreateDraft'
 import http, { errorMessage } from '../../api/http'
 import AppLayout from '../../layouts/AppLayout.vue'
 import { onRowClick } from '../../utils/rowClick'
@@ -63,6 +64,9 @@ const emptyForm = () => ({
   quantity: 1,
 })
 const form = reactive(emptyForm())
+// A Create form closed by accident keeps what was typed (this browser tab
+// only, never sent anywhere); cleared once the record is really created.
+const draft = useCreateDraft('assets', form, () => showModal.value && !editingId.value)
 
 const { search, filtered: searched } = useTableSearch(assetsList, [
   'name', 'asset_code', 'brand', 'model', (a) => a.category?.name, 'purchase_price', 'serial_number',
@@ -173,6 +177,7 @@ function openCreate() {
   Object.assign(form, emptyForm())
   imageFile.value = null
   existingImage.value = null
+  draft.restore()
   showModal.value = true
 }
 
@@ -217,6 +222,7 @@ async function handleSubmit() {
       toast.success(t('assets.updated'))
     } else {
       const { data } = await http.post('/assets', fd, config)
+      draft.clear()
       toast.success(data?.created_count > 1 ? t('assets.created_n', { n: data.created_count }) : t('assets.created'))
     }
     showModal.value = false

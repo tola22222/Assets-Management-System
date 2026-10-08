@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, onMounted, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useCreateDraft } from '../../composables/useCreateDraft'
 import http, { errorMessage } from '../../api/http'
 import AppLayout from '../../layouts/AppLayout.vue'
 import { onRowClick } from '../../utils/rowClick'
@@ -79,6 +80,9 @@ const assets = ref([])
 const showModal = ref(false)
 const imageFile = ref(null)
 const form = reactive({ asset_id: '', recommended_action: 'disposal', reason: '' })
+// A Create form closed by accident keeps what was typed (this browser tab
+// only, never sent anywhere); cleared once the record is really created.
+const draft = useCreateDraft('asset-disposals', form, () => showModal.value)
 
 // canApproveDisposal() on the backend is ED-only, not "OPM or ED" — the manual requires
 // OPM to submit a disposal report to the ED for independent review, so OPM approving its
@@ -97,6 +101,7 @@ async function loadAssets() {
 function openCreate() {
   Object.assign(form, { asset_id: '', recommended_action: 'disposal', reason: '' })
   imageFile.value = null
+  draft.restore()
   showModal.value = true
 }
 
@@ -107,6 +112,7 @@ async function handleSubmit() {
 
   try {
     await http.post('/asset-disposals', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+    draft.clear()
     toast.success(t('asset_disposals.submitted'))
     showModal.value = false
     await fetchAll()

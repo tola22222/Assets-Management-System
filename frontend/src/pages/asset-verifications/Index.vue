@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, onMounted, reactive, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useCreateDraft } from '../../composables/useCreateDraft'
 import http, { errorMessage } from '../../api/http'
 import AppLayout from '../../layouts/AppLayout.vue'
 import { onRowClick } from '../../utils/rowClick'
@@ -139,6 +140,9 @@ const locations = ref([])
 const showModal = ref(false)
 const imageFile = ref(null)
 const form = reactive({ asset_id: '', location_id: '', quantity_verified: 1, condition: 'good', remark: '' })
+// A Create form closed by accident keeps what was typed (this browser tab
+// only, never sent anywhere); cleared once the record is really created.
+const draft = useCreateDraft('asset-verifications', form, () => showModal.value)
 // An asset is verified where the register has it (moving it is a transfer),
 // so picking one fills in its location. The server refuses a mismatch.
 watch(() => form.asset_id, (id) => {
@@ -159,6 +163,7 @@ async function loadOptions() {
 function openCreate() {
   Object.assign(form, { asset_id: '', location_id: '', quantity_verified: 1, condition: 'good', remark: '' })
   imageFile.value = null
+  draft.restore()
   showModal.value = true
 }
 
@@ -169,6 +174,7 @@ async function handleSubmit() {
 
   try {
     await http.post('/asset-verifications', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+    draft.clear()
     toast.success(t('asset_verifications.recorded'))
     showModal.value = false
     await fetchAll()

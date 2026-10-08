@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted, reactive, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useCreateDraft } from '../../composables/useCreateDraft'
 import http, { errorMessage } from '../../api/http'
 import AppLayout from '../../layouts/AppLayout.vue'
 import { onRowClick } from '../../utils/rowClick'
@@ -125,6 +126,9 @@ const panes = computed(() => [
 
 const emptyForm = () => ({ name: '', email: '', password: '', role: 'staff', staff_id: '' })
 const form = reactive(emptyForm())
+// A Create form closed by accident keeps what was typed (this browser tab
+// only, never sent anywhere); cleared once the record is really created.
+const draft = useCreateDraft('users', form, () => showModal.value && !editingId.value, { exclude: ['password'] })
 
 async function loadStaff() {
   try {
@@ -140,6 +144,7 @@ function openCreate() {
   editingId.value = null
   Object.assign(form, emptyForm())
   selectedRoleIds.value = []
+  draft.restore()
   showModal.value = true
 }
 
@@ -158,6 +163,7 @@ async function handleSubmit() {
       await update(editingId.value, rest)
     } else {
       const created = await create(form)
+      draft.clear()
       userId = created?.id
     }
 

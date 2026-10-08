@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, onMounted, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useCreateDraft } from '../../composables/useCreateDraft'
 import AppLayout from '../../layouts/AppLayout.vue'
 import DetailModal from '../../components/ui/DetailModal.vue'
 import { onRowClick } from '../../utils/rowClick'
@@ -39,6 +40,9 @@ const showModal = ref(false)
 const editingId = ref(null)
 const deletingId = ref(null)
 const form = reactive({ name: '', phone: '', address: '' })
+// A Create form closed by accident keeps what was typed (this browser tab
+// only, never sent anywhere); cleared once the record is really created.
+const draft = useCreateDraft('suppliers', form, () => showModal.value && !editingId.value)
 // Photo or logo: the same photo box as the other forms (square, like the
 // staff photo and the organisation logo). Kept unless a new one is chosen.
 const imageFile = ref(null)
@@ -49,6 +53,7 @@ function openCreate() {
   Object.assign(form, { name: '', phone: '', address: '' })
   imageFile.value = null
   existingImage.value = null
+  draft.restore()
   showModal.value = true
 }
 
@@ -68,7 +73,10 @@ async function handleSubmit() {
   if (imageFile.value) fd.append('image', imageFile.value)
   try {
     if (editingId.value) await update(editingId.value, fd)
-    else await create(fd)
+    else {
+      await create(fd)
+      draft.clear()
+    }
     // Only close on success, so a rejected save keeps the entered values.
     showModal.value = false
   } catch {

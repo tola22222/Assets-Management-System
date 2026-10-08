@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, onMounted, reactive, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useCreateDraft } from '../../composables/useCreateDraft'
 import http, { errorMessage } from '../../api/http'
 import AppLayout from '../../layouts/AppLayout.vue'
 import DetailModal from '../../components/ui/DetailModal.vue'
@@ -83,6 +84,9 @@ const deletingId = ref(null)
 // icon: one of the app's own icons (utils/categoryIcons); with none picked a
 // category is shown with one that fits its name, different per category.
 const form = reactive({ name: '', short_name: '', description: '', icon: null })
+// A Create form closed by accident keeps what was typed (this browser tab
+// only, never sent anywhere); cleared once the record is really created.
+const draft = useCreateDraft('categories', form, () => showModal.value && !editingId.value)
 // The icon dropdown: each of the app's icons with its name; the empty option
 // ("Automatic") leaves it to the name-based choice.
 const iconOptions = computed(() => Object.keys(CATEGORY_ICONS).map((key) => ({
@@ -93,6 +97,7 @@ const shownIcons = computed(() => assignCategoryIcons(categories.value))
 function openCreate() {
   editingId.value = null
   Object.assign(form, { name: '', short_name: '', description: '', icon: null })
+  draft.restore()
   showModal.value = true
 }
 
@@ -110,6 +115,7 @@ async function handleSubmit() {
       await update(editingId.value, form)
     } else {
       await create(form)
+      draft.clear()
     }
     // Only close on success, so a rejected save keeps the entered values.
     showModal.value = false

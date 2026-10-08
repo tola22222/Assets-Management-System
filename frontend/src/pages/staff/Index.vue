@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, onMounted, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useCreateDraft } from '../../composables/useCreateDraft'
 import http, { errorMessage } from '../../api/http'
 import AppLayout from '../../layouts/AppLayout.vue'
 import DetailModal from '../../components/ui/DetailModal.vue'
@@ -65,6 +66,9 @@ const existingPhoto = ref(null)
 const locationOptions = ref([])
 const emptyForm = () => ({ location_ids: [], full_name: '', email: '', phone: '', position: '', hire_date: '', status: 'active' })
 const form = reactive(emptyForm())
+// A Create form closed by accident keeps what was typed (this browser tab
+// only, never sent anywhere); cleared once the record is really created.
+const draft = useCreateDraft('staff', form, () => showModal.value && !editingId.value)
 // The program of the staff member being edited: a location saved before the
 // one-program rule may still list several, and then their own one is kept.
 const editingProgramId = ref(null)
@@ -111,6 +115,7 @@ function openCreate() {
   Object.assign(form, emptyForm())
   photoFile.value = null
   existingPhoto.value = null
+  draft.restore()
   showModal.value = true
 }
 
@@ -142,6 +147,7 @@ async function handleSubmit() {
       toast.success(t('staff.updated'))
     } else {
       await http.post('/staff', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+      draft.clear()
       toast.success(t('staff.created'))
     }
     showModal.value = false
