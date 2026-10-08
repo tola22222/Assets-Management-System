@@ -13,6 +13,7 @@ use App\Models\Location;
 use App\Models\Notification;
 use App\Models\User;
 use App\Services\AssetNotificationService;
+use App\Services\ImageCompressor;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -130,7 +131,7 @@ class QrScanController extends Controller
             ], 422);
         }
 
-        $imagePath = $request->hasFile('image') ? $request->file('image')->store('verifications', 'public') : null;
+        $imagePath = $request->hasFile('image') ? ImageCompressor::store($request->file('image'), 'verifications') : null;
 
         [$verification, $scan] = DB::transaction(function () use ($asset, $user, $validated, $newLocationId, $previousLocationId, $locationChanged, $previousCondition, $imagePath) {
             $verification = AssetVerification::create([

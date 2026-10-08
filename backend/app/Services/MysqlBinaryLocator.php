@@ -25,6 +25,9 @@ class MysqlBinaryLocator
     /** Cache per binary — resolution can shell out, and both backup and restore call it. */
     private static array $resolved = [];
 
+    /** Binary path → is it the MariaDB client. */
+    private static array $mariaDb = [];
+
     public static function dump(): string
     {
         return self::locate('mysqldump');
@@ -39,6 +42,43 @@ class MysqlBinaryLocator
     public static function flush(): void
     {
         self::$resolved = [];
+        self::$mariaDb = [];
+    }
+
+    /**
+     * Whether a located client binary is MariaDB's rather than Oracle MySQL's.
+     *
+     * The two are not interchangeable on options. Alpine's `mysql-client`
+     * package — what the production image installs — is the MariaDB client:
+     * its dump tool rejects MySQL-only options (`--set-gtid-purged`), and
+     * recent versions refuse to connect without a verified TLS certificate,
+     * which the compose stack's MySQL container does not offer. Developer
+     * machines (DBngin, XAMPP, the official installers) usually have Oracle's.
+     */
+    public static function isMariaDb(string $binary): bool
+    {
+        if (isset(self::$mariaDb[$binary])) {
+            return self::$mariaDb[$binary];
+        }
+
+        try {
+            $version = Process::timeout(10)->run([$binary, '--version'])->output();
+        } catch (\Throwable) {
+            $version = '';
+        }
+
+        return self::$mariaDb[$binary] = stripos($version, 'mariadb') !== false;
+    }
+
+    /**
+     * Connection options every call needs for this client: MariaDB's is told
+     * not to demand TLS (the database is on the same private Docker network).
+     *
+     * @return string[]
+     */
+    public static function connectionOptions(string $binary): array
+    {
+        return self::isMariaDb($binary) ? ['--skip-ssl'] : [];
     }
 
     /**

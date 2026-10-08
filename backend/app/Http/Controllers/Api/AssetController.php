@@ -12,6 +12,7 @@ use App\Models\Notification;
 use App\Models\User;
 use App\Services\AssetCodeService;
 use App\Services\AssetNotificationService;
+use App\Services\ImageCompressor;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -82,7 +83,7 @@ class AssetController extends Controller
         }
 
         if ($request->hasFile('image')) {
-            $validated['image_path'] = $request->file('image')->store('assets', 'public');
+            $validated['image_path'] = ImageCompressor::store($request->file('image'), 'assets');
         }
 
         $assets = DB::transaction(function () use ($validated, $quantity) {
@@ -150,7 +151,7 @@ class AssetController extends Controller
             if ($asset->image_path) {
                 Storage::disk('public')->delete($asset->image_path);
             }
-            $validated['image_path'] = $request->file('image')->store('assets', 'public');
+            $validated['image_path'] = ImageCompressor::store($request->file('image'), 'assets');
         }
 
         $asset->update($validated);

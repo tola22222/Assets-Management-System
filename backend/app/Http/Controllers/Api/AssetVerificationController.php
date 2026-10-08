@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\Asset;
 use App\Models\AssetVerification;
+use App\Services\ImageCompressor;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -60,7 +61,7 @@ class AssetVerificationController extends Controller
         $validated['verified_at'] = now();
 
         if ($request->hasFile('image')) {
-            $validated['image_path'] = $request->file('image')->store('verifications', 'public');
+            $validated['image_path'] = ImageCompressor::store($request->file('image'), 'verifications');
         }
 
         $verification = AssetVerification::create($validated);

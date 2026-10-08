@@ -731,7 +731,7 @@ class AssetImportService
     /** Store a photo on the public disk, remembering it so a rollback can remove it again. */
     private function storeImage(UploadedFile $file): ?string
     {
-        $path = $file->store('assets', 'public');
+        $path = ImageCompressor::store($file, 'assets');
         if (! is_string($path) || $path === '') {
             return null;
         }

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\User;
+use App\Services\ImageCompressor;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
@@ -151,7 +152,7 @@ class AuthController extends Controller
             if ($user->photo_path) {
                 \Illuminate\Support\Facades\Storage::disk('public')->delete($user->photo_path);
             }
-            $data['photo_path'] = $request->file('photo')->store('profiles', 'public');
+            $data['photo_path'] = ImageCompressor::store($request->file('photo'), 'profiles');
         }
 
         $user->update($data);

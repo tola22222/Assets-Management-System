@@ -11,6 +11,7 @@ use App\Models\Program;
 use App\Models\Staff;
 use App\Models\User;
 use App\Services\AssetStockService;
+use App\Services\ImageCompressor;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -201,7 +202,7 @@ class AssetAssignmentController extends Controller
         $data = ['status' => 'returned'];
 
         if ($request->hasFile('image')) {
-            $data['image_path'] = $request->file('image')->store('assignments', 'public');
+            $data['image_path'] = ImageCompressor::store($request->file('image'), 'assignments');
         }
 
         $assetAssignment->update($data);

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\Supplier;
+use App\Services\ImageCompressor;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
@@ -31,7 +32,7 @@ class SupplierController extends Controller
         unset($data['image']);
 
         if ($request->hasFile('image')) {
-            $data['image_path'] = $request->file('image')->store('suppliers', 'public');
+            $data['image_path'] = ImageCompressor::store($request->file('image'), 'suppliers');
         }
 
         $supplier = Supplier::create($data);
@@ -60,7 +61,7 @@ class SupplierController extends Controller
             if ($supplier->image_path) {
                 Storage::disk('public')->delete($supplier->image_path);
             }
-            $data['image_path'] = $request->file('image')->store('suppliers', 'public');
+            $data['image_path'] = ImageCompressor::store($request->file('image'), 'suppliers');
         }
 
         $supplier->update($data);

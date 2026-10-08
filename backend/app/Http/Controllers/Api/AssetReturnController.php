@@ -7,6 +7,7 @@ use App\Models\ActivityLog;
 use App\Models\AssetReturn;
 use App\Models\Notification;
 use App\Models\User;
+use App\Services\ImageCompressor;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -41,7 +42,7 @@ class AssetReturnController extends Controller
         $validated['status'] = 'pending';
 
         if ($request->hasFile('image')) {
-            $validated['image_path'] = $request->file('image')->store('returns', 'public');
+            $validated['image_path'] = ImageCompressor::store($request->file('image'), 'returns');
         }
 
         $return = AssetReturn::create($validated);

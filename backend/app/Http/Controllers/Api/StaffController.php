@@ -9,6 +9,7 @@ use App\Models\Location;
 use App\Models\Program;
 use App\Models\Staff;
 use App\Models\User;
+use App\Services\ImageCompressor;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -69,7 +70,7 @@ class StaffController extends Controller
         [$data, $locationIds] = $this->withLocations($data);
 
         if ($request->hasFile('photo')) {
-            $data['photo_path'] = $request->file('photo')->store('staff_photos', 'public');
+            $data['photo_path'] = ImageCompressor::store($request->file('photo'), 'staff_photos');
         }
 
         $staff = DB::transaction(function () use ($data, $locationIds) {
@@ -128,7 +129,7 @@ class StaffController extends Controller
             if ($staff->photo_path) {
                 Storage::disk('public')->delete($staff->photo_path);
             }
-            $data['photo_path'] = $request->file('photo')->store('staff_photos', 'public');
+            $data['photo_path'] = ImageCompressor::store($request->file('photo'), 'staff_photos');
         }
 
         DB::transaction(function () use ($staff, $data, $locationIds) {

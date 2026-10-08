@@ -11,6 +11,7 @@ use App\Models\AssetTransfer;
 use App\Models\Notification;
 use App\Models\User;
 use App\Services\AssetNotificationService;
+use App\Services\ImageCompressor;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -60,7 +61,7 @@ class AssetDisposalController extends Controller
         }
 
         if ($request->hasFile('image')) {
-            $validated['image_path'] = $request->file('image')->store('disposals', 'public');
+            $validated['image_path'] = ImageCompressor::store($request->file('image'), 'disposals');
         }
 
         $validated['requested_by'] = Auth::id();

@@ -262,25 +262,30 @@ class SettingController extends Controller
             $db = config("database.connections.{$connection}");
             $filename = 'backup-'.date('Y-m-d-His').'.sql';
 
+            // These failures answer 422, not 500, on purpose: the message
+            // says what is wrong with the server's backup tooling, and the app
+            // replaces every 5xx message with a generic line.
             try {
                 $mysqldump = MysqlBinaryLocator::dump();
             } catch (RuntimeException $e) {
-                return response()->json(['message' => $e->getMessage()], 500);
+                return response()->json(['message' => $e->getMessage()], 422);
             }
 
             $result = Process::timeout(300)
                 ->env(MysqlBinaryLocator::environment($db['password']))
                 ->run([
                     $mysqldump,
+                    ...MysqlBinaryLocator::connectionOptions($mysqldump),
                     '-h', $db['host'],
                     '-P', (string) $db['port'],
                     '-u', $db['username'],
                     // Consistent snapshot without locking the app out mid-dump.
                     '--single-transaction',
-                    // Without this the dump carries the source server's GTID
-                    // state and refuses to load into any other server, which
-                    // would make these backups un-restorable off-box.
-                    '--set-gtid-purged=OFF',
+                    // Without this an Oracle mysqldump carries the source
+                    // server's GTID state and the dump refuses to load into any
+                    // other server. MariaDB's dump tool (the production image)
+                    // neither writes that state nor knows the option.
+                    ...(MysqlBinaryLocator::isMariaDb($mysqldump) ? [] : ['--set-gtid-purged=OFF']),
                     // A schema-only dump would restore to an app that boots but
                     // silently lost its stored logic.
                     '--routines',
@@ -299,7 +304,7 @@ class SettingController extends Controller
                 // offering a Restore button that could only destroy data.
                 @unlink($backupPath.'/'.$filename);
 
-                return response()->json(['message' => 'Backup failed: '.trim($result->errorOutput())], 500);
+                return response()->json(['message' => 'Backup failed: '.trim($result->errorOutput())], 422);
             }
         }
 
@@ -431,16 +436,16 @@ class SettingController extends Controller
             try {
                 $mysql = MysqlBinaryLocator::client();
             } catch (RuntimeException $e) {
-                return response()->json(['message' => $e->getMessage()], 500);
+                return response()->json(['message' => $e->getMessage()], 422);
             }
 
             $result = Process::timeout(300)
                 ->env(MysqlBinaryLocator::environment($db['password']))
                 ->input(fopen($backupPath, 'r'))
-                ->run([$mysql, '-h', $db['host'], '-P', (string) $db['port'], '-u', $db['username'], $db['database']]);
+                ->run([$mysql, ...MysqlBinaryLocator::connectionOptions($mysql), '-h', $db['host'], '-P', (string) $db['port'], '-u', $db['username'], $db['database']]);
 
             if (! $result->successful()) {
-                return response()->json(['message' => 'Restore failed: '.trim($result->errorOutput())], 500);
+                return response()->json(['message' => 'Restore failed: '.trim($result->errorOutput())], 422);
             }
         }
 
