@@ -10,11 +10,15 @@ RUN npm run build
 
 FROM php:8.2-fpm-alpine
 
+# mysql-client on Alpine is the MariaDB client (Settings > Backup shells out to
+# its dump/restore tools). mariadb-connector-c carries that client's login
+# plugins: without caching_sha2_password.so it cannot sign in to the MySQL 8
+# container at all ("Plugin caching_sha2_password could not be loaded").
 RUN apk add --no-cache \
   bash curl zip unzip git \
   libpng-dev libjpeg-turbo-dev freetype-dev \
   oniguruma-dev icu-dev libzip-dev \
-  mysql-client
+  mysql-client mariadb-connector-c
 
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
   && docker-php-ext-install gd pdo pdo_mysql intl mbstring opcache zip
