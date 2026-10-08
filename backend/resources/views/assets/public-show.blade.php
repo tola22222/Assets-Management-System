@@ -42,8 +42,10 @@
         {{-- Hero card --}}
         <div class="bg-white rounded-2xl card-shadow overflow-hidden mb-4">
             @if($asset->image_url)
-            <div class="aspect-[3/1] bg-gray-100 overflow-hidden">
-                <img src="{{ $asset->image_url }}" alt="{{ $asset->name }}" class="w-full h-full object-cover">
+            {{-- The whole photo, never cropped: full card width at its own
+                 shape, capped at 70% of the screen height on a tall photo. --}}
+            <div class="bg-gray-100 flex items-center justify-center">
+                <img src="{{ $asset->image_url }}" alt="{{ $asset->name }}" class="block w-full h-auto max-h-[70vh] object-contain">
             </div>
             @else
             <div class="aspect-[3/1] flex items-center justify-center" style="background:linear-gradient(135deg,#f0fdf4,#dcfce7)">
@@ -153,7 +155,7 @@
         <div id="verify-signin" class="bg-white rounded-2xl card-shadow overflow-hidden mb-4 no-print">
             <div class="px-5 py-4">
                 <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-3">Report Condition</p>
-                <a href="/app/login?redirect={{ urlencode('/qr-scan/'.$asset->asset_code) }}"
+                <a href="/app/login?return={{ urlencode('/asset/'.$asset->asset_code) }}"
                     class="block w-full py-3 bg-[#128a43] text-white text-sm font-bold rounded-xl hover:brightness-110 active:brightness-90 transition shadow-sm text-center">
                     Sign in to update
                 </a>
@@ -304,11 +306,10 @@
 
         if (!token) return;
 
-        // Signed in on this device: a scanned tag opens the app's QR Scan
-        // page for this asset (lookup, history, verify). Anyone not signed in
-        // stays on this read-only page; its Sign in button leads there too.
-        window.location.replace('/app/qr-scan/' + encodeURIComponent(code));
-        return;
+        // Signed in on this device: the tag's own page becomes editable — the
+        // Report Condition form takes the place of the Sign in button, in this
+        // same layout. Anyone not signed in stays on the read-only page; its
+        // Sign in button brings them back here.
         showForm(true);
 
         // Records who scanned this tag. The server folds a reload within two

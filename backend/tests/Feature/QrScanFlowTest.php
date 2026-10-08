@@ -54,8 +54,9 @@ class QrScanFlowTest extends TestCase
         $this->get("/asset/{$asset->asset_code}")
             ->assertOk()
             ->assertSee('Office Chair')
-            ->assertSee('/app/login?redirect='.urlencode('/qr-scan/'.$asset->asset_code), false)
-            ->assertSee("window.location.replace('/app/qr-scan/'", false)
+            ->assertSee('/app/login?return='.urlencode('/asset/'.$asset->asset_code), false)
+            // Signed-in users edit on this page; they are not sent to the SPA's scan screen.
+            ->assertDontSee("window.location.replace('/app/qr-scan/'", false)
             ->assertSee('<div id="verify-form-card" hidden', false)
             ->assertDontSee('action=', false);
     }
