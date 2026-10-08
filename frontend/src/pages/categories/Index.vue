@@ -3,6 +3,8 @@ import { ref, computed, onMounted, reactive, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import http, { errorMessage } from '../../api/http'
 import AppLayout from '../../layouts/AppLayout.vue'
+import DetailModal from '../../components/ui/DetailModal.vue'
+import { onRowClick } from '../../utils/rowClick'
 import Modal from '../../components/ui/Modal.vue'
 import ConfirmDialog from '../../components/ui/ConfirmDialog.vue'
 import SearchInput from '../../components/ui/SearchInput.vue'
@@ -135,6 +137,19 @@ async function confirmBulkDelete() {
 
 onMounted(fetchAll)
 
+// View: clicking a row opens its details (read-only), in the shared dialog.
+const viewing = ref(null)
+const viewRows = computed(() => {
+  const r = viewing.value
+  if (!r) return []
+  return [
+    { label: t('common.name'), value: r.name },
+    { label: t('categories.short_name'), value: r.short_name, type: 'code' },
+    { label: t('categories.assets_count'), value: String(r.shown_count ?? r.assets_count ?? 0) },
+    { label: t('common.description'), value: r.description, type: 'multiline' },
+  ]
+})
+
 // Pagination is the last step, applied to the finished list, so search
 // and sort still consider every row rather than just the page on screen.
 const { page, rowsPerPage, total, paged } = usePagination(filtered)
@@ -182,7 +197,7 @@ const { page, rowsPerPage, total, paged } = usePagination(filtered)
               </tr>
             </thead>
             <tbody>
-              <tr v-for="cat in paged" :key="cat.id">
+              <tr v-for="cat in paged" :key="cat.id" class="cursor-pointer" @click="onRowClick($event, () => viewing = cat)">
                 <td v-if="canManage">
                   <input v-if="canDelete" type="checkbox" :checked="selectedIds.includes(cat.id)" @change="toggleSelect(cat.id)" class="rounded border-line text-brand focus:ring-brand/30" />
                 </td>
@@ -266,5 +281,6 @@ const { page, rowsPerPage, total, paged } = usePagination(filtered)
       @confirm="confirmBulkDelete"
       @cancel="confirmingBulkDelete = false"
     />
+    <DetailModal v-if="viewing" :title="t('common.details')" :rows="viewRows" @close="viewing = null" />
   </AppLayout>
 </template>

@@ -2,7 +2,7 @@
 import { ref, computed, onMounted, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
 import http, { errorMessage } from '../../api/http'
-import Drawer from '../../components/ui/Drawer.vue'
+import Modal from '../../components/ui/Modal.vue'
 import ConfirmDialog from '../../components/ui/ConfirmDialog.vue'
 import SearchInput from '../../components/ui/SearchInput.vue'
 import PermissionMatrix from '../../components/ui/PermissionMatrix.vue'
@@ -316,8 +316,9 @@ defineExpose({ reload: load, openCreate })
       </div>
     </div>
 
-    <!-- Create / edit opens as a right-side drawer: the permission grid is long. -->
-    <Drawer v-if="showModal" :title="editing ? t('roles.edit_title', { name: editing.name }) : t('roles.create_title')" @close="showModal = false">
+    <!-- Create / edit opens in the global form dialog, like every other form;
+         `wide` gives the permission grid room and the body scrolls. -->
+    <Modal v-if="showModal" wide :title="editing ? t('roles.edit_title', { name: editing.name }) : t('roles.create_title')" @close="showModal = false">
       <form class="modal-form" @submit.prevent="requestSave">
         <div class="modal-body space-y-5">
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -364,7 +365,7 @@ defineExpose({ reload: load, openCreate })
           </button>
         </div>
       </form>
-    </Drawer>
+    </Modal>
 
     <ConfirmDialog
       v-if="confirmingSave"

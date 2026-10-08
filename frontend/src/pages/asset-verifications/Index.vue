@@ -3,6 +3,7 @@ import { ref, computed, onMounted, reactive, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import http, { errorMessage } from '../../api/http'
 import AppLayout from '../../layouts/AppLayout.vue'
+import { onRowClick } from '../../utils/rowClick'
 import Modal from '../../components/ui/Modal.vue'
 import SearchInput from '../../components/ui/SearchInput.vue'
 import DetailModal from '../../components/ui/DetailModal.vue'
@@ -240,7 +241,7 @@ const { page, rowsPerPage, total, paged } = usePagination(sortedVerifications)
               </tr>
             </thead>
             <tbody>
-              <tr v-for="v in paged" :key="v.id">
+              <tr v-for="v in paged" :key="v.id" class="cursor-pointer" @click="onRowClick($event, () => viewing = v)">
                 <td class="font-medium text-fg">{{ v.asset?.name || t('common.n_a') }}</td>
                 <td>{{ v.location?.name || t('common.n_a') }}</td>
                 <td class="capitalize">{{ v.condition }}</td>

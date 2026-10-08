@@ -3,6 +3,7 @@ import { ref, computed, onMounted, reactive, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import http, { errorMessage } from '../../api/http'
 import AppLayout from '../../layouts/AppLayout.vue'
+import { onRowClick } from '../../utils/rowClick'
 import StockAvailability from '../../components/ui/StockAvailability.vue'
 import Modal from '../../components/ui/Modal.vue'
 import StatusBadge from '../../components/ui/StatusBadge.vue'
@@ -426,7 +427,7 @@ const { page, rowsPerPage, total, paged } = usePagination(sortedTransfers)
               </tr>
             </thead>
             <tbody>
-              <tr v-for="t2 in paged" :key="t2.id">
+              <tr v-for="t2 in paged" :key="t2.id" class="cursor-pointer" @click="onRowClick($event, () => viewing = t2)">
                 <td class="font-medium text-fg">
                   <span class="flex items-center gap-3 min-w-0">
                     <img v-if="assetImage(t2)" :src="assetImage(t2)" :alt="t2.asset?.name" loading="lazy" @error="imageFailed(t2.asset.image_url)" class="w-10 h-10 rounded-lg object-cover border border-line flex-shrink-0" />

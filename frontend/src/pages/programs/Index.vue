@@ -3,6 +3,8 @@ import { ref, computed, onMounted, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
 import http, { errorMessage } from '../../api/http'
 import AppLayout from '../../layouts/AppLayout.vue'
+import DetailModal from '../../components/ui/DetailModal.vue'
+import { onRowClick } from '../../utils/rowClick'
 import Modal from '../../components/ui/Modal.vue'
 import ConfirmDialog from '../../components/ui/ConfirmDialog.vue'
 import SearchInput from '../../components/ui/SearchInput.vue'
@@ -147,6 +149,19 @@ async function confirmBulkDelete() {
   }
 }
 
+// View: clicking a row opens its details (read-only), in the shared dialog.
+const viewing = ref(null)
+const viewRows = computed(() => {
+  const r = viewing.value
+  if (!r) return []
+  return [
+    { label: t('common.name'), value: r.name },
+    { label: t('programs.school'), value: schoolNames(r) },
+    { label: t('programs.responsible_staff'), value: r.responsible_staff?.full_name },
+    { label: t('common.description'), value: r.description, type: 'multiline' },
+  ]
+})
+
 onMounted(() => {
   fetchAll()
   loadOptions()
@@ -201,7 +216,7 @@ const { page, rowsPerPage, total, paged } = usePagination(filtered)
               </tr>
             </thead>
             <tbody>
-              <tr v-for="p in paged" :key="p.id">
+              <tr v-for="p in paged" :key="p.id" class="cursor-pointer" @click="onRowClick($event, () => viewing = p)">
                 <td v-if="canManage">
                   <input v-if="canDelete" type="checkbox" :checked="selectedIds.includes(p.id)" @change="toggleSelect(p.id)" class="rounded border-line text-brand focus:ring-brand/30" />
                 </td>
@@ -280,5 +295,6 @@ const { page, rowsPerPage, total, paged } = usePagination(filtered)
       @confirm="confirmBulkDelete"
       @cancel="confirmingBulkDelete = false"
     />
+    <DetailModal v-if="viewing" :title="t('common.details')" :rows="viewRows" @close="viewing = null" />
   </AppLayout>
 </template>

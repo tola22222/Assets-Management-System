@@ -2,6 +2,8 @@
 import { ref, computed, onMounted, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '../../layouts/AppLayout.vue'
+import DetailModal from '../../components/ui/DetailModal.vue'
+import { onRowClick } from '../../utils/rowClick'
 import Modal from '../../components/ui/Modal.vue'
 import ConfirmDialog from '../../components/ui/ConfirmDialog.vue'
 import SearchInput from '../../components/ui/SearchInput.vue'
@@ -92,6 +94,19 @@ async function confirmBulkDelete() {
 
 onMounted(fetchAll)
 
+// View: clicking a row opens its details (read-only), in the shared dialog.
+const viewing = ref(null)
+const viewRows = computed(() => {
+  const r = viewing.value
+  if (!r) return []
+  return [
+    { label: t('common.name'), value: r.name },
+    { label: t('common.phone'), value: r.phone },
+    { label: t('common.address'), value: r.address, type: 'multiline' },
+    { label: t('suppliers.photo'), value: r.image_url, type: 'image' },
+  ]
+})
+
 // A photo whose file is gone from storage shows the placeholder instead of a
 // broken image.
 const brokenImages = ref(new Set())
@@ -146,7 +161,7 @@ const { page, rowsPerPage, total, paged } = usePagination(filtered)
               </tr>
             </thead>
             <tbody>
-              <tr v-for="s in paged" :key="s.id">
+              <tr v-for="s in paged" :key="s.id" class="cursor-pointer" @click="onRowClick($event, () => viewing = s)">
                 <td v-if="canManage">
                   <input v-if="canDelete" type="checkbox" :checked="selectedIds.includes(s.id)" @change="toggleSelect(s.id)" class="rounded border-line text-brand focus:ring-brand/30" />
                 </td>
@@ -221,5 +236,6 @@ const { page, rowsPerPage, total, paged } = usePagination(filtered)
       @confirm="confirmBulkDelete"
       @cancel="confirmingBulkDelete = false"
     />
+    <DetailModal v-if="viewing" :title="t('common.details')" :rows="viewRows" @close="viewing = null" />
   </AppLayout>
 </template>

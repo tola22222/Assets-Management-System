@@ -3,6 +3,7 @@ import { ref, computed, onMounted, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
 import http, { errorMessage } from '../../api/http'
 import AppLayout from '../../layouts/AppLayout.vue'
+import { onRowClick } from '../../utils/rowClick'
 import Modal from '../../components/ui/Modal.vue'
 import StatusBadge from '../../components/ui/StatusBadge.vue'
 import DetailModal from '../../components/ui/DetailModal.vue'
@@ -184,7 +185,7 @@ const { page, rowsPerPage, total, paged } = usePagination(sortedDisposals)
               </tr>
             </thead>
             <tbody>
-              <tr v-for="d in paged" :key="d.id">
+              <tr v-for="d in paged" :key="d.id" class="cursor-pointer" @click="onRowClick($event, () => viewing = d)">
                 <td class="font-medium text-fg">{{ d.asset?.name || t('common.n_a') }}</td>
                 <td class="capitalize">{{ d.recommended_action }}</td>
                 <td class="max-w-xs truncate" :title="d.reason">{{ d.reason }}</td>

@@ -10,6 +10,10 @@ import { useLocale } from '../../composables/useLocale'
 import { useTheme } from '../../composables/useTheme'
 import { useThemeColor } from '../../composables/useThemeColor'
 import { useBranding } from '../../composables/useBranding'
+import { useTableSort } from '../../composables/useTableSort'
+import { usePagination } from '../../composables/usePagination'
+import TableSortIcon from '../../components/ui/TableSortIcon.vue'
+import TablePagination from '../../components/ui/TablePagination.vue'
 import ImageField from '../../components/ui/ImageField.vue'
 
 const { t } = useI18n()
@@ -225,6 +229,10 @@ async function sendTestEmail() {
 
 // Backup & Restore
 const backups = ref([])
+// The backups list as a global data table: sortable headers and pagination,
+// newest first like every other list.
+const { sortKey: backupSortKey, sortDir: backupSortDir, toggleSort: backupToggleSort, sorted: backupsSorted } = useTableSort(backups, { defaultKey: 'date', defaultDir: 'desc' })
+const { page: backupPage, rowsPerPage: backupRows, total: backupTotal, paged: backupsPaged } = usePagination(backupsSorted)
 const backingUp = ref(false)
 const pendingRestore = ref(null)
 const pendingDelete = ref(null)
@@ -343,7 +351,7 @@ onMounted(() => {
          desktop, a horizontal scroller on phones) and one card per section on
          the right. The colours come straight from the layout: the rail's
          selected item is the sidebar's brand green with a gold marker bar. -->
-    <div class="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto">
+    <div class="p-6 sm:p-8">
 
       <div class="min-w-0 mb-6">
         <h1 class="font-display text-2xl font-bold text-fg tracking-tight">{{ t('settings.title') }}</h1>
@@ -737,7 +745,7 @@ onMounted(() => {
                         type="button"
                         @click="sendTestEmail"
                         :disabled="sendingTest || !testEmail"
-                        class="btn-ghost w-full sm:w-auto sm:flex-shrink-0"
+                        class="btn-ghost btn-sm w-full sm:w-auto sm:flex-shrink-0"
                       >
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" /></svg>
                         {{ sendingTest ? t('settings.mail_test_sending') : t('settings.mail_test_send') }}
@@ -757,8 +765,8 @@ onMounted(() => {
               <div class="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-3 rounded-2xl border border-line bg-surface/90 backdrop-blur px-4 py-3 shadow-[var(--shadow-pop)]">
                 <p class="text-xs text-faint sm:mr-auto">{{ t('settings.save_hint') }}</p>
                 <div class="flex flex-col-reverse sm:flex-row sm:items-center gap-3 w-full sm:w-auto">
-                  <button type="button" @click="discardChanges" class="btn-ghost w-full sm:w-auto">{{ t('common.cancel') }}</button>
-                  <button type="submit" :disabled="saving" class="btn-primary w-full sm:w-auto">
+                  <button type="button" @click="discardChanges" class="btn-ghost btn-sm w-full sm:w-auto">{{ t('common.cancel') }}</button>
+                  <button type="submit" :disabled="saving" class="btn-primary btn-sm w-full sm:w-auto">
                     <svg v-if="saving" class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2.5" class="opacity-25" /><path d="M21 12a9 9 0 00-9-9" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" /></svg>
                     {{ t('settings.save') }}
                   </button>
@@ -839,13 +847,18 @@ onMounted(() => {
                      without it the Restore and Delete buttons are clipped
                      off-screen and unreachable on a phone rather than scrolled
                      to. -->
-                <div v-if="backups.length" class="border border-line rounded-xl overflow-x-auto">
+                <div v-if="backups.length" class="overflow-x-auto">
                   <table class="data-table">
                     <thead>
-                      <tr><th>{{ t('settings.file') }}</th><th>{{ t('settings.size') }}</th><th>{{ t('settings.created') }}</th><th></th></tr>
+                      <tr>
+                        <th class="th-sort" @click="backupToggleSort('name')">{{ t('settings.file') }}<TableSortIcon :active="backupSortKey === 'name'" :direction="backupSortDir" /></th>
+                        <th class="th-sort" @click="backupToggleSort('size')">{{ t('settings.size') }}<TableSortIcon :active="backupSortKey === 'size'" :direction="backupSortDir" /></th>
+                        <th class="th-sort" @click="backupToggleSort('date')">{{ t('settings.created') }}<TableSortIcon :active="backupSortKey === 'date'" :direction="backupSortDir" /></th>
+                        <th class="text-right">{{ t('common.actions') }}</th>
+                      </tr>
                     </thead>
                     <tbody>
-                      <tr v-for="b in backups" :key="b.name">
+                      <tr v-for="b in backupsPaged" :key="b.name">
                         <!-- nowrap on the filename and size: both are short,
                              unbreakable values, and letting them wrap split
                              "69 KB" over two lines and broke filenames
@@ -862,7 +875,7 @@ onMounted(() => {
                         <!-- Row actions match every other table in the app:
                              square icon buttons, destructive one in the danger
                              variant. The label moves to the tooltip/aria-label. -->
-                        <td class="text-right pr-5 whitespace-nowrap">
+                        <td class="text-right whitespace-nowrap">
                           <div class="flex items-center justify-end gap-1.5">
                             <button
                               type="button"
@@ -898,6 +911,7 @@ onMounted(() => {
                     </tbody>
                   </table>
                 </div>
+                <TablePagination v-if="backups.length" v-model:page="backupPage" v-model:rows-per-page="backupRows" :count="backupTotal" />
                 <!-- Empty state gets a dashed placeholder rather than one bare
                      line of grey text drifting under the heading. -->
                 <div v-else class="rounded-xl border border-dashed border-line bg-surface-2/50 px-4 py-8 text-center">

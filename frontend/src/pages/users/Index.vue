@@ -3,6 +3,7 @@ import { ref, onMounted, reactive, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import http, { errorMessage } from '../../api/http'
 import AppLayout from '../../layouts/AppLayout.vue'
+import { onRowClick } from '../../utils/rowClick'
 import Modal from '../../components/ui/Modal.vue'
 import ConfirmDialog from '../../components/ui/ConfirmDialog.vue'
 import SearchInput from '../../components/ui/SearchInput.vue'
@@ -238,18 +239,18 @@ const { page, rowsPerPage, total, paged } = usePagination(filtered)
     <!-- Page shell matches System Settings: the title block sits on the canvas
          with a brand tile beside it, and the content lives in its own card
          below, rather than everything sharing one oversized panel. -->
-    <div class="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-5">
+    <div class="p-6 sm:p-8 space-y-5">
 
       <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
         <div class="min-w-0">
           <h1 class="font-display text-2xl font-bold text-fg tracking-tight">{{ t('users.title') }}</h1>
           <p class="text-muted text-sm mt-1">{{ t('users.subtitle') }}</p>
         </div>
-        <button v-if="tab === 'users'" @click="openCreate" class="btn-primary flex-shrink-0">
+        <button v-if="tab === 'users'" @click="openCreate" class="btn-primary btn-sm flex-shrink-0">
           <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
           {{ t('users.new') }}
         </button>
-        <button v-else-if="can('roles', 'create')" @click="rolesPanel?.openCreate()" class="btn-primary flex-shrink-0">
+        <button v-else-if="can('roles', 'create')" @click="rolesPanel?.openCreate()" class="btn-primary btn-sm flex-shrink-0">
           <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
           {{ t('roles.new') }}
         </button>
@@ -313,7 +314,7 @@ const { page, rowsPerPage, total, paged } = usePagination(filtered)
                 <tr v-for="n in (loading ? 4 : 0)" :key="'sk' + n">
                   <td colspan="6"><div class="h-8 rounded-lg bg-surface-2 animate-pulse"></div></td>
                 </tr>
-                <tr v-for="u in paged" :key="u.id">
+                <tr v-for="u in paged" :key="u.id" class="cursor-pointer" @click="onRowClick($event, () => openPermissions(u))">
                   <td>
                     <input type="checkbox" :checked="selectedIds.includes(u.id)" @change="toggleSelect(u.id)" :disabled="isSelf(u)"
                       :title="isSelf(u) ? t('users.cannot_delete_self') : ''" class="rounded border-line text-brand focus:ring-brand/30 disabled:opacity-40" />

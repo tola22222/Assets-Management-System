@@ -3,6 +3,8 @@ import { ref, computed, onMounted, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
 import http, { errorMessage } from '../../api/http'
 import AppLayout from '../../layouts/AppLayout.vue'
+import DetailModal from '../../components/ui/DetailModal.vue'
+import { onRowClick } from '../../utils/rowClick'
 import Modal from '../../components/ui/Modal.vue'
 import ConfirmDialog from '../../components/ui/ConfirmDialog.vue'
 import SearchInput from '../../components/ui/SearchInput.vue'
@@ -165,6 +167,24 @@ async function confirmBulkDelete() {
   clearSelection()
 }
 
+// View: clicking a row opens its details (read-only), in the shared dialog.
+const viewing = ref(null)
+const viewRows = computed(() => {
+  const r = viewing.value
+  if (!r) return []
+  return [
+    { label: t('staff.photo'), value: r.photo_path_url, type: 'image' },
+    { label: t('common.name'), value: r.full_name },
+    { label: t('staff.position'), value: r.position },
+    { label: t('common.phone'), value: r.phone },
+    { label: t('common.email'), value: r.email },
+    { label: t('common.location'), value: (r.locations || []).map((l) => l.name).join(', ') || r.location?.name },
+    { label: t('staff.program'), value: r.program?.name },
+    { label: t('staff.hire_date'), value: (r.hire_date || '').slice(0, 10) },
+    { label: t('common.status'), value: r.status, type: 'status' },
+  ]
+})
+
 onMounted(() => {
   fetchAll()
   loadLocationOptions()
@@ -218,7 +238,7 @@ const { page, rowsPerPage, total, paged } = usePagination(filtered)
               </tr>
             </thead>
             <tbody>
-              <tr v-for="s in paged" :key="s.id">
+              <tr v-for="s in paged" :key="s.id" class="cursor-pointer" @click="onRowClick($event, () => viewing = s)">
                 <td v-if="canManage">
                   <input v-if="canDelete" type="checkbox" :checked="selectedIds.includes(s.id)" @change="toggleSelect(s.id)" class="rounded border-line text-brand focus:ring-brand/30" />
                 </td>
@@ -332,5 +352,6 @@ const { page, rowsPerPage, total, paged } = usePagination(filtered)
       @confirm="confirmBulkDelete"
       @cancel="confirmingBulkDelete = false"
     />
+    <DetailModal v-if="viewing" :title="t('common.details')" :rows="viewRows" @close="viewing = null" />
   </AppLayout>
 </template>

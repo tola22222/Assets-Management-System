@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import http, { errorMessage } from '../../api/http'
 import AppLayout from '../../layouts/AppLayout.vue'
+import { onRowClick } from '../../utils/rowClick'
 import Modal from '../../components/ui/Modal.vue'
 import ConfirmDialog from '../../components/ui/ConfirmDialog.vue'
 import SearchInput from '../../components/ui/SearchInput.vue'
@@ -414,7 +415,7 @@ const showImport = ref(false)
               </tr>
             </thead>
             <tbody>
-              <tr v-for="asset in paged" :key="asset.id">
+              <tr v-for="asset in paged" :key="asset.id" class="cursor-pointer" @click="onRowClick($event, () => viewing = asset)">
                 <td v-if="canDelete">
                   <input type="checkbox" :checked="selectedIds.includes(asset.id)" @change="toggleSelect(asset.id)" class="rounded border-line text-brand focus:ring-brand/30" />
                 </td>
