@@ -485,6 +485,20 @@
   .data-table tbody td {
     @apply px-4 py-3 text-[13px] text-fg align-middle first:pl-5 last:pr-5;
   }
+  /* System Settings rows, styled after the data table's rows: the same
+     lighter rule between rows, row height, 13px text and hover wash — a
+     label on the left and its field on the right, centred on the row. */
+  .settings-rows {
+    @apply divide-y divide-line/70;
+  }
+  .settings-row {
+    @apply grid grid-cols-1 md:grid-cols-[200px_minmax(0,1fr)] items-center gap-x-8 gap-y-2
+           px-5 sm:px-6 py-3.5 transition-colors hover:bg-surface-2/60;
+  }
+  .settings-label {
+    @apply block text-[13px] font-semibold text-fg;
+  }
+
   /* One line per record, on every data table: cells never wrap, and a long
      value is cut with an ellipsis at a sensible width (the row's View and the
      hover title carry the full text). Cells holding buttons are left alone so

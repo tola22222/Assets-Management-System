@@ -411,7 +411,7 @@ onMounted(() => {
               <div class="w-[52px] h-[52px] rounded-full bg-line animate-pulse flex-shrink-0"></div>
               <div class="h-4 w-40 rounded bg-line animate-pulse"></div>
             </div>
-            <div class="divide-y divide-line">
+            <div class="settings-rows">
               <div v-for="n in 4" :key="n" class="px-5 sm:px-6 py-5 flex items-center gap-8">
                 <div class="h-3.5 w-32 rounded bg-line animate-pulse flex-shrink-0"></div>
                 <div class="h-9 flex-1 max-w-md rounded-xl bg-line/60 animate-pulse"></div>
@@ -445,26 +445,26 @@ onMounted(() => {
                 </div>
               </header>
 
-              <div class="divide-y divide-line">
+              <div class="settings-rows">
 
                 <!-- ── General ─────────────────────────────────────────── -->
                 <template v-if="activeTab === 'general'">
-                  <div class="grid grid-cols-1 md:grid-cols-[200px_minmax(0,1fr)] gap-x-8 gap-y-3 px-5 sm:px-6 py-5">
-                    <label class="block text-sm font-semibold text-fg md:pr-4">{{ t('settings.organization_name') }}</label>
+                  <div class="settings-row">
+                    <label class="settings-label md:pr-4">{{ t('settings.organization_name') }}</label>
                     <div><input v-model="form.organization_name" class="input max-w-md" /></div>
                   </div>
 
-                  <div class="grid grid-cols-1 md:grid-cols-[200px_minmax(0,1fr)] gap-x-8 gap-y-3 px-5 sm:px-6 py-5">
+                  <div class="settings-row">
                     <div class="md:pr-4">
-                      <label class="block text-sm font-semibold text-fg">{{ t('settings.system_name') }}</label>
+                      <label class="settings-label">{{ t('settings.system_name') }}</label>
                       <p class="text-[13px] text-muted mt-1">{{ t('settings.system_name_desc') }}</p>
                     </div>
                     <div><input v-model="form.system_name" class="input max-w-md" /></div>
                   </div>
 
-                  <div class="grid grid-cols-1 md:grid-cols-[200px_minmax(0,1fr)] gap-x-8 gap-y-3 px-5 sm:px-6 py-5">
+                  <div class="settings-row">
                     <div class="md:pr-4">
-                      <label class="block text-sm font-semibold text-fg">{{ t('settings.logo') }}</label>
+                      <label class="settings-label">{{ t('settings.logo') }}</label>
                       <p class="text-[13px] text-muted mt-1">{{ t('settings.logo_hint') }}</p>
                     </div>
                     <div class="max-w-md">
@@ -472,24 +472,24 @@ onMounted(() => {
                     </div>
                   </div>
 
-                  <div class="grid grid-cols-1 md:grid-cols-[200px_minmax(0,1fr)] gap-x-8 gap-y-3 px-5 sm:px-6 py-5">
-                    <label class="block text-sm font-semibold text-fg md:pr-4">{{ t('settings.email') }}</label>
+                  <div class="settings-row">
+                    <label class="settings-label md:pr-4">{{ t('settings.email') }}</label>
                     <div><input v-model="form.email" type="email" class="input max-w-md" /></div>
                   </div>
 
-                  <div class="grid grid-cols-1 md:grid-cols-[200px_minmax(0,1fr)] gap-x-8 gap-y-3 px-5 sm:px-6 py-5">
-                    <label class="block text-sm font-semibold text-fg md:pr-4">{{ t('settings.phone') }}</label>
+                  <div class="settings-row">
+                    <label class="settings-label md:pr-4">{{ t('settings.phone') }}</label>
                     <div><input v-model="form.phone" class="input max-w-xs" /></div>
                   </div>
 
-                  <div class="grid grid-cols-1 md:grid-cols-[200px_minmax(0,1fr)] gap-x-8 gap-y-3 px-5 sm:px-6 py-5">
-                    <label class="block text-sm font-semibold text-fg md:pr-4">{{ t('settings.address') }}</label>
+                  <div class="settings-row">
+                    <label class="settings-label md:pr-4">{{ t('settings.address') }}</label>
                     <div><textarea v-model="form.address" rows="3" class="textarea max-w-md"></textarea></div>
                   </div>
 
-                  <div class="grid grid-cols-1 md:grid-cols-[200px_minmax(0,1fr)] gap-x-8 gap-y-3 px-5 sm:px-6 py-5">
+                  <div class="settings-row">
                     <div class="md:pr-4">
-                      <label class="block text-sm font-semibold text-fg">{{ t('settings.qr_size') }}</label>
+                      <label class="settings-label">{{ t('settings.qr_size') }}</label>
                       <p class="text-[13px] text-muted mt-1">{{ t('settings.qr_size_desc') }}</p>
                     </div>
                     <div class="flex items-center gap-2">
@@ -501,9 +501,9 @@ onMounted(() => {
 
                 <!-- ── Appearance ──────────────────────────────────────── -->
                 <template v-if="activeTab === 'appearance'">
-                  <div class="grid grid-cols-1 md:grid-cols-[200px_minmax(0,1fr)] gap-x-8 gap-y-3 px-5 sm:px-6 py-5">
+                  <div class="settings-row">
                     <div class="md:pr-4">
-                      <label class="block text-sm font-semibold text-fg">{{ t('settings.theme_color') }}</label>
+                      <label class="settings-label">{{ t('settings.theme_color') }}</label>
                       <p class="text-[13px] text-muted mt-1">{{ t('settings.theme_color_desc') }}</p>
                     </div>
                     <div class="flex items-center gap-2">
@@ -530,9 +530,9 @@ onMounted(() => {
                   <!-- Light/dark holds no form field: it is a per-browser
                        localStorage preference that applies the moment it is
                        clicked, so it is not submitted with the rest. -->
-                  <div class="grid grid-cols-1 md:grid-cols-[200px_minmax(0,1fr)] gap-x-8 gap-y-3 px-5 sm:px-6 py-5">
+                  <div class="settings-row">
                     <div class="md:pr-4">
-                      <label class="block text-sm font-semibold text-fg">{{ t('settings.dark_mode') }}</label>
+                      <label class="settings-label">{{ t('settings.dark_mode') }}</label>
                       <p class="text-[13px] text-muted mt-1">{{ t('settings.dark_mode_hint') }}</p>
                     </div>
                     <div class="grid grid-cols-2 gap-4 max-w-md">
@@ -591,9 +591,9 @@ onMounted(() => {
                     </div>
                   </div>
 
-                  <div class="grid grid-cols-1 md:grid-cols-[200px_minmax(0,1fr)] gap-x-8 gap-y-3 px-5 sm:px-6 py-5">
+                  <div class="settings-row">
                     <div class="md:pr-4">
-                      <label class="block text-sm font-semibold text-fg">{{ t('settings.language') }}</label>
+                      <label class="settings-label">{{ t('settings.language') }}</label>
                       <p class="text-[13px] text-muted mt-1">{{ t('settings.language_desc') }}</p>
                     </div>
                     <div>
@@ -611,18 +611,18 @@ onMounted(() => {
                        at the saved interval (every month unless changed before),
                        which is no longer edited here but still saved as it is. An
                        empty date counts from the last report instead. -->
-                  <div class="grid grid-cols-1 md:grid-cols-[200px_minmax(0,1fr)] gap-x-8 gap-y-3 px-5 sm:px-6 py-5">
+                  <div class="settings-row">
                     <div class="md:pr-4">
-                      <label for="report-start-date" class="block text-sm font-semibold text-fg">{{ t('settings.report_start_date') }}</label>
+                      <label for="report-start-date" class="settings-label">{{ t('settings.report_start_date') }}</label>
                     </div>
                     <div>
                       <input id="report-start-date" v-model="form.report_start_date" type="date" class="input w-48" />
                     </div>
                   </div>
 
-                  <div class="grid grid-cols-1 md:grid-cols-[200px_minmax(0,1fr)] gap-x-8 gap-y-3 px-5 sm:px-6 py-5">
+                  <div class="settings-row">
                     <div class="md:pr-4">
-                      <label class="block text-sm font-semibold text-fg">{{ t('settings.report_recipient_email') }}</label>
+                      <label class="settings-label">{{ t('settings.report_recipient_email') }}</label>
                       <p class="text-[13px] text-muted mt-1">{{ t('settings.report_recipient_email_hint') }}</p>
                     </div>
                     <div><input v-model="form.report_recipient_email" type="email" placeholder="reports@example.com" class="input max-w-md" /></div>
@@ -630,8 +630,8 @@ onMounted(() => {
 
                   <!-- Derived from the last send plus the interval above, so an
                        admin can see when the next scheduled report goes out. -->
-                  <div class="grid grid-cols-1 md:grid-cols-[200px_minmax(0,1fr)] gap-x-8 gap-y-3 px-5 sm:px-6 py-5">
-                    <label class="block text-sm font-semibold text-fg md:pr-4">{{ t('settings.next_report_due') }}</label>
+                  <div class="settings-row">
+                    <label class="settings-label md:pr-4">{{ t('settings.next_report_due') }}</label>
                     <div>
                       <div class="inline-flex items-center gap-2.5 rounded-xl bg-brand/5 dark:bg-white/5 border border-line px-3.5 py-2.5 text-sm text-fg max-w-md">
                         <svg class="w-4 h-4 text-brand dark:text-white flex-shrink-0" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :d="I.calendar" /></svg>
@@ -640,9 +640,9 @@ onMounted(() => {
                     </div>
                   </div>
 
-                  <div class="grid grid-cols-1 md:grid-cols-[200px_minmax(0,1fr)] gap-x-8 gap-y-3 px-5 sm:px-6 py-5">
+                  <div class="settings-row">
                     <div class="md:pr-4">
-                      <label class="block text-sm font-semibold text-fg">{{ t('settings.staff_role') }}</label>
+                      <label class="settings-label">{{ t('settings.staff_role') }}</label>
                       <p class="text-[13px] text-muted mt-1">{{ t('settings.include_staff_in_reports_hint') }}</p>
                     </div>
                     <div>
@@ -656,9 +656,9 @@ onMounted(() => {
 
                 <!-- ── Outgoing email ──────────────────────────────────── -->
                 <template v-if="activeTab === 'mail'">
-                  <div class="grid grid-cols-1 md:grid-cols-[200px_minmax(0,1fr)] gap-x-8 gap-y-3 px-5 sm:px-6 py-5">
+                  <div class="settings-row">
                     <div class="md:pr-4">
-                      <label class="block text-sm font-semibold text-fg">{{ t('settings.mail_mailer') }}</label>
+                      <label class="settings-label">{{ t('settings.mail_mailer') }}</label>
                       <p class="text-[13px] text-muted mt-1">{{ t('settings.mail_mailer_desc') }}</p>
                     </div>
                     <div>
@@ -669,8 +669,8 @@ onMounted(() => {
                     </div>
                   </div>
 
-                  <div class="grid grid-cols-1 md:grid-cols-[200px_minmax(0,1fr)] gap-x-8 gap-y-3 px-5 sm:px-6 py-5">
-                    <label class="block text-sm font-semibold text-fg md:pr-4">{{ t('settings.mail_server') }}</label>
+                  <div class="settings-row">
+                    <label class="settings-label md:pr-4">{{ t('settings.mail_server') }}</label>
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-md">
                       <div class="sm:col-span-2">
                         <label class="label">{{ t('settings.mail_host') }}</label>
@@ -683,8 +683,8 @@ onMounted(() => {
                     </div>
                   </div>
 
-                  <div class="grid grid-cols-1 md:grid-cols-[200px_minmax(0,1fr)] gap-x-8 gap-y-3 px-5 sm:px-6 py-5">
-                    <label class="block text-sm font-semibold text-fg md:pr-4">{{ t('settings.mail_encryption') }}</label>
+                  <div class="settings-row">
+                    <label class="settings-label md:pr-4">{{ t('settings.mail_encryption') }}</label>
                     <div>
                       <select v-model="form.mail_encryption" class="select w-60">
                         <option value="tls">TLS</option>
@@ -694,9 +694,9 @@ onMounted(() => {
                     </div>
                   </div>
 
-                  <div class="grid grid-cols-1 md:grid-cols-[200px_minmax(0,1fr)] gap-x-8 gap-y-3 px-5 sm:px-6 py-5">
+                  <div class="settings-row">
                     <div class="md:pr-4">
-                      <label class="block text-sm font-semibold text-fg">{{ t('settings.mail_credentials') }}</label>
+                      <label class="settings-label">{{ t('settings.mail_credentials') }}</label>
                       <p class="text-[13px] text-muted mt-1">{{ t('settings.mail_credentials_desc') }}</p>
                     </div>
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-md">
@@ -717,8 +717,8 @@ onMounted(() => {
                     </div>
                   </div>
 
-                  <div class="grid grid-cols-1 md:grid-cols-[200px_minmax(0,1fr)] gap-x-8 gap-y-3 px-5 sm:px-6 py-5">
-                    <label class="block text-sm font-semibold text-fg md:pr-4">{{ t('settings.mail_from') }}</label>
+                  <div class="settings-row">
+                    <label class="settings-label md:pr-4">{{ t('settings.mail_from') }}</label>
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-md">
                       <div>
                         <label class="label">{{ t('settings.mail_from_address') }}</label>
@@ -731,9 +731,9 @@ onMounted(() => {
                     </div>
                   </div>
 
-                  <div class="grid grid-cols-1 md:grid-cols-[200px_minmax(0,1fr)] gap-x-8 gap-y-3 px-5 sm:px-6 py-5">
+                  <div class="settings-row">
                     <div class="md:pr-4">
-                      <label class="block text-sm font-semibold text-fg">{{ t('settings.mail_test') }}</label>
+                      <label class="settings-label">{{ t('settings.mail_test') }}</label>
                       <p class="text-[13px] text-muted mt-1">{{ t('settings.mail_test_hint') }}</p>
                     </div>
                     <div class="flex flex-wrap gap-2 max-w-md">
@@ -796,9 +796,9 @@ onMounted(() => {
               </div>
             </header>
 
-            <div class="divide-y divide-line">
-              <div v-if="databaseDriver" class="grid grid-cols-1 md:grid-cols-[200px_minmax(0,1fr)] gap-x-8 gap-y-3 px-5 sm:px-6 py-5">
-                <label class="block text-sm font-semibold text-fg md:pr-4">{{ t('settings.backup_format') }}</label>
+            <div class="settings-rows">
+              <div v-if="databaseDriver" class="settings-row">
+                <label class="settings-label md:pr-4">{{ t('settings.backup_format') }}</label>
                 <div>
                   <div class="inline-flex items-start gap-2.5 rounded-xl bg-brand/5 dark:bg-white/5 border border-line px-3.5 py-2.5 text-sm text-fg max-w-md">
                     <svg class="w-4 h-4 mt-0.5 text-brand dark:text-white flex-shrink-0" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :d="I.info" /></svg>
@@ -809,9 +809,9 @@ onMounted(() => {
 
               <!-- Restoring a dump this server did not make is only possible if
                    it can be uploaded first. -->
-              <div class="grid grid-cols-1 md:grid-cols-[200px_minmax(0,1fr)] gap-x-8 gap-y-3 px-5 sm:px-6 py-5">
+              <div class="settings-row">
                 <div class="md:pr-4">
-                  <label class="block text-sm font-semibold text-fg">{{ t('settings.upload_backup') }}</label>
+                  <label class="settings-label">{{ t('settings.upload_backup') }}</label>
                   <p class="text-[13px] text-muted mt-1">{{ t('settings.upload_backup_hint') }}</p>
                 </div>
                 <div class="flex flex-wrap items-center gap-2">
