@@ -6,10 +6,13 @@ use App\Models\Asset;
 use App\Models\AssetCategory;
 use App\Models\AssetScan;
 use App\Models\AssetTransfer;
+use App\Models\AssetVerification;
 use App\Models\Location;
 use App\Models\Staff;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 /**
@@ -109,6 +112,30 @@ class QrScanFlowTest extends TestCase
         $this->travel(5)->minutes();
         $this->actingAs($staff)->postJson('/api/qr-scan', ['asset_code' => $asset->asset_code])->assertOk();
         $this->assertDatabaseCount('asset_scans', 2);
+    }
+
+    public function test_a_photo_taken_at_the_scan_is_saved_on_the_verification(): void
+    {
+        Storage::fake('public');
+        $asset = $this->makeAsset();
+        $opm = User::factory()->create(['role' => 'operations_hr_manager']);
+
+        $this->actingAs($opm)->post("/api/qr-scan/{$asset->asset_code}/verify", [
+            'location_id' => $asset->location_id,
+            'condition' => 'fair',
+            'image' => UploadedFile::fake()->image('found.jpg', 800, 600),
+        ], ['Accept' => 'application/json'])->assertOk();
+
+        $verification = AssetVerification::where('asset_id', $asset->id)->latest('id')->firstOrFail();
+        $this->assertNotNull($verification->image_path);
+        Storage::disk('public')->assertExists($verification->image_path);
+
+        // The photo is optional, and only an image is accepted.
+        $this->actingAs($opm)->postJson("/api/qr-scan/{$asset->asset_code}/verify", ['location_id' => $asset->location_id, 'condition' => 'good'])->assertOk();
+        $this->actingAs($opm)->post("/api/qr-scan/{$asset->asset_code}/verify", [
+            'location_id' => $asset->location_id, 'condition' => 'good',
+            'image' => UploadedFile::fake()->create('notes.pdf', 10, 'application/pdf'),
+        ], ['Accept' => 'application/json'])->assertStatus(422);
     }
 
     public function test_verifying_at_the_recorded_location_leaves_the_asset_where_it_is(): void

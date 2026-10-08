@@ -186,6 +186,21 @@
                     </div>
                     <textarea name="remark" rows="2" placeholder="Add a remark (optional)..."
                         class="w-full bg-gray-50 border-0 rounded-xl px-3.5 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#128a43]/30 transition resize-none placeholder-gray-400"></textarea>
+                    {{-- Optional photo of the asset as found. On a phone the button
+                         opens the camera (or the gallery). Sent as it is; up to 5 MB. --}}
+                    <input type="file" name="photo" id="verify-photo" accept="image/*" capture="environment" hidden>
+                    <div id="verify-photo-preview" hidden class="flex items-center gap-3 bg-gray-50 rounded-xl p-2.5">
+                        <img id="verify-photo-img" alt="" class="w-16 h-16 rounded-lg object-cover border border-gray-200 shrink-0">
+                        <div class="min-w-0 flex-1">
+                            <p id="verify-photo-name" class="text-sm font-medium text-gray-800 truncate"></p>
+                            <p id="verify-photo-size" class="text-xs text-gray-500 mt-0.5"></p>
+                        </div>
+                        <button type="button" id="verify-photo-remove" class="shrink-0 px-3 py-1.5 text-xs font-semibold text-gray-600 bg-white border border-gray-200 rounded-lg">Remove</button>
+                    </div>
+                    <button type="button" id="verify-photo-button"
+                        class="w-full py-2.5 bg-gray-100 text-gray-700 text-sm font-semibold rounded-xl hover:bg-gray-200 transition">
+                        Take photo
+                    </button>
                     <button type="submit"
                         class="w-full py-3 bg-[#128a43] text-white text-sm font-bold rounded-xl hover:brightness-110 active:brightness-90 transition shadow-sm">
                         Update Condition
@@ -342,16 +357,62 @@
         form.elements.condition.addEventListener('change', syncRemarkRequired);
         syncRemarkRequired();
 
+        // ---- Optional photo --------------------------------------------------
+        var photoInput = document.getElementById('verify-photo');
+        var photoButton = document.getElementById('verify-photo-button');
+        var photoPreview = document.getElementById('verify-photo-preview');
+        var photoImg = document.getElementById('verify-photo-img');
+        var photo = null; // the shrunk picture that will be uploaded
+
+        function showPhoto() {
+            if (photoImg.src) URL.revokeObjectURL(photoImg.src);
+            photoPreview.hidden = !photo;
+            photoButton.textContent = photo ? 'Retake photo' : 'Take photo';
+            if (!photo) { photoImg.removeAttribute('src'); return; }
+            photoImg.src = URL.createObjectURL(photo);
+            document.getElementById('verify-photo-name').textContent = photo.name;
+            var kb = photo.size / 1024;
+            document.getElementById('verify-photo-size').textContent = kb < 1024 ? Math.round(kb) + ' KB' : (kb / 1024).toFixed(1) + ' MB';
+        }
+
+        // The photo is uploaded as it is — never resized or re-compressed. One
+        // over the limit is refused here with the reason, before any upload.
+        var MAX_PHOTO_MB = 5;
+
+        photoButton.addEventListener('click', function () { photoInput.click(); });
+        photoInput.addEventListener('change', function () {
+            var file = photoInput.files && photoInput.files[0];
+            photoInput.value = '';
+            if (!file) return;
+            error.hidden = true;
+            if (file.size > MAX_PHOTO_MB * 1024 * 1024) {
+                return fail('Image file is larger than ' + MAX_PHOTO_MB + ' MB. Please choose a photo of ' + MAX_PHOTO_MB + ' MB or less.');
+            }
+            photo = file;
+            showPhoto();
+        });
+        document.getElementById('verify-photo-remove').addEventListener('click', function () {
+            photo = null;
+            showPhoto();
+        });
+
         form.addEventListener('submit', function (event) {
             event.preventDefault();
             var button = form.querySelector('button[type="submit"]');
             button.disabled = true;
             error.hidden = true;
 
-            post('/qr-scan/' + encodeURIComponent(code) + '/verify', {
-                condition: form.elements.condition.value,
-                location_id: form.elements.location_id.value,
-                remark: form.elements.remark.value,
+            // Multipart, so the photo can ride along with the fields.
+            var body = new FormData();
+            body.append('condition', form.elements.condition.value);
+            body.append('location_id', form.elements.location_id.value);
+            body.append('remark', form.elements.remark.value);
+            if (photo) body.append('image', photo);
+
+            fetch('/api/qr-scan/' + encodeURIComponent(code) + '/verify', {
+                method: 'POST',
+                headers: { Accept: 'application/json', Authorization: 'Bearer ' + token },
+                body: body,
             }).then(function (res) {
                 if (res.status === 401) { button.disabled = false; return signedOut(); }
                 return res.json().catch(function () { return null; }).then(function (data) {

@@ -95,6 +95,9 @@ class QrScanController extends Controller
             'condition' => 'required|in:good,fair,broken,lost',
             // Broken or lost takes the unit out of use: say why, for the record.
             'remark' => 'nullable|string|required_if:condition,broken,lost',
+            // A photo taken at the scan, kept on the verification record like
+            // the one the Verification form uploads.
+            'image' => 'nullable|image|mimes:jpeg,png,jpg|max:5120',
         ], [
             'remark.required_if' => 'Enter the reason the asset is broken or lost.',
         ]);
@@ -127,8 +130,11 @@ class QrScanController extends Controller
             ], 422);
         }
 
-        [$verification, $scan] = DB::transaction(function () use ($asset, $user, $validated, $newLocationId, $previousLocationId, $locationChanged, $previousCondition) {
+        $imagePath = $request->hasFile('image') ? $request->file('image')->store('verifications', 'public') : null;
+
+        [$verification, $scan] = DB::transaction(function () use ($asset, $user, $validated, $newLocationId, $previousLocationId, $locationChanged, $previousCondition, $imagePath) {
             $verification = AssetVerification::create([
+                'image_path' => $imagePath,
                 'asset_id' => $asset->id,
                 'location_id' => $newLocationId,
                 'verified_by' => $user->id,
