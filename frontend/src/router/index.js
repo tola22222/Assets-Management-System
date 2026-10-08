@@ -70,7 +70,31 @@ export function assetReturnUrl(query) {
   return match ? `/asset/${encodeURIComponent(match[1])}` : null
 }
 
+// Once per page load: a browser that has lost its stored login (Safari on
+// iPhone drops it readily) gets it back from the sign-in cookie the server
+// set at login, instead of being sent to the login page.
+let sessionRestoreTried = false
+async function restoreSession() {
+  if (sessionRestoreTried || localStorage.getItem('token')) return
+  sessionRestoreTried = true
+  try {
+    const res = await fetch('/api/session', { headers: { Accept: 'application/json' }, credentials: 'same-origin' })
+    if (res.status !== 200) return
+    const data = await res.json()
+    if (!data?.token || !data?.user) return
+    localStorage.setItem('token', data.token)
+    localStorage.setItem('user', JSON.stringify(data.user))
+    // Start again signed in: the auth store and permissions read these at
+    // boot, and reloading once is simpler than patching each of them here.
+    window.location.reload()
+    await new Promise(() => {})
+  } catch {
+    // Offline or storage blocked: carry on signed out.
+  }
+}
+
 router.beforeEach(async (to) => {
+  await restoreSession()
   const isAuthenticated = !!localStorage.getItem('token')
 
   if (to.meta.requiresAuth && !isAuthenticated) {

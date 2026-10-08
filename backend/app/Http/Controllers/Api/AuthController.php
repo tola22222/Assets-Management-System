@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\User;
 use App\Services\ImageCompressor;
+use App\Services\LoginCookie;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
@@ -75,10 +76,30 @@ class AuthController extends Controller
         $expiresAt = $request->boolean('remember') ? now()->addDays(30) : now()->addHours(12);
         $token = $user->createToken('spa', ['*'], $expiresAt)->plainTextToken;
 
+        // The same token also goes out in a cookie the server sets, so the
+        // session can be restored when the browser has dropped its own copy
+        // (Safari on iPhone does). See LoginCookie.
         return response()->json([
             'token' => $token,
             'user' => $user,
-        ]);
+        ])->withCookie(LoginCookie::make($token, $expiresAt, $request));
+    }
+
+    /**
+     * Restore a session from the sign-in cookie: the token and user the login
+     * response gave, for a browser that no longer has them. 204 when there is
+     * no usable cookie (never signed in here, signed out, expired, locked).
+     */
+    public function session(Request $request)
+    {
+        $session = LoginCookie::session($request);
+        if ($session === null) {
+            return response()->noContent()->withCookie(LoginCookie::forget());
+        }
+
+        [$token, $user] = $session;
+
+        return response()->json(['token' => $token, 'user' => $user]);
     }
 
     public function logout(Request $request)
@@ -93,7 +114,7 @@ class AuthController extends Controller
 
         $user->currentAccessToken()->delete();
 
-        return response()->json(['message' => 'Logged out.']);
+        return response()->json(['message' => 'Logged out.'])->withCookie(LoginCookie::forget());
     }
 
     public function me(Request $request)

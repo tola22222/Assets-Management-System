@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\Asset;
 use App\Models\AssetAssignment;
 use App\Models\Location;
+use App\Services\LoginCookie;
+use Illuminate\Http\Request;
 
 class AssetController extends Controller
 {
@@ -16,7 +18,7 @@ class AssetController extends Controller
      * every scan, verification and location change is recorded against a named
      * account.
      */
-    public function publicShow($assetCode)
+    public function publicShow(Request $request, $assetCode)
     {
         // Only the assignment the asset is out on now — past (returned)
         // assignments are history, not "current".
@@ -25,6 +27,14 @@ class AssetController extends Controller
         }])->where('asset_code', $assetCode)->firstOrFail();
         $locations = Location::orderBy('name')->get();
 
-        return view('assets.public-show', compact('asset', 'locations'));
+        // A phone that signed in before but whose browser dropped the stored
+        // login (Safari does) is recognised by the sign-in cookie, so the page
+        // opens ready to edit instead of asking to sign in again. The token is
+        // then part of the page, so it must not be cached or shared.
+        $sessionToken = LoginCookie::session($request)[0] ?? null;
+
+        return response()
+            ->view('assets.public-show', compact('asset', 'locations', 'sessionToken'))
+            ->header('Cache-Control', 'no-store, private');
     }
 }

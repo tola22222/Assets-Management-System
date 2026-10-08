@@ -17,6 +17,11 @@ return Application::configure(basePath: dirname(__DIR__))
             'permission' => \App\Http\Middleware\PermissionMiddleware::class,
         ]);
 
+        // The sign-in cookie (App\Services\LoginCookie) is set by an API route,
+        // which does not encrypt cookies, and read by the tag page's web route,
+        // which would otherwise try to decrypt it and get nothing.
+        $middleware->encryptCookies(except: [\App\Services\LoginCookie::NAME]);
+
         // There is no server-rendered login page anymore — send unauthenticated
         // browser traffic to the SPA's login route. API clients send
         // Accept: application/json and still get a 401 instead of this redirect.

@@ -30,6 +30,9 @@ use Illuminate\Support\Facades\Route;
 // route names must be globally unique or `route:cache` fails to build.
 Route::name('api.')->group(function () {
     Route::post('/login', [AuthController::class, 'login']);
+    // Hands a browser back its session from the sign-in cookie (no token needed:
+    // the cookie is the proof). See App\Services\LoginCookie.
+    Route::get('/session', [AuthController::class, 'session']);
 
     // Public: the login screen (no token yet) and every authenticated layout
     // need the org/system name for branding, but the full settings payload

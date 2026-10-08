@@ -255,6 +255,9 @@
         // Storage can throw outright (private mode, blocked site data). Treat
         // that as "not signed in" rather than breaking the page.
         try { token = localStorage.getItem('token'); } catch (e) {}
+        // Nothing stored in this browser (Safari clears it readily), but the
+        // server recognised this device's sign-in cookie: use that session.
+        if (!token) token = @json($sessionToken ?? null);
 
         function showForm(signedIn) {
             signin.hidden = signedIn;
