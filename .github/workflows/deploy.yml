@@ -198,6 +198,11 @@ jobs:
                 root /var/www/public;
                 index index.php index.html;
 
+                # Uploads up to 5 MB and no more. nginx's default is 1M, which
+                # refused a phone photo (2-5 MB) before Laravel saw it. Same
+                # limit as upload_max_filesize in docker/php.ini.
+                client_max_body_size 5M;
+
                 # SPA deep links (/app/*) must reach Laravel's `spa` route, which
                 # returns the SPA shell so vue-router can take over. Deliberately
                 # NO `$uri/` here: with it, any /app path that matches a real
@@ -237,6 +242,7 @@ jobs:
                 listen 80;
                 server_name app.pepyasset.online;
                 root /var/www/public;
+                client_max_body_size 5M;
 
                 # API requests go straight to the Laravel app, same as the main site.
                 location /api/ {
@@ -371,6 +377,14 @@ jobs:
             fi
 
             docker compose up -d --remove-orphans
+
+            # nginx reads default.conf only when it starts, and `up -d` leaves a
+            # running nginx alone when nothing but that bind-mounted file
+            # changed — so the config rewritten above (the upload size) would
+            # otherwise never take effect. Test first: a bad config fails the
+            # deploy here while the old one keeps serving.
+            docker compose exec -T nginx nginx -t
+            docker compose exec -T nginx nginx -s reload
 
             echo "Waiting for database to accept connections from the app container..."
             DB_READY=0

@@ -9,11 +9,13 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Kantumruy+Pro:wght@300;400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet" />
     <script>
-      // Apply the saved (or system) theme before first paint to avoid a flash.
+      // Apply the saved theme (light by default) before first paint to avoid a flash.
       (function () {
         try {
           var t = localStorage.getItem('theme');
-          var dark = t ? t === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+          // Light unless dark was chosen in the app: a phone in system dark
+          // mode that scans a tag should not land on a dark sign-in page.
+          var dark = t === 'dark';
           if (dark) document.documentElement.classList.add('dark');
         } catch (e) {}
       })();

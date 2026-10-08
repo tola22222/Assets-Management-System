@@ -23,6 +23,9 @@ RUN apk add --no-cache \
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
   && docker-php-ext-install gd pdo pdo_mysql intl mbstring opcache zip
 
+# Uploads up to 5 MB per file (PHP's default is 2M). See docker/php.ini.
+COPY docker/php.ini /usr/local/etc/php/conf.d/zz-app.ini
+
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www
