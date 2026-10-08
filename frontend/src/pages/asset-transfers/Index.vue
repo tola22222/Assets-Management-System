@@ -60,7 +60,7 @@ function imageFailed(url) {
 
 const { sortKey, sortDir, toggleSort, sorted: sortedTransfers } = useTableSort(filteredTransfers, {
   defaultKey: 'created_at', defaultDir: 'desc',
-  paths: { asset: 'asset.name', from: 'from_location.name', to: 'to_location.name', requester: 'requester.name' },
+  paths: { asset: 'asset.name', from: 'from_location.name', to: 'to_location.name', assigned: 'recipient_name', requester: 'requester.name' },
 })
 
 // View renders the row already held by the table — /asset-transfers has no
@@ -421,6 +421,7 @@ const { page, rowsPerPage, total, paged } = usePagination(sortedTransfers)
                 <th class="th-sort" @click="toggleSort('asset')">{{ t('common.asset') }}<TableSortIcon :active="sortKey === 'asset'" :direction="sortDir" /></th>
                 <th class="th-sort" @click="toggleSort('from')">{{ t('asset_transfers.from') }}<TableSortIcon :active="sortKey === 'from'" :direction="sortDir" /></th>
                 <th class="th-sort" @click="toggleSort('to')">{{ t('asset_transfers.to') }}<TableSortIcon :active="sortKey === 'to'" :direction="sortDir" /></th>
+                <th class="th-sort" @click="toggleSort('assigned')">{{ t('assets.assigned_to') }}<TableSortIcon :active="sortKey === 'assigned'" :direction="sortDir" /></th>
                 <th class="th-sort" @click="toggleSort('requester')">{{ t('asset_transfers.requester') }}<TableSortIcon :active="sortKey === 'requester'" :direction="sortDir" /></th>
                 <th class="th-sort" @click="toggleSort('status')">{{ t('common.status') }}<TableSortIcon :active="sortKey === 'status'" :direction="sortDir" /></th>
                 <th class="text-right">{{ t('common.actions') }}</th>
@@ -438,10 +439,10 @@ const { page, rowsPerPage, total, paged } = usePagination(sortedTransfers)
                   </span>
                 </td>
                 <td>{{ t2.from_location?.name || t('common.n_a') }}</td>
-                <td>
-                  {{ t2.to_location?.name || t('common.n_a') }}
-                  <p v-if="t2.recipient_name" class="text-xs text-muted mt-0.5">{{ t2.recipient_name }}</p>
-                </td>
+                <td>{{ t2.to_location?.name || t('common.n_a') }}</td>
+                <!-- Who the asset is assigned to at the destination (a staff
+                     member or a program), in its own column. -->
+                <td :class="t2.recipient_name ? 'font-medium text-fg' : 'text-faint'">{{ t2.recipient_name || '—' }}</td>
                 <td>{{ t2.requester?.name || t('common.n_a') }}</td>
                 <td><StatusBadge :status="displayStatus(t2)" /></td>
                 <!-- One Actions column: the workflow step this viewer may take
@@ -496,7 +497,7 @@ const { page, rowsPerPage, total, paged } = usePagination(sortedTransfers)
                 </td>
               </tr>
               <tr v-if="!loading && !sortedTransfers.length">
-                <td colspan="6" class="py-10 text-center text-faint">{{ t('asset_transfers.empty') }}</td>
+                <td colspan="7" class="py-10 text-center text-faint">{{ t('asset_transfers.empty') }}</td>
               </tr>
             </tbody>
           </table>
