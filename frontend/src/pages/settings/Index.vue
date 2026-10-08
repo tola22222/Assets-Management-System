@@ -823,8 +823,12 @@ onMounted(() => {
                     type="file"
                     accept=".sql,.sqlite"
                     @change="onUploadChange"
-                    class="flex-1 min-w-[240px] sm:max-w-sm block text-sm text-muted file:mr-3 file:py-2 file:px-3.5 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-brand file:text-white hover:file:bg-brand-dark file:cursor-pointer file:transition-colors"
+                    class="hidden"
                   />
+                  <!-- The picker itself is hidden: a global-style button opens it, with
+                       the chosen file name beside it, as the browser button did. -->
+                  <button type="button" data-no-loading @click="uploadInput?.click()" class="btn-ghost btn-sm flex-shrink-0">{{ t('import.choose_file') }}</button>
+                  <span class="flex-1 min-w-[140px] text-sm truncate" :class="uploadFile ? 'text-fg font-medium' : 'text-muted'">{{ uploadFile ? uploadFile.name : t('settings.no_file_chosen') }}</span>
                   <button type="button" @click="submitUpload" :disabled="!uploadFile || uploading" class="btn-primary btn-sm flex-shrink-0">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>
                     {{ uploading ? t('settings.uploading') : t('settings.upload') }}

@@ -120,7 +120,7 @@ onBeforeUnmount(() => {
           <h1 class="font-display text-3xl sm:text-4xl font-semibold text-fg tracking-tight">{{ greeting }}, {{ auth.user?.name?.split(' ')[0] || auth.user?.name }}</h1>
           <p class="text-muted text-sm mt-2">{{ t('dashboard.subtitle') }}</p>
         </div>
-        <RouterLink v-if="isOpm" :to="{ path: '/assets', query: { create: 1 } }" class="btn-primary flex-shrink-0 mt-1 sm:mt-0">
+        <RouterLink v-if="isOpm" :to="{ path: '/assets', query: { create: 1 } }" class="btn-primary btn-sm flex-shrink-0 mt-1 sm:mt-0">
           <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
           {{ t('dashboard.add_asset') }}
         </RouterLink>

@@ -627,7 +627,8 @@
     "mail_from": "Sender",
     "backup_format": "Backup format",
     "saved_backups": "Saved backups",
-    "report_start_date": "First send on"
+    "report_start_date": "First send on",
+    "no_file_chosen": "No file chosen"
   },
   "asset_movements": {
     "title": "Stock Movements",

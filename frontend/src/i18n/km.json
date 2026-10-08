@@ -627,7 +627,8 @@
     "mail_from": "អ្នកផ្ញើ",
     "backup_format": "ទម្រង់បម្រុងទុក",
     "saved_backups": "ការបម្រុងទុកដែលបានរក្សាទុក",
-    "report_start_date": "ផ្ញើលើកដំបូងនៅថ្ងៃ"
+    "report_start_date": "ផ្ញើលើកដំបូងនៅថ្ងៃ",
+    "no_file_chosen": "មិនទាន់ជ្រើសរើសឯកសារ"
   },
   "asset_movements": {
     "title": "ចលនាស្តុក",

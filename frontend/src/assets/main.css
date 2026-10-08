@@ -485,6 +485,33 @@
   .data-table tbody td {
     @apply px-4 py-3 text-[13px] text-fg align-middle first:pl-5 last:pr-5;
   }
+  /* One line per record, on every data table: cells never wrap, and a long
+     value is cut with an ellipsis at a sensible width (the row's View and the
+     hover title carry the full text). Cells holding buttons are left alone so
+     nothing clips their focus rings. On a narrow screen the table scrolls
+     sideways in its wrapper instead of growing taller. */
+  .data-table thead th,
+  .data-table tbody td {
+    white-space: nowrap;
+  }
+  .data-table tbody td:not(:has(button)) {
+    max-width: 22rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  /* A second line inside a cell (the note under an asset's name, the
+     recipient under a transfer's destination) joins the first: "Name · note". */
+  .data-table tbody td > p,
+  .data-table tbody td > div > p {
+    display: inline;
+    margin-top: 0;
+  }
+  .data-table tbody td > p + p::before,
+  .data-table tbody td > div > p + p::before,
+  .data-table tbody td > p:not(:first-child)::before {
+    content: ' · ';
+    @apply text-faint;
+  }
 
   /* Square icon button for table row actions: outlined and neutral at rest,
      picking up the brand (or red, for destructive) on hover. */

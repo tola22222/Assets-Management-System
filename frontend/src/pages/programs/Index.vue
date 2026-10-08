@@ -220,20 +220,23 @@ const { page, rowsPerPage, total, paged } = usePagination(filtered)
                 <td v-if="canManage">
                   <input v-if="canDelete" type="checkbox" :checked="selectedIds.includes(p.id)" @change="toggleSelect(p.id)" class="rounded border-line text-brand focus:ring-brand/30" />
                 </td>
-                <td class="font-medium text-fg">{{ p.name }}</td>
-                <td>{{ schoolNames(p) || '—' }}</td>
-                <td>{{ p.responsible_staff?.full_name || '—' }}</td>
+                <!-- One line per program: nothing wraps; a long list of schools or a
+                     long description is cut with an ellipsis (hover shows it all,
+                     and the row's View has the full text). -->
+                <td class="font-medium text-fg whitespace-nowrap">{{ p.name }}</td>
+                <td class="max-w-[16rem] truncate" :title="schoolNames(p)">{{ schoolNames(p) || '—' }}</td>
+                <td class="whitespace-nowrap">{{ p.responsible_staff?.full_name || '—' }}</td>
                 <!-- Status: whether this program's lead can actually accept a
                      transfer for the school. No lead and a lead with no login
                      account both leave the school unable to receive anything —
                      the second is the sneakier one, since a name is filled in
                      but nobody can act on it. -->
-                <td>
+                <td class="whitespace-nowrap">
                   <span v-if="!p.responsible_staff" class="badge-warning">{{ t('programs.no_lead') }}</span>
                   <span v-else-if="!p.responsible_staff_has_login" class="badge-warning" :title="t('programs.no_login_hint')">{{ t('programs.no_login') }}</span>
                   <span v-else class="badge-success">{{ t('status.active') }}</span>
                 </td>
-                <td>{{ p.description || '—' }}</td>
+                <td class="max-w-[18rem] truncate" :title="p.description">{{ p.description || '—' }}</td>
                 <td class="text-right">
                   <div v-if="canManage" class="flex items-center justify-end gap-1.5">
                     <button v-if="canUpdate" @click="openEdit(p)" :title="t('common.edit')" class="btn-icon-edit">
