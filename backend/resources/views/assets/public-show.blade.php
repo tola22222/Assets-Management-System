@@ -186,9 +186,11 @@
                     </div>
                     <textarea name="remark" rows="2" placeholder="Add a remark (optional)..."
                         class="w-full bg-gray-50 border-0 rounded-xl px-3.5 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#128a43]/30 transition resize-none placeholder-gray-400"></textarea>
-                    {{-- Optional photo of the asset as found. On a phone the button
-                         opens the camera (or the gallery). Sent as it is; up to 5 MB. --}}
-                    <input type="file" name="photo" id="verify-photo" accept="image/*" capture="environment" hidden>
+                    {{-- Optional photo of the asset as found, two ways: Take photo opens
+                         the phone's camera (capture), Choose from phone opens its photo
+                         library / files (no capture). Sent as it is; up to 5 MB. --}}
+                    <input type="file" id="verify-photo" accept="image/*" capture="environment" hidden>
+                    <input type="file" id="verify-photo-library" accept="image/*" hidden>
                     <div id="verify-photo-preview" hidden class="flex items-center gap-3 bg-gray-50 rounded-xl p-2.5">
                         <img id="verify-photo-img" alt="" class="w-16 h-16 rounded-lg object-cover border border-gray-200 shrink-0">
                         <div class="min-w-0 flex-1">
@@ -197,10 +199,16 @@
                         </div>
                         <button type="button" id="verify-photo-remove" class="shrink-0 px-3 py-1.5 text-xs font-semibold text-gray-600 bg-white border border-gray-200 rounded-lg">Remove</button>
                     </div>
-                    <button type="button" id="verify-photo-button"
-                        class="w-full py-2.5 bg-gray-100 text-gray-700 text-sm font-semibold rounded-xl hover:bg-gray-200 transition">
-                        Take photo
-                    </button>
+                    <div class="grid grid-cols-2 gap-2.5">
+                        <button type="button" id="verify-photo-button"
+                            class="w-full py-2.5 bg-gray-100 text-gray-700 text-sm font-semibold rounded-xl hover:bg-gray-200 transition">
+                            Take photo
+                        </button>
+                        <button type="button" id="verify-photo-library-button"
+                            class="w-full py-2.5 bg-gray-100 text-gray-700 text-sm font-semibold rounded-xl hover:bg-gray-200 transition">
+                            Choose from phone
+                        </button>
+                    </div>
                     <button type="submit"
                         class="w-full py-3 bg-[#128a43] text-white text-sm font-bold rounded-xl hover:brightness-110 active:brightness-90 transition shadow-sm">
                         Update Condition
@@ -382,10 +390,16 @@
         // over the limit is refused here with the reason, before any upload.
         var MAX_PHOTO_MB = 5;
 
+        // Both inputs feed the same photo: the camera one and the library one.
+        var libraryInput = document.getElementById('verify-photo-library');
         photoButton.addEventListener('click', function () { photoInput.click(); });
-        photoInput.addEventListener('change', function () {
-            var file = photoInput.files && photoInput.files[0];
-            photoInput.value = '';
+        document.getElementById('verify-photo-library-button').addEventListener('click', function () { libraryInput.click(); });
+        photoInput.addEventListener('change', onPhotoPicked);
+        libraryInput.addEventListener('change', onPhotoPicked);
+        function onPhotoPicked(event) {
+            var input = event.target;
+            var file = input.files && input.files[0];
+            input.value = '';
             if (!file) return;
             error.hidden = true;
             if (file.size > MAX_PHOTO_MB * 1024 * 1024) {
@@ -393,7 +407,7 @@
             }
             photo = file;
             showPhoto();
-        });
+        }
         document.getElementById('verify-photo-remove').addEventListener('click', function () {
             photo = null;
             showPhoto();
