@@ -197,7 +197,7 @@ onBeforeUnmount(() => {
                 :aria-pressed="trendPeriod === p"
                 class="min-w-[4rem] px-3.5 py-1.5 rounded-full text-xs font-semibold transition-colors duration-150
                        focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/30"
-                :class="trendPeriod === p ? 'bg-brand text-white shadow-sm' : 'text-muted hover:text-fg hover:bg-surface'"
+                :class="trendPeriod === p ? 'bg-brand/10 text-brand-700 dark:text-brand-200' : 'text-muted hover:text-fg hover:bg-surface'"
               >
                 {{ t(`dashboard.period_${p}`) }}
               </button>

@@ -519,7 +519,7 @@ onMounted(() => {
                 v-for="g in ['all', 'day', 'month', 'year']" :key="g"
                 @click="granularity = g"
                 class="px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition"
-                :class="granularity === g ? 'bg-brand text-white' : 'text-muted hover:text-fg'"
+                :class="granularity === g ? 'bg-brand/10 text-brand-700 dark:text-brand-200' : 'text-muted hover:text-fg'"
               >
                 {{ t(`reports.granularity_${g}`) }}
               </button>

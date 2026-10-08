@@ -112,11 +112,15 @@ function initials(name) {
 const I = {
   users: 'M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z',
   shield: 'M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z',
+  // Accounts tab: the sidebar's single-account icon. Roles tab: the key this
+  // page's Reset password button already uses.
+  userCircle: 'M17.982 18.725A7.488 7.488 0 0012 15.75a7.488 7.488 0 00-5.982 2.975m11.963 0a9 9 0 10-11.963 0m11.963 0A8.966 8.966 0 0112 21a8.966 8.966 0 01-5.982-2.275M15 9.75a3 3 0 11-6 0 3 3 0 016 0z',
+  key: 'M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z',
 }
 
 const panes = computed(() => [
-  { key: 'users', label: t('users.tab_users'), icon: I.users },
-  { key: 'roles', label: t('users.tab_roles'), icon: I.shield },
+  { key: 'users', label: t('users.tab_users'), icon: I.userCircle },
+  { key: 'roles', label: t('users.tab_roles'), icon: I.key },
 ])
 
 const emptyForm = () => ({ name: '', email: '', password: '', role: 'staff', staff_id: '' })
@@ -258,8 +262,8 @@ const { page, rowsPerPage, total, paged } = usePagination(filtered)
 
       <!-- Accounts and the roles they can hold are two views of the same
            thing, so they live side by side rather than on separate pages. The
-           selected pane takes the sidebar's brand fill, the same signal the
-           settings rail uses. -->
+           selected pane takes the settings rail's look: a light brand tint with
+           the icon in the brand colour, not a solid fill. -->
       <div v-if="can('roles', 'view')" class="inline-flex items-center gap-1 bg-surface-2 border border-line rounded-xl p-1">
         <button
           v-for="pane in panes"
@@ -267,10 +271,10 @@ const { page, rowsPerPage, total, paged } = usePagination(filtered)
           type="button"
           @click="tab = pane.key"
           class="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors duration-150"
-          :class="tab === pane.key ? 'bg-brand text-white shadow-[var(--shadow-card)]' : 'text-muted hover:text-fg'"
+          :class="tab === pane.key ? 'bg-brand/10 text-fg' : 'text-muted hover:text-fg'"
           :aria-current="tab === pane.key ? 'page' : undefined"
         >
-          <svg class="w-4 h-4" :class="tab === pane.key ? 'text-white' : 'text-faint'" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :d="pane.icon" /></svg>
+          <svg class="w-4 h-4" :class="tab === pane.key ? 'text-brand dark:text-brand-200' : 'text-faint'" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :d="pane.icon" /></svg>
           {{ pane.label }}
         </button>
       </div>

@@ -607,21 +607,16 @@ onMounted(() => {
 
                 <!-- ── Reports ─────────────────────────────────────────── -->
                 <template v-if="activeTab === 'reports'">
-                  <!-- One row: the day the first automatic report goes out, and
-                       the interval it repeats at after that. An empty date counts
-                       from the last report instead. The interval is N of the saved
-                       unit (months unless changed before); the unit is no longer
-                       picked here but still saved as is. -->
+                  <!-- The day the first automatic report goes out. It then repeats
+                       at the saved interval (every month unless changed before),
+                       which is no longer edited here but still saved as it is. An
+                       empty date counts from the last report instead. -->
                   <div class="grid grid-cols-1 md:grid-cols-[200px_minmax(0,1fr)] gap-x-8 gap-y-3 px-5 sm:px-6 py-5">
                     <div class="md:pr-4">
                       <label for="report-start-date" class="block text-sm font-semibold text-fg">{{ t('settings.report_start_date') }}</label>
                     </div>
-                    <div class="flex flex-wrap items-center gap-x-6 gap-y-3">
+                    <div>
                       <input id="report-start-date" v-model="form.report_start_date" type="date" class="input w-48" />
-                      <div class="flex items-center gap-3">
-                        <label for="report-interval" class="text-sm font-semibold text-fg whitespace-nowrap">{{ t('settings.report_interval') }}</label>
-                        <input id="report-interval" v-model.number="form.report_interval" type="number" min="1" max="365" class="input w-28" />
-                      </div>
                     </div>
                   </div>
 
