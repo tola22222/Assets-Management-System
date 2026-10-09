@@ -349,15 +349,6 @@ defineExpose({ reload: load, openCreate })
               </label>
             </div>
           </div>
-          <div class="form-group">
-            <label class="label">{{ t('common.description') }}</label>
-            <textarea v-model="form.description" rows="2" class="textarea" :placeholder="t('roles.description_placeholder')"></textarea>
-          </div>
-
-          <div v-if="editing?.is_system" class="rounded-xl border border-line bg-surface-2 px-4 py-3 text-sm text-muted">
-            {{ t('roles.system_role_note') }}
-          </div>
-
           <div class="pt-2 border-t border-line">
             <h3 class="font-bold text-fg mb-1">{{ t('roles.permissions') }}</h3>
             <p class="text-sm text-faint mb-4">{{ t('roles.permissions_subtitle') }}</p>

@@ -466,14 +466,12 @@ const { page, rowsPerPage, total, paged } = usePagination(sortedTransfers)
                       </button>
                     </template>
                     <!-- The receiving site answers, with worded buttons so the
-                         decision can't be misread: Accept (green) / Reject (red). -->
+                         decision can't be misread: the same outline Accept / Reject as HR's Approve / Reject. -->
                     <template v-else-if="t2.can_confirm || t2.can_decline">
-                      <button v-if="t2.can_confirm" @click="openAccept(t2)" :title="t('asset_transfers.confirm_receipt')" class="btn-accept btn-sm gap-1.5">
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
+                      <button v-if="t2.can_confirm" @click="openAccept(t2)" :title="t('asset_transfers.confirm_receipt')" class="btn-success btn-sm">
                         {{ t('asset_transfers.accept') }}
                       </button>
-                      <button v-if="t2.can_decline" @click="openReject(t2)" :title="t('asset_transfers.reject_delivery')" class="btn-reject btn-sm gap-1.5">
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
+                      <button v-if="t2.can_decline" @click="openReject(t2)" :title="t('asset_transfers.reject_delivery')" class="btn-danger btn-sm">
                         {{ t('common.reject') }}
                       </button>
                     </template>

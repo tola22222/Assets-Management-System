@@ -148,6 +148,10 @@ function openCreate() {
   showModal.value = true
 }
 
+// The account open in the Edit dialog, read from the list so its Lock /
+// Unlock button reflects the change as soon as it is made.
+const editingUser = computed(() => (editingId.value ? users.value.find((u) => u.id === editingId.value) || null : null))
+
 function openEdit(user) {
   editingId.value = user.id
   Object.assign(form, { name: user.name, email: user.email, password: '', role: user.role, staff_id: user.staff_id || '' })
@@ -356,23 +360,10 @@ const { page, rowsPerPage, total, paged } = usePagination(filtered)
                   <td class="text-right whitespace-nowrap">
                     <div class="flex items-center justify-end gap-1.5">
                       <button @click="openPermissions(u)" :title="t('users.view_permissions')" :aria-label="t('users.view_permissions')" class="btn-icon-view">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :d="I.shield" /></svg>
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
                       </button>
                       <button @click="openEdit(u)" :title="t('common.edit')" :aria-label="t('common.edit')" class="btn-icon-edit">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
-                      </button>
-                      <button
-                        @click="toggleLock(u)"
-                        :disabled="u.id === auth.user?.id"
-                        :title="u.id === auth.user?.id ? t('users.cannot_lock_self') : (u.is_locked ? t('common.unlock') : t('common.lock'))"
-                        :aria-label="u.is_locked ? t('common.unlock') : t('common.lock')"
-                        class="btn-icon-admin"
-                      >
-                        <svg v-if="u.is_locked" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 10.5V6.75a4.5 4.5 0 119 0v3.75M3.75 21.75h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H3.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" /></svg>
-                        <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" /></svg>
-                      </button>
-                      <button @click="resettingId = u.id; newPassword = ''; newPasswordConfirm = ''" :title="t('common.reset_password')" :aria-label="t('common.reset_password')" class="btn-icon-admin">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z" /></svg>
                       </button>
                       <button @click="deletingId = u.id" :disabled="isSelf(u)" :title="isSelf(u) ? t('users.cannot_delete_self') : t('common.delete')" :aria-label="t('common.delete')" class="btn-icon-danger">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /></svg>
@@ -463,6 +454,25 @@ const { page, rowsPerPage, total, paged } = usePagination(filtered)
           </div>
         </div>
         <div class="modal-footer">
+          <!-- Account controls that used to be row buttons (the table keeps the
+               same three as every other: view, edit, delete). Only when editing. -->
+          <div v-if="editingUser" class="flex items-center gap-2 mr-auto">
+            <button
+              type="button"
+              class="btn-ghost btn-sm"
+              :disabled="editingUser.id === auth.user?.id"
+              :title="editingUser.id === auth.user?.id ? t('users.cannot_lock_self') : undefined"
+              @click="toggleLock(editingUser)"
+            >
+              <svg v-if="editingUser.is_locked" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 10.5V6.75a4.5 4.5 0 119 0v3.75M3.75 21.75h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H3.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" /></svg>
+              <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" /></svg>
+              {{ editingUser.is_locked ? t('common.unlock') : t('common.lock') }}
+            </button>
+            <button type="button" class="btn-ghost btn-sm" @click="resettingId = editingUser.id; newPassword = ''; newPasswordConfirm = ''; showModal = false">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z" /></svg>
+              {{ t('common.reset_password') }}
+            </button>
+          </div>
           <button type="button" class="btn-ghost" @click="showModal = false">{{ t('common.cancel') }}</button>
           <button type="submit" class="btn-primary">
             <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
