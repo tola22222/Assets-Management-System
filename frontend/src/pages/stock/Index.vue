@@ -26,16 +26,25 @@ const isAdmin = computed(() => ['operations_hr_manager', 'finance_manager'].incl
 // What each location holds, by category and model: PEPY Office → COM
 // Computer → Dell 10, Smart phone 20. Counted from the register itself, the
 // same units the location card counts (on the register, not lost / broken).
-const registerAssets = ref([])
+// Every unit still on the register (not disposed), whatever its condition.
+const allAssets = ref([])
+// Condition filter: blank keeps the usual view (usable units — good or fair);
+// picking one shows only the units in that condition, e.g. broken or lost.
+const conditionFilter = ref("")
+const conditionOptions = computed(() => ["good", "fair", "broken", "lost"]
+  .map((c) => ({ value: c, label: t(`assets.condition_${c}`) })))
+const registerAssets = computed(() => allAssets.value.filter((a) => (conditionFilter.value
+  ? a.condition === conditionFilter.value
+  : !["lost", "broken"].includes(a.condition))))
 const categoryLoading = ref(false)
 
 async function loadRegister() {
   categoryLoading.value = true
   try {
     const { data } = await http.get('/assets')
-    registerAssets.value = data.filter((a) => a.status !== 'disposed' && !['lost', 'broken'].includes(a.condition))
+    allAssets.value = data.filter((a) => a.status !== 'disposed')
   } catch {
-    registerAssets.value = []
+    allAssets.value = []
   } finally {
     categoryLoading.value = false
   }
@@ -253,15 +262,18 @@ onMounted(() => {
           </span>
         </div>
 
-        <div class="flex flex-wrap items-center gap-3 mb-6">
-          <div class="flex-1 min-w-[260px]">
+        <!-- One row on a desktop: the search and the four filters share the width. -->
+        <div class="flex flex-wrap lg:flex-nowrap items-center gap-3 mb-6">
+          <div class="flex-1 min-w-[260px] lg:min-w-0">
             <SearchInput v-model="categorySearch" :placeholder="t('common.search')" />
           </div>
-          <LocationFilter v-model="catLocation" />
-          <SearchSelect v-model="categoryFilter" class="min-w-[13rem]" input-class="filter-select"
+          <LocationFilter v-model="catLocation" class="lg:min-w-0 lg:flex-1" />
+          <SearchSelect v-model="categoryFilter" class="min-w-[13rem] lg:min-w-0 lg:flex-1" input-class="filter-select"
             :empty-label="t('assets.all_categories')" :aria-label="t('assets.all_categories')" :options="categoryOptions" />
-          <SearchSelect v-model="assetNameFilter" class="min-w-[13rem]" input-class="filter-select"
+          <SearchSelect v-model="assetNameFilter" class="min-w-[13rem] lg:min-w-0 lg:flex-1" input-class="filter-select"
             :empty-label="t('stock.all_asset_names')" :aria-label="t('stock.all_asset_names')" :options="assetNameOptions" />
+          <SearchSelect v-model="conditionFilter" class="min-w-[13rem] lg:min-w-0 lg:flex-1" input-class="filter-select"
+            :empty-label="t('stock.condition_usable')" :aria-label="t('assets.condition')" :options="conditionOptions" />
         </div>
 
         <div class="overflow-x-auto">

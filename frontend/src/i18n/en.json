@@ -904,6 +904,7 @@
     "by_category_hint": "Every asset model at each location, with its category and quantity.",
     "no_category_holdings": "No assets to show.",
     "all_asset_names": "All assets",
+    "condition_usable": "Usable (good, fair)",
     "subtitle": "How many assets each location holds."
   },
   "reports": {
