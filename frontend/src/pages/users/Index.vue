@@ -29,7 +29,7 @@ const { sortKey, sortDir, toggleSort, sorted: filtered } = useTableSort(searched
 // Your own account can't be deleted (the server refuses it too), so it is
 // never part of a bulk selection.
 const isSelf = (u) => u.id === auth.user?.id
-const selectable = computed(() => filtered.value.filter((u) => !isSelf(u)))
+const selectable = computed(() => paged.value.filter((u) => !isSelf(u)))
 const { selectedIds, allSelected, toggleSelectAll, toggleSelect, clearSelection } = useBulkSelect(selectable)
 const confirmingBulkDelete = ref(false)
 const toast = useToastStore()

@@ -1,19 +1,23 @@
 import { ref, computed, unref } from 'vue'
 
-// "Select all" checkbox state over a list ref (typically the same
-// search/sort/filter-derived list a table already renders), so selecting
-// "all" only ever covers what's currently visible, not the whole dataset.
+// "Select all" checkbox state over a list ref — the rows the header checkbox
+// answers for. Pass the page being shown and it ticks only that page (rows
+// ticked on other pages stay ticked); pass the whole filtered list and it
+// ticks every match.
 export function useBulkSelect(itemsRef) {
   const selectedIds = ref([])
 
   const allSelected = computed(() => {
     const list = unref(itemsRef) || []
-    return list.length > 0 && selectedIds.value.length === list.length
+    return list.length > 0 && list.every((row) => selectedIds.value.includes(row.id))
   })
 
   function toggleSelectAll() {
     const list = unref(itemsRef) || []
-    selectedIds.value = allSelected.value ? [] : list.map((row) => row.id)
+    const ids = list.map((row) => row.id)
+    selectedIds.value = allSelected.value
+      ? selectedIds.value.filter((id) => !ids.includes(id))
+      : [...new Set([...selectedIds.value, ...ids])]
   }
 
   function toggleSelect(id) {

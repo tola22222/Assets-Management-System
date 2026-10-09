@@ -33,7 +33,9 @@ const canManage = computed(() => canUpdate.value || canDelete.value)
 const { items: suppliers, loading, fetchAll, create, update, destroy, destroyMany } = useApiCrud('/suppliers', { entityName: t('suppliers.entity') })
 const { search, filtered: searched } = useTableSearch(suppliers, ['name', 'phone', 'address'])
 const { sortKey, sortDir, toggleSort, sorted: filtered } = useTableSort(searched, { defaultKey: 'created_at', defaultDir: 'desc' })
-const { selectedIds, allSelected, toggleSelectAll, toggleSelect, clearSelection } = useBulkSelect(filtered)
+// The header tick box selects the rows on the page being shown, not every
+// match ("paged" is set up with the pagination, further down).
+const { selectedIds, allSelected, toggleSelectAll, toggleSelect, clearSelection } = useBulkSelect(computed(() => paged.value))
 const confirmingBulkDelete = ref(false)
 
 const showModal = ref(false)

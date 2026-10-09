@@ -69,7 +69,9 @@ watch(() => filters.location, (v) => { if (v) loadSiteCounts() })
 // The count shown (and sorted on) follows the site filter.
 const counted = computed(() => filteredCategories.value.map((c) => ({ ...c, shown_count: countAt(c, filters.location) })))
 const { sortKey, sortDir, toggleSort, sorted: filtered } = useTableSort(counted, { defaultKey: 'created_at', defaultDir: 'desc', paths: { count: 'shown_count' } })
-const { selectedIds, allSelected, toggleSelectAll, toggleSelect, clearSelection } = useBulkSelect(filtered)
+// The header tick box selects the rows on the page being shown, not every
+// match ("paged" is set up with the pagination, further down).
+const { selectedIds, allSelected, toggleSelectAll, toggleSelect, clearSelection } = useBulkSelect(computed(() => paged.value))
 const confirmingBulkDelete = ref(false)
 
 const CATEGORY_CODES = ['MOV', 'FAF', 'COM', 'EQU']

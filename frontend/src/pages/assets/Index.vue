@@ -80,7 +80,9 @@ const { sortKey, sortDir, toggleSort, sorted: filtered } = useTableSort(searched
 const { filters: catFilters, filtered: visible } = useTableFilter(filtered, {
   category: (row, val) => String(row.category_id) === String(val),
 })
-const { selectedIds, allSelected, toggleSelectAll, toggleSelect, clearSelection } = useBulkSelect(visible)
+// The header tick box selects the rows on the page being shown, not every
+// asset that matches ("paged" is set up with the pagination, further down).
+const { selectedIds, allSelected, toggleSelectAll, toggleSelect, clearSelection } = useBulkSelect(computed(() => paged.value))
 const confirmingBulkDelete = ref(false)
 
 function money(v) {

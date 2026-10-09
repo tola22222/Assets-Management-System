@@ -49,7 +49,9 @@ const { filters, filtered: filteredStaff } = useTableFilter(searched, {
     : String(s.location_id) === v),
 })
 const { sortKey, sortDir, toggleSort, sorted: filtered } = useTableSort(filteredStaff, { defaultKey: 'created_at', defaultDir: 'desc' })
-const { selectedIds, allSelected, toggleSelectAll, toggleSelect, clearSelection } = useBulkSelect(filtered)
+// The header tick box selects the rows on the page being shown, not every
+// match ("paged" is set up with the pagination, further down).
+const { selectedIds, allSelected, toggleSelectAll, toggleSelect, clearSelection } = useBulkSelect(computed(() => paged.value))
 const confirmingBulkDelete = ref(false)
 const toast = useToastStore()
 

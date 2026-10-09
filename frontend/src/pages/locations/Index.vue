@@ -33,7 +33,9 @@ const { filters, filtered: filteredLocations } = useTableFilter(searched, {
   type: (l, v) => l.type === v,
 })
 const { sortKey, sortDir, toggleSort, sorted: filtered } = useTableSort(filteredLocations, { defaultKey: 'created_at', defaultDir: 'desc', paths: { count: 'assets_count' } })
-const { selectedIds, allSelected, toggleSelectAll, toggleSelect, clearSelection } = useBulkSelect(filtered)
+// The header tick box selects the rows on the page being shown, not every
+// match ("paged" is set up with the pagination, further down).
+const { selectedIds, allSelected, toggleSelectAll, toggleSelect, clearSelection } = useBulkSelect(computed(() => paged.value))
 const confirmingBulkDelete = ref(false)
 const toast = useToastStore()
 const auth = useAuthStore()
