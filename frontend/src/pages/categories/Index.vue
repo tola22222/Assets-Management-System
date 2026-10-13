@@ -172,7 +172,7 @@ const { page, rowsPerPage, total, paged } = usePagination(filtered)
             <h1 class="font-display text-3xl font-bold text-fg tracking-tight">{{ t('categories.title') }}</h1>
             <p class="text-muted text-sm mt-1">{{ t('categories.subtitle') }}</p>
           </div>
-          <div class="flex items-center gap-2 flex-shrink-0">
+          <div class="flex flex-wrap items-center gap-2 flex-shrink-0">
             <button v-if="canDelete && selectedIds.length" @click="confirmingBulkDelete = true" class="btn-danger btn-sm">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /></svg>
               {{ t('common.delete_selected', { count: selectedIds.length }) }}
@@ -185,7 +185,7 @@ const { page, rowsPerPage, total, paged } = usePagination(filtered)
         </div>
 
         <div class="flex flex-wrap items-center gap-3 mb-6">
-          <div class="flex-1 min-w-[260px]">
+          <div class="flex-1 min-w-[min(260px,100%)]">
             <SearchInput v-model="search" :placeholder="t('categories.search_placeholder')" />
           </div>
           <LocationFilter v-model="filters.location" />

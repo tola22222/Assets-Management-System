@@ -422,7 +422,7 @@ onMounted(() => {
           <h1 class="font-display text-3xl font-bold text-fg tracking-tight">{{ t('reports.title') }}</h1>
           <p class="text-muted text-sm mt-1">{{ t('reports.subtitle') }}</p>
         </div>
-        <div class="flex items-center gap-2 flex-shrink-0 mt-1 sm:mt-0">
+        <div class="flex flex-wrap items-center gap-2 flex-shrink-0 mt-1 sm:mt-0">
           <!-- Emailing sends the whole register (every site): not for staff,
                whose reports cover their own sites only. The API refuses it too. -->
           <button v-if="auth.user?.role !== 'staff'" @click="openEmailModal" class="btn-ghost btn-sm">

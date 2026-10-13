@@ -108,7 +108,7 @@ async function changePassword() {
           <label class="label">{{ t('profile.current_password') }}</label>
           <input v-model="passwordForm.current_password" type="password" class="input" required />
         </div>
-        <div class="grid grid-cols-2 gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div class="form-group">
             <label class="label">{{ t('profile.new_password') }}</label>
             <input v-model="passwordForm.password" type="password" class="input" required minlength="8" />

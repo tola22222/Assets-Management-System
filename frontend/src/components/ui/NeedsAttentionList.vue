@@ -19,7 +19,7 @@ const dot = {
       <div class="flex items-center gap-2.5 min-w-0">
         <span class="w-1.5 h-1.5 rounded-full flex-shrink-0" :class="dot[item.severity] || 'bg-faint'"></span>
         <span class="font-semibold text-fg text-sm truncate">{{ item.name }}</span>
-        <span v-if="item.code" class="font-mono text-[11px] text-faint truncate flex-shrink-0">{{ item.code }}</span>
+        <span v-if="item.code" class="font-mono text-[11px] text-faint truncate sm:flex-shrink-0">{{ item.code }}</span>
       </div>
       <span class="text-xs text-muted flex-shrink-0 whitespace-nowrap">{{ item.reason }}</span>
     </li>

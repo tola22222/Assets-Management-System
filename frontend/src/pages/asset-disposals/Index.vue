@@ -162,7 +162,7 @@ const { page, rowsPerPage, total, paged } = usePagination(sortedDisposals)
             <h1 class="font-display text-3xl font-bold text-fg tracking-tight">{{ t('asset_disposals.title') }}</h1>
             <p class="text-muted text-sm mt-1">{{ t('asset_disposals.subtitle') }}</p>
           </div>
-          <div class="flex items-center gap-2 flex-shrink-0">
+          <div class="flex flex-wrap items-center gap-2 flex-shrink-0">
             <button @click="openCreate" class="btn-primary btn-sm">
               <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
               {{ t('asset_disposals.new') }}
@@ -171,7 +171,7 @@ const { page, rowsPerPage, total, paged } = usePagination(sortedDisposals)
         </div>
 
         <div class="flex flex-wrap items-center gap-3 mb-6">
-          <div class="flex-1 min-w-[260px]">
+          <div class="flex-1 min-w-[min(260px,100%)]">
             <SearchInput v-model="search" :placeholder="t('common.search')" />
           </div>
           <LocationFilter v-model="filters.location" />

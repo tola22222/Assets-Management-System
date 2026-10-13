@@ -297,7 +297,7 @@ const { page, rowsPerPage, total, paged } = usePagination(filtered)
                delete only exists while rows are ticked, so it belongs beside
                the selection rather than in the page header. -->
           <div class="table-toolbar">
-            <div class="flex-1 min-w-[240px]">
+            <div class="flex-1 min-w-[min(240px,100%)]">
               <SearchInput v-model="search" :placeholder="t('users.search_placeholder')" />
             </div>
             <div v-if="selectedIds.length" class="flex items-center gap-2 flex-shrink-0">

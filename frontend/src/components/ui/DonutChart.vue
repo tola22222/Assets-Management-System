@@ -40,7 +40,7 @@ const chartOptions = {
 </script>
 
 <template>
-  <div class="flex items-center gap-8">
+  <div class="flex flex-col sm:flex-row items-center gap-6 sm:gap-8">
     <div class="relative w-32 h-32 flex-shrink-0">
       <Doughnut :data="chartData" :options="chartOptions" />
       <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
@@ -48,7 +48,7 @@ const chartOptions = {
         <span class="text-[11px] text-faint mt-1">{{ totalLabel }}</span>
       </div>
     </div>
-    <div class="flex-1 space-y-3 min-w-0">
+    <div class="w-full sm:w-auto sm:flex-1 space-y-3 min-w-0">
       <div v-for="(segment, i) in segments" :key="segment.category" class="flex items-center justify-between gap-3 text-sm">
         <div class="flex items-center gap-2 min-w-0">
           <span class="w-2 h-2 rounded-full flex-shrink-0" :style="{ backgroundColor: palette[i % palette.length] }"></span>

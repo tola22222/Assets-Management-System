@@ -714,7 +714,7 @@
      Repainted in the app tokens, so it flips with the theme. */
   .modal-panel {
     @apply bg-surface text-fg w-full rounded-2xl shadow-[var(--shadow-modal)] border border-line
-           flex flex-col max-h-[92vh] overflow-hidden;
+           flex flex-col max-h-[92vh] max-sm:max-h-[92dvh] overflow-hidden;
   }
   .modal-header {
     @apply flex items-start gap-3 px-7 pt-7;

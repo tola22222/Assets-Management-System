@@ -405,7 +405,7 @@ const { page, rowsPerPage, total, paged } = usePagination(sortedTransfers)
             <h1 class="font-display text-3xl font-bold text-fg tracking-tight">{{ t('asset_transfers.title') }}</h1>
             <p class="text-muted text-sm mt-1">{{ t('asset_transfers.subtitle') }}</p>
           </div>
-          <div class="flex items-center gap-2 flex-shrink-0">
+          <div class="flex flex-wrap items-center gap-2 flex-shrink-0">
             <button v-if="canCreate" @click="openCreate" class="btn-primary btn-sm">
               <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
               {{ t('asset_transfers.new') }}
@@ -414,7 +414,7 @@ const { page, rowsPerPage, total, paged } = usePagination(sortedTransfers)
         </div>
 
         <div class="flex flex-wrap items-center gap-3 mb-6">
-          <div class="flex-1 min-w-[260px]">
+          <div class="flex-1 min-w-[min(260px,100%)]">
             <SearchInput v-model="search" :placeholder="t('common.search')" />
           </div>
           <LocationFilter v-model="filters.location" />
@@ -624,7 +624,7 @@ const { page, rowsPerPage, total, paged } = usePagination(sortedTransfers)
 
           <!-- Assignment -->
           <div v-if="!returnForm.do_return" class="space-y-2">
-            <div class="grid grid-cols-2 gap-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div class="form-group">
                 <label class="label">{{ t('asset_transfers.assign_to') }}</label>
                 <select v-model="returnForm.assigned_to_type" @change="returnForm.assigned_to_id = ''" class="input">
@@ -691,7 +691,7 @@ const { page, rowsPerPage, total, paged } = usePagination(sortedTransfers)
               :options="assets.map((a) => ({ value: a.id, label: a.name, sub: a.asset_code }))" />
           </div>
           <StockAvailability :asset-id="form.asset_id" :location-id="stockLocationId" @loaded="stock = $event" />
-          <div class="grid grid-cols-2 gap-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div class="form-group">
               <label class="label">{{ t('asset_transfers.from_location_required') }}</label>
               <SearchSelect v-model="form.from_location_id" required input-class="input" :placeholder="t('common.select_location')"
@@ -705,7 +705,7 @@ const { page, rowsPerPage, total, paged } = usePagination(sortedTransfers)
           </div>
           <!-- Optional, same picker as the Assignment form: who at the
                destination it is for. Assigned when the site accepts it. -->
-          <div v-if="canAssign" class="grid grid-cols-2 gap-4">
+          <div v-if="canAssign" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div class="form-group">
               <label class="label">{{ t('asset_transfers.assign_to') }}</label>
               <select v-model="form.assigned_to_type" @change="form.assigned_to_id = ''" class="input">
@@ -747,7 +747,7 @@ const { page, rowsPerPage, total, paged } = usePagination(sortedTransfers)
             </div>
             <p v-else class="text-xs text-danger">{{ t('asset_transfers.no_units_here') }}</p>
           </div>
-          <div class="grid grid-cols-2 gap-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div class="form-group">
               <label class="label">{{ t('asset_transfers.quantity_required') }}</label>
               <!-- Set by the ticked asset codes above. -->

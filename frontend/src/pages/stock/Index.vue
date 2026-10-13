@@ -211,7 +211,7 @@ onMounted(() => {
             <h1 class="font-display text-3xl font-bold text-fg tracking-tight">{{ t('stock.title') }}</h1>
             <p class="text-muted text-sm mt-1">{{ t('stock.subtitle') }}</p>
           </div>
-          <div class="flex items-center gap-2 flex-shrink-0">
+          <div class="flex flex-wrap items-center gap-2 flex-shrink-0">
             <button @click="exportCsv" class="btn-ghost btn-sm">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M7.5 12L12 16.5m0 0l4.5-4.5M12 16.5V3" /></svg>
               {{ t('stock.export_csv') }}
@@ -220,7 +220,7 @@ onMounted(() => {
         </div>
 
         <div class="flex flex-wrap items-center gap-3 mb-6">
-          <div class="flex-1 min-w-[260px]">
+          <div class="flex-1 min-w-[min(260px,100%)]">
             <SearchInput v-model="search" :placeholder="t('stock.search_sites_placeholder')" />
           </div>
           <LocationFilter v-model="filters.location" />
@@ -264,7 +264,7 @@ onMounted(() => {
 
         <!-- One row on a desktop: the search and the four filters share the width. -->
         <div class="flex flex-wrap lg:flex-nowrap items-center gap-3 mb-6">
-          <div class="flex-1 min-w-[260px] lg:min-w-0">
+          <div class="flex-1 min-w-[min(260px,100%)] lg:min-w-0">
             <SearchInput v-model="categorySearch" :placeholder="t('common.search')" />
           </div>
           <LocationFilter v-model="catLocation" class="lg:min-w-0 lg:flex-1" />
