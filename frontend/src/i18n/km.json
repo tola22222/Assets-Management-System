@@ -811,6 +811,7 @@
     "asset_required": "ទ្រព្យសម្បត្តិ *",
     "location_required": "ទីតាំង *",
     "quantity_verified_required": "បរិមាណដែលបានផ្ទៀងផ្ទាត់ *",
+    "max_quantity": "រហូតដល់ {count} នៅទីតាំងនេះ",
     "condition_required": "ស្ថានភាព *",
     "condition_good": "ល្អ",
     "condition_fair": "មធ្យម",
@@ -904,7 +905,7 @@
     "by_category_hint": "ម៉ូដែលទ្រព្យសម្បត្តិនីមួយៗនៅទីតាំងនីមួយៗ ជាមួយប្រភេទ និងបរិមាណ។",
     "no_category_holdings": "មិនមានទ្រព្យសម្បត្តិត្រូវបង្ហាញទេ។",
     "all_asset_names": "ទ្រព្យសម្បត្តិទាំងអស់",
-    "condition_usable": "អាចប្រើបាន (ល្អ, មធ្យម)",
+    "all_conditions": "លក្ខខណ្ឌទាំងអស់",
     "subtitle": "ចំនួនទ្រព្យសម្បត្តិដែលទីតាំងនីមួយៗមាន។"
   },
   "reports": {
@@ -984,6 +985,8 @@
     "type_returns": "ការប្រគល់មកវិញ",
     "type_disposed": "ទ្រព្យសម្បត្តិបានបោះបង់",
     "type_lost": "ទ្រព្យសម្បត្តិបាត់",
+    "type_condition": "លក្ខខណ្ឌ និងស្ថានភាព",
+    "all_statuses": "ស្ថានភាពទាំងអស់",
     "type_locations": "ទីតាំង",
     "type_qr_scans": "ការស្កេន QR",
     "type_data_completeness": "ភាពពេញលេញនៃទិន្នន័យ",

@@ -811,6 +811,7 @@
     "asset_required": "Asset *",
     "location_required": "Location *",
     "quantity_verified_required": "Quantity Verified *",
+    "max_quantity": "Up to {count} at this location",
     "condition_required": "Condition *",
     "condition_good": "Good",
     "condition_fair": "Fair",
@@ -904,7 +905,7 @@
     "by_category_hint": "Every asset model at each location, with its category and quantity.",
     "no_category_holdings": "No assets to show.",
     "all_asset_names": "All assets",
-    "condition_usable": "Usable (good, fair)",
+    "all_conditions": "All conditions",
     "subtitle": "How many assets each location holds."
   },
   "reports": {
@@ -984,6 +985,8 @@
     "type_returns": "Returns",
     "type_disposed": "Disposed Assets",
     "type_lost": "Lost Assets",
+    "type_condition": "Condition & Status",
+    "all_statuses": "All statuses",
     "type_locations": "Locations",
     "type_qr_scans": "QR Scans",
     "type_data_completeness": "Data Completeness",

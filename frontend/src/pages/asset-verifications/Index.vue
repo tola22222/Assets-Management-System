@@ -28,12 +28,12 @@ const { t } = useI18n()
 const { items: verifications, loading, fetchAll, destroy } = useApiCrud('/asset-verifications', { entityName: t('asset_verifications.entity') })
 const toast = useToastStore()
 const auth = useAuthStore()
-// Only OPM/Finance can submit a verification directly (role:operations_hr_manager,finance_manager
-// on the store route) — staff submit condition reports via the QR scan flow instead, and ED has no
-// direct-submit access either. Don't offer a button that would 403.
+// OPM, Finance and staff record verifications (staff only at their own sites:
+// the asset and location lists they get are already their sites, and the
+// server refuses any other). The ED has no direct-submit access.
 // A custom role granting Verification → Create gets it too (usePermissions().allows).
 const { allows } = usePermissions()
-const canCreate = computed(() => allows(['operations_hr_manager', 'finance_manager'], 'asset-verifications', 'create'))
+const canCreate = computed(() => allows(['operations_hr_manager', 'finance_manager', 'staff'], 'asset-verifications', 'create'))
 
 const { search, filtered: searched } = useTableSearch(verifications, [(v) => v.asset?.name, (v) => v.asset?.asset_code, (v) => v.location?.name])
 // Location filter (the drop-down beside search), applied after search and before sort.
@@ -148,6 +148,20 @@ const draft = useCreateDraft('asset-verifications', form, () => showModal.value)
 watch(() => form.asset_id, (id) => {
   const at = assets.value.find((a) => String(a.id) === String(id))?.location_id
   if (at) form.location_id = at
+})
+
+// The most that can be counted: units of the picked asset's model (same name
+// and category) at the location, still on the register. 10 there → 1 to 10.
+const maxQuantity = computed(() => {
+  const asset = assets.value.find((a) => String(a.id) === String(form.asset_id))
+  if (!asset || !form.location_id) return null
+  const units = assets.value.filter((a) => a.name === asset.name && a.category_id === asset.category_id
+    && String(a.location_id) === String(form.location_id) && a.status !== 'disposed').length
+  return Math.max(units, 1)
+})
+// Picking another asset or location never leaves a count above what is there.
+watch(maxQuantity, (max) => {
+  if (max && form.quantity_verified > max) form.quantity_verified = max
 })
 
 async function loadOptions() {
@@ -307,7 +321,8 @@ const { page, rowsPerPage, total, paged } = usePagination(sortedVerifications)
             </div>
             <div class="form-group">
               <label class="label">{{ t('asset_verifications.quantity_verified_required') }}</label>
-              <input v-model.number="form.quantity_verified" type="number" min="1" required class="input" />
+              <input v-model.number="form.quantity_verified" type="number" min="1" :max="maxQuantity || undefined" required class="input" />
+              <p v-if="maxQuantity" class="text-xs text-faint mt-1">{{ t('asset_verifications.max_quantity', { count: maxQuantity }) }}</p>
             </div>
           </div>
           <div class="form-group">

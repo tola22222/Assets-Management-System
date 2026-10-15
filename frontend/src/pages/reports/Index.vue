@@ -59,6 +59,7 @@ const reportTypes = computed(() => [
   { key: 'returns', label: t('reports.type_returns') },
   { key: 'disposed', label: t('reports.type_disposed') },
   { key: 'lost', label: t('reports.type_lost') },
+  { key: 'condition', label: t('reports.type_condition') },
   { key: 'locations', label: t('reports.type_locations') },
   { key: 'qr-scans', label: t('reports.type_qr_scans') },
   { key: 'data-completeness', label: t('reports.type_data_completeness') },
@@ -76,6 +77,16 @@ const columns = computed(() => ({
   returns: [['asset', t('common.asset'), (r) => r.asset?.name], ['condition', t('reports.col_condition')], ['status', t('common.status')]],
   disposed: [['asset_code', t('reports.col_code')], ['name', t('reports.col_name')], ['condition', t('reports.col_condition')]],
   lost: [['asset_code', t('reports.col_code')], ['name', t('reports.col_name')], ['updated_at', t('reports.col_last_updated')]],
+  // Every asset with its condition and the same status pill as the Asset
+  // Register: In use / Needs repair / Lost / Retiring.
+  condition: [
+    ['asset_code', t('reports.col_code')],
+    ['name', t('reports.col_name')],
+    ['category', t('reports.col_category'), (r) => r.category?.name],
+    ['location', t('reports.col_location'), (r) => r.location?.name],
+    ['condition', t('reports.col_condition'), (r) => (r.condition ? t(`assets.condition_${r.condition}`) : '')],
+    ['state', t('common.status'), (r) => STATUS_LABELS.value[assetBucket(r)]],
+  ],
   locations: [['name', t('reports.col_name')], ['type', t('reports.col_type')], ['assets_count', t('reports.col_assets')]],
   'qr-scans': [['message', t('reports.col_scan')], ['created_at', t('common.date')]],
   'data-completeness': [['asset_code', t('reports.col_code')], ['name', t('reports.col_name')], ['category', t('reports.col_category'), (r) => r.category?.name], ['missing_fields', t('reports.col_missing_fields')]],
@@ -336,6 +347,16 @@ const rowLocationIds = (r) =>
     .map(String)
 const { filters: reportFilters, filtered: scopedRows, clearFilters: clearReportFilters } = useTableFilter(filteredRows, {
   location: (r, v) => rowLocationIds(r).includes(v),
+  // Condition & Status report only: one status bucket (see assetBucket).
+  state: (r, v) => assetBucket(r) === v,
+})
+const STATE_BADGE = { in_use: 'badge-success', needs_repair: 'badge-warning', lost: 'badge-danger', retiring: 'badge-danger' }
+const stateOptions = computed(() => Object.entries(STATUS_LABELS.value).map(([value, label]) => ({ value, label })))
+// How many assets fall in each status, for the counts above the table.
+const stateCounts = computed(() => {
+  const counts = { in_use: 0, needs_repair: 0, lost: 0, retiring: 0 }
+  if (selected.value === 'condition') rows.value.forEach((r) => { counts[assetBucket(r)]++ })
+  return counts
 })
 // Offered only where it can narrow something: the locations report is one row
 // per site already, and some reports' rows carry no site at all.
@@ -535,6 +556,8 @@ onMounted(() => {
               :empty-label="t('reports.all_days')" :options="dayOptions.map((d) => ({ value: d, label: String(Number(d)) }))" />
           </template>
           <LocationFilter v-if="showLocationFilter" v-model="reportFilters.location" />
+          <SearchSelect v-if="selected === 'condition'" v-model="reportFilters.state" class="min-w-[13rem]" input-class="filter-select"
+            :empty-label="t('reports.all_statuses')" :aria-label="t('common.status')" :options="stateOptions" />
           <button @click="exportCsv" class="btn-ghost btn-sm sm:ml-auto flex-shrink-0">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
             {{ t('reports.export_csv') }}
@@ -551,6 +574,12 @@ onMounted(() => {
             <p class="font-display text-2xl font-bold text-fg leading-none">{{ sortedRows.length }}</p>
             <p class="text-xs text-muted mt-1">{{ granularity === 'all' ? t('reports.showing') : t('reports.matching_period') }}</p>
           </div>
+          <template v-if="selected === 'condition'">
+            <div v-for="(label, key) in STATUS_LABELS" :key="key">
+              <p class="font-display text-2xl font-bold text-fg leading-none">{{ stateCounts[key] }}</p>
+              <p class="mt-1"><span class="badge" :class="STATE_BADGE[key]">{{ label }}</span></p>
+            </div>
+          </template>
           <p class="sm:ml-auto text-sm text-muted">{{ reportTypes.find((rt) => rt.key === selected)?.label }}{{ granularity !== 'all' && activePeriod ? ` — ${activePeriod}` : '' }}</p>
         </div>
 
@@ -592,6 +621,7 @@ onMounted(() => {
                 <tr v-for="(row, i) in paged" :key="i">
                   <td v-for="col in columns[selected]" :key="col[0]">
                     <span v-if="col[0] === 'asset_code'" class="id-chip">{{ cell(row, col) }}</span>
+                    <span v-else-if="col[0] === 'state'" class="badge" :class="STATE_BADGE[assetBucket(row)]">{{ cell(row, col) }}</span>
                     <template v-else>{{ cell(row, col) }}</template>
                   </td>
                 </tr>

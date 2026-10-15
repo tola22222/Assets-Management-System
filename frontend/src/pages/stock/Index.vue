@@ -8,7 +8,6 @@ import LocationFilter from '../../components/ui/LocationFilter.vue'
 import { useTableSearch } from '../../composables/useTableSearch'
 import { useTableSort } from '../../composables/useTableSort'
 import { useTableFilter } from '../../composables/useTableFilter'
-import { useAuthStore } from '../../stores/auth'
 import SearchSelect from '../../components/ui/SearchSelect.vue'
 import TableSortIcon from '../../components/ui/TableSortIcon.vue'
 import TablePagination from '../../components/ui/TablePagination.vue'
@@ -18,24 +17,25 @@ import { downloadExcel, exportNote } from '../../utils/excelExport'
 // Read-only register: stock rows are recorded through the Asset create/import
 // flow, so this page only views them — no issue or delete actions.
 const { t } = useI18n()
-const auth = useAuthStore()
-// HR and the Accountant also see every location's holdings by category.
-const isAdmin = computed(() => ['operations_hr_manager', 'finance_manager'].includes(auth.user?.role))
-
-// ---- Assets by category (HR / Accountant) ---------------------------------
+// ---- Assets by category (every role; staff see their own sites) ----------
 // What each location holds, by category and model: PEPY Office → COM
 // Computer → Dell 10, Smart phone 20. Counted from the register itself, the
-// same units the location card counts (on the register, not lost / broken).
+// units on the register (not disposed), in any condition unless filtered.
 // Every unit still on the register (not disposed), whatever its condition.
 const allAssets = ref([])
-// Condition filter: blank keeps the usual view (usable units — good or fair);
-// picking one shows only the units in that condition, e.g. broken or lost.
+// Condition filter: blank shows every condition; picking one shows only the
+// units in that condition, e.g. broken or lost.
 const conditionFilter = ref("")
 const conditionOptions = computed(() => ["good", "fair", "broken", "lost"]
   .map((c) => ({ value: c, label: t(`assets.condition_${c}`) })))
-const registerAssets = computed(() => allAssets.value.filter((a) => (conditionFilter.value
-  ? a.condition === conditionFilter.value
-  : !["lost", "broken"].includes(a.condition))))
+const registerAssets = computed(() => allAssets.value.filter((a) => !conditionFilter.value || a.condition === conditionFilter.value))
+
+// The same status pill the Assets page shows: In use / Needs repair / Lost.
+function assetState(condition) {
+  if (condition === "lost") return { key: "lost", label: t("assets.state_lost"), cls: "badge-danger" }
+  if (condition === "fair" || condition === "broken") return { key: "repair", label: t("assets.state_needs_repair"), cls: "badge-warning" }
+  return { key: "in_use", label: t("assets.state_in_use"), cls: "badge-success" }
+}
 const categoryLoading = ref(false)
 
 async function loadRegister() {
@@ -50,11 +50,14 @@ async function loadRegister() {
   }
 }
 
-// One row per model at each location: Location · Category · Model · Qty.
+// One row per model at each location and status: Location · Category · Model
+// · Status · Qty — so 8 in use and 2 needing repair are two rows, not 10.
 const categoryRows = computed(() => {
   const rows = new Map()
   for (const a of registerAssets.value) {
-    const key = `${a.location_id ?? 'none'}|${a.category_id ?? 'none'}|${a.name}`
+    const state = assetState(a.condition)
+    // Split by condition, so broken and lost units are their own rows.
+    const key = `${a.location_id ?? 'none'}|${a.category_id ?? 'none'}|${a.name}|${a.condition ?? 'none'}`
     if (!rows.has(key)) {
       rows.set(key, {
         key,
@@ -65,6 +68,10 @@ const categoryRows = computed(() => {
         category: a.category?.name || '',
         category_code: a.category?.short_name || '',
         model: a.name,
+        state,
+        status: state.label,
+        condition: a.condition,
+        condition_label: a.condition ? t(`assets.condition_${a.condition}`) : '',
         // The model's photo, from its units: every distinct one, so a unit
         // whose file is gone from storage falls back to the next (see rowImage).
         images: [],
@@ -159,29 +166,32 @@ async function exportCsv() {
       { key: 'code', header: t('locations.code'), type: 'code', width: 12 },
       { key: 'name', header: t('common.location'), type: 'text' },
       { key: 'total', header: t('stock.total_assets'), type: 'qty', width: 14 },
+      // Not in the total (not available), listed so the export hides nothing.
+      { key: 'broken', header: t('assets.condition_broken'), type: 'qty', width: 10 },
+      { key: 'lost', header: t('assets.condition_lost'), type: 'qty', width: 10 },
     ],
-    rows: sitesSorted.value.map((l) => ({ code: l.code || '', name: l.name || t('stock.no_location'), total: l.total })),
+    rows: sitesSorted.value.map((l) => ({ code: l.code || '', name: l.name || t('stock.no_location'), total: l.total, broken: l.broken ?? 0, lost: l.lost ?? 0 })),
     totalLabel: t('export.total'),
   }]
-  if (isAdmin.value) {
-    sheets.push({
-      name: t('stock.by_category'),
-      columns: [
-        { key: 'category_code', header: t('assets.code'), type: 'code', width: 10 },
-        { key: 'category', header: t('stock.category'), type: 'text' },
-        { key: 'model', header: t('common.asset'), type: 'text' },
-        { key: 'qty', header: t('common.quantity'), type: 'qty', width: 10 },
-      ],
-      rows: [...categorySorted.value].sort((a, b) => (a.location || '').localeCompare(b.location || '')),
-      group: {
-        by: (r) => r.location || t('stock.no_location'),
-        label: (key, rows) => (rows[0].location_code ? `${key} ( ${rows[0].location_code} )` : key),
-        code: (key, rows) => rows[0].location_code || key,
-        codeColumn: 'category_code',
-      },
-      totalLabel: t('export.total'),
-    })
-  }
+  sheets.push({
+    name: t('stock.by_category'),
+    columns: [
+      { key: 'category_code', header: t('assets.code'), type: 'code', width: 10 },
+      { key: 'category', header: t('stock.category'), type: 'text' },
+      { key: 'model', header: t('common.asset'), type: 'text' },
+      { key: 'condition_label', header: t('assets.condition'), type: 'text', width: 12 },
+      { key: 'status', header: t('common.status'), type: 'text', width: 14 },
+      { key: 'qty', header: t('common.quantity'), type: 'qty', width: 10 },
+    ],
+    rows: [...categorySorted.value].sort((a, b) => (a.location || '').localeCompare(b.location || '')),
+    group: {
+      by: (r) => r.location || t('stock.no_location'),
+      label: (key, rows) => (rows[0].location_code ? `${key} ( ${rows[0].location_code} )` : key),
+      code: (key, rows) => rows[0].location_code || key,
+      codeColumn: 'category_code',
+    },
+    totalLabel: t('export.total'),
+  })
   await downloadExcel({
     fileName: 'asset-allocation',
     title: t('stock.title'),
@@ -194,7 +204,7 @@ async function exportCsv() {
 onMounted(() => {
   fetchAll()
   loadLocationStats()
-  if (isAdmin.value) loadRegister()
+  loadRegister()
 })
 </script>
 
@@ -248,9 +258,9 @@ onMounted(() => {
         <p v-else class="text-sm text-faint">{{ locationStats.length ? t('stock.no_sites_match') : t('stock.no_locations') }}</p>
       </div>
 
-      <!-- Assets by category (HR / Accountant): one table, a row per model at
+      <!-- Assets by category (every role; staff see their own sites): one table, a row per model at
            each location, filtered by location, category and search. -->
-      <div v-if="isAdmin" class="card p-6 sm:p-8">
+      <div class="card p-6 sm:p-8">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div>
             <h2 class="font-display text-xl font-bold text-fg tracking-tight">{{ t('stock.by_category') }}</h2>
@@ -273,7 +283,7 @@ onMounted(() => {
           <SearchSelect v-model="assetNameFilter" class="min-w-[13rem] lg:min-w-0 lg:flex-1" input-class="filter-select"
             :empty-label="t('stock.all_asset_names')" :aria-label="t('stock.all_asset_names')" :options="assetNameOptions" />
           <SearchSelect v-model="conditionFilter" class="min-w-[13rem] lg:min-w-0 lg:flex-1" input-class="filter-select"
-            :empty-label="t('stock.condition_usable')" :aria-label="t('assets.condition')" :options="conditionOptions" />
+            :empty-label="t('stock.all_conditions')" :aria-label="t('assets.condition')" :options="conditionOptions" />
         </div>
 
         <div class="overflow-x-auto">
@@ -283,6 +293,7 @@ onMounted(() => {
                 <th class="th-sort" @click="catToggleSort('location')">{{ t('common.location') }}<TableSortIcon :active="catSortKey === 'location'" :direction="catSortDir" /></th>
                 <th class="th-sort" @click="catToggleSort('category')">{{ t('stock.category') }}<TableSortIcon :active="catSortKey === 'category'" :direction="catSortDir" /></th>
                 <th class="th-sort" @click="catToggleSort('model')">{{ t('common.asset') }}<TableSortIcon :active="catSortKey === 'model'" :direction="catSortDir" /></th>
+                <th class="th-sort" @click="catToggleSort('status')">{{ t('common.status') }}<TableSortIcon :active="catSortKey === 'status'" :direction="catSortDir" /></th>
                 <th class="th-sort text-right" @click="catToggleSort('qty')">{{ t('common.quantity') }}<TableSortIcon :active="catSortKey === 'qty'" :direction="catSortDir" /></th>
               </tr>
             </thead>
@@ -309,10 +320,15 @@ onMounted(() => {
                     <span class="font-medium text-fg">{{ r.model }}</span>
                   </span>
                 </td>
+                <td>
+                  <span class="badge" :class="r.state.cls">{{ r.state.label }}</span>
+                  <!-- Needs repair covers fair and broken: say which. -->
+                  <span v-if="r.state.key === 'repair'" class="text-xs text-muted ml-1.5">{{ r.condition_label }}</span>
+                </td>
                 <td class="text-right font-bold text-fg">{{ r.qty }}</td>
               </tr>
               <tr v-if="!categoryLoading && !categorySorted.length">
-                <td colspan="4" class="py-10 text-center text-faint">{{ t('stock.no_category_holdings') }}</td>
+                <td colspan="5" class="py-10 text-center text-faint">{{ t('stock.no_category_holdings') }}</td>
               </tr>
             </tbody>
           </table>
