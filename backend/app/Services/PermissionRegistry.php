@@ -171,7 +171,8 @@ class PermissionRegistry
             // Staff answer transfers (accept / reject); they never raise one —
             // only a custom role that grants 'create' lets a staff login send.
             'asset-transfers' => ['view', 'read', 'delete'],
-            'asset-verifications' => self::VIEW_ONLY,
+            // New Verification at their own sites only (the controller checks).
+            'asset-verifications' => ['view', 'read', 'create'],
             'asset-disposals' => ['view', 'delete'],
             'staff' => self::VIEW_ONLY,
             'programs' => self::VIEW_ONLY,

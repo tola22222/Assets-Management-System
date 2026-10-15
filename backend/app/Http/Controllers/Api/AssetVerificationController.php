@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\Asset;
 use App\Models\AssetVerification;
+use App\Services\AssetStockService;
 use App\Services\ImageCompressor;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -28,7 +29,7 @@ class AssetVerificationController extends Controller
         return response()->json($verifications);
     }
 
-    public function store(Request $request)
+    public function store(Request $request, AssetStockService $stock)
     {
         $validated = $request->validate([
             'asset_id' => 'required|exists:assets,id',
@@ -46,11 +47,28 @@ class AssetVerificationController extends Controller
         // it between locations is a transfer, so the stock of both locations
         // and the transfer history stay right.
         $asset = Asset::with('location')->findOrFail($validated['asset_id']);
+
+        // Staff verify only at their own sites — the same rule as the QR scan.
+        $user = $request->user();
+        if ($user->isSiteScoped() && (! $user->canAccessAsset($asset) || ! $user->canAccessLocation((int) $validated['location_id']))) {
+            return response()->json(['message' => 'Asset not in your site'], 403);
+        }
+
         if ($asset->location_id !== null && (int) $asset->location_id !== (int) $validated['location_id']) {
             return response()->json([
                 'message' => 'This asset is recorded at '.($asset->location->name ?? 'another location').'. Verify it there, or transfer it to the new location first.',
                 'errors' => ['location_id' => ['This asset is recorded at '.($asset->location->name ?? 'another location').'.']],
             ], 422);
+        }
+
+        // Never more than the units of this model the location has: 10 Dell
+        // laptops there means a count of 1 to 10.
+        // (At least 1: the asset being verified, even one with no location yet.)
+        $total = max(1, $stock->forAsset($asset, null, [(int) $validated['location_id']])['total']);
+        if ($validated['quantity_verified'] > $total) {
+            $message = "Only {$total} of \"{$asset->name}\" at ".($asset->location->name ?? 'this location')." — you entered {$validated['quantity_verified']}.";
+
+            return response()->json(['message' => $message, 'errors' => ['quantity_verified' => [$message]]], 422);
         }
 
         $validated['verified_by'] = Auth::id();

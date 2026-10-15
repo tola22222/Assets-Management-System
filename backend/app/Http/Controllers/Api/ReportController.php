@@ -186,6 +186,20 @@ class ReportController extends Controller
         return response()->json(Asset::visibleTo($request->user())->where('condition', 'lost')->with('category')->latest()->get());
     }
 
+    /**
+     * Every asset with its condition and status — in use, needs repair, lost,
+     * or disposed — for the Reports page's "Condition & Status" report. The
+     * page buckets and filters them; this only scopes to the viewer's sites.
+     */
+    public function condition(Request $request)
+    {
+        return response()->json(
+            Asset::visibleTo($request->user())
+                ->with(['category:id,name,short_name', 'location:id,name,code'])
+                ->latest()->latest('id')->get()
+        );
+    }
+
     public function locations(Request $request)
     {
         $user = $request->user();

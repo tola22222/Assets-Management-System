@@ -57,6 +57,17 @@ class StockItemController extends Controller
             ->groupBy('location_id')
             ->pluck('total', 'location_id');
 
+        // Broken and lost units are not in the total (they are not available),
+        // but the export lists them per site so nothing on the register is hidden.
+        $unavailable = Asset::select('location_id', 'condition', DB::raw('count(*) as total'))
+            ->onRegister()
+            ->visibleTo($user)
+            ->whereIn('condition', Asset::UNAVAILABLE_CONDITIONS)
+            ->groupBy('location_id', 'condition')
+            ->get()
+            ->groupBy(fn ($row) => $row->location_id ?? 'none')
+            ->map(fn ($rows) => $rows->pluck('total', 'condition')->map(fn ($n) => (int) $n));
+
         $rows = Location::orderBy('name')
             ->when($scoped, fn ($q) => $q->whereKey($user->siteLocationIds()))
             ->get(['id', 'name', 'code'])
@@ -65,6 +76,8 @@ class StockItemController extends Controller
                 'name' => $location->name,
                 'code' => $location->code,
                 'total' => (int) ($counts[$location->id] ?? 0),
+                'broken' => $unavailable[$location->id]['broken'] ?? 0,
+                'lost' => $unavailable[$location->id]['lost'] ?? 0,
             ])
             ->sortByDesc('total')
             ->values()
@@ -73,7 +86,8 @@ class StockItemController extends Controller
         $unplaced = $scoped ? 0 : Asset::available()->whereNull('location_id')->count();
 
         if ($unplaced > 0) {
-            $rows[] = ['location_id' => null, 'name' => null, 'code' => null, 'total' => $unplaced];
+            $rows[] = ['location_id' => null, 'name' => null, 'code' => null, 'total' => $unplaced,
+                'broken' => $unavailable['none']['broken'] ?? 0, 'lost' => $unavailable['none']['lost'] ?? 0];
         }
 
         return response()->json($rows);

@@ -481,6 +481,8 @@ class RolePermissionMatrixTest extends TestCase
         $this->actingAs($staff)->getJson('/api/reports/inventory')
             ->assertOk()->assertJsonCount(1)->assertJsonPath('0.asset_code', $own->asset_code);
         $this->actingAs($staff)->getJson('/api/reports/lost')->assertOk()->assertJsonCount(0);
+        $this->actingAs($staff)->getJson('/api/reports/condition')
+            ->assertOk()->assertJsonCount(1)->assertJsonPath('0.asset_code', $own->asset_code);
         $this->actingAs($staff)->getJson('/api/reports/by-model')->assertOk()->assertJsonCount(1);
         $this->actingAs($staff)->getJson('/api/reports/locations')
             ->assertOk()->assertJsonCount(1)->assertJsonPath('0.id', $ownSite->id);
@@ -580,7 +582,7 @@ class RolePermissionMatrixTest extends TestCase
         $this->actingAs($opm)->getJson("/api/assets/{$otherAsset->id}")->assertStatus(200);
     }
 
-    public function test_verification_records_can_only_be_submitted_directly_by_opm_or_finance(): void
+    public function test_verification_records_are_submitted_by_opm_finance_or_staff_at_their_own_site(): void
     {
         $asset = $this->makeAsset();
 
@@ -591,13 +593,63 @@ class RolePermissionMatrixTest extends TestCase
             'condition' => 'good',
         ];
 
-        foreach (['staff', 'executive_director'] as $role) {
-            $user = User::factory()->create(['role' => $role]);
-            $this->actingAs($user)->postJson('/api/asset-verifications', $payload)->assertStatus(403);
-        }
+        // The ED never records one; staff never at another site.
+        $ed = User::factory()->create(['role' => 'executive_director']);
+        $this->actingAs($ed)->postJson('/api/asset-verifications', $payload)->assertStatus(403);
+
+        $otherSite = Location::where('code', '!=', 'SR')->firstOrFail();
+        $elsewhere = \App\Models\Staff::create(['full_name' => 'Other Site Staff', 'location_id' => $otherSite->id]);
+        $outsider = User::factory()->create(['role' => 'staff', 'staff_id' => $elsewhere->id]);
+        $this->actingAs($outsider)->postJson('/api/asset-verifications', $payload)
+            ->assertStatus(403)->assertJsonPath('message', 'Asset not in your site');
         $this->assertDatabaseCount('asset_verifications', 0);
+
+        // Staff at the asset's own site may.
+        $here = \App\Models\Staff::create(['full_name' => 'Site Staff', 'location_id' => $asset->location_id]);
+        $staff = User::factory()->create(['role' => 'staff', 'staff_id' => $here->id]);
+        $this->actingAs($staff)->postJson('/api/asset-verifications', $payload)->assertStatus(201);
 
         $finance = User::factory()->create(['role' => 'finance_manager']);
         $this->actingAs($finance)->postJson('/api/asset-verifications', $payload)->assertStatus(201);
+    }
+
+    public function test_a_verification_never_counts_more_units_than_the_location_has(): void
+    {
+        $asset = $this->makeAsset('PEY-SR-FAF-0001');
+        Asset::create(['asset_code' => 'PEY-SR-FAF-0002', 'name' => 'Office Chair', 'category_id' => $asset->category_id,
+            'location_id' => $asset->location_id, 'status' => 'active', 'condition' => 'good']);
+        $opm = User::factory()->create(['role' => 'operations_hr_manager']);
+        $payload = ['asset_id' => $asset->id, 'location_id' => $asset->location_id, 'condition' => 'good'];
+
+        // Two Office Chairs at the site: 3 is refused, 2 is fine.
+        $this->actingAs($opm)->postJson('/api/asset-verifications', $payload + ['quantity_verified' => 3])
+            ->assertStatus(422)->assertJsonValidationErrors('quantity_verified');
+        $this->actingAs($opm)->postJson('/api/asset-verifications', $payload + ['quantity_verified' => 2])->assertStatus(201);
+    }
+
+    public function test_hr_verifies_assigns_and_transfers_at_every_site(): void
+    {
+        // HR is never site-scoped — not even with a staff record at the office.
+        [$siteB, $siteC] = Location::where('code', '!=', 'SR')->take(2)->get()->all();
+        $desk = \App\Models\Staff::create(['full_name' => 'HR Desk', 'location_id' => $this->location()->id]);
+        $hr = User::factory()->create(['role' => 'operations_hr_manager', 'staff_id' => $desk->id]);
+
+        $asset = $this->makeAsset();
+        $asset->update(['location_id' => $siteB->id]);
+
+        $this->actingAs($hr)->postJson('/api/asset-verifications', [
+            'asset_id' => $asset->id, 'location_id' => $siteB->id, 'quantity_verified' => 1, 'condition' => 'good',
+        ])->assertStatus(201);
+
+        // A transfer between two other sites, assigned to the staff member there.
+        $lead = $this->makeReceivable($siteC);
+        $this->actingAs($hr)->postJson('/api/asset-transfers', [
+            'asset_id' => $asset->id,
+            'from_location_id' => $siteB->id,
+            'to_location_id' => $siteC->id,
+            'assigned_to_type' => 'staff',
+            'assigned_to_id' => $lead->staff_id,
+            'transfer_date' => now()->toDateString(),
+        ])->assertStatus(201)->assertJsonPath('status', 'pending');
     }
 }
